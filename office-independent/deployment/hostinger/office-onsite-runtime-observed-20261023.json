@@ -1,0 +1,41 @@
+{
+  "evidence": "Uploaded onsite-runtime-vergelijking.tar.gz; only source hashes, no server data or configuration",
+  "old": {
+    "public/onsite-activate.php": "06e77151c98285374c8623562acfd58aae2cd5b29fb7431e648b7fca376dc168",
+    "public/onsite-bootstrap.php": "9ad16bc5a909fd36a3aa3e0363bcc31f72aadb667837f51284eca85f7929693b",
+    "public/onsite-presence.php": "f2c6b4c6f89083ff021600ee1c1c6a100bd23ff95d0f88098011bc165bdafbd4",
+    "public/office-onsite-invitation.php": null,
+    "public/office-onsite-device-revoke.php": null,
+    "src/Inzet/OnSiteActivationIdentityBridge.php": null,
+    "src/Inzet/OnSiteActivationInvitationIssuer.php": null,
+    "src/Inzet/OnSiteActivationService.php": "d73b7b45bd18c3dcc3f9ee52a9a61c88d7dd55f6e60bd73e676f8d8b6ff2f286",
+    "src/Inzet/OnSiteDeviceTokenRepository.php": "ef7679c21c98d8872dfa176651dd96183078ee8309adcef588a4f54db502eeae",
+    "src/Inzet/OnSiteAssignmentRepository.php": "7383f04e9a1e744608223d7f2ed063846cc95309c876b9e19ab1d71cbbc75ca5",
+    "src/Inzet/OnSiteAssignmentGate.php": null,
+    "src/Inzet/OnSiteOfficeTeamAssignmentRepository.php": null,
+    "src/Inzet/OnSiteAutomaticEventValidator.php": "d60f5167b7db9ac25715b5d9f1de096994253661d22536483db195c957d08dfe",
+    "src/Inzet/OnSiteAutomaticIngest.php": "856163aee1cb415ca702a79e0c835428da9a11eb7ac11acc9b12db71794741c1",
+    "src/Inzet/OnSiteEventInbox.php": "2e0a24d51aff771992026a301787143bae1e6ca0df1535a5344d19e030135155",
+    "src/Inzet/OnSiteEventReplayConflict.php": null,
+    "src/Inzet/OnSiteAuthenticatedEventService.php": null,
+    "src/Inzet/OnSitePresenceRequestService.php": "35b18b68f1d5b7fd90ebf147b80b97d354386f943416e98e481e95e3cfde593b",
+    "src/Inzet/OnSitePresenceApiHandler.php": "8b0a5c0ba7c898794a4830a64dab2991066b5bc020f266173cb0735a81128f46",
+    "src/Inzet/OnSitePresenceApplication.php": "e96dc3f7caf8e55c8cfb3914943df27e90d616236292e97798a9a74efd910f7b",
+    "src/Inzet/OnSiteBootstrapRepository.php": "3c9fffbd8affa80769ca50fa0a8950f25354cf3e4cad00e031a116a53738a04d",
+    "src/Inzet/OnSiteBootstrapService.php": "9838e26f73a91646b276fffec6aa8ac1a4792ba320e1bb62a71ea2fdc5f8926d",
+    "src/Inzet/OnSiteCanonicalZoneRepository.php": null,
+    "src/Inzet/OnSiteBuildingZoneAccess.php": null,
+    "src/Inzet/OfficeInzetIdentityMappingGuard.php": null,
+    "src/Inzet/OnSiteOfficeInvitationAction.php": null,
+    "src/Inzet/OnSiteOfficeInvitationCsrf.php": null,
+    "src/Inzet/OnSiteOfficeDeviceRevocationAction.php": null,
+    "src/Inzet/OnSiteOfficeDeviceManagementRepository.php": null,
+    "src/Inzet/OnSiteOfficeActivationPage.php": null
+  },
+  "protected": {
+    "src/Project/OfficeNativeProjectAccess.php": "0dff0f45175cd4652e69f91df794dc38e74476cc60688a1bdedbad52249c7e97",
+    "src/Buildings/OfficeBuildingZoneRepository.php": "206ea280b92ddb679b505fe41f2eb426364ec5fa09fa81a4ce1ef219b157e670",
+    "src/Inzet/OnSitePresenceReviewRepository.php": "c74b61db117c4b7bb744be55517367aaf0e8045fa724bf0d03dbf57d7c792b76",
+    "public/onsite-devices.php": "c789b98bb2304c3cf03ef35c425b71b3d2a9b04c8adba12e289cd43d6deac263"
+  }
+}

@@ -25,14 +25,24 @@ foreach (\Brebo\Office\Buildings\OfficeBuildingSchema::statements() as $sql) $db
 foreach (\Brebo\Office\Buildings\OfficeBuildingZoneSchema::statements() as $sql) $db->exec($sql);
 $buildings = new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
 $zones = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
-$one = $buildings->create(['building_name'=>'Testgebouw A','city'=>'Breda']);
-$two = $buildings->create(['building_name'=>'Testgebouw B','city'=>'Breda']);
+$one = $buildings->create(['code'=>'TEST-A','building_name'=>'Testgebouw A','city'=>'Breda']);
+$two = $buildings->create(['code'=>'TEST-B','building_name'=>'Testgebouw B','city'=>'Breda']);
 $projectAccess = static fn(string $id): bool => in_array($id,['17','18'],true);
 $buildings->linkProject('17',$one,$projectAccess);
 $buildings->linkProject('18',$one,$projectAccess);
 $buildings->linkProject('18',$two,$projectAccess);
 $buildingAccess = static fn(string $id): bool => $id===$one;
 $zoneId = $zones->create(['building_id'=>$one,'zone_name'=>'Hoofdingang','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>150],$buildingAccess);
+// OnSite maximum: 1000 metres is allowed; larger circles must be rejected.
+$maxZoneId=$zones->create(['building_id'=>$one,'zone_name'=>'Grenswaarde','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>1000],$buildingAccess);
+$db->prepare('DELETE FROM office_building_zones WHERE id=?')->execute([$maxZoneId]);
+$oversizedRejected=false;
+try {
+  $zones->create(['building_id'=>$one,'zone_name'=>'Te groot','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>1000.01],$buildingAccess);
+} catch (InvalidArgumentException $e) {
+  $oversizedRejected=$e->getMessage()==='invalid_building_zone';
+}
+if (!$oversizedRejected) throw new RuntimeException('Building zone radius above 1000 metres accepted');
 if (count($zones->forBuilding($one,$buildingAccess))!==1) throw new RuntimeException('Building zone not found');
 if (count($zones->forProject('17',$projectAccess))!==1 || count($zones->forProject('18',$projectAccess))!==1) {
   throw new RuntimeException('Zone not shared across linked projects');
@@ -46,10 +56,37 @@ $otherZoneId = $zones->create(['building_id'=>$two,'zone_name'=>'Achterterrein',
 if ($adapter->callback()('17',$otherZoneId) || !$adapter->callback()('18',$otherZoneId)) {
   throw new RuntimeException('Unlinked building zone accessible from project');
 }
+// Revision-guarded update preserves identity and rejects stale, inactive and unauthorized writes.
+$before=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($before)) throw new RuntimeException('Zone missing before update');
+$initialRevision=(int)$before['revision'];
+$changed=['zone_name'=>'Hoofdingang gewijzigd','latitude'=>'51.501','longitude'=>'4.301','radius_metres'=>'200'];
+if (!$zones->update($zoneId,$one,$initialRevision,$changed,$buildingAccess))
+  throw new RuntimeException('Authorized revision update rejected');
+$after=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($after) || (string)$after['id']!==$zoneId
+  || (int)$after['revision']!==$initialRevision+1
+  || (string)$after['zone_name']!=='Hoofdingang gewijzigd')
+  throw new RuntimeException('Zone update did not retain identity and increment revision');
+if ($zones->update($zoneId,$one,$initialRevision,$changed,$buildingAccess))
+  throw new RuntimeException('Stale revision update accepted');
+$updateDenied=false;
+try {$zones->update($zoneId,$one,$initialRevision+1,$changed,static fn(string $id):bool=>false);}
+catch (InvalidArgumentException $e) {$updateDenied=$e->getMessage()==='unauthorized_building_zone';}
+if (!$updateDenied) throw new RuntimeException('Unauthorized zone update accepted');
+if ($zones->update($zoneId,$two,$initialRevision+1,$changed,$otherAccess))
+  throw new RuntimeException('Zone update crossed building ownership');
+$invalidUpdate=false;
+try {$zones->update($zoneId,$one,$initialRevision+1,[...$changed,'radius_metres'=>'1001'],$buildingAccess);}
+catch (InvalidArgumentException $e) {$invalidUpdate=$e->getMessage()==='invalid_zone_update';}
+if (!$invalidUpdate) throw new RuntimeException('Oversized zone update accepted');
 // Disabling a building zone must revoke all project memberships immediately.
 $db->prepare('UPDATE office_building_zones SET active=0 WHERE id=?')->execute([$zoneId]);
 if ($adapter->callback()('17',$zoneId) || $adapter->callback()('18',$zoneId)) {
   throw new RuntimeException('Inactive building zone still authorizes presence');
+}
+if ($zones->update($zoneId,$one,$initialRevision+1,$changed,$buildingAccess)) {
+  throw new RuntimeException('Inactive building zone accepted an update');
 }
 $db->prepare('UPDATE office_building_zones SET active=1 WHERE id=?')->execute([$zoneId]);
 if (!$adapter->callback()('17',$zoneId)) throw new RuntimeException('Reactivated zone not accessible');

@@ -7,7 +7,7 @@ foreach ([
   'OnSiteDeviceTokenRepository.php','OnSiteDeviceTokenSchema.php',
   'OnSiteAutomaticEventValidator.php','OnSiteAssignmentRepository.php',
   'OnSiteAssignmentGate.php','OnSiteOfficeTeamAssignmentRepository.php',
-  'OnSiteEventInbox.php','OnSiteEventInboxSchema.php','OnSiteAutomaticIngest.php',
+  'OnSiteEventReplayConflict.php','OnSiteEventInbox.php','OnSiteEventInboxSchema.php','OnSiteAutomaticIngest.php',
   'OnSiteAuthenticatedEventService.php'
 ] as $file) require_once $base . $file;
 $db = new PDO($dsn, (string)getenv('OFFICE_INZET_TEST_USER'), (string)getenv('OFFICE_INZET_TEST_PASSWORD'), [

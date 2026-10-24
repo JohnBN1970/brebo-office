@@ -913,8 +913,120 @@ Bron: actuele `develop`-commits tot en met #1333 (13 oktober 2026) en het Office
 
 ### Huidige exacte stoppositie
 
-Laatste **bevestigde groene** commit: `b04b19dd6980bf811297a7eed33ee0b373102f09`. De daaropvolgende poging om `OnSiteOfficeCircleCreateService.php` toe te voegen heeft **geen bevestigd GitHub-commitresultaat** en het bestand was bij de continuïteitscontrole niet aanwezig op de werkbranch. Behandel deze service daarom als **nog te bouwen**, niet als afgerond. Er is geen publiek schrijfendpoint en geen databasewijziging bevestigd.
+Historische stoppositie vóór de vervolgstap hieronder: groene commit `b04b19dd6980bf811297a7eed33ee0b373102f09`; de service was toen nog niet gebouwd. De actuele code-/CI-status staat in de aanvulling van 20 oktober hieronder. Er is nog geen publiek schrijfendpoint of databasewijziging bevestigd.
 
 ### Brede Office-roadmap blijft van kracht
 
 Projecten, Gebouwen, Inzet, Calculatie, Finance, Inkoop, Planning, Documenten, Intake, MJOP en outputgenerator blijven afzonderlijke acceptatieketens. Deze groene Inzet-tests zijn geen bewijs dat BREBO Office als geheel productie-gereed is. Gebruik geen totaalpercentage zonder actuele module-inventaris, runtime- en end-to-end-bewijs. De eerder genoemde 20 november 2026 blijft een **voorlopige streefdatum**, geen vastgestelde livegang.
+
+## Vervolg 20 oktober 2026 — gebouwzones en veilige opslag
+
+- PR #1408 is gemerged als d62eda59cbd3f763945e88902cd55d1f2a5dc867; #1407 blijft concept. De afgebakende vervolgstap staat in [concept-PR #1409](https://github.com/JohnBN1970/brebo-office/pull/1409).
+- **Correctie op de eerste #1409-slice:** de bestaande kaart en route gebruikten al gebouwzones. De eerste create-service schreef nog naar de oudere projectzoneprojectie. Deze service is vervangen door aansluiting op OfficeBuildingZoneRepository; gebouwen blijven eigenaar, projecten geven alleen toegang. OnSiteOfficeZoneCreator is ongewijzigd ten opzichte van develop.
+- De bestaande test-only kaart/POST-route heeft nu sessie-/operator-/project-/gebouwgebonden HMAC-formulierbeveiliging, same-origin en payloadgrenzen, actuele vergrendelde beheerrechten en bescherming tegen dubbele en gelijktijdige aanvragen. Dezelfde aanvraag retourneert dezelfde database-ID; gewijzigde inhoud geeft conflict.
+- Het review-only bestaande gebouwzoneschema krijgt twee nullable aanvraagmetadatavelden plus een unieke index. Een read-only preflight controleert de werkelijke tabellen, kolommen, InnoDB, sleutels en index. De route vereist zowel expliciete schemavrijgave als deze databasecontrole en een afzonderlijk CSRF-secret.
+- De eerste MySQL-runs 328/329 horen bij de vervangen codevariant. **Actueel CI-bewijs:** [MySQL-run 330](https://github.com/JohnBN1970/brebo-office/actions/runs/39413289809) is groen op codecommit 314387a44e4e7aa1f86a29a2f40071b6abe5d4b7, inclusief POST, sessie-CSRF, rollback, twee gelijktijdige herhalingen en schemaweigering.
+- **Runtime blijft open:** geen Hostinger-schemaresultaat, schemawijziging, testdeploy of browsersmoke bevestigd. Geen merge, productie- of iPhone-aanpassing uitgevoerd. SQL is alleen een reviewvoorstel en wordt niet automatisch uitgevoerd.
+- **Volgende stappen:** read-only Office-testschema controleren; expliciet gereviewde testmigratie/deploy; kaartopslag en herhalen in browser accepteren. Daarna mobiele bootstrap/presence op gebouwzones aansluiten als eigen geteste slice. De huidige bootstrap leest nog de oude projectie; de bestaande 24-uurs TTL van die externe projectie is niet gewijzigd.
+- Contract en activeringsvoorwaarden: docs/OFFICE_CIRCLE_CREATE_SERVICE_2026-10-20.md.
+
+
+SSH-status: de door de gebruiker opgegeven host 77.37.34.160 met account u213420663 is bereikbaar op poort 65002. Batchaanmelding is geweigerd (publickey/password). Er is geen servercommando uitgevoerd en geen schemaresultaat verkregen. Bestaande sleutel of handmatige aanmelding is nog nodig; geen credentials in de repository opslaan.
+
+## Nieuwe runtime-evidentie via Moba — 20 oktober 2026
+De gebruiker heeft twee read-only schemabevragingen uitgevoerd. Vijf basistabellen zijn InnoDB; office_building_zones ontbreekt. Gebouwsleutel: bigint(20) unsigned PRIMARY KEY auto_increment. Bestaande gebouwvelden zijn name/address_line, zonder actiefstatus of coördinaten; Office-account-ID en membership-operator-ID zijn varchar(128). Dit vervangt de eerdere melding dat er geen schemaresultaat beschikbaar was. De code, migratievoorstellen en CI-fixtures worden hierop aangesloten. De nieuwe test gebruikt de fresh-install SQL, een tekstueel manageraccount en rendert de echte kaart zonder project-/gebouwlocatiekolommen. Geen servermigratie of deploy uitgevoerd. Zie docs/OFFICE_TEST_ZONE_SCHEMA_OBSERVATION_2026-10-20.md. Oudere groene runs zijn geen bewijs voor deze nieuwste correctie; volg de actuele PR-head.
+
+Bevestigd code-/CI-bewijs bij deze schema-aanpassing: 1e47b4bf74f65fb34abed847bf9422d23957bc4d, MySQL-run 332 groen (https://github.com/JohnBN1970/brebo-office/actions/runs/39415120537). Inclusief het fresh-install SQL-voorstel, tekstuele account-ID’s, de echte kaartpagina zonder locatiekolommen, formulierbinding, JavaScript-syntax en bestaande gebouw/presence-regressies. Navigatie verwijst nu naar gebouwzones onder de gebouwschema-/schrijfgates. Er is geen opdracht tot databasewijziging uitgevoerd.
+
+## Office-test zonetabel aangemaakt — gebruikersbewijs 20 oktober 2026
+De gebruiker bevestigt uitvoering van het bewaakte fresh-installcommando in Moba: office_building_zones is aangemaakt, 0 zones, bestaande gebouwen/projecten ongewijzigd en schrijfroute uit. Dit vervangt de eerdere melding dat de tabel nog ontbrak en dat geen testmigratie was uitgevoerd. Geen code-deploy, merge, activering of browseracceptatie bevestigd. Volgende stap is read-only post-create-preflight plus vaststelling van actuele private root, router, releasebestanden en hashes voordat een gecontroleerd testdeploypakket wordt toegepast. Bij afwijkende gedeployde gedeelde adapters eerst vergelijken; geen blinde vervanging.
+
+## Post-create-preflight bevestigd — 20 oktober 2026
+De gebruiker meldt PHP 8.5.11 en MariaDB 11.8.9-MariaDB-log; alle schemagates PASS en 0 zones. Actieve private root: release-office-test-20261018/private. Zone-write/schemaflags uit, zone-secret ontbreekt, routes en nieuwe zonebestanden ontbreken. De gedeelde serveradapter heeft canRead én canManage en mag niet door de historische lokale variant worden vervangen. Het deploypakket voegt daarom negen ontbrekende zonebestanden en twee routerregels toe, met hashes, private snapshots, afzonderlijke activering en gecontroleerde rollback. Bestaande projectpagina en gedeelde adapter blijven intact. CI wordt op PHP 8.5 / MySQL 8 en MariaDB 11.8 uitgevoerd. Nog geen testcode gedeployed of geactiveerd; browseracceptatie blijft open. Zie docs/OFFICE_TEST_ZONE_DEPLOYMENT_2026-10-20.md.
+
+Deploy- en hersteltests plus het gegenereerde pakket zijn groen op c90ada3ba25f85b7f3d9dca0d3d0175c9f81866c: PHP 8.5 met MySQL 8 en MariaDB 11.8, run 336 (https://github.com/JohnBN1970/brebo-office/actions/runs/39418619259); identity mapping run 360 eveneens groen. Het pakket controleert ook de bestaande sessiedependencies en wordt met korte payloadregels voor Moba opgebouwd. De eerstvolgende gebruikersactie bewaart alleen het pakket buiten public_html en voert --check uit; nog geen installatie/activering. De gedeelde rechtenadapter is in de PR teruggezet naar de oorspronkelijke bron en zit niet in het deploypakket; de nieuwe kaart gebruikt een eigen zonegate.
+
+## Voorcontrole deploypakket geslaagd — gebruikersbewijs
+De gebruiker meldt READY_TO_INSTALL: 9 bestanden, schema PASS, writes disabled en shared files unchanged. Het serverpakket heeft SHA-256 a419bce386b9cd93a466647810f0a1181baab87a62273545829e77c454db10de. Dit is lokaal exact gereproduceerd als het geteste pakket 419e1587... plus één afsluitende LF uit het plakcommando; geen inhoudelijk verschil. Eerstvolgende stap --install voegt code/routes toe maar activeert geen writes. Installatie/activering/browseracceptatie nog niet bevestigd.
+
+## Office-test code-installatie bevestigd — gebruikersbewijs
+De gebruiker meldt INSTALLED voor pakket a419bce386b9cd93a466647810f0a1181baab87a62273545829e77c454db10de: 9 bestanden, schema PASS, shared files unchanged en database unchanged. Zone-write/schemaflags staan nog uit en het zone-secret ontbreekt. Dit bevestigt code/routes op de geïsoleerde testrelease, geen activering of browseracceptatie. Volgende stap --enable genereert alleen lokaal het zone-secret en activeert de twee testzoneflags na nieuwe hash-/schemacontrole.
+
+## Office-test zoneopslag geactiveerd — gebruikersbewijs
+De gebruiker bevestigt ENABLED voor hetzelfde geverifieerde pakket a419bce386b9cd93a466647810f0a1181baab87a62273545829e77c454db10de: 9 bestanden, schema PASS, zone_write_enabled=true, zone_schema_verified=true, zone_secret_configured=true; shared files en database unchanged. Code en router zijn geïnstalleerd en de testzoneopslag is nu actief. Een Codex-browserpoging naar https://brebobv.nl/office-test/projecten is vóór de applicatie geweigerd met net::ERR_INVALID_AUTH_CREDENTIALS door de extra HTTP-authenticatie. Dat bewijst geen applicatiefout, maar verhindert browseracceptatie vanuit deze browser. De gebruiker moet de kaart-/opslag-/herhaalsmoke in de reeds aangemelde eigen browser uitvoeren. Geen browseracceptatie, merge, productie- of iPhone-release bevestigd.
+
+
+## PR #1409 — integratie identiteit, iPhone en aanwezigheidsbewijs (23 oktober 2026)
+
+De bestaande ontwikkelbranch bouwt voort op 56cbed631366e9e99470046d8b91950ade3c331c.
+De serveranalyse is afgerond; geen nieuwe SQL-diagnostiek of import nodig. Office-test
+heeft nog geen medewerkers of teamtoewijzingen; er is geen geverifieerde mapping
+of fysieke iPhone-/browseracceptatie. De oude review-repositoryhash is bevestigd.
+
+Code: private beoordeelde bronidentiteitsmapping via de bestaande guard/bridge;
+projectgebonden eenmalige uitnodiging en veilige heruitgifte; actuele actieve
+medewerker/team/managercontrole; native gebouwzones voor bootstrap en presence;
+409 bij conflicterende replay; iPhone-codeinvoer, bescherming tegen gelijktijdige
+activatie en behoud van Keychain-token bij offline/503. Geen dubbele registratie,
+Drupal-credentialimport, automatische schema-/flagwijziging, merge of productiehandeling.
+
+Nieuwe integratietest gebruikt de bestaande repositories met aparte CI-database,
+UID 42 → Office 101, projectverlies, replays, expiry, revocation en evidence_only;
+ook gelijktijdige redemption van één code. De bestaande uitnodigingstabel heeft
+nu een expliciete project_id in het reviewvoorstel. De reeds bevestigde twee
+Office-event/device-tabellen vereisen geen nieuwe migratie; dat bewijs bevestigt
+niet automatisch het uitnodigingsschema. Alle activeringspoorten blijven intact.
+
+Het CI-reviewpakket bevat manifest, runtimebron en tests, geen installer. Eerst
+alleen uitpakken buiten de release en de bekende oude review-repository gericht
+herstellen met hashcontrole en backup. Bewaar de gedeelde serveradapter met
+canRead én canManage. Concrete acceptatie, resterende benodigde inrichting en
+rollback: docs/OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md. CI-status volgt
+uitsluitend uit de uiteindelijke head/run, nooit uit de oudere groene 56cbed-run.
+
+## Gebruikersbewijs en complete runtime-update — 23 oktober 2026
+
+- Gebruiker bevestigt HERSTEL GESLAAGD voor de review-repository: c74b61db...,
+  gecontroleerde back-up, database/config/flags ongewijzigd.
+- Bronarchieven tonen dat de mobiele serverketen nog de afzonderlijke `onsite_*`
+  authority gebruikt. Er ontbreken canonical Office-componenten en de bestaande
+  methodecontracten verschillen. Alleen de eerste twaalf files plaatsen zou
+  legacy en Office door elkaar laten lopen. Er zijn ook serveraanpassingen aan
+  planning en uren-/leverancierscontrole; die blijven behouden.
+- Eén code-only updater is toegevoegd op dezelfde #1409-branch. Hij controleert
+  de daadwerkelijk aangeleverde bronhashes en plaatst 29 samenhangende bestanden,
+  plus uitsluitend de vijf expliciete test-API-/uitgifteroutes en hun forwarding.
+  De gedeelde adapter met canRead én canManage, gebouwzones, herstelde review,
+  legacy apparaatconsole en ander serverwerk blijven behouden.
+- De consumentpoorten blijven dicht; geen SQL, schema-/config-/flagwijziging,
+  import, provisioning, merge, productiehandeling of iOS-release. De behouden
+  legacy console mag niet als Office-uitgifte worden gebruikt. Persoonsmapping,
+  uitnodigingsschema, formulierintegratie in de werkelijke server-projectpagina
+  en browser-/iPhone-acceptatie blijven afzonderlijk aantoonbaar te voltooien.
+- CI-tests gebruiken synthetische code; de echte geüploade bron wordt uitsluitend
+  lokaal tegen de fingerprints gecontroleerd en niet gepubliceerd. Tests controleren plaatsing,
+  herhaling, rollback, onderbrekingen, locks, drift en behoud van auth/ACL/serverwerk.
+  Procedure: docs/OFFICE_ONSITE_RUNTIME_TEST_UPDATE_2026-10-23.md.
+  Plaatsing van deze updater op Hostinger is nog niet bevestigd.
+
+De live presence-compositieroot behoudt het uit de serverbron vastgestelde
+aanlevervenster van zeven dagen terug/vijf minuten vooruit, met een vertrouwde
+UTC-ontvangstklok. Grensgevallen en daadwerkelijke API-weigering zijn toegevoegd
+aan de tests; dit opent geen flags of oude identity-authority.
+
+
+## Actuele aanvulling — 23 oktober 2026 — OnSite WhatsApp-activatie
+
+Office-testacceptatie heeft inmiddels de medewerker-/projectkoppeling, private
+identiteitsmapping, projectgebonden uitnodigingstabel, code-uitgifte en het
+native uitgifteformulier bevestigd. De correctie van de formulierpagina naar
+`Referrer-Policy: same-origin` is op de server uitgevoerd. Dit is nog geen bewijs
+van appactivatie: de gebruiker werkt met TestFlight-build 13 en verwacht de
+bestaande WhatsApp-linkflow.
+
+De code voegt die flow toe aan de native uitgifteroute en bevat een expliciete
+Codemagic Office-testworkflow. Standaardbuilds blijven op hun bestaande endpoint;
+alleen de gekozen testworkflow richt de gegenereerde plist op `/office-test`.
+Serverplaatsing van de WhatsApp-presentatie, echte iOS-build/TestFlight,
+linkactivatie, bootstrap en IN/UIT blijven open. Geen Codemagic-build gestart.
+Zie `OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md` voor grenzen en vervolgstappen.

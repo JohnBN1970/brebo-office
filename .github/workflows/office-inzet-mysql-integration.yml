@@ -12,10 +12,19 @@ on:
       - 'office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteProjectMapSeedTest.php'
       - 'office-independent/tests/OfficeOnSiteCircleInputTest.php'
+      - 'office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
+      - 'office-independent/tests/OfficeOnSiteWhatsAppActivationTest.php'
+      - 'scripts/configure-onsite-office-test-ios.py'
+      - 'scripts/tests/test_onsite_office_test_build.py'
+      - 'scripts/tests/onsite-activation-link.test.cjs'
+      - 'codemagic.yaml'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceReviewViewTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceReviewRouteContractTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
@@ -30,6 +39,35 @@ on:
       - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
       - 'office-independent/public/office-onsite-project-map.php'
+      - 'office-independent/public/office-onsite-zone-create.php'
+      - 'office-independent/public/office-onsite-zone-update.php'
+      - 'office-independent/deployment/hostinger/office-building-zone-*'
+      - 'office-independent/deployment/hostinger/OfficeZoneTestDeployment.php'
+      - 'office-independent/tests/OfficeZoneTestDeploymentTest.php'
+      - 'office-independent/tests/OfficeZoneTestUpdateTest.php'
+      - 'office-independent/tests/OfficeZoneEditTestDeploymentTest.php'
+      - 'office-independent/deployment/hostinger/OfficeZoneEditTestDeployment.php'
+      - 'office-independent/deployment/hostinger/OfficeZoneTestUpdate.php'
+      - 'scripts/build-office-zone-test-package.py'
+      - 'scripts/build-office-zone-test-update-package.py'
+      - 'scripts/build-office-zone-edit-test-package.py'
+      - 'scripts/build-office-presence-review-test-package.py'
+      - 'office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php'
+      - 'office-independent/deployment/hostinger/office-onsite-schema-preflight.php'
+      - 'office-independent/deployment/hostinger/OfficeOnSiteTestMigration.php'
+      - 'office-independent/deployment/hostinger/office-onsite-test-migrate.php'
+      - 'office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php'
+      - 'scripts/build-office-onsite-test-migration-package.py'
+      - 'scripts/build-office-onsite-integration-test-package.py'
+      - 'scripts/build-office-onsite-runtime-test-update.py'
+      - 'office-independent/deployment/hostinger/OfficeOnSiteRuntimeTestUpdate.php'
+      - 'office-independent/deployment/hostinger/office-onsite-runtime-observed-20261023.json'
+      - 'office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php'
+      - 'office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php'
+      - 'ios/CrewPOC/Sources/OnSiteIdentity.swift'
+      - 'ios/CrewPOC/Sources/OnSiteSecureStore.swift'
+      - 'ios/CrewPOC/Sources/CrewContentView.swift'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -42,21 +80,128 @@ permissions:
 jobs:
   mysql-inzet:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: MySQL 8
+            image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only
+          - database: MariaDB 11.8
+            image: mariadb:11.8
+            health: healthcheck.sh --connect --innodb_initialized
+    name: Inzet PHP 8.5 / ${{ matrix.database }}
     services:
       mysql:
-        image: mysql:8.0
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: test-root-only
           MYSQL_DATABASE: office_inzet_ci
+          MARIADB_ROOT_PASSWORD: test-root-only
+          MARIADB_DATABASE: office_inzet_ci
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only"
+          --health-cmd="${{ matrix.health }}"
           --health-interval=10s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_mysql, pdo_sqlite
+          coverage: none
       - name: PHP syntax
         run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Isolated zone deployment and rollback
+        run: |
+          php -l office-independent/deployment/hostinger/OfficeZoneTestDeployment.php
+          php -l office-independent/tests/OfficeZoneTestDeploymentTest.php
+          php office-independent/tests/OfficeZoneTestDeploymentTest.php
+          php -l office-independent/deployment/hostinger/OfficeZoneTestUpdate.php
+          php -l office-independent/tests/OfficeZoneTestUpdateTest.php
+          php office-independent/tests/OfficeZoneTestUpdateTest.php
+          php -l office-independent/deployment/hostinger/OfficeZoneEditTestDeployment.php
+          php -l office-independent/tests/OfficeZoneEditTestDeploymentTest.php
+          php office-independent/tests/OfficeZoneEditTestDeploymentTest.php
+          python3 scripts/build-office-zone-edit-test-package.py --output-dir "$RUNNER_TEMP/office-zone-edit-package" --commit "$GITHUB_SHA"
+          php -l "$RUNNER_TEMP/office-zone-edit-package/office-zone-edit-testdeploy-20261022.php"
+          python3 scripts/build-office-zone-test-package.py --output-dir "$RUNNER_TEMP/office-zone-package" --commit "$GITHUB_SHA"
+          python3 scripts/build-office-zone-test-update-package.py --output-dir "$RUNNER_TEMP/office-zone-update-package" --commit "$GITHUB_SHA"
+          php -l "$RUNNER_TEMP/office-zone-update-package/office-zone-testupdate-20261022.php"
+          php -l "$RUNNER_TEMP/office-zone-package/office-zone-testdeploy-20261020.php"
+      - name: Validate read-only OnSite schema preflight
+        run: php -l office-independent/deployment/hostinger/office-onsite-schema-preflight.php
+      - name: Isolated manual OnSite migration and identity regression
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_ONSITE_MIGRATION_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_onsite_migration_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root -e 'CREATE DATABASE office_onsite_migration_ci CHARACTER SET utf8mb4'
+          php -l office-independent/deployment/hostinger/OfficeOnSiteTestMigration.php
+          php -l office-independent/deployment/hostinger/office-onsite-test-migrate.php
+          php -l office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
+          php office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
+          php -l office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php
+          php office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php
+          python3 scripts/build-office-onsite-test-migration-package.py --output-dir "$RUNNER_TEMP/office-onsite-migration" --commit "$GITHUB_SHA"
+          unzip -q "$RUNNER_TEMP/office-onsite-migration/office-onsite-test-migration-20261022.zip" -d "$RUNNER_TEMP/office-onsite-migration/extracted"
+          find "$RUNNER_TEMP/office-onsite-migration/extracted" -name '*.php' -exec php -l {} \;
+      - name: Publish manual Office-test migration package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-test-migration-20261022
+          path: |
+            ${{ runner.temp }}/office-onsite-migration/*.zip
+            ${{ runner.temp }}/office-onsite-migration/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Package Office-test presence review
+        run: |
+          php -l office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php
+          python3 scripts/build-office-presence-review-test-package.py --output-dir "$RUNNER_TEMP/office-presence-review-package" --commit "$GITHUB_SHA"
+          php -l "$RUNNER_TEMP/office-presence-review-package/office-presence-review-testdeploy-20261022.php"
+      - name: Publish Office-test schema preflight
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-schema-preflight
+          path: office-independent/deployment/hostinger/office-onsite-schema-preflight.php
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish Office-test presence review package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-presence-review-testdeploy
+          path: |
+            ${{ runner.temp }}/office-presence-review-package/office-presence-review-testdeploy-20261022.php
+            ${{ runner.temp }}/office-presence-review-package/office-presence-review-testdeploy-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish Office-test zone edit extension
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-zone-edit-testdeploy
+          path: |
+            ${{ runner.temp }}/office-zone-edit-package/office-zone-edit-testdeploy-20261022.php
+            ${{ runner.temp }}/office-zone-edit-package/office-zone-edit-testdeploy-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish Office-test zone update package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-zone-testupdate
+          path: |
+            ${{ runner.temp }}/office-zone-update-package/office-zone-testupdate-20261022.php
+            ${{ runner.temp }}/office-zone-update-package/office-zone-testupdate-manifest.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Personnel route and security regression tests
         run: |
           for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do
@@ -81,6 +226,18 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteAssignmentGate.php
           php -l office-independent/tests/OfficeOnSiteAssignmentGateTest.php
           php office-independent/tests/OfficeOnSiteAssignmentGateTest.php
+      - name: Presence evidence interval projection
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceIntervalProjector.php
+          php -l office-independent/src/Inzet/OnSitePresenceReviewRepository.php
+          php -l office-independent/src/Inzet/OnSitePresenceReviewView.php
+          php -l office-independent/public/office-onsite-presence-review.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
+          php office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
+          php office-independent/tests/OfficeOnSitePresenceReviewRouteContractTest.php
+          php -l office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
+          php office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
@@ -190,6 +347,9 @@ jobs:
           php -l office-independent/public/office-projects.php
           php -l office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
           php office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
+          php office-independent/tests/OfficeOnSiteWhatsAppActivationTest.php
+          node --test scripts/tests/onsite-activation-link.test.cjs
+          python3 -m unittest discover -s scripts/tests -p test_onsite_office_test_build.py
           php -l office-independent/deployment/hostinger/office-test-index.php
 
       - name: MySQL Office-native OnSite activation
@@ -233,6 +393,21 @@ jobs:
           php -l office-independent/tests/OfficeOnSiteCircleInputTest.php
           php office-independent/tests/OfficeOnSiteCircleInputTest.php
 
+      - name: Office circle transactional create service
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleCreateService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneFormToken.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZonePostAction.php
+          php -l office-independent/src/Buildings/OfficeBuildingZoneReadiness.php
+          php -l office-independent/public/office-onsite-zone-create.php
+          php -l office-independent/deployment/hostinger/office-building-zone-preflight.php
+          php -l office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
+          php office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
+
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
@@ -246,5 +421,42 @@ jobs:
         run: |
           php -l office-independent/src/Buildings/OfficeBuildingZoneRepository.php
           php -l office-independent/src/Inzet/OnSiteBuildingZoneAccess.php
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php
+          php -l office-independent/public/office-onsite-zone-update.php
+          php -l office-independent/public/office-onsite-project-map.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeBuildingZonesMySqlTest.php
           php office-independent/tests/OfficeBuildingZonesMySqlTest.php
+
+      - name: Observed Office-test runtime update and rollback regression
+        run: |
+          php -l office-independent/deployment/hostinger/OfficeOnSiteRuntimeTestUpdate.php
+          php -l office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php
+          php office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php
+          python3 scripts/build-office-onsite-runtime-test-update.py --output-dir "${{ runner.temp }}/office-onsite-runtime-update" --commit "${{ github.event.pull_request.head.sha || github.sha }}"
+          php -l "${{ runner.temp }}/office-onsite-runtime-update/office-onsite-runtime-testupdate-20261023.php"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-runtime-testupdate-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/office-onsite-runtime-update/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Full verified identity activation presence evidence integration
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_ONSITE_FLOW_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_onsite_flow_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root -e 'CREATE DATABASE office_onsite_flow_ci'
+          php -l office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php
+          php office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php
+      - name: Build integration review package (no installer or activation)
+        run: python3 scripts/build-office-onsite-integration-test-package.py --output-dir "${{ runner.temp }}/office-onsite-integration" --commit "${{ github.event.pull_request.head.sha || github.sha }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-integration-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/office-onsite-integration/*
+          if-no-files-found: error
+          retention-days: 14

@@ -49,7 +49,7 @@ $payload = json_decode($raw, true);
 if (!is_array($payload) || array_is_list($payload)) $respond(400, 'invalid_json');
 try {
   foreach ([
-    'OnSiteAutomaticEventValidator', 'OnSiteEventInbox', 'OnSiteAutomaticIngest',
+    'OnSiteAutomaticEventValidator', 'OnSiteEventReplayConflict', 'OnSiteEventInbox', 'OnSiteAutomaticIngest',
     'OnSiteDeviceTokenRepository', 'OnSiteAssignmentRepository',
     'OnSiteAssignmentGate', 'OnSiteOfficeTeamAssignmentRepository',
     'OnSiteAuthenticatedEventService', 'OnSitePresenceRequestService',

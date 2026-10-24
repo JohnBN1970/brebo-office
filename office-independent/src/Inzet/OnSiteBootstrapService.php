@@ -32,7 +32,7 @@ final class OnSiteBootstrapService {
       $lon = (float)$zone['longitude'];
       $radius = (float)$zone['radius_metres'];
       if (!is_finite($lat) || !is_finite($lon) || !is_finite($radius)
-        || abs($lat) > 90 || abs($lon) > 180 || $radius <= 0 || $radius > 1000) {
+        || abs($lat) > 90 || abs($lon) > 180 || $radius <= 0 || $radius > 5000) {
         throw new RuntimeException('Invalid bootstrap geometry');
       }
       $projectId = $zone['project_id'];

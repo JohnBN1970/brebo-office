@@ -31,8 +31,11 @@ targets:
               - brebo-onsite
         NSLocationWhenInUseUsageDescription: "BREBO OnSite gebruikt je locatie om aanwezigheid op het toegewezen project te herkennen."
         NSLocationAlwaysAndWhenInUseUsageDescription: "BREBO OnSite gebruikt geofencing om binnenkomst en vertrek bij toegewezen projecten aantoonbaar te registreren. Er wordt geen routehistorie opgeslagen."
+        BGTaskSchedulerPermittedIdentifiers:
+          - nl.brebo.onsite.refresh
         UIBackgroundModes:
           - location
+          - fetch
         UILaunchScreen: {}
     settings:
       base:
@@ -45,10 +48,18 @@ targets:
     scheme:
       testTargets:
         - BreboCrewPOCTests
+        - BreboCrewPOCUITests
   BreboCrewPOCTests:
     type: bundle.unit-test
     platform: iOS
     sources:
       - Tests
+    dependencies:
+      - target: BreboCrewPOC
+  BreboCrewPOCUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
     dependencies:
       - target: BreboCrewPOC

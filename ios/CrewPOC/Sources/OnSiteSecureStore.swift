@@ -5,12 +5,23 @@ enum OnSiteSecureStore {
     private static let service = "nl.brebo.onsite"
     private static let account = "device-token"
 
-    static func saveDeviceToken(_ token: String) {
+    static func saveDeviceToken(_ token: String) throws {
         let data = Data(token.utf8)
-        SecItemDelete(query as CFDictionary)
-        var item = query
-        item[kSecValueData as String] = data
-        SecItemAdd(item as CFDictionary, nil)
+        let update: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if status == errSecItemNotFound {
+            var item = query
+            item[kSecValueData as String] = data
+            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else {
+                throw OnSiteAPIError.server("Apparaatkoppeling kon niet veilig worden opgeslagen. Vraag een nieuwe code in Office.")
+            }
+        } else if status != errSecSuccess {
+            throw OnSiteAPIError.server("Apparaatkoppeling kon niet veilig worden opgeslagen.")
+        }
     }
 
     static func deviceToken() -> String? {
@@ -35,7 +46,6 @@ enum OnSiteSecureStore {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
     }
 }

@@ -1,0 +1,60 @@
+"""Package the isolated Office-test presence review deployment for manual CLI install."""
+import argparse
+import base64
+import hashlib
+import json
+import pathlib
+import re
+import textwrap
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--output-dir", required=True)
+parser.add_argument("--commit", default="unrecorded")
+args = parser.parse_args()
+repo = pathlib.Path(__file__).resolve().parents[1]
+out = pathlib.Path(args.output_dir).resolve()
+out.mkdir(parents=True, exist_ok=True)
+targets = [
+    "public/office-onsite-presence-review.php",
+    "src/Inzet/OnSitePresenceIntervalProjector.php",
+    "src/Inzet/OnSitePresenceReviewRepository.php",
+    "src/Inzet/OnSitePresenceReviewView.php",
+    "public/office-onsite-project-map.php",
+]
+files = {p: (repo / "office-independent" / p).read_text(encoding="utf-8") for p in targets}
+installer = (repo / "office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php").read_text(encoding="utf-8")
+installer = re.sub(r"^\s*<\?php\s*declare\(strict_types=1\);\s*", "", installer, count=1)
+encoded = base64.b64encode(json.dumps(files, ensure_ascii=False, separators=(",", ":")).encode()).decode()
+literal = "'" + "' .\n  '".join(textwrap.wrap(encoded, 120)) + "'"
+wrapper = r"""
+namespace Brebo\Office\Deployment;
+if (PHP_SAPI!=='cli') {http_response_code(404);exit;}
+try {
+  $base='/home/u213420663/domains/brebobv.nl/office_calc_test';
+  $root=$base.'/release-office-test-20261018/private';
+  $router='/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php';
+  $config=$base.'/config/config.php';
+  $files=json_decode(base64_decode(__PAYLOAD__,true),true,512,JSON_THROW_ON_ERROR);
+  $result=(new OfficePresenceReviewTestDeployment($base,$root,$router,$config,$files))->run($argv[1]??'--check');
+  $result['package_sha256']=hash_file('sha256',__FILE__);
+  echo json_encode($result,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES),PHP_EOL;
+} catch (\Throwable $e) {
+  echo json_encode(['status'=>'BLOCK','reason'=>$e->getMessage()],JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES),PHP_EOL;
+  exit(1);
+}
+"""
+source = "<?php\ndeclare(strict_types=1);\n" + installer + "\n" + wrapper.replace("__PAYLOAD__", literal)
+name = "office-presence-review-testdeploy-20261022.php"
+(out / name).write_text(source, encoding="utf-8", newline="\n")
+manifest = {
+    "source_commit": args.commit,
+    "package": name,
+    "sha256": hashlib.sha256(source.encode()).hexdigest(),
+    "files": {p: hashlib.sha256(s.encode()).hexdigest() for p, s in files.items()},
+    "database_writes": False,
+    "config_writes": False,
+    "requires_existing_apache_rewrite": "^inzet/aanwezigheid/?$ index.php [END,QSA]",
+    "requires_test_gate": "OFFICE_TEST_PRESENCE_REVIEW_ENABLED=enabled",
+}
+(out / "office-presence-review-testdeploy-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+print(json.dumps({"package": str(out / name), "sha256": manifest["sha256"], "files": len(files)}))

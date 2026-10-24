@@ -9,6 +9,7 @@ final class OnSiteActivationInvitationSchema {
     return ["CREATE TABLE office_onsite_activation_invitations (
       token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
       person_id BIGINT UNSIGNED NOT NULL,
+      project_id BIGINT UNSIGNED NOT NULL,
       expires_at DATETIME NOT NULL,
       consumed_at DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

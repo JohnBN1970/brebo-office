@@ -2,45 +2,56 @@ import SwiftUI
 import UIKit
 
 struct CrewContentView: View {
-    @StateObject private var locationMonitor = CrewLocationMonitor()
-    @StateObject private var identityStore = OnSiteIdentityStore()
-    @StateObject private var presenceUploader = OnSitePresenceUploader()
+    @ObservedObject private var locationMonitor = OnSiteRuntime.shared.location
+    @ObservedObject private var identityStore = OnSiteRuntime.shared.identity
+    @ObservedObject private var presenceUploader = OnSiteRuntime.shared.uploader
+    @Environment(\.scenePhase) private var scenePhase
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
     @State private var pendingActivationToken: String?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch identityStore.state {
-                case .unlinked, .requestingCode:
-                    linkView
-                case .codeSent(let phoneNumber, let challengeId),
-                     .verifying(let phoneNumber, let challengeId):
-                    verificationView(phoneNumber: phoneNumber, challengeId: challengeId)
-                case .linked(let employeeId, let displayName, _):
-                    operationalView(employeeId: employeeId, displayName: displayName)
+        Group {
+            switch identityStore.state {
+            case .linked(let employeeId, let displayName, _):
+                OnSiteWorkspaceView(
+                    employeeId: employeeId, displayName: displayName,
+                    language: identityStore.language.rawValue,
+                    projects: identityStore.assignedProjects,
+                    states: locationMonitor.states, events: locationMonitor.events,
+                    automaticPresence: hasAutomaticPresencePermission,
+                    locationDescription: authorizationText,
+                    locationGuidance: locationGuidanceText,
+                    locationActionTitle: locationActionTitle,
+                    pendingCount: presenceUploader.pendingCount,
+                    syncError: presenceUploader.lastError,
+                    connectionError: identityStore.errorMessage,
+                    locationAction: handleLocationAction
+                )
+            default:
+                NavigationStack {
+                    Group {
+                        switch identityStore.state {
+                        case .codeSent(let phone, let challenge), .verifying(let phone, let challenge):
+                            verificationView(phoneNumber: phone, challengeId: challenge)
+                        default:
+                            linkView
+                        }
+                    }
+                    .padding()
+                    .navigationTitle("OnSite")
                 }
             }
-            .padding()
-            .navigationTitle("OnSite")
-            .task {
-                await identityStore.restoreLinkedDevice()
-                syncProjectZones()
-            }
-            .onChange(of: identityStore.assignedProjects) {
-                syncProjectZones()
-            }
-            .onChange(of: locationMonitor.authorizationStatus) {
-                syncProjectZones()
-            }
-            .onChange(of: locationMonitor.events) {
-                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
-            }
-            .onOpenURL { url in
-                handleActivationURL(url)
+        }
+        .tint(Color(red: 0.38, green: 0.17, blue: 0.49))
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                OnSiteRuntime.shared.wake(forceRefresh: true)
+            } else if phase == .background {
+                OnSiteRuntime.shared.scheduleRefresh()
             }
         }
+        .onOpenURL { url in handleActivationURL(url) }
     }
 
     private func handleActivationURL(_ url: URL) {
@@ -57,35 +68,13 @@ struct CrewContentView: View {
             await identityStore.activate(activationToken: token)
             if case .linked = identityStore.state {
                 pendingActivationToken = nil
-                syncProjectZones()
+                OnSiteRuntime.shared.wake(forceRefresh: true)
             }
         }
     }
 
     private var hasAutomaticPresencePermission: Bool {
         locationMonitor.authorizationStatus == .authorizedAlways
-    }
-
-    @ViewBuilder
-    private var locationStatusCard: some View {
-        if !hasAutomaticPresencePermission {
-            GroupBox("Automatische aanwezigheid") {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Automatische aanwezigheid uit", systemImage: "location.slash")
-                        .font(.headline)
-
-                    Text(locationGuidanceText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Button(locationActionTitle) {
-                        handleLocationAction()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
     }
 
     private var locationGuidanceText: String {
@@ -125,25 +114,32 @@ struct CrewContentView: View {
             Label("Eenmalig koppelen", systemImage: "iphone.gen3")
                 .font(.title2.bold())
 
-            Text("Vul het mobiele nummer in dat bij je medewerkerprofiel in Office staat. Daarna werkt OnSite zonder dagelijkse instellingen.")
+            Text("Open de persoonlijke activatielink die je via WhatsApp hebt ontvangen. Daarmee koppel je dit toestel aan Office.")
                 .foregroundStyle(.secondary)
+            if OnSiteConfiguration.isOfficeTest {
+                Text("Office-test · gebruik de uitnodiging uit de testomgeving.")
+                    .font(.caption)
+            } else {
+                Text("Vul het mobiele nummer in dat bij je medewerkerprofiel in Office staat. Daarna werkt OnSite zonder dagelijkse instellingen.")
+                    .foregroundStyle(.secondary)
 
-            TextField("Mobiel nummer", text: $phoneNumber)
-                .keyboardType(.phonePad)
-                .textContentType(.telephoneNumber)
-                .textFieldStyle(.roundedBorder)
+                TextField("Mobiel nummer", text: $phoneNumber)
+                    .keyboardType(.phonePad)
+                    .textContentType(.telephoneNumber)
+                    .textFieldStyle(.roundedBorder)
 
-            Button {
-                Task { await identityStore.requestCode(phoneNumber: phoneNumber) }
-            } label: {
-                if case .requestingCode = identityStore.state {
-                    ProgressView()
-                } else {
-                    Text("Stuur verificatiecode")
+                Button {
+                    Task { await identityStore.requestCode(phoneNumber: phoneNumber) }
+                } label: {
+                    if case .requestingCode = identityStore.state {
+                        ProgressView()
+                    } else {
+                        Text("Stuur verificatiecode")
+                    }
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(phoneNumber.filter { $0.isNumber }.count < 8 || isRequesting)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(phoneNumber.filter { $0.isNumber }.count < 8 || isRequesting)
 
             if let errorMessage = identityStore.errorMessage {
                 Text(errorMessage)
@@ -199,119 +195,6 @@ struct CrewContentView: View {
 
             Spacer()
         }
-    }
-
-    private func operationalView(employeeId: String, displayName: String) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                locationStatusCard
-
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                    VStack(alignment: .leading) {
-                        Text("OnSite is gereed")
-                            .font(.title2.bold())
-                        Text("Locatietoegang: \(authorizationText)")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                GroupBox("Medewerker") {
-                    Label(displayName, systemImage: "person.crop.circle")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .accessibilityHint("Office medewerker \(employeeId)")
-                }
-
-                GroupBox("Toegewezen projecten") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if identityStore.assignedProjects.isEmpty {
-                            Label("Vandaag geen toegewezen projecten", systemImage: "building.2")
-                        } else {
-                            ForEach(identityStore.assignedProjects) { project in
-                                Label(project.name, systemImage: "building.2")
-                                ForEach(project.zones) { zone in
-                                    Text("• \(zone.name) · \(Int(zone.radiusMetres)) m")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        Text("Projecten en zones komen rechtstreeks uit Office; OnSite kiest niets zelf.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                GroupBox("Aanwezigheid") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !hasAutomaticPresencePermission {
-                            Label("Automatische aanwezigheid uit", systemImage: "location.slash")
-                        } else if let active = activePresenceText {
-                            Label(active, systemImage: "mappin.and.ellipse")
-                        } else {
-                            Label("Niet binnen een toegewezen projectzone", systemImage: "mappin.slash")
-                        }
-                        Text("IN/UIT is aanwezigheidsevidence en nog geen geboekte werktijd.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                GroupBox("Laatste waarneming") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(lastObservationText)
-                        if let error = presenceUploader.lastError {
-                            Text("Synchronisatie: \(error)")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        } else if presenceUploader.lastUploadedEventId != nil {
-                            Text("Gesynchroniseerd met Office")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-    }
-
-    private func syncProjectZones() {
-        let zones = identityStore.assignedProjects.flatMap { project in
-            project.zones.map { zone in
-                CrewProjectZone(
-                    id: zone.id,
-                    projectId: project.id,
-                    projectName: project.name,
-                    latitude: zone.latitude,
-                    longitude: zone.longitude,
-                    radiusMetres: zone.radiusMetres
-                )
-            }
-        }
-        locationMonitor.monitor(zones)
-    }
-
-    private var activePresenceText: String? {
-        let zoneNames = Dictionary(
-            uniqueKeysWithValues: identityStore.assignedProjects.flatMap { project in
-                project.zones.map { ($0.id, project.name) }
-            }
-        )
-        for (zoneId, state) in locationMonitor.states where state == .present {
-            return "Aanwezig op \(zoneNames[zoneId] ?? "toegewezen project")"
-        }
-        return nil
-    }
-
-    private var lastObservationText: String {
-        guard let event = locationMonitor.events.last else {
-            return "Nog geen IN/UIT-waarneming"
-        }
-        let action = event.kind == .enteredProject ? "IN" : "UIT"
-        return "\(action) · \(event.occurredAt.formatted(date: .abbreviated, time: .shortened))"
     }
 
     private var isRequesting: Bool {

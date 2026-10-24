@@ -7,8 +7,9 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-  header('Allow: POST'); http_response_code(405); exit;
+$method = $_SERVER['REQUEST_METHOD'] ?? '';
+if (!in_array($method, ['GET', 'POST'], true)) {
+  header('Allow: GET, POST'); http_response_code(405); exit;
 }
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') !== 'enabled'
@@ -20,8 +21,15 @@ $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowed = getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($allowed) || $allowed === '' || !hash_equals($allowed, (string)$host)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
-  || !hash_equals('https://' . $allowed, (string)($_SERVER['HTTP_ORIGIN'] ?? ''))) {
+  || ($method === 'POST' && !hash_equals('https://' . $allowed, (string)($_SERVER['HTTP_ORIGIN'] ?? '')))) {
   http_response_code(403); exit('Ongeldige herkomst.');
+}
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeActivationPage.php';
+if ($method === 'GET') {
+  header('Content-Type: text/html; charset=utf-8');
+  header('Content-Security-Policy: ' . \Brebo\Office\Inzet\OnSiteOfficeActivationPage::landingCsp());
+  echo \Brebo\Office\Inzet\OnSiteOfficeActivationPage::landing();
+  exit;
 }
 try {
   foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php',
@@ -29,6 +37,7 @@ try {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
   foreach (['OnSiteOfficeInvitationCsrf.php','OnSiteActivationInvitationIssuer.php',
+    'OfficeInzetIdentityMappingGuard.php','OnSiteActivationIdentityBridge.php',
     'OnSiteOfficeInvitationAction.php'] as $file) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $file;
   }
@@ -54,13 +63,14 @@ try {
   $action = new \Brebo\Office\Inzet\OnSiteOfficeInvitationAction(
     $db, new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db)
   );
+  $verifiedMap = \Brebo\Office\Inzet\OnSiteActivationIdentityBridge::loadVerifiedMap(
+    getenv('OFFICE_ONSITE_VERIFIED_IDENTITY_MAP_FILE') ?: ''
+  );
+  $personId = \Brebo\Office\Inzet\OnSiteActivationIdentityBridge::verifiedPerson($verifiedMap, $personId);
   $invitation = $action->issue($operator->operatorId, $projectId, $personId);
   header('Content-Type: text/html; charset=utf-8');
-  $h = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-  echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>OnSite-activatie · BREBO Office</title>';
-  echo '<body><h1>Eenmalige OnSite-activatie</h1><p>Deel deze code uitsluitend met de gecontroleerde medewerker.</p>';
-  echo '<p><code>' . $h($invitation['activation_token']) . '</code></p><p>Geldig tot (UTC): '
-    . $h($invitation['expires_at']) . '</p></body></html>';
+  header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
+  echo \Brebo\Office\Inzet\OnSiteOfficeActivationPage::issued($invitation);
 } catch (RuntimeException $error) {
   http_response_code(403); exit('Activatie niet toegestaan of niet beschikbaar.');
 } catch (Throwable $error) {

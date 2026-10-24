@@ -14,6 +14,7 @@ final class OnSitePresenceApplication {
   public function __construct(
     private PDO $db,
     private ?\Closure $verifiedZoneMembership = null,
+    private ?\Closure $receivedAt = null,
   ) {}
 
   /** @return array{status:int,body:array<string,mixed>} */
@@ -29,7 +30,7 @@ final class OnSitePresenceApplication {
       new OnSiteAuthenticatedEventService(
         new OnSiteDeviceTokenRepository($this->db),
         new OnSiteAutomaticIngest(
-          new OnSiteAutomaticEventValidator(),
+          new OnSiteAutomaticEventValidator($this->receivedAt ?? static fn(): \DateTimeImmutable => new \DateTimeImmutable('now', new \DateTimeZone('UTC'))),
           new OnSiteAssignmentGate($assignments),
           new OnSiteEventInbox($this->db),
         )

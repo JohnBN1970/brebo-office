@@ -12,7 +12,7 @@ foreach ([
   'Inzet/OnSiteBuildingZoneAccess.php','Inzet/OnSiteDeviceTokenRepository.php',
   'Inzet/OnSiteAutomaticEventValidator.php','Inzet/OnSiteAssignmentRepository.php',
   'Inzet/OnSiteAssignmentGate.php','Inzet/OnSiteOfficeTeamAssignmentRepository.php',
-  'Inzet/OnSiteEventInbox.php','Inzet/OnSiteAutomaticIngest.php',
+  'Inzet/OnSiteEventReplayConflict.php','Inzet/OnSiteEventInbox.php','Inzet/OnSiteAutomaticIngest.php',
   'Inzet/OnSiteAuthenticatedEventService.php','Inzet/OnSitePresenceRequestService.php',
   'Inzet/OnSitePresenceApiHandler.php'
 ] as $file) require_once $root . $file;
@@ -27,7 +27,7 @@ foreach (\Brebo\Office\Buildings\OfficeBuildingZoneSchema::statements() as $sql)
 $buildings = new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
 $zones = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
 $projectAccess = static fn(string $project):bool => $project==='17';
-$buildingId = $buildings->create(['building_name'=>'Fictief testgebouw','city'=>'Breda']);
+$buildingId = $buildings->create(['code'=>'TEST-FICTIEF','building_name'=>'Fictief testgebouw','city'=>'Breda']);
 $buildings->linkProject('17',$buildingId,$projectAccess);
 $zoneId = $zones->create([
   'building_id'=>$buildingId,'zone_name'=>'Testpoort',
@@ -60,6 +60,21 @@ if ($first['status']!==202 || $first['body']['duplicate']!==false
   || $repeat['status']!==202 || $repeat['body']['duplicate']!==true) {
   throw new RuntimeException('Building-owned arrival or idempotency failed');
 }
+$current=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($current)) throw new RuntimeException('Zone unavailable before edit');
+$revision=(int)$current['revision'];
+$edit=['zone_name'=>'Testpoort aangepast','latitude'=>'51.501','longitude'=>'4.301','radius_metres'=>'110'];
+$authorized=static fn(string $id):bool=>$id===$buildingId;
+if (!$zones->update($zoneId,$buildingId,$revision,$edit,$authorized))
+  throw new RuntimeException('Active zone edit rejected');
+if ($zones->update($zoneId,$buildingId,$revision,$edit,$authorized))
+  throw new RuntimeException('Stale zone edit accepted');
+$edited=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($edited) || (string)$edited['id']!==$zoneId
+  || (int)$edited['revision']!==$revision+1
+  || (float)$edited['radius_metres']!==110.0
+  || !$membership->isActiveForProject('17',$zoneId))
+  throw new RuntimeException('Edited zone lost its presence authorization');
 $event['kind']='out';
 if ($submit($token,'native_building_departure_0002',$event)['status']!==202) {
   throw new RuntimeException('Building-owned departure failed');

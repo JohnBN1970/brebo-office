@@ -19,14 +19,16 @@ final class OnSiteOfficeInvitationAction {
     if ($operatorId === '' || strlen($operatorId) > 128 || $projectId <= 0 || $personId <= 0) {
       throw new RuntimeException('Invalid Office invitation context');
     }
+    $authorize = function () use ($operatorId, $projectId, $personId): void {
     $check = $this->db->prepare("SELECT 1 FROM office_inzet_project_team t
       INNER JOIN office_project_memberships m ON m.project_id = t.project_id
       INNER JOIN office_operator_accounts a ON a.id = m.operator_id
       INNER JOIN office_inzet_people p ON p.id = t.person_id
       WHERE t.project_id = ? AND t.person_id = ? AND p.active = 1
-        AND m.operator_id = ? AND m.permission = 'manage' AND a.active = 1 LIMIT 1");
+        AND m.operator_id = ? AND m.permission = 'manage' AND a.active = 1 LIMIT 1 FOR UPDATE");
     $check->execute([$projectId, $personId, $operatorId]);
     if ($check->fetchColumn() === false) throw new RuntimeException('Office operator not authorized for employee');
-    return $this->issuer->issue($personId);
+    };
+    return $this->issuer->issue($personId, 15, $projectId, $authorize);
   }
 }
