@@ -67,7 +67,7 @@ if (isset($argv[2])) {
     $controllerLiteral = var_export('/public/' . $controller, true);
     // Dedicated routes use a literal path condition and a private require.
     $matches = str_contains($candidateSource, '$path === ' . $routeLiteral)
-      && str_contains($candidateSource, "\u0027/public/" . $controller . "\u0027");
+      && str_contains($candidateSource, chr(39) . '/public/' . $controller . chr(39));
     if ($matches && isset($activeRoutes[$route]) && $activeRoutes[$route] === $controller) {
       $candidateRoutes[$route] = $controller;
     }
