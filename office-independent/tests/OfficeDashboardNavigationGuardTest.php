@@ -29,7 +29,7 @@ $required = [
   "min_range",
   "Project #",
   "INNER JOIN office_project_memberships m ON m.project_id=p.id",
-  "$projectsEnabled = $myProjectCount > 0;",
+  '$projectsEnabled = $myProjectCount > 0;',
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
   "Mijn projecten",
