@@ -37,6 +37,8 @@ $required = [
   '$projectsEnabled = $myProjectCount > 0;',
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
+  "p.title, p.status FROM office_projects p",
+  "statusLabel",
   "Mijn projecten",
   "availableCount",
   "module-status",
