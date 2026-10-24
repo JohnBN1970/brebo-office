@@ -1,4 +1,7 @@
 "use strict";
+// A different invitation or a restored browser page must be checked again.
+addEventListener("hashchange",()=>location.reload());
+addEventListener("pageshow",event=>{if(event.persisted)location.reload();});
 (async()=>{
   const fragment=new URLSearchParams(location.hash.slice(1));
   const token=fragment.get("activation")||fragment.get("token")||"";
