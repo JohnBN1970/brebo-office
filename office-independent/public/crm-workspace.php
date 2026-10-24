@@ -188,13 +188,53 @@ if ($isFormPage && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
       $listHtml .= '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th scope="col">Naam</th><th scope="col">E-mail</th><th scope="col">'
         . ($isCompany ? 'Contactpersonen' : 'Verbonden bedrijven') . '</th></tr></thead><tbody>';
       foreach ($rows as $row) {
-        $listHtml .= '<tr><td>' . $e($row['name']) . '</td><td>' . $e($row['email']) . '</td><td>'
+        $listHtml .= '<tr><td>' . ($isCompany ? '<a href="/office-test/crm/bedrijven?company_id=' . (int)$row['id'] . '">' . $e($row['name']) . '</a>' : $e($row['name'])) . '</td><td>' . $e($row['email']) . '</td><td>'
           . ($isCompany ? (string)$row['contacts'] : $e($row['companies'])) . '</td></tr>';
       }
       $listHtml .= '</tbody></table></div><p class="muted">Maximaal 200 registraties zichtbaar.</p>';
     }
   } catch (Throwable) {
     $listHtml = '<p class="muted">CRM-overzicht nog niet beschikbaar: databasecontrole vereist.</p>';
+  }
+}
+$companyDetailHtml = '';
+if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
+  $rawId = $_GET['company_id'];
+  if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
+    http_response_code(400); exit('Ongeldige bedrijfsreferentie.');
+  }
+  if (getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') !== 'enabled') {
+    http_response_code(503); exit('CRM-database nog niet vrijgegeven.');
+  }
+  try {
+    require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
+    require_once dirname(__DIR__) . '/src/Crm/OfficeCrmCompanyDetailReader.php';
+    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
+    $detailReader = new \\Brebo\\Office\\Crm\\OfficeCrmCompanyDetailReader($db);
+    $company = $detailReader->company((int)$rawId);
+    if ($company === null) {
+      http_response_code(404); exit('Bedrijf niet gevonden.');
+    }
+    $eDetail = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $companyDetailHtml = '<section class="panel" aria-label="Bedrijfskaart"><h2>' . $eDetail((string)$company['name']) . '</h2>'
+      . '<p>E-mail: ' . $eDetail((string)($company['email'] ?? '')) . '</p>'
+      . '<p>Telefoon: ' . $eDetail((string)($company['phone'] ?? '')) . '</p>'
+      . '<h3>Contactpersonen</h3>';
+    $people = $detailReader->contacts((int)$rawId);
+    if ($people === []) {
+      $companyDetailHtml .= '<p class="muted">Geen gekoppelde contactpersonen.</p>';
+    } else {
+      $companyDetailHtml .= '<ul>';
+      foreach ($people as $person) {
+        $name = trim((string)$person['first_name'] . ' ' . (string)$person['last_name']);
+        $companyDetailHtml .= '<li>' . $eDetail($name) . ' — ' . $eDetail((string)$person['role_label']) . '</li>';
+      }
+      $companyDetailHtml .= '</ul>';
+    }
+    // Building and project detail intentionally omitted until record ACL is integrated.
+    $companyDetailHtml .= '<p class="muted">Gebouwen en projecten worden zichtbaar na controle van de betreffende toegangsrechten.</p></section>';
+  } catch (Throwable) {
+    http_response_code(503); exit('Bedrijfskaart tijdelijk niet beschikbaar.');
   }
 }
 require_once dirname(__DIR__) . '/src/Ui/OfficeModuleTabs.php';
@@ -214,6 +254,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . \Brebo\Office\Ui\OfficeModuleTabs::render($tabs, $path)
   . '<section class="panel"><h2>' . $escape($title) . '</h2>'
   . (($_GET['created'] ?? '') === '1' ? '<p role="status">Registratie opgeslagen.</p>' : '')
+  . $companyDetailHtml
   . $listHtml
   . ($formHtml !== '' ? $formHtml : '<p class="muted">De CRM-invoer is nog niet vrijgegeven. Bestaande gegevens worden niet gewijzigd.</p>')
   . '</section></main></div></body></html>';
