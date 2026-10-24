@@ -11,7 +11,6 @@ import androidx.work.WorkManager;
 import org.json.JSONObject;
 import org.junit.*;
 import org.junit.runner.RunWith;
-import java.io.File;
 import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.*;
 
@@ -40,8 +39,9 @@ public class OnSiteDeviceTest {
             assertTrue(device.wait(Until.hasObject(By.text("Welkom op de bouwplaats")),5000));
             assertTrue(device.hasObject(By.text("Toestel koppelen")));
             assertNull(new Vault(context).token());
-            File screenshot=new File(context.getExternalFilesDir(null),"onsite-welcome.png");
-            assertTrue(device.takeScreenshot(screenshot));
+            // The test runner uninstalls the app afterwards, so retain the capture outside app storage.
+            device.executeShellCommand("screencap -p /sdcard/Download/onsite-welcome.png");
+            assertTrue(device.executeShellCommand("ls /sdcard/Download/onsite-welcome.png").contains("onsite-welcome.png"));
         }
     }
     @Test public void invalidActivationIsExplainedWithoutLinking() throws Exception {
@@ -56,7 +56,16 @@ public class OnSiteDeviceTest {
         String token="emulator-token-for-confirmation-only";
         Intent link=new Intent(context,MainActivity.class)
             .setAction(Intent.ACTION_VIEW).setData(Uri.parse("brebo-onsite://activate?token="+token));
-        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(link)) {
+        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(a->{
+                Intent launchMetadata=new Intent(a.getIntent());
+                a.onNewIntent(link);
+                assertEquals(token,findInput(a.findViewById(android.R.id.content)).getText().toString());
+                assertNull(a.getIntent().getData());
+                // ActivityScenario filters lifecycle events by the original launch Intent.
+                // Restore only its routing metadata; the app's saved pending token is unchanged.
+                a.setIntent(launchMetadata);
+            });
             activity.recreate();
             activity.onActivity(a->{
                 android.view.ViewGroup content=a.findViewById(android.R.id.content);

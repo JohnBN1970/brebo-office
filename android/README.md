@@ -53,3 +53,23 @@ Gradle 8.13 en Android Gradle Plugin 8.11.1 zijn vastgezet. De workflow
 Een distributieversie vereist een vaste releasehandtekening en een gekozen verspreidingskanaal.
 De debughandtekening is uitsluitend voor deze testversie. Nog geen Play Store-publicatie
 of verificatie van Android App Links; de bestaande custom activatielink wordt hergebruikt.
+
+
+## Virtuele Android-telefoon
+
+De Android-workflow voert na de bouwcontrole acht instrumentatietests uit op
+een Pixel 6-emulator met Android 15. Deze controleren het startscherm, ongeldige
+activatie, een nieuwe activatielink en schermhercreatie, Android Keystore,
+duurzame offline opslag, dubbele meldingen, afgewezen events en ontbrekende toestemming.
+
+De emulator bouwt met API-adres https://127.0.0.1:1 en kan nooit de live Office-keten
+activeren. De gewone test-APK behoudt de bestaande Office-host.
+De schermafbeelding en testrapporten staan in het artifact OnSite-Android-emulator.
+De emulator bewijst geen fysieke geofence-overgang of betrouwbaarheid onder
+batterijbesparing; daarvoor blijft een toesteltest nodig.
+
+Met een al gestart testtoestel of emulator zijn deze tests reproduceerbaar met:
+
+```sh
+./gradlew -PonsiteApiBaseUrl=https://127.0.0.1:1 :app:connectedDebugAndroidTest
+```
