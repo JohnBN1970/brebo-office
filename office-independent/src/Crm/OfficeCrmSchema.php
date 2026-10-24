@@ -5,7 +5,7 @@ namespace Brebo\Office\Crm;
 
 /**
  * Office-native CRM schema proposal. Not run by any router or deploy hook.
- * Additive DDL only; empty start, no legacy Drupal data migration.
+ * Additive DDL only; empty start, no legacy Drupal data migration.\n * Existing office_buildings and office_projects must be inspected before applying\n * relationship DDL; IF NOT EXISTS does not validate an existing table shape.
  */
 final class OfficeCrmSchema {
   /** @return list<string> */
@@ -100,7 +100,8 @@ final class OfficeCrmSchema {
         role_label VARCHAR(128) NOT NULL DEFAULT '',
         PRIMARY KEY (company_id, project_id, role_label),
         INDEX idx_crm_cp_project (project_id),
-        CONSTRAINT fk_crm_cp_company FOREIGN KEY (company_id) REFERENCES office_crm_companies(id)
+        CONSTRAINT fk_crm_cp_company FOREIGN KEY (company_id) REFERENCES office_crm_companies(id),
+        CONSTRAINT fk_crm_cp_project FOREIGN KEY (project_id) REFERENCES office_projects(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
       "CREATE TABLE IF NOT EXISTS office_crm_contact_projects (
         contact_id BIGINT UNSIGNED NOT NULL,
@@ -108,7 +109,8 @@ final class OfficeCrmSchema {
         role_label VARCHAR(128) NOT NULL DEFAULT '',
         PRIMARY KEY (contact_id, project_id, role_label),
         INDEX idx_crm_ctp_project (project_id),
-        CONSTRAINT fk_crm_ctp_contact FOREIGN KEY (contact_id) REFERENCES office_crm_contacts(id)
+        CONSTRAINT fk_crm_ctp_contact FOREIGN KEY (contact_id) REFERENCES office_crm_contacts(id),
+        CONSTRAINT fk_crm_ctp_project FOREIGN KEY (project_id) REFERENCES office_projects(id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
     ];
   }
