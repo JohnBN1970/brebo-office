@@ -24,6 +24,7 @@ $required = [
   "COUNT(DISTINCT p.id)",
   "myProjectCount",
   "myRecentProjects",
+  "/projecten/detail?id=",
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
   "Mijn projecten",
