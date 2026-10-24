@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import CrewPOC
+@testable import BreboCrewPOC
 
 @MainActor
 final class OnSiteGeofenceRegressionTests: XCTestCase {
