@@ -14,7 +14,7 @@ $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_
 class InventoryStatement extends PDOStatement {
   public array $rows = [];
   public string $name = '';
-  protected function __construct() {}
+  public function __construct() {}
   public function execute(?array $params = null): bool {
     $this->name = (string)($params[':table_name'] ?? '');
     return true;
