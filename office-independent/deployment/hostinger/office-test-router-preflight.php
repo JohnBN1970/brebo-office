@@ -54,6 +54,24 @@ if (isset($argv[2])) {
   };
   $activeRoutes = $extract($source);
   $candidateRoutes = $extract($candidateSource);
+  // Dedicated literal-path dispatches are valid routes too, but must retain
+  // their exact controller target in the candidate router.
+  $dedicated = [
+    '/office-test/inzet/apparaten' => 'onsite-devices.php',
+    '/office-test/api/onsite/v1/activate' => 'onsite-activate.php',
+    '/office-test/api/onsite/v1/bootstrap' => 'onsite-bootstrap.php',
+    '/office-test/api/onsite/v1/presence' => 'onsite-presence.php',
+  ];
+  foreach ($dedicated as $route => $controller) {
+    $routeLiteral = var_export($route, true);
+    $controllerLiteral = var_export('/public/' . $controller, true);
+    // Dedicated routes use a literal path condition and a private require.
+    $matches = str_contains($candidateSource, "\\$path === " . $routeLiteral)
+      && str_contains($candidateSource, $controllerLiteral);
+    if ($matches && isset($activeRoutes[$route]) && $activeRoutes[$route] === $controller) {
+      $candidateRoutes[$route] = $controller;
+    }
+  }
   foreach ($activeRoutes as $route => $controller) {
     if (($candidateRoutes[$route] ?? null) !== $controller) {
       echo 'ROUTEVERSCHIL: ' . $route . ' (' . $controller . ')' . PHP_EOL;
