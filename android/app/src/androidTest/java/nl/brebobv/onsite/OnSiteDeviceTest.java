@@ -86,7 +86,12 @@ public class OnSiteDeviceTest {
         String token="emulator-only-auto-activation-token";
         Intent link=new Intent(context,MainActivity.class).setAction(Intent.ACTION_VIEW)
             .setData(Uri.parse("brebo-onsite://activate?token="+token+"&start=1"));
-        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(link)) {
+        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(a->{
+                Intent routing=new Intent(a.getIntent());
+                a.onNewIntent(link);
+                a.setIntent(routing);
+            });
             // The deliberately unreachable emulator API proves the activation was attempted.
             assertTrue(device.wait(Until.hasObject(By.text("Geen verbinding met Office. Probeer opnieuw.")),10000));
             assertNull(new Vault(context).token());
@@ -97,7 +102,12 @@ public class OnSiteDeviceTest {
         new Vault(context).save("existing-emulator-device-token");
         Intent link=new Intent(context,MainActivity.class).setAction(Intent.ACTION_VIEW)
             .setData(Uri.parse("brebo-onsite://activate?token=emulator-only-auto-activation-token&start=1"));
-        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(link)) {
+        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(MainActivity.class)) {
+            activity.onActivity(a->{
+                Intent routing=new Intent(a.getIntent());
+                a.onNewIntent(link);
+                a.setIntent(routing);
+            });
             assertTrue(device.wait(Until.hasObject(By.text("Dit toestel is al gekoppeld. Ontkoppel het eerst als je een andere medewerker wilt activeren.")),5000));
             assertEquals("existing-emulator-device-token",new Vault(context).token());
             device.findObject(By.text("OK")).click();
