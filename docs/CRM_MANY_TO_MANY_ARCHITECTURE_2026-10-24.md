@@ -63,3 +63,12 @@ Deze ADR is alleen een ontwerpdocument. Geen flags wijzigen, geen merge of deplo
 
 ### Directe vervolgstap
 Een read-only schema- en datamappingaudit op de actieve Office-test-omgeving; daarna een afzonderlijke, geteste migratie-PR voor ontbrekende Office-native CRM-entiteiten en N:M-koppelingen. Niet activeren op basis van de legacy Drupal-structuur alleen.
+
+## Besluit: lege start toegestaan (2026-10-24)
+De bestaande CRM-invulling is uitsluitend voor testen gebruikt. Voor de nieuwe Office-native CRM is **geen inhoudelijke migratie van bestaande testrecords vereist**. De nieuwe registraties mogen leeg starten.
+
+- Wel het volledige model en de N:M-relaties realiseren; geen dummy-bedrijven of dummy-contactpersonen nodig om formulieren te tonen.
+- Lijstweergaven en formulieren blijven zichtbaar bij nul records, met expliciete lege toestand en toegestane aanmaakactie.
+- Bestaande testdata **niet automatisch wissen**; bestaande project-, gebouw- en andere modulegegevens behouden.
+- Hergebruik de bestaande schema-/relatiekennis, niet noodzakelijk de oude Drupal-inhoud.
+- Nieuwe tabellen en migraties blijven additief en veilig; pas na expliciete vrijgave uitvoeren.
