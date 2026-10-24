@@ -99,6 +99,7 @@ $modules = [
   ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie', $calcUrl, $calcEnabled]]],
   ['Financiën', 'Facturen en betalingen', [['Financiën', null, false]]],
   ['Organisatie', 'Medewerkers en bedrijfsvoering', [['Organisatie', null, false]]],
+  ['Communicatie', 'Berichten en correspondentie', [['Mail', null, false]]],
 ];
 // Only the explicitly authorized test reviewer may see source-import KPIs.
 $importReviewEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
