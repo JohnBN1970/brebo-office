@@ -198,10 +198,8 @@ foreach ($modules as [$groupName, $description, $entries]) {
   $availableCount = count(array_filter($entries, static fn(array $entry): bool => $entry[2] === true && is_string($entry[1])));
   echo '<section class="tile" aria-label="' . htmlspecialchars($groupName, ENT_QUOTES, 'UTF-8') . '"><h2>' . htmlspecialchars($groupName, ENT_QUOTES, 'UTF-8') . '</h2><p>' . htmlspecialchars($description, ENT_QUOTES, 'UTF-8') . '</p>';
   echo '<p class="module-status">' . ($availableCount > 0 ? $availableCount . ' beschikbaar' : 'Nog niet aangesloten') . '</p>';
-  // Available destinations first; retain disabled placeholders for roadmap visibility.
-  usort($entries, static fn(array $a, array $b): int =>
-    (int) ($b[2] === true && is_string($b[1])) <=> (int) ($a[2] === true && is_string($a[1]))
-  );
+  // Preserve the deliberate workflow order in each group; availability is already labelled.
+  // Do not reorder modules based on deployment flags.
   foreach ($entries as [$name, $url, $active]) {
     $label = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     if ($active && is_string($url)) {
