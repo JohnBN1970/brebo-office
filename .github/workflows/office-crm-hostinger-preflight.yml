@@ -10,7 +10,24 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect isolated Office-test CRM schema via existing Hostinger SSH
+      - name: Checkout pinned CRM preflight source only
+        uses: actions/checkout@v4
+        with:
+          ref: 00da011355ab4966072ab0d3358abafba1b23177
+          persist-credentials: false
+
+      - name: Stage three preflight PHP files on isolated Office-test server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/office-crm-test-preflight.php,office-independent/src/Crm/OfficeCrmSchemaPreflight.php,office-independent/src/Crm/OfficeCrmSchemaInventory.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private/.crm-preflight-stage"
+          overwrite: true
+
+      - name: Install isolated preflight files and run read-only inspection
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: 77.37.34.160
@@ -20,12 +37,17 @@ jobs:
           script_stop: true
           script: |
             set -eu
-            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private
             PHP=/opt/alt/php83/usr/bin/php
-            PREFLIGHT="$ROOT/release-next/private/deployment/hostinger/office-crm-test-preflight.php"
-            if [ ! -f "$PREFLIGHT" ]; then
-              echo "CRM_PREFLIGHT_NOT_INSTALLED: release-next/private ontbreekt of bevat nog geen preflight"
-              exit 2
-            fi
-            "$PHP" -l "$PREFLIGHT"
-            "$PHP" "$PREFLIGHT"
+            STAGE="$ROOT/.crm-preflight-stage/office-independent"
+            test -f "$STAGE/deployment/hostinger/office-crm-test-preflight.php"
+            test -f "$STAGE/src/Crm/OfficeCrmSchemaPreflight.php"
+            test -f "$STAGE/src/Crm/OfficeCrmSchemaInventory.php"
+            "$PHP" -l "$STAGE/deployment/hostinger/office-crm-test-preflight.php"
+            "$PHP" -l "$STAGE/src/Crm/OfficeCrmSchemaPreflight.php"
+            "$PHP" -l "$STAGE/src/Crm/OfficeCrmSchemaInventory.php"
+            mkdir -p "$ROOT/deployment/hostinger" "$ROOT/src/Crm"
+            cp "$STAGE/deployment/hostinger/office-crm-test-preflight.php" "$ROOT/deployment/hostinger/office-crm-test-preflight.php"
+            cp "$STAGE/src/Crm/OfficeCrmSchemaPreflight.php" "$ROOT/src/Crm/OfficeCrmSchemaPreflight.php"
+            cp "$STAGE/src/Crm/OfficeCrmSchemaInventory.php" "$ROOT/src/Crm/OfficeCrmSchemaInventory.php"
+            "$PHP" "$ROOT/deployment/hostinger/office-crm-test-preflight.php"
