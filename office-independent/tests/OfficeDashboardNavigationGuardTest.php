@@ -26,7 +26,7 @@ $required = [
   "Mijn projecten",
   "availableCount",
   "module-status",
-  "usort($entries",
+  'usort($entries',
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
