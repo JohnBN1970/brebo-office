@@ -67,7 +67,7 @@ jobs:
           cp deployment/onsite-landing/{index.php,.htaccess,style.css,app.js,gate.js,icon.svg} package/public/
           printf '%s\n' 'BREBO OnSite landing page' > package/public/.onsite-landing-managed
           printf '%s\n' "$GITHUB_SHA" > package/public/.release
-          cp deployment/onsite-landing/{invitation.php,page.php} package/private/
+          cp deployment/onsite-landing/{invitation.php,page.php,install-legacy-redirect.php} package/private/
           cp android-artifact/outputs/apk/debug/app-debug.apk package/private/OnSite-Android-test.apk
           (cd package/private && sha256sum OnSite-Android-test.apk > apk.sha256)
           tar -czf onsite-landing.tgz -C package .
@@ -99,10 +99,10 @@ jobs:
           stage="$(mktemp -d "$domain/onsite_landing/stage.XXXXXXXX")"
           tar -xzf "$archive" -C "$stage" --no-same-owner
           [[ "$(find "$stage/public" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 8 ]]
-          [[ "$(find "$stage/private" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 4 ]]
+          [[ "$(find "$stage/private" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 5 ]]
           [[ -z "$(find "$stage" -type l)" ]]
           for f in index.php .htaccess style.css app.js gate.js icon.svg .onsite-landing-managed .release; do [[ -s "$stage/public/$f" ]];chmod 644 "$stage/public/$f";done
-          for f in invitation.php page.php OnSite-Android-test.apk apk.sha256; do [[ -s "$stage/private/$f" ]];chmod 600 "$stage/private/$f";done
+          for f in invitation.php page.php install-legacy-redirect.php OnSite-Android-test.apk apk.sha256; do [[ -s "$stage/private/$f" ]];chmod 600 "$stage/private/$f";done
           (cd "$stage/private" && sha256sum -c apk.sha256)
           if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
           "$php_bin" -l "$stage/public/index.php"
@@ -135,3 +135,14 @@ jobs:
           test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://brebobv.nl' -H 'Content-Type: application/json' --data '{"activation_token":"onsite-invalid-verification-fixture"}' 'https://brebobv.nl/onsite/?action=unlock')" = 403
           curl --fail -sS https://brebobv.nl/onsite/gate.js -o gate-live.js
           cmp gate-live.js deployment/onsite-landing/gate.js
+      - name: Route existing personal invitations to protected installation
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "ONSITE_RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          [[ "$ONSITE_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
+          "$php_bin" "$HOME/domains/brebobv.nl/onsite_landing/releases/$ONSITE_RELEASE_SHA/install-legacy-redirect.php"
+          REMOTE
+          curl -sS -D legacy-headers.txt -o /dev/null 'https://brebobv.nl/office-test/inzet/onsite/activatie-uitgeven'
+          grep -qi '^location: /onsite/' legacy-headers.txt
