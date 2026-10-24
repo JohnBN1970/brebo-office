@@ -8,7 +8,7 @@ use RuntimeException;
 
 /**
  * Read-only schema inventory. No DDL, no user records, no migrations.
- * Existing CRM tables must be reviewed before enabling schema/write flags.
+ * Exact schema verification is mandatory before readiness; never modifies flags.
  */
 final class OfficeCrmSchemaInventory {
   /** @return array{ready:bool,issues:list<string>,existing:list<string>,missing:list<string>} */
@@ -38,15 +38,21 @@ final class OfficeCrmSchemaInventory {
       if (strcasecmp((string)($row['ENGINE'] ?? ''), 'InnoDB') !== 0) {
         $issues[] = $name . ': opslagengine is niet InnoDB';
       }
-      // An existing table is not validated by CREATE TABLE IF NOT EXISTS.
-      // Block automatic approval until its columns, keys and FKs are checked.
-      $issues[] = $name . ': bestaande tabel vereist handmatige schema- en FK-controle';
+
     }
     if ($missing !== []) {
       $issues[] = 'CRM-tabellen ontbreken: ' . count($missing);
     }
-    // Inventory is intentionally advisory: it never authorizes writes or migration.
-    $issues[] = 'CRM-schema vereist expliciete verificatie voor vrijgave';
+    // Fail closed unless the exact versioned schema verifier approves all tables.
+    if ($missing === [] && $issues === []) {
+      require_once __DIR__ . '/OfficeCrmSchema.php';
+      require_once __DIR__ . '/OfficeCrmSchemaVerifier.php';
+      $verification = OfficeCrmSchemaVerifier::inspect($db);
+      $issues = array_merge($issues, $verification['issues']);
+      if (!$verification['ready']) {
+        $issues[] = 'CRM-schema vereist expliciete verificatie voor vrijgave';
+      }
+    }
     return [
       'ready' => $issues === [],
       'issues' => $issues,
