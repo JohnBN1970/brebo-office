@@ -9,7 +9,7 @@ enum OnSiteMenuPreview {
                                        latitude: 51.9, longitude: 4.5, radiusMetres: 100)
         let project = OnSiteBootstrapProject(id: "preview-project", name: "Voorbeeldproject", zones: [zone])
         return OnSiteWorkspaceView(
-            employeeId: "preview", displayName: "Medewerker", language: "nl",
+            employeeId: "preview", displayName: "Alex", language: "nl",
             projects: [project], states: [zone.id: .present], events: [
                 CrewPresenceEvent(projectId: project.id, zoneId: zone.id, kind: .enteredProject, occurredAt: now)
             ], automaticPresence: true, locationDescription: "Altijd toegestaan",

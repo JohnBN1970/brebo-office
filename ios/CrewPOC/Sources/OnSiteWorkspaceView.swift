@@ -78,7 +78,7 @@ struct OnSiteWorkspaceView: View {
                     }
                 }
             }
-            if pendingCount > 0 || syncError != nil || connectionError != nil {
+            if syncError != nil || connectionError != nil {
                 Section("Aandacht nodig") {
                     Button { selectedTab = .profile } label: {
                         Label {
@@ -135,7 +135,7 @@ struct OnSiteWorkspaceView: View {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(project.name)
-                            Text(project.zones.isEmpty ? "Nog geen projectzone ingesteld" : "\(project.zones.count) projectzone(s)")
+                            Text(project.zones.isEmpty ? "Nog geen projectzone ingesteld" : (project.zones.count == 1 ? "1 projectzone" : "\(project.zones.count) projectzones"))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     } icon: { Image(systemName: "building.2") }

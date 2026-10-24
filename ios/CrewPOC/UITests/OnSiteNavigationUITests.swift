@@ -4,11 +4,11 @@ final class OnSiteNavigationUITests: XCTestCase {
     @MainActor
     func testEmployeeNavigationAndProjectDetails() {
         let app = XCUIApplication()
-        app.launchArguments = ["--onsite-menu-preview"]
+        app.launchArguments = ["--onsite-menu-preview", "-AppleLanguages", "(nl)", "-AppleLocale", "nl_NL"]
         app.launch()
 
         XCTAssertTrue(app.navigationBars["Vandaag"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Hallo, Medewerker"].exists)
+        XCTAssertTrue(app.staticTexts["Hallo, Alex"].exists)
         capture("01-vandaag")
 
         app.tabBars.buttons["Projecten"].tap()
@@ -26,11 +26,11 @@ final class OnSiteNavigationUITests: XCTestCase {
 
         app.tabBars.buttons["Mijn profiel"].tap()
         XCTAssertTrue(app.navigationBars["Mijn profiel"].exists)
-        XCTAssertTrue(app.staticTexts["Medewerker"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Alex")).firstMatch.waitForExistence(timeout: 5))
         capture("05-profiel")
 
         app.tabBars.buttons["Vandaag"].tap()
-        XCTAssertTrue(app.staticTexts["Hallo, Medewerker"].exists)
+        XCTAssertTrue(app.staticTexts["Hallo, Alex"].exists)
     }
 
     @MainActor
