@@ -37,8 +37,8 @@ foreach ($required as $item) {
 if (!str_contains($source, 'if ($active && is_string($url))')) {
   fwrite(STDERR, "Disabled module guard missing\n"); exit(1);
 }
-if (!str_contains($source, "htmlspecialchars($url, ENT_QUOTES, 'UTF-8')")) {
-  fwrite(STDERR, "Module link escaping missing\\n"); exit(1);
+if (!str_contains($source, 'htmlspecialchars($url, ENT_QUOTES, \'UTF-8\')')) {
+  fwrite(STDERR, "Module link escaping missing\n"); exit(1);
 }
 if (!str_contains($source, 'if ($operator === null)')) {
   fwrite(STDERR, "Session guard missing\\n"); exit(1);
