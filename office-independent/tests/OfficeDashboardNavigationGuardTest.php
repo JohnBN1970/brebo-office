@@ -61,7 +61,7 @@ foreach ($required as $item) {
     exit(1);
   }
 }
-if (!str_contains($source, "if ($active && is_string($url) && $url !== '')")) {
+if (!str_contains($source, 'if ($active && is_string($url) && $url !== \'\')')) {
   fwrite(STDERR, "Disabled module guard missing\n"); exit(1);
 }
 if (!str_contains($source, "\$e(\$url)")) {
