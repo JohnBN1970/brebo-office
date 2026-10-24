@@ -10,6 +10,14 @@ $view=\Brebo\Office\Inzet\OnSitePresenceReviewView::render([
 foreach (['Aanwezigheidscontrole','1:30','Ter beoordeling','Ontbrekend vertrek'] as $needle) {
  if (!str_contains($view,$needle)) throw new RuntimeException('Presence review view missing: '.$needle);
 }
+$live=\Brebo\Office\Inzet\OnSitePresenceReviewView::render([
+ 'active'=>[['person_id'=>'101','project_id'=>'17','zone_id'=>'2','entered_at'=>'2026-10-23T08:00:00Z']],
+ 'intervals'=>[], 'exceptions'=>[]
+]);
+foreach (['Lopende aanwezigheid','onsite-live-duration','data-start=','Aanwezig (nog niet goedgekeurd)'] as $needle) {
+ if (!str_contains($live,$needle)) throw new RuntimeException('Live presence view missing: '.$needle);
+}
+if (str_contains($live,'name="approved_hours"')) throw new RuntimeException('Live presence must not approve hours');
 if (str_contains($view,'<form') || str_contains($view,'name="approved_hours"'))
  throw new RuntimeException('Presence review unexpectedly approves hours');
 $unsafe=\Brebo\Office\Inzet\OnSitePresenceReviewView::render([

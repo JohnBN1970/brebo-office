@@ -9,7 +9,19 @@ final class OnSitePresenceReviewView {
     $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
     $html='<section class="onsite-presence-review"><h2>Aanwezigheidscontrole</h2>'
       .'<p>Automatisch geregistreerde aanwezigheid is bewijsmateriaal, geen goedgekeurde uren.</p>';
-    $html.='<h3>Afgeronde aanwezigheidsintervallen</h3><table><thead><tr>'
+    $html.='<h3>Lopende aanwezigheid</h3><p>De teller is indicatief totdat vertrek is bevestigd. De pagina ververst automatisch.</p>';
+    $html.='<table><thead><tr><th>Medewerker</th><th>Project</th><th>Zone</th><th>Start (UTC)</th><th>Lopende duur</th><th>Status</th></tr></thead><tbody>';
+    foreach (($review['active']??[]) as $item) {
+      $started = (string)($item['entered_at']??'');
+      $startSeconds = strtotime($started);
+      if ($startSeconds === false) continue;
+      $duration = max(0,time()-$startSeconds);
+      $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
+        .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($started)
+        .'</td><td><time class="onsite-live-duration" data-start="'.$escape($startSeconds).'">'.$escape(sprintf('%d:%02d:%02d',intdiv($duration,3600),intdiv($duration%3600,60),$duration%60))
+        .'</time></td><td>Aanwezig (nog niet goedgekeurd)</td></tr>';
+    }
+    $html.='</tbody></table><h3>Afgeronde aanwezigheidsintervallen</h3><table><thead><tr>'
       .'<th>Medewerker</th><th>Project</th><th>Zone</th><th>Aankomst</th><th>Vertrek</th><th>Duur</th><th>Status</th>'
       .'</tr></thead><tbody>';
     foreach (($review['intervals']??[]) as $item) {
