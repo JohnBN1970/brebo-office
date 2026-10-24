@@ -32,8 +32,8 @@ try {
   if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'u213420663_office_test') {
     throw new RuntimeException('Database mismatch');
   }
-  $native = \Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::inspect($db);
-  $crm = \Brebo\\Office\\Crm\\OfficeCrmSchemaVerifier::inspect($db);
+  $native = \Brebo\Office\Crm\OfficeCrmSchemaPreflight::inspect($db);
+  $crm = \Brebo\Office\Crm\OfficeCrmSchemaVerifier::inspect($db);
   echo json_encode([
     'native_ready' => $native['ready'],
     'native_issues' => $native['issues'],
