@@ -83,28 +83,29 @@ $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
   && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled';
 $projectsUrl = $projectsEnabled ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null;
+$myProjectCount = null;
+$myRecentProjects = [];
 if ($projectsEnabled) {
-  // Same active-membership rule as the native project portfolio; never infer access from a role label.
+  // The portfolio's active-membership rule is the only source for project access.
+  // Count first: a failed query must disable the project navigation, not expose a stale link.
   try {
-    $membership = $db->prepare(
-      "SELECT 1 FROM office_project_memberships m
-       INNER JOIN office_projects p ON p.id=m.project_id
+    $countStatement = $db->prepare(
+      "SELECT COUNT(DISTINCT p.id) FROM office_projects p
+       INNER JOIN office_project_memberships m ON m.project_id=p.id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id
-       WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage')
-         AND a.active=1 LIMIT 1"
+       WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage') AND a.active=1"
     );
-    $membership->execute([':operator_id' => $operator->operatorId]);
-    $projectsEnabled = $membership->fetchColumn() !== false;
+    $countStatement->execute([':operator_id' => $operator->operatorId]);
+    $myProjectCount = (int) $countStatement->fetchColumn();
+    $projectsEnabled = $myProjectCount > 0;
   } catch (Throwable $e) {
-    // Fail closed if the membership schema is unavailable or cannot be queried.
     $projectsEnabled = false;
+    $myProjectCount = null;
   }
 }
 if (!$projectsEnabled) {
   $projectsUrl = null;
 }
-// Personal project names follow the native portfolio's active-membership access rule.
-$myRecentProjects = [];
 if ($projectsEnabled) {
   try {
     $recentProjectsStatement = $db->prepare(
@@ -117,24 +118,8 @@ if ($projectsEnabled) {
     $recentProjectsStatement->execute([':operator_id' => $operator->operatorId]);
     $myRecentProjects = $recentProjectsStatement->fetchAll(PDO::FETCH_ASSOC);
   } catch (Throwable $e) {
+    // A failed optional preview must not expose unverified project names.
     $myRecentProjects = [];
-  }
-}
-// Count only projects already visible through the native portfolio membership rule.
-$myProjectCount = null;
-if ($projectsEnabled) {
-  try {
-    $countStatement = $db->prepare(
-      "SELECT COUNT(DISTINCT p.id) FROM office_projects p
-       INNER JOIN office_project_memberships m ON m.project_id=p.id
-       INNER JOIN office_operator_accounts a ON a.id=m.operator_id
-       WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage') AND a.active=1"
-    );
-    $countStatement->execute([':operator_id' => $operator->operatorId]);
-    $myProjectCount = (int) $countStatement->fetchColumn();
-  } catch (Throwable $e) {
-    // Unavailable data is never shown as zero.
-    $myProjectCount = null;
   }
 }
 
