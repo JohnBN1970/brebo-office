@@ -85,6 +85,7 @@ $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
 $projectsUrl = $projectsEnabled ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null;
 $myProjectCount = null;
 $myRecentProjects = [];
+$recentProjectsUnavailable = false;
 if ($projectsEnabled) {
   // The portfolio's active-membership rule is the only source for project access.
   // Count first: a failed query must disable the project navigation, not expose a stale link.
@@ -124,6 +125,7 @@ if ($projectsEnabled) {
   } catch (Throwable $e) {
     // A failed optional preview must not expose unverified project names.
     $myRecentProjects = [];
+    $recentProjectsUnavailable = true;
   }
 }
 
