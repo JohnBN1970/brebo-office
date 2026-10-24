@@ -277,13 +277,13 @@ if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
 }
 require_once dirname(__DIR__) . '/src/Ui/OfficeModuleTabs.php';
 $tabs = [];
-foreach ($labels as $url => $label) {
+// Present three CRM work areas; keep legacy routes available for existing links.
+foreach (['/office-test/crm/kansen' => 'Kansen & aanvragen', '/office-test/crm/bedrijven' => 'Bedrijven', '/office-test/crm/contactpersonen' => 'Contactpersonen'] as $url => $label) {
   $tabs[] = ['key' => $url, 'label' => $label, 'url' => $url, 'enabled' => true];
 }
-$tabs[] = ['key' => '/office-test/crm/aanvragen', 'label' => 'Aanvragen', 'url' => '/office-test/crm/aanvragen', 'enabled' => true];
 // Keep the existing intake route discoverable from the commercial workspace.
 $commercialLinks = $path === '/office-test/crm/kansen'
-  ? '<p class="muted">Binnengekomen aanvragen blijven beschikbaar via <a href="/office-test/crm/aanvragen">Aanvragen</a>. Potentiële relaties staan onder <a href="/office-test/crm/prospects">Prospects</a>.</p>'
+  ? '<p class="muted">Bekijk <a href="/office-test/crm/aanvragen">binnengekomen aanvragen</a> en <a href="/office-test/crm/prospects">bestaande prospects</a>. Deze bestaande routes blijven bereikbaar; de gegevens worden niet samengevoegd.</p>'
   : '';
 $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $title = $labels[$path];
