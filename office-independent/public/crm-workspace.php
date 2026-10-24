@@ -242,14 +242,14 @@ if ($path === '/office-test/crm/kansen') {
           $key = $mapped !== null && isset($groups[$mapped]) ? $mapped : '_other';
           $groups[$key][] = $item;
         }
-        $opportunityHtml .= '<div style="display:flex;gap:12px;overflow-x:auto;padding:12px 0" aria-label="Kanban workflow">';
+        $opportunityHtml .= '<div style="display:grid;grid-template-columns:repeat(6,minmax(175px,1fr));gap:12px;overflow-x:auto;padding:12px 0" aria-label="Kanban workflow">';
         foreach ($groups as $stage => $items) {
           if ($stage === '_other') {
             $label = 'Overige statussen';
           } else {
             $label = $stageRules[$stage]['label'];
           }
-          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($label) . ' (' . count($items) . ')</h3>';
+          $opportunityHtml .= '<section style="min-width:175px;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($label) . ' (' . count($items) . ')</h3>';
           if ($items === []) $opportunityHtml .= '<p class="muted">Geen kansen in deze fase.</p>';
           foreach ($items as $item) {
             $opportunityHtml .= '<article style="background:white;border:1px solid #dce4ed;border-radius:8px;padding:12px;margin-bottom:8px"><strong>' . $eOpportunity($item['title']) . '</strong><p>' . $eOpportunity($item['companies']) . '</p><small>Volgende stap: ' . $eOpportunity($nextLabels($item)) . '</small></article>';
@@ -360,7 +360,7 @@ $title = $labels[$path];
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'
   . $escape($title) . ' · BREBO CRM</title><style>'
-  . ':root{font-family:system-ui,sans-serif;color:#17283a;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.sidebar{background:#14263b;color:#eaf0f7;padding:28px 18px}.sidebar a{display:block;color:#eaf0f7;text-decoration:none;padding:12px;border-radius:8px}.sidebar a.current{background:#29445f}.main{min-width:0;padding:32px;max-width:1200px;width:100%}.panel{background:#fff;border:1px solid #dce4ed;border-radius:12px;padding:24px}.muted{color:#617185}.test{background:#fff0b3;padding:10px;font-weight:700}.sidebar strong{display:block;margin-bottom:24px}.sidebar a:focus-visible{outline:3px solid #e9a72c}@media(max-width:760px){.shell{display:block}.sidebar{padding:14px}.main{padding:18px}}'
+  . ':root{font-family:system-ui,sans-serif;color:#17283a;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}.shell{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}.sidebar{background:#14263b;color:#eaf0f7;padding:28px 18px}.sidebar a{display:block;color:#eaf0f7;text-decoration:none;padding:12px;border-radius:8px}.sidebar a.current{background:#29445f}.main{min-width:0;padding:32px;width:100%;max-width:none}.panel{background:#fff;border:1px solid #dce4ed;border-radius:12px;padding:24px}.muted{color:#617185}.test{background:#fff0b3;padding:10px;font-weight:700}.sidebar strong{display:block;margin-bottom:24px}.sidebar a:focus-visible{outline:3px solid #e9a72c}@media(max-width:760px){.shell{display:block}.sidebar{padding:14px}.main{padding:18px}}'
   . \Brebo\Office\Ui\OfficeModuleTabs::css()
   . '</style></head><body><div class="shell"><aside class="sidebar"><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="/office-test">Mijn werkplek</a><a class="current" aria-current="page" href="/office-test/crm/bedrijven">Relaties &amp; CRM</a></nav></aside><main class="main"><div class="test">TESTOMGEVING</div><h1>Relaties &amp; CRM</h1>'
   . \Brebo\Office\Ui\OfficeModuleTabs::render($tabs, $path)
