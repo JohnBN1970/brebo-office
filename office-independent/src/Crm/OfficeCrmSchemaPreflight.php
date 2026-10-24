@@ -34,7 +34,7 @@ final class OfficeCrmSchemaPreflight {
         continue;
       }
       $id = $columns[$idColumn];
-      if (strtolower((string)$id['COLUMN_TYPE']) !== 'bigint unsigned') {
+      if (!preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/iD', (string)$id['COLUMN_TYPE'])) {
         $issues[] = $table . ': id-type wijkt af van BIGINT UNSIGNED';
       }
       if ((string)$id['IS_NULLABLE'] !== 'NO' || (string)$id['COLUMN_KEY'] !== 'PRI') {
