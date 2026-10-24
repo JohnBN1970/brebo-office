@@ -31,11 +31,18 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     func monitor(_ zones: [CrewProjectZone]) {
         let desired = Dictionary(zones.prefix(20).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // Do not synthesize departures when Office changes a zone's assignment.
+        // A changed geometry needs a fresh native state determination.
+        let changedIds = Set(desired.compactMap { id, zone -> String? in
+            guard let previous = zonesByIdentifier[id] else { return nil }
+            return previous != zone ? id : nil
+        })
+        activeZoneIds.subtract(changedIds)
         zonesByIdentifier = desired
         let desiredIds = Set(desired.keys)
         activeZoneIds.formIntersection(desiredIds)
         defaults.set(activeZoneIds.sorted(), forKey: "brebo.onsite.active-zones.v1")
-        states = states.filter { desiredIds.contains($0.key) }
+        states = states.filter { desiredIds.contains($0.key) && !changedIds.contains($0.key) }
         guard authorizationStatus == .authorizedAlways,
               CLLocationManager.isMonitoringAvailable(for: CLCircularRegion.self) else { return }
 
@@ -96,6 +103,7 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
     }
 
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
+        guard zonesByIdentifier[region.identifier] != nil else { return }
         switch state {
         case .inside:
             states[region.identifier] = .present
@@ -111,12 +119,14 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
     }
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+        guard zonesByIdentifier[region.identifier] != nil else { return }
         states[region.identifier] = .present
         recordArrival(for: region.identifier)
         onWake?()
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
+        guard zonesByIdentifier[region.identifier] != nil else { return }
         states[region.identifier] = .outside
         recordDeparture(for: region.identifier)
         onWake?()
