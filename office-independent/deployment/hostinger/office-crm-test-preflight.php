@@ -39,8 +39,13 @@ foreach (['OFFICE_INTAKE_PDO_DSN', 'OFFICE_INTAKE_DB_USER'] as $name) {
     exit(2);
   }
 }
-require_once dirname(__DIR__, 2) . '/src/Crm/OfficeCrmSchemaPreflight.php';
-require_once dirname(__DIR__, 2) . '/src/Crm/OfficeCrmSchemaInventory.php';
+$privateRoot = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';
+if (getenv('OFFICE_PRIVATE_ROOT') !== $privateRoot || !is_dir($privateRoot . '/src/Crm')) {
+  fwrite(STDERR, "Office-test release ontbreekt of wijkt af\n");
+  exit(2);
+}
+require_once $privateRoot . '/src/Crm/OfficeCrmSchemaPreflight.php';
+require_once $privateRoot . '/src/Crm/OfficeCrmSchemaInventory.php';
 
 try {
   $db = new PDO(
