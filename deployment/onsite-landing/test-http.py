@@ -11,6 +11,7 @@ for f in ['index.php','style.css','gate.js','app.js','icon.svg']:shutil.copyfile
 for f in ['invitation.php','page.php']:shutil.copyfile(source/f,runtime/f)
 (public/'.release').write_text('fixture')
 (runtime/'OnSite-Android-test.apk').write_bytes(b'APK-FIXTURE-ONLY')
+(runtime/'.purge-cache').write_text('fixture invalidation')
 (test/'office_calc_test/config/config.php').write_text("""<?php return [
 'OFFICE_BASE_PATH'=>'/office-test','OFFICE_PUBLIC_HOST'=>'brebobv.nl',
 'OFFICE_ONSITE_ACTIVATION_ENABLED'=>'enabled','OFFICE_ONSITE_SCHEMA_VERIFIED'=>'enabled',
@@ -53,6 +54,8 @@ try:
     status,h,b=request()
     check(status==403 and b'Fixture' not in b and b'Download voor Android' not in b,'uninvited page reveals no employee or installation')
     check('no-store' in h['Cache-Control'],'responses cannot be cached')
+    check(h.get('X-LiteSpeed-Purge')=='*' and h.get('X-LiteSpeed-Purge2')=='public,*','deployment invalidates retired public copies')
+    check(request()[1].get('X-LiteSpeed-Purge') is None,'cache invalidation happens only once per deployment')
     check(request('?action=download')[0]==403,'direct download denied without invitation')
     check(request('?action=unlock',{'activation_token':'a'*43},origin='https://untrusted.example')[0]==403,'foreign origin rejected')
     check(request('?action=unlock',{'activation_token':'unknown'*7})[0]==403,'unknown token rejected')
