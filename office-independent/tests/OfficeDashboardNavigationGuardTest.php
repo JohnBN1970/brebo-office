@@ -28,6 +28,7 @@ $required = [
   "FILTER_VALIDATE_INT",
   "min_range",
   "Project #",
+  "INNER JOIN office_projects p ON p.id=m.project_id",
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
   "Mijn projecten",
