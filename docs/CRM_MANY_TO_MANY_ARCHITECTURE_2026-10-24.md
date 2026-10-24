@@ -42,3 +42,24 @@ CRM beheert **bedrijven**, **contactpersonen** en **prospects/kansen**. Een CRM-
 
 ## Vrijgave
 Deze ADR is alleen een ontwerpdocument. Geen flags wijzigen, geen merge of deploy zonder expliciete toestemming.
+
+## Repository-inventarisatie (2026-10-24, code bevestigd)
+
+| Onderdeel | Bestaande implementatie | Consequentie |
+| --- | --- | --- |
+| Bedrijven | Drupal `brebo_organization`, inclusief organisatievelden en CRM-overzicht in `brebo_office_core/src/Controller/CrmController.php` | Bestaand concept en velden inventariseren; niet opnieuw bedenken. Dit is **niet** automatisch een Office-native tabel. |
+| Contactpersonen | Drupal `brebo_contact` | Eigen identiteit, niet alleen een subrecord van bedrijf. |
+| Contactpersoon-bedrijf N:M | Drupal `brebo_contact_affiliation`, velden `field_brebo_aff_contact_ref`, `field_brebo_aff_org_ref`, rol, afdeling, status, primair, geldig-van/tot | Relatielogica is al uitgewerkt in legacy; Office-native hergebruik/migratie vereist afzonderlijke beslissing. |
+| Gebouwen | Office-native `office_buildings` in `OfficeBuildingSchema.php` | Niet opnieuw als CRM-gebouw opslaan. |
+| Project-gebouw N:M | Office-native `office_project_buildings` in `OfficeBuildingSchema.php` | Bestaande koppeltabel hergebruiken. |
+| Projecttoegang | Office-native `office_project_memberships` en `OfficeNativeProjectAccess` | Operatorautorisatie niet verwarren met commerciële contactpersoon-projectrelaties. |
+| Aanvragen | `office-independent/public/crm-new-requests.php` accepteert GET en rendert alleen leesoverzicht | Bestaande CRM-menulink is nog **geen** bedrijven-/contactpersonenformulier. |
+
+### Openstaande verificatie vóór implementatie
+- Welke legacy Drupal-organisaties/contacten daadwerkelijk in de actieve Office-test-database aanwezig zijn, is **niet vastgesteld**. Geen automatische database-overname aannemen.
+- Canonieke sleutels, migratie-/mappingstrategie, duplicaatdetectie en AVG-retentie eerst specificeren.
+- Finance, calculatie, offerte en kans-entiteiten en hun actuele Office-native schema's afzonderlijk onderzoeken vóór nieuwe koppeltabellen.
+- Geen bestaande ACL omzeilen om de relatiekaart te vullen.
+
+### Directe vervolgstap
+Een read-only schema- en datamappingaudit op de actieve Office-test-omgeving; daarna een afzonderlijke, geteste migratie-PR voor ontbrekende Office-native CRM-entiteiten en N:M-koppelingen. Niet activeren op basis van de legacy Drupal-structuur alleen.
