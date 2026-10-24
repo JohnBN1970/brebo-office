@@ -11,7 +11,7 @@ failed=0
 check() {
   path="$1"
   expected="$2"
-  status=$(curl --silent --show-error --location-trusted=false --max-time 15 --output /dev/null --write-out '%{http_code}' "$BASE$path") || {
+  status=$(curl --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' "$BASE$path") || {
     echo "HTTP_FOUT: $path"
     failed=1
     return
