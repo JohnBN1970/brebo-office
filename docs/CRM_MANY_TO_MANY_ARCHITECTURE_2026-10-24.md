@@ -72,3 +72,12 @@ De bestaande CRM-invulling is uitsluitend voor testen gebruikt. Voor de nieuwe O
 - Bestaande testdata **niet automatisch wissen**; bestaande project-, gebouw- en andere modulegegevens behouden.
 - Hergebruik de bestaande schema-/relatiekennis, niet noodzakelijk de oude Drupal-inhoud.
 - Nieuwe tabellen en migraties blijven additief en veilig; pas na expliciete vrijgave uitvoeren.
+
+## Navigatiebesluit: vaste verticale hoofdnavigatie + horizontale moduletabs (2026-10-24)
+- Behoud de bestaande Office 2.0 verticale zijbalk voor hoofdmodules (dashboard, CRM, projecten, gebouwen, calculatie, financiën, inzet, enz.).
+- Toon **binnen elke geselecteerde module** een horizontale tabnavigatie; bij CRM: Bedrijven, Contactpersonen, Kansen, Prospects en Aanvragen (preciese kans/prospectindeling bij implementatie afstemmen op datamodel).
+- Binnen een geopend record kunnen contexttabs worden gebruikt (overzicht, contacten, gebouwen, projecten, calculaties, offertes, financiën, documenten, historie) zonder de hoofdsidebar te vervangen.
+- De zijbalk blijft zichtbaar bij tabwisselingen; actieve module en actieve tab zijn duidelijk gemarkeerd. Gebruik stabiele routes/deeplinks, zodat vernieuwen en terugnavigeren de context behouden.
+- Tabs en gegevens zijn afhankelijk van rollen/rechten; geen toegang enkel door een tab of URL te kennen.
+- Lege overzichten blijven zichtbaar; een nieuwe-recordactie is alleen actief met schrijfrechten.
+- Bouw deze navigatie als herbruikbaar Office 2.0-patroon, niet als afzonderlijke CRM-specifieke oplossing. Responsief: horizontale tabs scrollbaar op smalle schermen; sidebar compact waar nodig.
