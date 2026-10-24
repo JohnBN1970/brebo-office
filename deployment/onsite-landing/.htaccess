@@ -1,0 +1,7 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+RewriteEngine On
+RewriteRule ^OnSite-Android-test\.apk$ index.php?action=download [END]
+<FilesMatch "^(?!index\.php$|style\.css$|app\.js$|gate\.js$|icon\.svg$).*">
+  Require all denied
+</FilesMatch>
