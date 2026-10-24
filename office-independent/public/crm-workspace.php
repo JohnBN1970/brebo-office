@@ -171,6 +171,32 @@ if ($showForm) {
   }
 }
 
+$listHtml = '';
+if ($isFormPage && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
+  try {
+    require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
+    require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
+    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
+    $reader = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+    $isCompany = $path === '/office-test/crm/bedrijven';
+    $rows = $isCompany ? $reader->listCompanies() : $reader->listContacts();
+    $e = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $listHtml = '<h3>Overzicht</h3>';
+    if ($rows === []) {
+      $listHtml .= '<p class="muted">Nog geen registraties.</p>';
+    } else {
+      $listHtml .= '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th scope="col">Naam</th><th scope="col">E-mail</th><th scope="col">'
+        . ($isCompany ? 'Contactpersonen' : 'Verbonden bedrijven') . '</th></tr></thead><tbody>';
+      foreach ($rows as $row) {
+        $listHtml .= '<tr><td>' . $e($row['name']) . '</td><td>' . $e($row['email']) . '</td><td>'
+          . ($isCompany ? (string)$row['contacts'] : $e($row['companies'])) . '</td></tr>';
+      }
+      $listHtml .= '</tbody></table></div><p class="muted">Maximaal 200 registraties zichtbaar.</p>';
+    }
+  } catch (Throwable) {
+    $listHtml = '<p class="muted">CRM-overzicht nog niet beschikbaar: databasecontrole vereist.</p>';
+  }
+}
 require_once dirname(__DIR__) . '/src/Ui/OfficeModuleTabs.php';
 $tabs = [];
 foreach ($labels as $url => $label) {
@@ -188,5 +214,6 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . \Brebo\Office\Ui\OfficeModuleTabs::render($tabs, $path)
   . '<section class="panel"><h2>' . $escape($title) . '</h2>'
   . (($_GET['created'] ?? '') === '1' ? '<p role="status">Registratie opgeslagen.</p>' : '')
+  . $listHtml
   . ($formHtml !== '' ? $formHtml : '<p class="muted">De CRM-invoer is nog niet vrijgegeven. Bestaande gegevens worden niet gewijzigd.</p>')
   . '</section></main></div></body></html>';
