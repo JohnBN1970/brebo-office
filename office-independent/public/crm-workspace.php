@@ -205,7 +205,7 @@ if ($path === '/office-test/crm/kansen') {
   if (getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
     try {
       require_once dirname(__DIR__) . '/src/Crm/OfficeCrmOpportunityReader.php';
-      $opportunities = (new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityReader($db))->list();
+      $opportunities = (new \Brebo\Office\Crm\OfficeCrmOpportunityReader($db))->list();
       if ($view === 'list') {
         $opportunityHtml .= '<div style="overflow-x:auto"><table style="width:100%;text-align:left"><thead><tr><th>Kans</th><th>Status</th><th>Relatie</th><th>Herkomst</th><th>Waarde</th></tr></thead><tbody>';
         foreach ($opportunities as $item) {
