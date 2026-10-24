@@ -27,17 +27,32 @@ public final class MainActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         if(state!=null)pendingToken=state.getString("pending_token");
-        readLink(getIntent()); render();
+        boolean start=readLink(getIntent()); render();
+        if(start)activatePersonalLink();
     }
     public void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out);out.putString("pending_token",pendingToken); }
-    protected void onNewIntent(Intent i) { super.onNewIntent(i);setIntent(i);readLink(i);render(); }
-    private void readLink(Intent i) {
+    protected void onNewIntent(Intent i) { super.onNewIntent(i);setIntent(i);boolean start=readLink(i);render();if(start)activatePersonalLink(); }
+    private boolean readLink(Intent i) {
+        boolean start=false;
         Uri u=i.getData();
         if(u!=null && "brebo-onsite".equals(u.getScheme()) && "activate".equals(u.getHost())) {
             String token=u.getQueryParameter("token");
-            if(token!=null && token.matches("[A-Za-z0-9_-]{20,256}"))pendingToken=token;
+            if(token!=null && token.matches("[A-Za-z0-9_-]{32,128}")) {
+                pendingToken=token;
+                start="1".equals(u.getQueryParameter("start"));
+            }
         }
         i.setData(null);
+        return start;
+    }
+    private void activatePersonalLink() {
+        if(busy)return;
+        if(linked()) {
+            pendingToken=null;
+            message("Dit toestel is al gekoppeld. Ontkoppel het eerst als je een andere medewerker wilt activeren.");
+            return;
+        }
+        if(pendingToken!=null)activate(pendingToken);
     }
     protected void onResume() {
         super.onResume();
@@ -91,7 +106,7 @@ public final class MainActivity extends Activity {
                     if(!"activate".equals(u.getHost())) { message("Ongeldige activatielink.");return; }
                     token=u.getQueryParameter("token");
                 }
-                if(token==null || !token.matches("[A-Za-z0-9_-]{20,256}")) {message("Vul de activatiecode uit je persoonlijke link in.");return;}
+                if(token==null || !token.matches("[A-Za-z0-9_-]{32,128}")) {message("Vul de activatiecode uit je persoonlijke link in.");return;}
                 activate(token);
             });
         } else {
@@ -134,6 +149,7 @@ public final class MainActivity extends Activity {
         updateStatus();
     }
     private void activate(String token) {
+        if(busy || linked())return;
         try(LocalStore store=new LocalStore(this)) {
             if(store.count()>0) {
                 new AlertDialog.Builder(this).setTitle("Meldingen van de vorige koppeling")
@@ -153,11 +169,14 @@ public final class MainActivity extends Activity {
             String error=null;
             try {
                 synchronized(SyncWorker.LOCK) {
+                    // A recreated Activity can finish activation while this one is waiting.
+                    if(new Vault(this).token()==null) {
                     JSONObject result=new Api().call("activate",null,new JSONObject().put("activation_token",token));
                     Zones.prefs(this).edit().clear().commit();
                     new Vault(this).save(result.getString("device_token"));
                     pendingToken=null;
                     SyncWorker.schedule(this);
+                    }
                 }
             }catch(Exception e){error=e instanceof Api.Failure?"Activatie niet gelukt. Controleer of je persoonlijke link nog geldig is.":"Geen verbinding met Office. Probeer opnieuw.";}
             String message=error;

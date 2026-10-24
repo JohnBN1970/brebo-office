@@ -82,6 +82,27 @@ public class OnSiteDeviceTest {
         }
         return null;
     }
+    @Test public void explicitPersonalLinkStartsActivationWithoutTypingCode() throws Exception {
+        String token="emulator-only-auto-activation-token";
+        Intent link=new Intent(context,MainActivity.class).setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("brebo-onsite://activate?token="+token+"&start=1"));
+        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(link)) {
+            // The deliberately unreachable emulator API proves the activation was attempted.
+            assertTrue(device.wait(Until.hasObject(By.text("Geen verbinding met Office. Probeer opnieuw.")),10000));
+            assertNull(new Vault(context).token());
+            device.findObject(By.text("OK")).click();
+        }
+    }
+    @Test public void personalLinkCannotSilentlyReplaceLinkedEmployee() throws Exception {
+        new Vault(context).save("existing-emulator-device-token");
+        Intent link=new Intent(context,MainActivity.class).setAction(Intent.ACTION_VIEW)
+            .setData(Uri.parse("brebo-onsite://activate?token=emulator-only-auto-activation-token&start=1"));
+        try(ActivityScenario<MainActivity> activity=ActivityScenario.launch(link)) {
+            assertTrue(device.wait(Until.hasObject(By.text("Dit toestel is al gekoppeld. Ontkoppel het eerst als je een andere medewerker wilt activeren.")),5000));
+            assertEquals("existing-emulator-device-token",new Vault(context).token());
+            device.findObject(By.text("OK")).click();
+        }
+    }
     @Test public void deviceTokenRoundTripsThroughAndroidKeystore() throws Exception {
         String token="emulator-only-device-token";
         new Vault(context).save(token);

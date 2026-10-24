@@ -22,7 +22,7 @@ jobs:
       - name: Build, contract tests and Android lint
         working-directory: android
         run: |
-          if ! bash gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --console=plain; then
+          if ! bash gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug -PonsiteApiBaseUrl=https://brebobv.nl/office-test --console=plain; then
             cat app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt 2>/dev/null || true
             exit 1
           fi
