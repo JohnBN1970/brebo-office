@@ -5,13 +5,22 @@ declare(strict_types=1);
 $source = file_get_contents(__DIR__ . '/../public/office-home.php');
 if ($source === false) { fwrite(STDERR, "Office home missing\n"); exit(1); }
 $required = [
-  "Dashboard · Mijn werkplek",
   "Relaties & CRM",
   "Projecten",
   "Calculatie & offertes",
   "Financiën",
   "Organisatie",
   "Communicatie",
+  "Dashboard · Mijn werkplek",
+  "Inzet",
+  "Gebouwen",
+  "Documenten",
+  "Inkoop",
+  "Overleg",
+  "Mail",
+  "canEditCrm controls edit actions",
+  "OFFICE_RECENT_WORK_ACL_VERIFIED",
+  "OFFICE_TEST_INZET_IMPORT_REVIEWER_ID",
   "['Mail', null, false]",
   "OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED",
   "OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED",
@@ -28,4 +37,10 @@ foreach ($required as $item) {
 if (!str_contains($source, 'if ($active && is_string($url))')) {
   fwrite(STDERR, "Disabled module guard missing\n"); exit(1);
 }
-echo "Office navigation static guards OK\n";
+if (!str_contains($source, "htmlspecialchars($url, ENT_QUOTES, 'UTF-8')")) {
+  fwrite(STDERR, "Module link escaping missing\\n"); exit(1);
+}
+if (!str_contains($source, 'if ($operator === null)')) {
+  fwrite(STDERR, "Session guard missing\\n"); exit(1);
+}
+echo "Office navigation static guards OK\\n";
