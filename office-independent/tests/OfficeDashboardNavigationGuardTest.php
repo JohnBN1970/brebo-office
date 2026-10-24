@@ -24,6 +24,8 @@ $required = [
   "COUNT(DISTINCT p.id)",
   "myProjectCount",
   "Mijn projecten",
+  "availableCount",
+  "module-status",
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
