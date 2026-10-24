@@ -5,6 +5,7 @@ on:
       - 'office-independent/src/Crm/**'
       - 'office-independent/src/Ui/OfficeModuleTabs.php'
       - 'office-independent/public/crm-workspace.php'
+      - 'office-independent/deployment/hostinger/office-crm-test-preflight.php'
       - 'office-independent/tests/OfficeCrm*Test.php'
       - '.github/workflows/office-crm-pr-check.yml'
   push:
@@ -33,6 +34,7 @@ jobs:
         run: |
           set -eu
           php -l office-independent/public/crm-workspace.php
+          php -l office-independent/deployment/hostinger/office-crm-test-preflight.php
           php -l office-independent/src/Ui/OfficeModuleTabs.php
           find office-independent/src/Crm -maxdepth 1 -name 'OfficeCrm*.php' -exec php -l {} \;
           find office-independent/tests -maxdepth 1 -name 'OfficeCrm*Test.php' -exec php -l {} \;
