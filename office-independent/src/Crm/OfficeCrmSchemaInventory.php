@@ -45,6 +45,8 @@ final class OfficeCrmSchemaInventory {
     if ($missing !== []) {
       $issues[] = 'CRM-tabellen ontbreken: ' . count($missing);
     }
+    // Inventory is intentionally advisory: it never authorizes writes or migration.
+    $issues[] = 'CRM-schema vereist expliciete verificatie voor vrijgave';
     return [
       'ready' => $issues === [],
       'issues' => $issues,
