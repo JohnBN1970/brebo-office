@@ -90,6 +90,7 @@ if ($method === 'POST') {
     \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
     $writer = new \Brebo\Office\Crm\OfficeCrmRepository($db);
     if ($action === 'create-opportunity') {
+      \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireOpportunityReady($db);
       $title = $_POST['title'] ?? null;
       $value = $_POST['estimated_value'] ?? null;
       if (!is_string($title) || !is_string($value)) throw new InvalidArgumentException('Invalid opportunity input');
