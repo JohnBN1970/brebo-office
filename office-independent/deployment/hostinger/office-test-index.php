@@ -27,7 +27,13 @@ foreach ($config as $key => $value) {
   }
   putenv($key . '=' . $value);
 }
-$root = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';
+// Use the private release selected by the isolated test configuration.
+// Never infer a release from the public request path.
+$root = getenv('OFFICE_PRIVATE_ROOT');
+if (!is_string($root) || !preg_match('~^/home/u213420663/domains/brebobv\\.nl/office_calc_test/release-[a-zA-Z0-9-]+/private$~D', $root)) {
+  http_response_code(503);
+  exit('Ongeldige testrelease.');
+}
 $private = realpath($root);
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 $host = $_SERVER['HTTP_HOST'] ?? '';
