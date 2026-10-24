@@ -71,6 +71,38 @@ $routes = [
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
   '/office-test/inzet/zone/bewerken' => 'office-onsite-zone-update.php',
 ];
+// Trusted module route manifests are discovered from the deployed private release.
+// Legacy routes remain authoritative; module routes cannot override them.
+$moduleRoot = $private . '/modules';
+if (is_dir($moduleRoot)) {
+  $manifests = glob($moduleRoot . '/*/routes.php') ?: [];
+  sort($manifests, SORT_STRING);
+  foreach ($manifests as $manifest) {
+    $moduleDir = realpath(dirname($manifest));
+    $moduleBase = realpath($moduleRoot);
+    if ($moduleDir === false || $moduleBase === false
+      || dirname($moduleDir) !== $moduleBase || !is_file($manifest)) {
+      http_response_code(503); exit('Ongeldige moduleconfiguratie.');
+    }
+    $moduleRoutes = require $manifest;
+    if (!is_array($moduleRoutes)) {
+      http_response_code(503); exit('Ongeldige moduleroutes.');
+    }
+    foreach ($moduleRoutes as $route => $controller) {
+      if (!is_string($route) || !preg_match('~^/office-test/[a-z0-9/_-]+$~D', $route)
+        || !is_string($controller)
+        || !preg_match('/^[a-z][a-z0-9-]*\\.php$/D', $controller)
+        || isset($routes[$route])) {
+        http_response_code(503); exit('Ongeldige of dubbele moduleroute.');
+      }
+      $target = realpath($private . '/public/' . $controller);
+      if ($target === false || dirname($target) !== realpath($private . '/public')) {
+        http_response_code(503); exit('Modulecontroller ontbreekt.');
+      }
+      $routes[$route] = $controller;
+    }
+  }
+}
 if ($path === '/office-test/inzet/apparaten') {
   require $private . '/public/onsite-devices.php';
   exit;
