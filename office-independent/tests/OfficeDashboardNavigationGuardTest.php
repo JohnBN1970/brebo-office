@@ -27,6 +27,7 @@ $required = [
   "/projecten/detail?id=",
   "FILTER_VALIDATE_INT",
   "min_range",
+  "Project #",
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
   "Mijn projecten",
