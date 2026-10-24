@@ -50,6 +50,7 @@ $required = [
   "OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED",
   "OFFICE_TEST_CRM_ENABLED",
   "currentOperator()",
+  "PDO::ATTR_EMULATE_PREPARES => false",
   'htmlspecialchars($label',
 ];
 foreach ($required as $item) {
