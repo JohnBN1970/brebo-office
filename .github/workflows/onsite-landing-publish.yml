@@ -34,12 +34,13 @@ jobs:
           for file in deployment/onsite-landing/*.php; do php -l "$file"; done
           node --check deployment/onsite-landing/gate.js
           node --check deployment/onsite-landing/app.js
+          node deployment/onsite-landing/test-gate.cjs
           php deployment/onsite-landing/test-invitation.php
           python3 deployment/onsite-landing/test-http.py
   publish:
     needs: verify
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -52,12 +53,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(gh api repos/JohnBN1970/brebo-office/actions/runs/40071927634 --jq '.conclusion')" = success
-          test "$(gh api repos/JohnBN1970/brebo-office/actions/runs/40071927634 --jq '.head_sha')" = 929bdcdbe3efab4f0d1b40d546af7b9e842556a5
+          test "$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.head_sha')" = 02514c8be67361c936bb323f4a5d800794a3744a
+          conclusion=''
+          for attempt in {1..30}; do
+            state="$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.status')"
+            if [[ "$state" = completed ]]; then
+              conclusion="$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.conclusion')"
+              break
+            fi
+            sleep 20
+          done
+          test "$conclusion" = success
       - uses: actions/download-artifact@v4
         with:
           name: OnSite-Android-test
-          run-id: 40071927634
+          run-id: 40072431383
           github-token: ${{ github.token }}
           path: android-artifact
       - name: Prepare public controller and private runtime

@@ -10,7 +10,7 @@
 </head>
 <body>
 <a class="skip" href="#installeren">Naar de installatie</a>
-<header class="wrap header"><a class="brand" href="./" aria-label="BREBO OnSite start"><span class="brand-mark">B</span><span>BREBO<small>BOUW &amp; ADVIES</small></span></a><nav aria-label="Hoofdnavigatie"><a href="#zo-werkt-het">Zo werkt het</a><a href="#vragen">Vragen</a><span class="test-label"><i></i> Testversie</span></nav></header>
+<header class="wrap header"><a class="brand" href="#installeren" aria-label="BREBO OnSite start"><span class="brand-mark">B</span><span>BREBO<small>BOUW &amp; ADVIES</small></span></a><nav aria-label="Hoofdnavigatie"><a href="#zo-werkt-het">Zo werkt het</a><a href="#vragen">Vragen</a><span class="test-label"><i></i> Testversie</span></nav></header>
 <main>
 <section class="wrap hero">
 <div class="hero-copy"><p class="eyebrow"><span></span> BREBO ONSITE</p><h1>Jouw werkplek.<br>Jouw telefoon.<br><em>OnSite.</em></h1><p class="intro">Je projecten en projectzones uit BREBO Office, binnen handbereik. Installeer OnSite op je telefoon en koppel je toestel met je persoonlijke uitnodiging.</p><a class="text-link" href="#installeren">Kies jouw telefoon <span aria-hidden="true">↓</span></a></div>
