@@ -78,6 +78,11 @@ if (isset($argv[2])) {
       $failed = true;
     }
   }
+  foreach ($candidateRoutes as $route => $controller) {
+    if (!isset($activeRoutes[$route])) {
+      echo 'NIEUWE ROUTE: ' . $route . ' (' . $controller . ')' . PHP_EOL;
+    }
+  }
   echo 'ROUTEVERGELIJKING: ' . ($failed ? 'ROOD' : 'GROEN') . PHP_EOL;
   echo 'ACTIEVE ROUTES: ' . count($activeRoutes) . PHP_EOL;
   echo 'KANDIDAAT ROUTES: ' . count($candidateRoutes) . PHP_EOL;
