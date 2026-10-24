@@ -55,8 +55,9 @@ struct OnSiteWorkspaceView: View {
                     Text(locationGuidance).font(.callout).foregroundStyle(.secondary)
                     Button(locationActionTitle, action: locationAction)
                 } else if activeProjects.isEmpty {
-                    let knownOutside = projects.flatMap(\.zones).contains { states[$0.id] == .outside }
-                    Label(projects.isEmpty ? "Geen project toegewezen" : (knownOutside ? "Buiten de projectzones" : "Locatie wordt gecontroleerd"),
+                    let zones = projects.flatMap(\.zones)
+                    let knownOutside = !zones.isEmpty && zones.allSatisfy { states[$0.id] == .outside }
+                    Label(projects.isEmpty ? "Geen project toegewezen" : (zones.isEmpty ? "Nog geen projectzone ingesteld" : (knownOutside ? "Buiten de projectzones" : "Locatie wordt gecontroleerd")),
                           systemImage: knownOutside ? "mappin.slash" : "location")
                     Text("Binnenkomst en vertrek worden automatisch herkend bij je toegewezen projecten.")
                         .font(.callout).foregroundStyle(.secondary)
