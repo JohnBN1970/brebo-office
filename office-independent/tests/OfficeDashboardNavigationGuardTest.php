@@ -32,6 +32,7 @@ $required = [
   "FILTER_VALIDATE_INT",
   "min_range",
   "Project #",
+  "is_scalar",
   "INNER JOIN office_project_memberships m ON m.project_id=p.id",
   '$projectsEnabled = $myProjectCount > 0;',
   "Mijn recente projecten",
