@@ -52,6 +52,26 @@ final class OfficeCrmRepository {
     return (int)$this->db->lastInsertId();
   }
 
+  /** @return list<array{id:int,name:string}> */
+  public function companiesForSelection(): array {
+    $rows = $this->db->query(
+      "SELECT id, name FROM office_crm_companies WHERE status = 'active' ORDER BY name, id LIMIT 200"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(static fn(array $row): array => [
+      'id' => (int)$row['id'], 'name' => (string)$row['name'],
+    ], $rows);
+  }
+
+  /** @return list<array{id:int,name:string}> */
+  public function contactsForSelection(): array {
+    $rows = $this->db->query(
+      "SELECT id, first_name, last_name FROM office_crm_contacts WHERE status = 'active' ORDER BY last_name, first_name, id LIMIT 200"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(static fn(array $row): array => [
+      'id' => (int)$row['id'], 'name' => trim((string)$row['first_name'] . ' ' . (string)$row['last_name']),
+    ], $rows);
+  }
+
   private static function optionalEmail(?string $email): ?string {
     $email = $email === null ? null : trim($email);
     if ($email === '') return null;
