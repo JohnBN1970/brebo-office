@@ -235,11 +235,22 @@ if ($path === '/office-test/crm/kansen') {
         }
         $opportunityHtml .= '</tbody></table></div>';
       } else {
-        $groups = [];
-        foreach ($opportunities as $item) $groups[$item['stage']][] = $item;
-        $opportunityHtml .= '<div style="display:flex;gap:12px;overflow-x:auto;padding:12px 0">';
+        // Always show the six workflow columns, even when no opportunities exist.
+        $groups = array_fill_keys(array_keys($stageRules), []);
+        foreach ($opportunities as $item) {
+          $mapped = $stageMap::workflowStage($item['stage']);
+          $key = $mapped !== null && isset($groups[$mapped]) ? $mapped : '_other';
+          $groups[$key][] = $item;
+        }
+        $opportunityHtml .= '<div style="display:flex;gap:12px;overflow-x:auto;padding:12px 0" aria-label="Kanban workflow">';
         foreach ($groups as $stage => $items) {
-          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($stageMap::label($stage)) . ' (' . count($items) . ')</h3>';
+          if ($stage === '_other') {
+            $label = 'Overige statussen';
+          } else {
+            $label = $stageRules[$stage]['label'];
+          }
+          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($label) . ' (' . count($items) . ')</h3>';
+          if ($items === []) $opportunityHtml .= '<p class="muted">Geen kansen in deze fase.</p>';
           foreach ($items as $item) {
             $opportunityHtml .= '<article style="background:white;border:1px solid #dce4ed;border-radius:8px;padding:12px;margin-bottom:8px"><strong>' . $eOpportunity($item['title']) . '</strong><p>' . $eOpportunity($item['companies']) . '</p><small>Volgende stap: ' . $eOpportunity($nextLabels($item)) . '</small></article>';
           }
