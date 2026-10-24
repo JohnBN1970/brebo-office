@@ -141,6 +141,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  findAddress.addEventListener("click",async()=>{
   const query=addressSearch.value.trim();
   if(query.length<5){addressResult.textContent="Vul straat, huisnummer en plaats of postcode in.";return;}
+  if(/\b(?:belgi[eë]|belgium|kalmthout)\b/i.test(query)||/\b[1-9][0-9]{3}\s+[a-zà-ÿ][a-zà-ÿ -]+\s*(?:belgi[eë])?\b/i.test(query)){addressResult.textContent="Belgisch adres: PDOK ondersteunt alleen Nederland. De locatie is niet gewijzigd; sla deze zone niet op.";return;}
   if(activeZone()&&!editing){addressResult.textContent="Schakel eerst Wijzigen in om een bestaande zone te verplaatsen.";return;}
   findAddress.disabled=true;addressResult.textContent="Adres zoeken...";
   try{
@@ -149,7 +150,10 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
    if(!response.ok)throw new Error("PDOK niet beschikbaar");
    const data=await response.json();const docs=data?.response?.docs;
    if(!Array.isArray(docs)||docs.length===0){addressResult.textContent="Geen adres gevonden. Controleer de invoer.";return;}
-   const match=docs.find(d=>d.type==="adres")||docs[0];
+   const postcode=(query.match(/\b[1-9][0-9]{3}\s?[A-Za-z]{2}\b/)||[])[0];
+   const requestedNumber=(query.match(/\b([0-9]{1,5})\b/)||[])[1];
+   const match=docs.find(d=>d.type==="adres"&&(!postcode||String(d.postcode||"").replace(/\s/g,"").toUpperCase()===postcode.replace(/\s/g,"").toUpperCase())&&(!requestedNumber||String(d.huisnummer||"")===requestedNumber));
+   if(!match){addressResult.textContent="Geen exact bevestigd adres gevonden. De zone is niet verplaatst. Controleer postcode en huisnummer.";return;}
    const point=/^POINT\\((-?[0-9.]+) (-?[0-9.]+)\\)$/.exec(String(match.centroide_ll||""));
    if(!point)throw new Error("Geen geldige coördinaten");
    const lng=Number(point[1]),lat=Number(point[2]);
