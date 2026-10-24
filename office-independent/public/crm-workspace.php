@@ -61,8 +61,12 @@ try {
 }
 
 // Writes are deliberately disabled by default, including when the UI is deployed.
-$writeEnabled = getenv('OFFICE_TEST_CRM_WRITE_ENABLED') === 'enabled'
-  && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled';
+$schemaVerified = getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled';
+$writeEnabled = $schemaVerified && (
+  $path === '/office-test/crm/kansen'
+    ? getenv('OFFICE_TEST_CRM_OPPORTUNITY_WRITE_ENABLED') === 'enabled'
+    : getenv('OFFICE_TEST_CRM_WRITE_ENABLED') === 'enabled'
+);
 $isFormPage = in_array($path, ['/office-test/crm/bedrijven', '/office-test/crm/contactpersonen', '/office-test/crm/kansen'], true);
 if ($method === 'POST' && (!$writeEnabled || !$isFormPage)) {
   http_response_code(503); exit('CRM-invoer is nog niet vrijgegeven.');
@@ -129,7 +133,7 @@ if ($method === 'POST') {
     http_response_code(503); exit('CRM-invoer tijdelijk niet beschikbaar.');
   }
 }
-$showForm = $writeEnabled && $isFormPage && $operator->canEditCrm;
+$showForm = $writeEnabled && $isFormPage && $path !== '/office-test/crm/kansen' && $operator->canEditCrm;
 $formHtml = '';
 if ($showForm) {
   $secret = getenv('OFFICE_TEST_CRM_CSRF_SECRET');
