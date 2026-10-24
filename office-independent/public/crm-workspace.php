@@ -206,10 +206,18 @@ if ($path === '/office-test/crm/kansen') {
     try {
       require_once dirname(__DIR__) . '/src/Crm/OfficeCrmOpportunityReader.php';
       $opportunities = (new \Brebo\Office\Crm\OfficeCrmOpportunityReader($db))->list();
+      require_once dirname(__DIR__) . '/src/Workflow/OfficeOpportunityWorkflow.php';
+      require_once dirname(__DIR__) . '/src/Workflow/OfficeOpportunityStageMap.php';
+      $stageMap = \Brebo\Office\Workflow\OfficeOpportunityStageMap::class;
+      $stageRules = \Brebo\Office\Workflow\OfficeOpportunityWorkflow::stages();
+      $nextLabels = static function (string $stage) use ($stageMap, $stageRules): string {
+        $next = $stageMap::nextStages($stage);
+        return $next === [] ? 'Geen voorgestelde overgang' : implode(', ', array_map(static fn(string $key): string => $stageRules[$key]['label'], $next));
+      };
       if ($view === 'list') {
-        $opportunityHtml .= '<div style="overflow-x:auto"><table style="width:100%;text-align:left"><thead><tr><th>Kans</th><th>Status</th><th>Relatie</th><th>Herkomst</th><th>Waarde</th></tr></thead><tbody>';
+        $opportunityHtml .= '<div style="overflow-x:auto"><table style="width:100%;text-align:left"><thead><tr><th>Kans</th><th>Status</th><th>Relatie</th><th>Herkomst</th><th>Waarde</th><th>Volgende stap</th></tr></thead><tbody>';
         foreach ($opportunities as $item) {
-          $opportunityHtml .= '<tr><td>' . $eOpportunity($item['title']) . '</td><td>' . $eOpportunity($item['stage']) . '</td><td>' . $eOpportunity($item['companies']) . '</td><td>' . $eOpportunity($item['source']) . '</td><td>' . $eOpportunity(($item['value'] ?? '—') . ' ' . $item['currency']) . '</td></tr>';
+          $opportunityHtml .= '<tr><td>' . $eOpportunity($item['title']) . '</td><td>' . $eOpportunity($stageMap::label($item['stage'])) . '</td><td>' . $eOpportunity($item['companies']) . '</td><td>' . $eOpportunity($item['source']) . '</td><td>' . $eOpportunity(($item['value'] ?? '—') . ' ' . $item['currency']) . '</td><td>' . $eOpportunity($nextLabels($item['stage'])) . '</td></tr>';
         }
         $opportunityHtml .= '</tbody></table></div>';
       } else {
@@ -217,14 +225,15 @@ if ($path === '/office-test/crm/kansen') {
         foreach ($opportunities as $item) $groups[$item['stage']][] = $item;
         $opportunityHtml .= '<div style="display:flex;gap:12px;overflow-x:auto;padding:12px 0">';
         foreach ($groups as $stage => $items) {
-          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($stage) . ' (' . count($items) . ')</h3>';
+          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($stageMap::label($stage)) . ' (' . count($items) . ')</h3>';
           foreach ($items as $item) {
-            $opportunityHtml .= '<article style="background:white;border:1px solid #dce4ed;border-radius:8px;padding:12px;margin-bottom:8px"><strong>' . $eOpportunity($item['title']) . '</strong><p>' . $eOpportunity($item['companies']) . '</p></article>';
+            $opportunityHtml .= '<article style="background:white;border:1px solid #dce4ed;border-radius:8px;padding:12px;margin-bottom:8px"><strong>' . $eOpportunity($item['title']) . '</strong><p>' . $eOpportunity($item['companies']) . '</p><small>Volgende stap: ' . $eOpportunity($nextLabels($item['stage'])) . '</small></article>';
           }
           $opportunityHtml .= '</section>';
         }
         $opportunityHtml .= '</div>';
       }
+      $opportunityHtml .= '<p class="muted">Workflowstatussen en volgende stappen zijn informatief. Wijzigen blijft uitgeschakeld.</p>';
       if ($opportunities === []) $opportunityHtml .= '<p class="muted">Nog geen kansen geregistreerd.</p>';
     } catch (Throwable) {
       $opportunityHtml .= '<p class="muted">Kansenoverzicht tijdelijk niet beschikbaar.</p>';
