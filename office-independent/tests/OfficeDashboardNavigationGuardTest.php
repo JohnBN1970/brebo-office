@@ -11,7 +11,7 @@ $required = [
   "Financiën",
   "Organisatie",
   "Communicatie",
-  "Dashboard · Mijn werkplek",
+  "Mijn werkplek · BREBO Office",
   "Inzet",
   "Gebouwen",
   "Documenten",
@@ -31,17 +31,16 @@ $required = [
   "FILTER_VALIDATE_INT",
   "min_range",
   "Project #",
-  "is_scalar",
   "INNER JOIN office_project_memberships m ON m.project_id=p.id",
   '$projectsEnabled = $myProjectCount > 0;',
   "Mijn recente projecten",
   "ORDER BY p.id DESC LIMIT 5",
   "p.title, p.status FROM office_projects p",
-  "statusLabel",
   "Mijn projecten",
-  "availableCount",
-  "module-status",
-  'Do not reorder modules based on deployment flags.',
+  "sidebar",
+  "office-navigation",
+  "quicklinks",
+  "navItems",
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
@@ -54,7 +53,7 @@ $required = [
   "OFFICE_TEST_CRM_ENABLED",
   "currentOperator()",
   "PDO::ATTR_EMULATE_PREPARES => false",
-  'htmlspecialchars($label',
+  'htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE',
 ];
 foreach ($required as $item) {
   if (!str_contains($source, $item)) {
@@ -62,10 +61,10 @@ foreach ($required as $item) {
     exit(1);
   }
 }
-if (!str_contains($source, 'if ($active && is_string($url))')) {
+if (!str_contains($source, 'if ($active && is_string($url) && $url !== \'\')')) {
   fwrite(STDERR, "Disabled module guard missing\n"); exit(1);
 }
-if (!str_contains($source, 'htmlspecialchars($url, ENT_QUOTES, \'UTF-8\')')) {
+if (!str_contains($source, "\$e(\$url)")) {
   fwrite(STDERR, "Module link escaping missing\n"); exit(1);
 }
 if (!str_contains($source, 'if ($operator === null)')) {
