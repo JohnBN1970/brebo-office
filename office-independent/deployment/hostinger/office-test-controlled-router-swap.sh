@@ -27,6 +27,21 @@ checkhash "$BACKUP/.htaccess" "$EXPECTED_RULES"
 echo "HASH_AND_SYNTAX: GROEN"
 # Ensure a valid login page and unknown-route 404 before the change.
 http() { curl -sS --max-time 15 -o /dev/null -w '%{http_code}' "https://brebobv.nl$1" || true; }
+diagnose_route() {
+  route="$1"
+  echo "FAILED_ROUTE: $route"
+  # Keep response diagnostics private; never print credentials or full response bodies.
+  headers=$(mktemp)
+  body=$(mktemp)
+  status=$(curl -sS --max-time 15 -D "$headers" -o "$body" -w '%{http_code}' "https://brebobv.nl$route?brebo_diagnostic=20261025" || true)
+  echo "FAILED_HTTP_STATUS: $status"
+  grep -iE '^(content-type|location|server|x-powered-by|x-hcdn-request-id):' "$headers" || true
+  echo "FAILED_BODY_PREFIX:"
+  head -c 300 "$body" | tr '\\n' ' '
+  echo
+  rm -f "$headers" "$body"
+}
+
 test "$(http /office-test/inloggen)" = 200 || { echo "LOGIN_BASELINE: ROOD"; exit 1; }
 test "$(http /office-test/__router_preflight_missing_20261024)" = 404 || { echo "UNKNOWN_BASELINE: ROOD"; exit 1; }
 echo "HTTP_BASELINE: GROEN"
@@ -71,7 +86,7 @@ checkhash "$RULES" "$EXPECTED_NEW_RULES"
 test "$(http /office-test/inloggen)" = 200 || { echo "LOGIN_AFTER: ROOD"; exit 1; }
 test "$(http /office-test/__router_preflight_missing_20261024)" = 404 || { echo "UNKNOWN_AFTER: ROOD"; exit 1; }
 for route in /office-test/inzet/dienst/nieuw /office-test/inzet/medewerker/personeelsnummer; do
-  test "$(http "$route")" = 405 || { echo "NEW_ROUTE_AFTER: ROOD $route"; exit 1; }
+  test "$(http "$route")" = 405 || { echo "NEW_ROUTE_AFTER: ROOD $route"; diagnose_route "$route"; exit 1; }
 done
 # Preserve protected OnSite API behavior; no mutation or credentials.
 test "$(http /office-test/api/onsite/v1/activate)" = 405 || { echo "ONSITE_ACTIVATE_AFTER: ROOD"; exit 1; }
