@@ -24,6 +24,9 @@ checkhash "$NEW_RULES" "$EXPECTED_NEW_RULES"
 checkhash "$BACKUP/index.php" "$EXPECTED_ACTIVE"
 checkhash "$BACKUP/.htaccess" "$EXPECTED_RULES"
 "$PHP" -l "$CANDIDATE" >/dev/null
+# Apache must be able to read the active .htaccess; 0600 previously caused Drupal fallback.
+[ "$(stat -c %a "$RULES")" = 644 ] || { echo "HTACCESS_PERMISSIONS: ROOD (verwacht 644)"; exit 1; }
+echo "HTACCESS_PERMISSIONS: GROEN"
 echo "HASH_AND_SYNTAX: GROEN"
 # Ensure a valid login page and unknown-route 404 before the change.
 http() { curl -sS --max-time 15 -o /dev/null -w '%{http_code}' "https://brebobv.nl$1" || true; }
@@ -58,6 +61,7 @@ restore() {
   cp -p "$BACKUP/.htaccess" "$TMP_RULES"
   mv -f "$TMP_ROUTER" "$ACTIVE"
   mv -f "$TMP_RULES" "$RULES"
+  chmod 644 "$RULES"
   echo "ROLLBACK_ROUTER: $(hash "$ACTIVE")"
   echo "ROLLBACK_RULES: $(hash "$RULES")"
 }
