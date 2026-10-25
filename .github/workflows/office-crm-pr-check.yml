@@ -1,0 +1,48 @@
+name: Office CRM PR checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/src/Ui/OfficeModuleTabs.php'
+      - 'office-independent/public/crm-workspace.php'
+      - 'office-independent/deployment/hostinger/office-crm-test-preflight.php'
+      - 'office-independent/tests/OfficeCrm*Test.php'
+      - '.github/workflows/office-crm-pr-check.yml'
+      - '.github/workflows/office-crm-hostinger-preflight.yml'
+  push:
+    branches:
+      - 'feat/office-horizontal-tabs-20261024'
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/src/Ui/OfficeModuleTabs.php'
+      - 'office-independent/public/crm-workspace.php'
+      - 'office-independent/tests/OfficeCrm*Test.php'
+      - '.github/workflows/office-crm-pr-check.yml'
+permissions:
+  contents: read
+jobs:
+  crm-php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax validation
+        run: |
+          set -eu
+          php -l office-independent/public/crm-workspace.php
+          php -l office-independent/deployment/hostinger/office-crm-test-preflight.php
+          php -l office-independent/src/Ui/OfficeModuleTabs.php
+          find office-independent/src/Crm -maxdepth 1 -name 'OfficeCrm*.php' -exec php -l {} \;
+          find office-independent/tests -maxdepth 1 -name 'OfficeCrm*Test.php' -exec php -l {} \;
+      - name: CRM unit and access tests
+        run: |
+          set -eu
+          for file in office-independent/tests/OfficeCrm*Test.php; do
+            php "$file"
+          done
+          php office-independent/tests/OfficeModuleTabsTest.php
