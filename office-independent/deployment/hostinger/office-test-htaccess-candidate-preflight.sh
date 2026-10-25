@@ -27,7 +27,7 @@ for path in 'inzet/dienst/nieuw' 'inzet/medewerker/personeelsnummer'; do
   [ "$n" = 1 ] || { echo "RULE_$path: ROOD"; exit 1; }
 done
 # Only two added lines: no existing rule may be deleted or modified.
-sed '/^RewriteRule \^inzet\/dienst\/nieuw\/\?\$ index.php \[L,QSA\]$/d; /^RewriteRule \^inzet\/medewerker\/personeelsnummer\/\?\$ index.php \[L,QSA\]$/d' "$OUT" > "$OUT.verify"
+awk '$0 != "RewriteRule ^inzet/dienst/nieuw/?$ index.php [L,QSA]" && $0 != "RewriteRule ^inzet/medewerker/personeelsnummer/?$ index.php [L,QSA]" { print }' "$OUT" > "$OUT.verify"
 if ! cmp -s "$LIVE" "$OUT.verify"; then
   rm -f "$OUT.verify"
   echo "PRESERVATION: ROOD"
