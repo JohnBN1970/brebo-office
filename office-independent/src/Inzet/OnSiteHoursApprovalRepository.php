@@ -21,7 +21,7 @@ final class OnSiteHoursApprovalRepository {
       'SELECT person_id, in_event_id, out_event_id, approval_status, approved_at
        FROM office_onsite_hours_reviews
        WHERE person_id = ? AND approval_status = ? AND approved_at IS NOT NULL
-       ORDER BY approved_at DESC LIMIT 5000'
+       ORDER BY approved_at DESC'
     );
     $stmt->execute([$verifiedPersonId, 'approved']);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
