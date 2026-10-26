@@ -103,7 +103,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
     }
 
     func testUploadedRegistrationRemainsInHistoryAfterRelaunch() async {
-        let name = "OnSiteHistoryTests.\\(UUID())"
+        let name = "OnSiteHistoryTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
@@ -120,7 +120,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
     }
 
     func testExistingPendingQueueMigratesIntoHistory() {
-        let name = "OnSiteHistoryMigration.\\(UUID())"
+        let name = "OnSiteHistoryMigration.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
@@ -132,7 +132,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
     }
 
     func testApprovedRegistrationRemainsVisibleForFiveDays() {
-        let name = "OnSiteApprovalVisibility.\\(UUID())"
+        let name = "OnSiteApprovalVisibility.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
@@ -148,7 +148,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
     }
 
     func testUnapprovedRegistrationNeverExpiresLocally() {
-        let name = "OnSiteUnapprovedVisibility.\\(UUID())"
+        let name = "OnSiteUnapprovedVisibility.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
