@@ -17,7 +17,12 @@ $checks = [
     'CRM manual opportunity entry' => ['src/Crm/OfficeCrmRepository.php', 'function createManualOpportunity'],
     'CRM opportunity preflight' => ['src/Crm/OfficeCrmSchemaPreflight.php', 'function requireOpportunityReady'],
     'Project read authorization' => ['src/Project/OfficeNativeProjectAccess.php', 'function canRead'],
-    'OnSite invitation identity bridge' => ['public/office-onsite-invitation.php', 'identity'],
+    'OnSite verified identity bridge' => ['public/office-onsite-invitation.php', 'OnSiteActivationIdentityBridge::verifiedPerson'],
+    'OnSite invitation landing' => ['public/office-onsite-invitation.php', 'OnSiteOfficeActivationPage::landing'],
+    'CRM opportunity route' => ['public/crm-workspace.php', 'create-opportunity'],
+    'Zone write uses verified test DB' => ['public/office-onsite-zone-create.php', 'u213420663_office_test'],
+    'Zone write uses server-side CSRF' => ['public/office-onsite-zone-create.php', 'OnSiteOfficeZonePostAction'],
+    'Zone edit route' => ['public/office-onsite-project-map.php', '/office-test/inzet/zone/bewerken'],
     'Zone idempotency request key' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'requestKey'],
     'Zone compare-and-swap update' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'function update'],
 ];
