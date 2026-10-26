@@ -14,9 +14,21 @@ final class OnSiteBootstrapRepository {
   public function __construct(private PDO $db) {}
 
   /** @return array<int,array<string,mixed>> */
-  public function forEmployee(string $employeeId): array {
+  public function forEmployee(string $employeeId, bool $nativeBuildingZones = false): array {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D', $employeeId)) {
       throw new RuntimeException('Invalid verified employee');
+    }
+    if ($nativeBuildingZones) {
+      $statement = $this->db->prepare('SELECT DISTINCT CAST(t.project_id AS CHAR) AS project_id,
+        CAST(z.id AS CHAR) AS zone_id, z.zone_name, z.latitude, z.longitude, z.radius_metres
+        FROM office_inzet_project_team t
+        INNER JOIN office_projects pr ON pr.id = t.project_id
+        INNER JOIN office_inzet_people p ON p.id = t.person_id AND p.active = 1
+        INNER JOIN office_project_buildings b ON b.project_id = t.project_id
+        INNER JOIN office_building_zones z ON z.building_id = b.building_id AND z.active = 1
+        WHERE t.person_id = ? ORDER BY project_id, zone_id');
+      $statement->execute([$employeeId]);
+      return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
     $statement = $this->db->prepare(
       'SELECT DISTINCT CAST(t.project_id AS CHAR) AS project_id,

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationSchema.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationReadiness.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationIssuer.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationAction.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceRevocationAction.php';
@@ -16,6 +17,7 @@ $db->exec('DROP TABLE IF EXISTS office_onsite_device_tokens');
 $db->exec('INSERT INTO office_inzet_people(id,active) VALUES (201,1),(202,0)');
 foreach (\Brebo\Office\Inzet\OnSiteDeviceTokenSchema::statements() as $sql) $db->exec($sql);
 foreach (\Brebo\Office\Inzet\OnSiteActivationInvitationSchema::statements() as $sql) $db->exec($sql);
+\Brebo\Office\Inzet\OnSiteActivationInvitationReadiness::requireReady($db);
 $issuer = new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db);
 $action = new \Brebo\Office\Inzet\OnSiteOfficeInvitationAction($db, $issuer);
 try { $action->issue('unknown-operator', 999, 201); throw new RuntimeException('Unauthorized invitation issued'); }
@@ -42,11 +44,11 @@ if (strlen($generated['activation_token']) < 40) throw new RuntimeException('Iss
 if ((int)$db->query('SELECT COUNT(*) FROM office_onsite_activation_invitations')->fetchColumn() !== 2) throw new RuntimeException('Invitations not persisted');
 try { $issuer->issue(202); throw new RuntimeException('Inactive person invitation issued'); }
 catch (RuntimeException $e) { if ($e->getMessage() === 'Inactive person invitation issued') throw $e; }
-$issue = $db->prepare('INSERT INTO office_onsite_activation_invitations(token_hash,person_id,expires_at) VALUES (?, ?, ?)');
+$issue = $db->prepare('INSERT INTO office_onsite_activation_invitations(token_hash,person_id,project_id,expires_at) VALUES (?, ?, ?, ?)');
 $token = str_repeat('A', 40);
-$issue->execute([hash('sha256',$token),201,'2099-01-01 00:00:00']);
-$issue->execute([hash('sha256',str_repeat('B',40)),201,'2000-01-01 00:00:00']);
-$issue->execute([hash('sha256',str_repeat('C',40)),202,'2099-01-01 00:00:00']);
+$issue->execute([hash('sha256',$token),201,91001,'2099-01-01 00:00:00']);
+$issue->execute([hash('sha256',str_repeat('B',40)),201,91001,'2000-01-01 00:00:00']);
+$issue->execute([hash('sha256',str_repeat('C',40)),202,91001,'2099-01-01 00:00:00']);
 $service = new \Brebo\Office\Inzet\OnSiteActivationService($db, new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db));
 $issuedActivation = $service->activate($generated['activation_token']);
 if ($issuedActivation['status'] !== 200) throw new RuntimeException('Issued invitation not redeemable');

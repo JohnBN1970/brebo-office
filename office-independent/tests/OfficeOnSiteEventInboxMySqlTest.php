@@ -11,6 +11,7 @@ foreach ([
   'OnSiteAssignmentRepository.php',
   'OnSiteAssignmentGate.php',
   'OnSiteOfficeTeamAssignmentRepository.php',
+  'OnSiteEventReplayConflict.php',
   'OnSiteEventInbox.php',
   'OnSiteEventInboxSchema.php',
   'OnSiteAutomaticIngest.php',

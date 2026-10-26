@@ -21,6 +21,8 @@ final class OnSiteAuthenticatedEventService {
     }
     try {
       $result = $this->ingest->ingest($employee,$eventId,$event);
+    } catch (OnSiteEventReplayConflict) {
+      return ['status'=>409,'body'=>['ok'=>false,'error'=>'event_replay_conflict']];
     } catch (\InvalidArgumentException) {
       return ['status'=>422,'body'=>['ok'=>false,'error'=>'event_not_authorized']];
     }

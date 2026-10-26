@@ -1,0 +1,202 @@
+<?php
+
+declare(strict_types=1);
+
+// Isolated test review endpoint. Source remains read-only; decisions use a private store.
+header('Cache-Control: no-store, private');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: same-origin');
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
+  http_response_code(405);
+  exit;
+}
+require_once dirname(__DIR__) . '/src/Intake/OfficeMount.php';
+if (!\Brebo\Office\Intake\OfficeMount::isTest()
+  || getenv('OFFICE_TEST_INZET_IMPORT_REVIEW_ENABLED') !== 'enabled') {
+  http_response_code(404);
+  exit;
+}
+$host = $_SERVER['HTTP_HOST'] ?? '';
+$expectedHost = getenv('OFFICE_PUBLIC_HOST');
+if (!is_string($expectedHost) || $expectedHost === ''
+  || !hash_equals($expectedHost, (string)$host)
+  || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
+  http_response_code(403);
+  exit;
+}
+try {
+  foreach ([
+    'WebsiteCrmOperatorContext.php',
+    'WebsiteCrmOperatorSessionProviderInterface.php',
+    'WebsiteOfficeCrmSessionRepository.php',
+    'WebsiteOfficeCrmCookieSessionProvider.php',
+  ] as $file) {
+    require_once dirname(__DIR__) . '/src/Intake/' . $file;
+  }
+  $officeDb = new PDO(
+    getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
+    getenv('OFFICE_INTAKE_DB_USER') ?: '',
+    getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
+    [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES=>false]
+  );
+  $operator = (new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
+    new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($officeDb),
+    $_COOKIE,
+    time()
+  ))->currentOperator();
+  if ($operator === null) {
+    header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
+    exit;
+  }
+  // This workbook can contain multiple projects and sensitive worker data.
+  // Only an explicitly designated test reviewer may access the whole file.
+  require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewAccess.php';
+  if (!\Brebo\Office\Inzet\OfficeInzetReviewAccess::allows(
+    $operator->operatorId, getenv('OFFICE_TEST_INZET_IMPORT_REVIEWER_ID')
+  )) {
+    http_response_code(403);
+    exit;
+  }
+  $path = getenv('OFFICE_TEST_INZET_SQLITE_PATH');
+  if (!is_string($path) || $path === '' || !is_file($path)
+    || !is_readable($path) || str_contains($path, "\0")) {
+    throw new RuntimeException('Test source unavailable');
+  }
+  $realPath = realpath($path);
+  $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+  if ($realPath === false || $documentRoot === false
+    || str_starts_with($realPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
+    throw new RuntimeException('Private test source required');
+  }
+  $db = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($realPath)).'?mode=ro', null, null, [
+    PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_TIMEOUT=>2,
+  ]);
+  require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetImportReviewReadRepository.php';
+  require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSourceReviewWorkbench.php';
+  $report = (new \Brebo\Office\Inzet\OfficeInzetImportReviewReadRepository($db))->summary();
+  // A review session belongs to one authenticated operator only.
+  if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_strict_mode', '1');
+    session_name('BREBO_INZET_REVIEW_TEST');
+    session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/office-test']);
+    if (!session_start()) throw new RuntimeException('Review session unavailable');
+  }
+  $binding = \Brebo\Office\Inzet\OfficeInzetReviewAccess::sessionBinding($operator->operatorId, $operator->sessionId);
+  if (($_SESSION['inzet_review_binding'] ?? null) !== $binding) {
+    $_SESSION = [];
+    session_regenerate_id(true);
+  }
+  $_SESSION['inzet_review_binding'] = $binding;
+  $filters = [];
+  foreach (['person', 'project', 'sheet'] as $field) {
+    $value = $_GET[$field] ?? '';
+    if (!is_string($value) || strlen($value) > 120) {
+      http_response_code(400);
+      exit('Ongeldig filter.');
+    }
+    $filters[$field] = trim($value);
+  }
+  $decisionIndex = [];
+  $decisionPath = getenv('OFFICE_TEST_INZET_REVIEW_DECISIONS_SQLITE_PATH');
+  $decisionStoreReady = false;
+  if (is_string($decisionPath) && $decisionPath !== '') {
+    $decisionRealPath = realpath($decisionPath);
+    if ($decisionRealPath === false || !is_file($decisionRealPath) || !is_readable($decisionRealPath)
+      || str_starts_with($decisionRealPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+      || $decisionRealPath === $realPath) {
+      throw new RuntimeException('Private decision store unavailable');
+    }
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !is_writable($decisionRealPath)) {
+      throw new RuntimeException('Private decision store is not writable');
+    }
+    $decisionMode = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' ? 'rw' : 'ro';
+    $decisionDb = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($decisionRealPath)).'?mode='.$decisionMode, null, null, [
+      PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>2,
+    ]);
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
+    $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
+    $decisionStoreReady = $decisionRepo->supportsExactReviewerIds();
+    if (!$decisionStoreReady && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      http_response_code(503); exit('Beslissingenopslag vereist schemacontrole.');
+    }
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      $contentType = strtolower(trim(explode(';', (string)($_SERVER['CONTENT_TYPE'] ?? ''))[0]));
+      if ($contentType !== 'application/x-www-form-urlencoded'
+        || (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 4096) {
+        http_response_code(400); exit('Ongeldig verzoek.');
+      }
+
+      $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+      // Browsers and privacy gateways may omit Origin on a same-origin form POST.
+      // When supplied, Origin must match the exact HTTPS host; otherwise verify
+      // Referer if available, without ever accepting a different host.
+      $expectedOrigin = 'https://' . $expectedHost;
+      $referer = $_SERVER['HTTP_REFERER'] ?? null;
+      $sameOrigin = static function (string $url) use ($expectedHost): bool {
+        $parts = parse_url($url);
+        return is_array($parts)
+          && ($parts['scheme'] ?? null) === 'https'
+          && ($parts['host'] ?? null) === $expectedHost
+          && (!isset($parts['port']) || $parts['port'] === 443)
+          && !isset($parts['user']) && !isset($parts['pass']);
+      };
+      // A sandboxed browser context may send literal Origin: null.
+      // Accept it only with an explicit, same-origin HTTPS Referer.
+      // Missing Origin remains acceptable for legacy same-origin form POSTs,
+      // but a supplied Referer must always be validated.
+      $opaqueOrigin = $origin === 'null';
+      if (($opaqueOrigin && (!is_string($referer) || !$sameOrigin($referer)))
+        || (is_string($origin) && !$opaqueOrigin && !$sameOrigin($origin))
+        || (is_string($referer) && !$sameOrigin($referer))) {
+        http_response_code(403); exit('Ongeldige herkomst.');
+      }
+      $csrf = $_POST['csrf'] ?? null;
+      if (!is_string($csrf) || !is_string($_SESSION['inzet_csrf'] ?? null)
+        || !hash_equals($_SESSION['inzet_csrf'], $csrf)) {
+        http_response_code(403); exit('Ongeldige sessiecontrole.');
+      }
+      $issue = filter_var($_POST['issue_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      $revision = filter_var($_POST['revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
+      $action = $_POST['action'] ?? null;
+      $note = $_POST['note'] ?? null;
+      if (!is_int($issue) || !is_int($revision) || !is_string($action) || !is_string($note)) {
+        http_response_code(400); exit('Ongeldige beoordeling.');
+      }
+      if ($action === 'exclude' && trim($note) === '') {
+        http_response_code(422); exit('Toelichting is verplicht bij uitsluiten. Ga terug en vul een toelichting in.');
+      }
+      try {
+        $decisionRepo->save($issue, $action, null, $note, $operator->operatorId, $revision);
+      } catch (InvalidArgumentException|LogicException $invalid) {
+        http_response_code(422); exit('Beoordeling niet toegestaan.');
+      } catch (RuntimeException $conflict) {
+        http_response_code(409); exit('Beoordeling gewijzigd; ververs de pagina.');
+      }
+      header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole').'#afwijkingen', true, 303);
+      exit;
+    }
+    foreach ($decisionRepo->allDecisions() as $decision) {
+      $decisionIndex[(int)$decision['issue_id']] = $decision;
+    }
+  }
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    http_response_code(503); exit('Beslissingenopslag niet geconfigureerd.');
+  }
+
+  if (!isset($_SESSION['inzet_csrf'])) $_SESSION['inzet_csrf'] = bin2hex(random_bytes(32));
+  header('Content-Type: text/html; charset=utf-8');
+  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px Roboto,Arial,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}*{box-sizing:border-box}main{width:calc(100% - 24px);max-width:1440px}summary{cursor:pointer;font-weight:600}.inzet-table-scroll{max-width:100%;overflow-x:auto;margin:16px 0;border:1px solid #d9dfe8;border-radius:8px}.inzet-issues{min-width:1280px}.inzet-issues th,.inzet-issues td{vertical-align:top}.inzet-issues th{white-space:nowrap;background:#f4f6f9}.inzet-issues td:nth-child(4),.inzet-issues td:nth-child(5){min-width:130px}.inzet-issues td:last-child{min-width:280px}.inzet-decision-form{display:grid;gap:8px;min-width:260px}.inzet-decision-form select,.inzet-decision-form textarea{width:100%;font:inherit;padding:8px;border:1px solid #8895a7;border-radius:4px}.inzet-decision-form textarea{resize:vertical}.inzet-decision-form label{font-size:13px}.inzet-decision-form button{justify-self:start;font:inherit;padding:8px 16px;cursor:pointer}.inzet-saved-note{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}fieldset{display:flex;flex-wrap:wrap;gap:8px;align-items:center}fieldset input{min-width:0;max-width:100%}@media(max-width:600px){main{padding:12px;margin:12px auto}fieldset{display:grid;grid-template-columns:1fr}fieldset input{width:100%}.inzet-kpis{gap:8px}.inzet-kpi{padding:10px;flex:1 1 130px}}</style></head><body><main>';
+  echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
+  if (isset($decisionRepo) && !$decisionStoreReady) {
+    echo '<p>Beoordelingen zijn alleen te lezen totdat de beslissingenopslag is gecontroleerd.</p>';
+  }
+  echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters, $decisionIndex, $decisionStoreReady ? $_SESSION['inzet_csrf'] : null);
+  echo '</main></body></html>';
+} catch (Throwable $exception) {
+  http_response_code(503);
+  exit('Testwerkbank tijdelijk niet beschikbaar.');
+}
