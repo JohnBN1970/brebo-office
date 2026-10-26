@@ -11,7 +11,8 @@ final class OnSiteBootstrapService {
 
   /** @param \Closure(string):array $assignments */
   /** @param ?\Closure(string):string $employeeName */
-  public function bootstrap(string $deviceToken, \Closure $assignments, ?\Closure $employeeName = null): array {
+  /** @param ?\Closure(string):array<string,string> $approvedEvents Office-verified event approvals */
+  public function bootstrap(string $deviceToken, \Closure $assignments, ?\Closure $employeeName = null, ?\Closure $approvedEvents = null): array {
     $employeeId = $this->devices->resolveEmployee($deviceToken);
     if ($employeeId === null) {
       return ['status'=>401,'body'=>['ok'=>false,'error'=>'device_not_linked']];
@@ -50,10 +51,14 @@ final class OnSiteBootstrapService {
     }
     $displayName = $employeeName === null ? $employeeId : trim($employeeName($employeeId));
     if ($displayName === '') $displayName = $employeeId;
-    return ['status'=>200,'body'=>[
+    $approvals = $approvedEvents === null ? null : $approvedEvents($employeeId);
+    if ($approvals !== null && !is_array($approvals)) throw new RuntimeException('Invalid Office approvals');
+    $body = [
       'ok'=>true,
       'employee'=>['id'=>$employeeId,'display_name'=>$displayName,'language'=>'nl'],
       'projects'=>array_values($projects),
-    ]];
+    ];
+    if ($approvals !== null) $body['approved_events'] = $approvals;
+    return ['status'=>200,'body'=>$body];
   }
 }
