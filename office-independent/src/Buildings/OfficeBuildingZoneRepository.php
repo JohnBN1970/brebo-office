@@ -83,6 +83,44 @@ final class OfficeBuildingZoneRepository {
     return is_array($zone)?$zone:null;
   }
 
+  /**
+   * Compare-and-swap edit: only the current revision may be replaced.
+   * Caller authorization is rechecked; no project-owned zone copy is created.
+   * Returns false for a missing, inactive or concurrently modified zone.
+   */
+  public function update(string $zoneId, int $expectedRevision, array $changes, \Closure $authorizedBuilding): bool {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $zoneId) || $expectedRevision < 1
+      || array_diff(array_keys($changes), ['zone_name','latitude','longitude','radius_metres'])
+      || count($changes) !== 4) throw new InvalidArgumentException('invalid_zone_update');
+    $name=$changes['zone_name']??null;
+    $lat=$changes['latitude']??null;
+    $lon=$changes['longitude']??null;
+    $radius=$changes['radius_metres']??null;
+    if (!is_string($name) || trim($name)==='' || strlen(trim($name))>160
+      || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
+      || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
+      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000) {
+      throw new InvalidArgumentException('invalid_zone_update');
+    }
+    if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
+    $this->db->beginTransaction();
+    try {
+      $select=$this->db->prepare('SELECT z.building_id FROM office_building_zones z INNER JOIN office_buildings b ON b.id=z.building_id AND b.active=1 WHERE z.id=? AND z.active=1');
+      $select->execute([$zoneId]);
+      $buildingId=$select->fetchColumn();
+      if ($buildingId===false) { $this->db->rollBack(); return false; }
+      if ($authorizedBuilding((string)$buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+      $stmt=$this->db->prepare('UPDATE office_building_zones SET zone_name=?,latitude=?,longitude=?,radius_metres=?,revision=revision+1 WHERE id=? AND building_id=? AND active=1 AND revision=? AND revision < 18446744073709551615');
+      $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$zoneId,(string)$buildingId,$expectedRevision]);
+      $updated=$stmt->rowCount()===1;
+      $this->db->commit();
+      return $updated;
+    } catch (\Throwable $exception) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $exception;
+    }
+  }
+
   /** Only zones for the requested, already-authorized building. */
   public function forBuilding(string $buildingId, \Closure $authorizedBuilding): array {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
