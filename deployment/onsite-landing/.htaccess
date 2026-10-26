@@ -1,0 +1,11 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+RewriteEngine On
+RewriteRule ^OnSite-Android-test\.apk$ - [F,END]
+<IfModule mod_headers.c>
+  Header always set Cache-Control "private, no-store, max-age=0"
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive"
+</IfModule>
+<FilesMatch "^(?!index\.php$|style\.css$|app\.js$|gate\.js$|icon\.svg$).*">
+  Require all denied
+</FilesMatch>

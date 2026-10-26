@@ -1,0 +1,174 @@
+name: Publish protected OnSite installation
+on:
+  push:
+    branches: ['deploy/onsite-landing-20261024']
+    paths: ['deployment/onsite-landing/**', '.github/workflows/onsite-landing-publish.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: brebo-onsite-landing
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: onsite-fixture-only
+          MYSQL_DATABASE: u213420663_office_test
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -h localhost -ponsite-fixture-only" --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, pdo_sqlite
+          coverage: none
+      - name: Check syntax and isolated access controls
+        run: |
+          set -euo pipefail
+          for file in deployment/onsite-landing/*.php; do php -l "$file"; done
+          node --check deployment/onsite-landing/gate.js
+          node --check deployment/onsite-landing/app.js
+          node deployment/onsite-landing/test-gate.cjs
+          php deployment/onsite-landing/test-invitation.php
+          python3 deployment/onsite-landing/test-http.py
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require successful Android verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.head_sha')" = 02514c8be67361c936bb323f4a5d800794a3744a
+          conclusion=''
+          for attempt in {1..30}; do
+            state="$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.status')"
+            if [[ "$state" = completed ]]; then
+              conclusion="$(gh api repos/JohnBN1970/brebo-office/actions/runs/40072431383 --jq '.conclusion')"
+              break
+            fi
+            sleep 20
+          done
+          test "$conclusion" = success
+      - uses: actions/download-artifact@v4
+        with:
+          name: OnSite-Android-test
+          run-id: 40072431383
+          github-token: ${{ github.token }}
+          path: android-artifact
+      - name: Prepare public controller and private runtime
+        run: |
+          set -euo pipefail
+          mkdir -p package/public package/private
+          cp deployment/onsite-landing/{index.php,.htaccess,style.css,app.js,gate.js,icon.svg} package/public/
+          printf '%s\n' 'BREBO OnSite landing page' > package/public/.onsite-landing-managed
+          printf '%s\n' "$GITHUB_SHA" > package/public/.release
+          # A non-APK tombstone keeps the old static URL out of parent CMS fallback
+          # routing. The child authorization rules always deny this exact file.
+          printf '%s\n' 'Use your personal invitation and the protected download endpoint.' > package/public/OnSite-Android-test.apk
+          cp deployment/onsite-landing/{invitation.php,page.php,install-legacy-redirect.php} package/private/
+          cp android-artifact/outputs/apk/debug/app-debug.apk package/private/OnSite-Android-test.apk
+          (cd package/private && sha256sum OnSite-Android-test.apk > apk.sha256)
+          printf '%s\n' 'Invalidate the retired public download once during deployment.' > package/private/.purge-cache
+          tar -czf onsite-landing.tgz -C package .
+      - name: Configure existing host access
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do [[ -n "${!name}" ]]; done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/onsite_key
+          chmod 600 ~/.ssh/onsite_key
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" true
+      - name: Transfer protected installation package
+        run: |
+          scp -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/onsite_key -P "$DEPLOY_PORT" onsite-landing.tgz "$DEPLOY_USER@$DEPLOY_HOST:onsite-landing-$GITHUB_SHA.tgz"
+      - name: Activate only managed OnSite installation
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "ONSITE_RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
+          set -eEuo pipefail
+          [[ "$ONSITE_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          domain="$(realpath -e "$HOME/domains/brebobv.nl")"
+          root="$(realpath -e "$domain/public_html")"
+          target="$root/onsite"
+          [[ -f "$root/index.php" && -d "$root/platform/.git" ]]
+          [[ -d "$target" && ! -L "$target" && -f "$target/.onsite-landing-managed" ]]
+          archive="$HOME/onsite-landing-$ONSITE_RELEASE_SHA.tgz"
+          [[ -f "$archive" && ! -L "$archive" ]]
+          install -d -m 700 "$domain/onsite_landing" "$domain/onsite_landing/releases" "$domain/onsite_landing/sessions"
+          stage="$(mktemp -d "$domain/onsite_landing/stage.XXXXXXXX")"
+          tar -xzf "$archive" -C "$stage" --no-same-owner
+          [[ "$(find "$stage/public" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 9 ]]
+          [[ "$(find "$stage/private" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 6 ]]
+          [[ -z "$(find "$stage" -type l)" ]]
+          for f in index.php .htaccess style.css app.js gate.js icon.svg OnSite-Android-test.apk .onsite-landing-managed .release; do [[ -s "$stage/public/$f" ]];chmod 644 "$stage/public/$f";done
+          for f in invitation.php page.php install-legacy-redirect.php OnSite-Android-test.apk apk.sha256 .purge-cache; do [[ -s "$stage/private/$f" ]];chmod 600 "$stage/private/$f";done
+          (cd "$stage/private" && sha256sum -c apk.sha256)
+          if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
+          "$php_bin" -l "$stage/public/index.php"
+          "$php_bin" -l "$stage/private/page.php"
+          release="$domain/onsite_landing/releases/$ONSITE_RELEASE_SHA"
+          [[ ! -e "$release" ]]
+          mv "$stage/private" "$release"
+          chmod 700 "$release"
+          chmod 755 "$stage/public"
+          install -d -m 700 "$HOME/onsite-landing-backups"
+          backup="$HOME/onsite-landing-backups/$(date -u +%Y%m%dT%H%M%SZ)-$ONSITE_RELEASE_SHA"
+          [[ ! -e "$backup" ]]
+          mv "$target" "$backup"
+          trap 'if [[ ! -e "$target" ]]; then mv "$backup" "$target"; fi' ERR
+          mv "$stage/public" "$target"
+          trap - ERR
+          rmdir "$stage"
+          rm -f "$archive"
+          echo 'PROTECTED_ONSITE_DEPLOYED'
+          REMOTE
+      - name: Verify live unauthenticated access is denied
+        run: |
+          set -euo pipefail
+          root_status="$(curl -sS -o locked.html -w '%{http_code}' https://brebobv.nl/onsite/)"
+          echo "Unauthenticated installation status: $root_status"
+          test "$root_status" = 403
+          grep -q 'Persoonlijke uitnodiging' locked.html
+          ! grep -q 'Download voor Android' locked.html
+          for path in 'OnSite-Android-test.apk' '?action=download' 'index.html' 'page.php' '.release'; do
+            path_status="$(curl -sS -D protected-headers.txt -o protected-response.bin -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
+            echo "Protected path $path status: $path_status"
+            if [[ "$path_status" = 200 ]]; then
+              grep -iE '^(content-type|content-length|server|x-litespeed-cache|x-hcdn-cache-status|age|cache-control|cf-cache-status):' protected-headers.txt || true
+              echo "Response size: $(wc -c < protected-response.bin)"
+              printf 'Response magic: '; head -c 8 protected-response.bin | od -An -tx1
+            fi
+            case "$path" in
+              index.html|page.php) [[ "$path_status" = 403 || "$path_status" = 404 ]] ;;
+              *) test "$path_status" = 403 ;;
+            esac
+          done
+          test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://brebobv.nl' -H 'Content-Type: application/json' --data '{"activation_token":"onsite-invalid-verification-fixture"}' 'https://brebobv.nl/onsite/?action=unlock')" = 403
+          curl --fail -sS https://brebobv.nl/onsite/gate.js -o gate-live.js
+          cmp gate-live.js deployment/onsite-landing/gate.js
+      - name: Route existing personal invitations to protected installation
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "ONSITE_RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          [[ "$ONSITE_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
+          "$php_bin" "$HOME/domains/brebobv.nl/onsite_landing/releases/$ONSITE_RELEASE_SHA/install-legacy-redirect.php"
+          REMOTE
+          curl -sS -D legacy-headers.txt -o /dev/null 'https://brebobv.nl/office-test/inzet/onsite/activatie-uitgeven'
+          grep -qi '^location: /onsite/' legacy-headers.txt
