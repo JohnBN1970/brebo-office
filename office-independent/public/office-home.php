@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -120,16 +120,97 @@ $environmentBanner = $isTestEnvironment
   ? '<div role="status" style="background:#fff0b3;color:#473500;padding:14px 24px;text-align:center;font-weight:800;border-bottom:3px solid #b8860b">TESTOMGEVING — geen productiegegevens</div>'
   : '';
 $logoutUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('uitloggen') : ($queryRouter ? '/index.php?office_route=uitloggen' : '/office/uitloggen');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}header{background:#162639;color:white;padding:24px max(24px,calc((100vw - 1100px)/2))}main{max-width:1100px;margin:36px auto;padding:0 24px}h1{margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:24px}.tile{display:block;background:white;border:1px solid #dbe1e8;border-radius:12px;padding:22px;min-height:88px;color:inherit;text-decoration:none}.tile strong{display:block;font-size:18px;margin-bottom:12px}.tile span{font-size:13px;color:#57677b}.active:hover{border-color:#2e688e;box-shadow:0 4px 18px #152c4215}.inactive{background:#eef1f5}.inzet-kpi-panel{margin-top:24px}.inzet-kpi-link{display:block;background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;color:inherit;text-decoration:none}.inzet-kpi-link span,.inzet-kpi-link small{display:block}.inzet-kpi-link strong{display:block;font-size:32px;margin:8px 0}.inzet-kpi-link:hover{border-color:#2e688e}nav a{color:white}footer{margin-top:32px;color:#57677b;font-size:13px}</style></head><body><header><strong>BREBO Office</strong><nav style="float:right"><form method="post" action="' . htmlspecialchars($logoutUrl, ENT_QUOTES, 'UTF-8') . '" style="display:inline"><button type="submit">Uitloggen</button></form></nav></header><main><h1>Mijn werkplek</h1><p>Een centrale ingang voor alle Office-modules. Alleen beschikbare onderdelen zijn aanklikbaar.</p>' . ($recentWork !== [] ? '<section><h2>Mijn laatste werkzaamheden</h2><ul>' . implode('', array_map(static function ($item): string {
-  $label = $item->module === 'calculation' ? 'Calculatie' : 'Werkzaamheid';
-  return '<li>' . htmlspecialchars($label . ' #' . $item->resourceId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' — Hervatten nog niet beschikbaar</li>';
-}, $recentWork)) . '</ul></section>' : '') . ($importReviewEnabled ? '<section class="inzet-kpi-panel"><h2>Inzet · urenverantwoording</h2><a class="inzet-kpi-link" href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole') . '#afwijkingen', ENT_QUOTES, 'UTF-8') . '"><span>Afwijkingen ter controle</span><strong>' . ($importIssueCount === null ? 'Niet beschikbaar' : (string)$importIssueCount) . '</strong><small>' . ($importRowCount === null ? 'Brongegevens niet beschikbaar' : (string)$importRowCount . ' bronregels · open beoordeling') . ' · Bekijk details →</small></a></section>' : '') . '<div class="grid">';
-foreach ($modules as [$name, $url, $active]) {
-  $label = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-  if ($active && is_string($url)) {
-    echo '<a class="tile active" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><strong>' . $label . '</strong><span>Open module →</span></a>';
-  } else {
-    echo '<div class="tile inactive"><strong>' . $label . '</strong><span>Nog niet aangesloten</span></div>';
+$projectUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null;
+$projectEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
+  && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled';
+$visibleProjects = null;
+if ($projectEnabled && is_string($projectUrl)) {
+  try {
+    $projectsStatement = $db->prepare(
+      "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
+       FROM office_projects p
+       INNER JOIN office_project_memberships m ON m.project_id = p.id
+       INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+       LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
+       WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
+       GROUP BY p.id, p.code, p.title, p.status
+       ORDER BY p.id DESC LIMIT 100"
+    );
+    $projectsStatement->execute([':operator_id' => $operator->operatorId]);
+    $visibleProjects = $projectsStatement->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Throwable $exception) {
+    $visibleProjects = null;
   }
 }
-echo '</div><footer>Financiële KPI’s en rolgebonden taken verschijnen pas wanneer de onderliggende gegevens en rechten zijn aangesloten.</footer></main></body></html>';
+$esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BREBO Office</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#1b2634;font:15px system-ui,sans-serif}
+.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}
+.sidebar{background:#162639;color:white;padding:24px 14px}.brand{font-size:20px;font-weight:750;margin:0 10px 25px}
+.side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}
+.side-item[aria-current]{background:#30516d;color:white}.side-item.disabled{opacity:.55}
+.content{min-width:0;padding:28px clamp(18px,4vw,55px)}.top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+h1{margin:0 0 6px}p{color:#57677b}.tabs{display:flex;gap:20px;overflow:auto;border-bottom:1px solid #dbe1e8;margin:24px 0}
+.tab{padding:12px 2px;color:#34465a;text-decoration:none;white-space:nowrap}.tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}
+.panel{border:1px solid #dbe1e8;border-radius:12px;background:white;margin:18px 0;padding:18px}
+summary{cursor:pointer;font-weight:700}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:16px}
+.kpi{border:1px solid #e1e5ea;border-radius:8px;padding:15px}.kpi strong{display:block;margin-top:8px;font-size:19px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.link{color:#18547e;font-weight:650}.muted{color:#57677b}button{cursor:pointer}
+@media(max-width:700px){.shell{grid-template-columns:1fr}.sidebar{padding:12px}.brand{margin:0 0 10px}.sidebar nav{display:flex;overflow:auto;gap:4px}.side-item{white-space:nowrap}.content{padding:18px}}
+</style></head><body><div class="shell"><aside class="sidebar"><div class="brand">BREBO Office</div><nav aria-label="Hoofdnavigatie">';
+echo '<a class="side-item" aria-current="page" href="' . $esc(\Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/' : ($queryRouter ? '/index.php' : '/office/')) . '">Overzicht</a>';
+foreach ($modules as [$name, $url, $active]) {
+  $label = $esc($name);
+  if ($active && is_string($url)) {
+    echo '<a class="side-item" href="' . $esc($url) . '">' . $label . '</a>';
+  } else {
+    echo '<span class="side-item disabled" aria-disabled="true">' . $label . '</span>';
+  }
+}
+echo '</nav></aside><main class="content">' . $environmentBanner . '<div class="top"><div><h1>Overzicht</h1><p>Mijn werkplek en projecten</p></div><form method="post" action="' . $esc($logoutUrl) . '"><button type="submit">Uitloggen</button></form></div>';
+echo '<nav class="tabs" aria-label="Overzicht tabs"><span class="tab" aria-current="page">Projecten</span></nav>';
+echo '<details class="panel" open><summary>KPI’s en kritieke punten</summary><div class="kpis">';
+foreach (['Toegankelijke projecten','Omzet / prognose','Openstaande facturen','Kritieke punten'] as $metric) {
+  $metricValue = $metric === 'Toegankelijke projecten' && is_array($visibleProjects) ? (string)count($visibleProjects) : 'Niet beschikbaar';
+  echo '<div class="kpi"><span>' . $esc($metric) . '</span><strong>' . $esc($metricValue) . '</strong></div>';
+}
+echo '</div><p class="muted">KPI’s worden pas getoond wanneer gegevensbron en rechten zijn geverifieerd.</p></details>';
+echo '<section class="panel"><div class="row"><h2>Projecten</h2>';
+if ($projectEnabled && is_string($projectUrl)) {
+  echo '<a class="link" href="' . $esc($projectUrl) . '">Open projectenlijst</a>';
+} else {
+  echo '<span class="muted">Projectenlijst nog niet aangesloten</span>';
+}
+echo '</div>';
+if ($projectEnabled && is_string($projectUrl)) {
+  if ($visibleProjects === null) {
+    echo '<p class="muted">Projectenlijst tijdelijk niet beschikbaar. <a href="' . $esc($projectUrl) . '">Open de projectenmodule</a>.</p>';
+  } else {
+    if ($visibleProjects === []) {
+      echo '<p class="muted">Geen toegankelijke projecten gevonden.</p>';
+    } else {
+      echo '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Project</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Status</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Gebouwen</th></tr></thead><tbody>';
+      foreach ($visibleProjects as $project) {
+        $detailUrl = $projectUrl . '/detail?id=' . (int)$project['id'];
+        echo '<tr><td style="padding:12px;border-bottom:1px solid #dbe1e8"><a href="' . $esc($detailUrl) . '">' . $esc((string)$project['code']) . ' · ' . $esc((string)$project['title']) . '</a></td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . $esc((string)$project['status']) . '</td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . (int)$project['building_count'] . '</td></tr>';
+      }
+      echo '</tbody></table></div>';
+    }
+  }
+}
+
+echo '</section>';
+if ($recentWork !== []) {
+  echo '<section class="panel"><h2>Mijn laatste werkzaamheden</h2><ul>';
+  foreach ($recentWork as $item) {
+    $label = $item->module === 'calculation' ? 'Calculatie' : 'Werkzaamheid';
+    echo '<li>' . $esc($label . ' #' . $item->resourceId) . ' — Hervatten nog niet beschikbaar</li>';
+  }
+  echo '</ul></section>';
+}
+if ($importReviewEnabled) {
+  echo '<section class="panel"><h2>Inzet · urenverantwoording</h2><a class="link" href="' . $esc(\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole') . '#afwijkingen') . '">Afwijkingen ter controle: ' . ($importIssueCount === null ? 'Niet beschikbaar' : (string)$importIssueCount) . '</a><p>' . ($importRowCount === null ? 'Brongegevens niet beschikbaar' : (string)$importRowCount . ' bronregels') . '</p></section>';
+}
+echo '</main></div></body></html>';
