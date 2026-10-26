@@ -37,7 +37,7 @@ final class OnSiteBootstrapService {
       }
       $projectId = $zone['project_id'];
       if (!isset($projects[$projectId])) {
-        $projects[$projectId] = ['id'=>$projectId,'name'=>$projectId,'zones'=>[]];
+        $projects[$projectId] = ['id'=>$projectId,'name'=>(isset($zone['project_name']) && is_string($zone['project_name']) && trim($zone['project_name']) !== '' ? trim($zone['project_name']) : $projectId),'zones'=>[]];
       }
       $projects[$projectId]['zones'][] = [
         'id'=>$zone['zone_id'],
