@@ -57,7 +57,18 @@ try {
     new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
   );
   $repository = new \Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
-  $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native));
+  $employeeName = static function(string $employeeId) use ($db): string {
+    $statement = $db->prepare('SELECT display_name FROM office_inzet_people WHERE id = ? AND active = 1 LIMIT 1');
+    $statement->execute([$employeeId]);
+    $name = $statement->fetchColumn();
+    if (!is_string($name) || trim($name) === '') {
+      throw new RuntimeException('Verified employee display name unavailable');
+    }
+    return trim($name);
+  };
+  $result = $service->bootstrap($match[1],
+    static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native),
+    $employeeName);
   http_response_code($result['status']);
   echo json_encode($result['body'], JSON_THROW_ON_ERROR);
 } catch (Throwable $error) {
