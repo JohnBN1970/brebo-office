@@ -184,7 +184,7 @@ if ($projectEnabled && is_string($projectUrl)) {
     } else {
       echo '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Project</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Status</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Gebouwen</th></tr></thead><tbody>';
       foreach ($visibleProjects as $project) {
-        $detailUrl = $projectUrl . '/' . rawurlencode((string)$project['id']);
+        $detailUrl = $projectUrl . '/detail?id=' . (int)$project['id'];
         echo '<tr><td style="padding:12px;border-bottom:1px solid #dbe1e8"><a href="' . $esc($detailUrl) . '">' . $esc((string)$project['code']) . ' · ' . $esc((string)$project['title']) . '</a></td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . $esc((string)$project['status']) . '</td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . (int)$project['building_count'] . '</td></tr>';
       }
       echo '</tbody></table></div>';
