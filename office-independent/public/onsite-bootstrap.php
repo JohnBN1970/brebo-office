@@ -70,8 +70,8 @@ try {
   if (getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled') {
     require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursApprovalRepository.php';
     require_once dirname(__DIR__) . '/src/Inzet/OnSiteApprovalProjection.php';
-    $reviews = new \\Brebo\\Office\\Inzet\\OnSiteHoursApprovalRepository($db);
-    $approvalReader = static fn(string $employeeId): array => \\Brebo\\Office\\Inzet\\OnSiteApprovalProjection::forEmployee(
+    $reviews = new \Brebo\Office\Inzet\OnSiteHoursApprovalRepository($db);
+    $approvalReader = static fn(string $employeeId): array => \Brebo\Office\Inzet\OnSiteApprovalProjection::forEmployee(
       $reviews->approvedSessionsForPerson($employeeId), $employeeId
     );
   }
