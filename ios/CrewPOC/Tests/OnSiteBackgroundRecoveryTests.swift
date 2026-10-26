@@ -102,4 +102,33 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         XCTAssertEqual(evidence.map(\.zoneId), ["3", "3"])
     }
 
+    func testUploadedRegistrationRemainsInHistoryAfterRelaunch() async {
+        let name = "OnSiteHistoryTests.\\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
+        let first = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { _, _ in })
+        first.enqueue(event)
+        await first.retryPending()
+        XCTAssertEqual(first.pendingCount, 0)
+        XCTAssertEqual(first.registrationHistory, [event])
+        XCTAssertFalse(first.isAwaitingUpload(event.id))
+        let restored = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { _, _ in })
+        XCTAssertEqual(restored.registrationHistory, [event])
+        restored.enqueue(event)
+        XCTAssertEqual(restored.registrationHistory.count, 1)
+    }
+
+    func testExistingPendingQueueMigratesIntoHistory() {
+        let name = "OnSiteHistoryMigration.\\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
+        defaults.set(try! JSONEncoder().encode([event]), forKey: "brebo.onsite.pending-presence.v1")
+        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        XCTAssertEqual(uploader.pendingCount, 1)
+        XCTAssertEqual(uploader.registrationHistory, [event])
+        XCTAssertTrue(uploader.isAwaitingUpload(event.id))
+    }
+
 }
