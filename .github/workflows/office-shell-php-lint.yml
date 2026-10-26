@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'office-independent/public/office-home.php'
+      - 'office-independent/public/office-projects.php'
       - '.github/workflows/office-shell-php-lint.yml'
   workflow_dispatch:
 jobs:
@@ -11,4 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
-        run: php -l office-independent/public/office-home.php
+        run: |
+          php -l office-independent/public/office-home.php
+          php -l office-independent/public/office-projects.php
