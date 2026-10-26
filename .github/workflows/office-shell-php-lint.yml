@@ -1,0 +1,14 @@
+name: Office shell PHP lint
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-home.php'
+      - '.github/workflows/office-shell-php-lint.yml'
+  workflow_dispatch:
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: php -l office-independent/public/office-home.php
