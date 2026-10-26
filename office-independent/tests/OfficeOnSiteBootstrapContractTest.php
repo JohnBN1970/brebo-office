@@ -19,4 +19,11 @@ foreach (['is_finite','abs($lat) > 90','abs($lon) > 180','$radius <= 0'] as $gua
     throw new RuntimeException('Missing bootstrap geometry validation: ' . $guard);
   }
 }
-echo "OnSite static bootstrap contract checks passed\n";
+$endpoint = file_get_contents($root . '/public/onsite-bootstrap.php');
+if (!is_string($endpoint)
+  || !str_contains($endpoint, 'SELECT display_name FROM office_inzet_people')
+  || !str_contains($endpoint, '$employeeName')
+  || !str_contains($service, "'display_name'=>\$displayName")) {
+  throw new RuntimeException('Bootstrap must return Office personnel display name, not employee ID');
+}
+echo "OnSite static bootstrap contract checks passed\\n";

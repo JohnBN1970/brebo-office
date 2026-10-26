@@ -32,6 +32,19 @@ struct OnSiteVerifiedIdentity: Decodable {
 struct OnSiteBootstrap: Codable, Equatable {
     let employee: OnSiteBootstrapEmployee
     let projects: [OnSiteBootstrapProject]
+    // Absent until Office exposes an authenticated, reviewed-session projection.
+    let approvedEvents: [String: Date]?
+
+    enum CodingKeys: String, CodingKey {
+        case employee, projects
+        case approvedEvents = "approved_events"
+    }
+
+    init(employee: OnSiteBootstrapEmployee, projects: [OnSiteBootstrapProject], approvedEvents: [String: Date]? = nil) {
+        self.employee = employee
+        self.projects = projects
+        self.approvedEvents = approvedEvents
+    }
 }
 
 struct OnSiteBootstrapEmployee: Codable, Equatable {
@@ -196,7 +209,9 @@ struct OnSiteAPIClient {
             let error = payload?["error"] as? String ?? "request_failed"
             throw OnSiteAPIError.server(error)
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(T.self, from: data)
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {

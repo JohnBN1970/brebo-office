@@ -261,6 +261,35 @@ struct CrewContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                GroupBox("Registratiehistorie") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if presenceUploader.activeRegistrations.isEmpty {
+                            Text("Nog geen IN/UIT-registraties")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(presenceUploader.activeRegistrations.reversed()) { event in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(event.kind == .enteredProject ? "IN" : "UIT")
+                                            .fontWeight(.semibold)
+                                        Text(event.occurredAt.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(registrationStatus(for: event))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text("Na goedkeuring nog 5 dagen zichtbaar. Office bewaart de volledige historie.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 GroupBox("Laatste waarneming") {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(lastObservationText)
@@ -283,6 +312,12 @@ struct CrewContentView: View {
         }
     }
 
+    private func registrationStatus(for event: CrewPresenceEvent) -> String {
+        if presenceUploader.isAwaitingUpload(event.id) { return "Wacht op Office" }
+        if presenceUploader.approvedAtByEventId[event.id] != nil { return "Goedgekeurd" }
+        return "Verzonden · wacht op goedkeuring"
+    }
+
     private var activePresenceText: String? {
         let zoneNames = Dictionary(
             uniqueKeysWithValues: identityStore.assignedProjects.flatMap { project in
@@ -296,7 +331,7 @@ struct CrewContentView: View {
     }
 
     private var lastObservationText: String {
-        guard let event = locationMonitor.events.last else {
+        guard let event = presenceUploader.registrationHistory.last else {
             return "Nog geen IN/UIT-waarneming"
         }
         let action = event.kind == .enteredProject ? "IN" : "UIT"
