@@ -93,4 +93,23 @@ try {
   $conflict=$e->getMessage()==='zone_request_key_conflict';
 }
 if (!$conflict) throw new RuntimeException('Reused request key accepted different payload');
-echo "Office building-owned zone MySQL checks passed\n";
+$changes=['zone_name'=>'Bijgewerkte zone','latitude'=>51.53,'longitude'=>4.33,'radius_metres'=>180];
+if (!$zones->update($first,1,$changes,$buildingAccess)) throw new RuntimeException('MySQL zone update failed');
+if ($zones->update($first,1,array_replace($changes,['zone_name'=>'Stale']),$buildingAccess)) throw new RuntimeException('MySQL stale revision accepted');
+$readback=$zones->forBuilding($one,$buildingAccess);
+$updated=array_values(array_filter($readback,static fn(array $row):bool=>(string)$row['id']===$first));
+if (count($updated)!==1 || (int)$updated[0]['revision']!==2 || $updated[0]['zone_name']!=='Bijgewerkte zone') {
+  throw new RuntimeException('MySQL zone update readback mismatch');
+}
+$deniedUpdate=false;
+try {
+  $zones->update($first,2,array_replace($changes,['zone_name'=>'Unauthorized']),static fn(string $id):bool=>false);
+} catch (InvalidArgumentException $e) {
+  $deniedUpdate=$e->getMessage()==='unauthorized_building_zone';
+}
+if (!$deniedUpdate) throw new RuntimeException('MySQL unauthorized zone update accepted');
+$invalidRadius=false;
+try { $zones->update($first,2,array_replace($changes,['radius_metres'=>5001]),$buildingAccess); }
+catch (InvalidArgumentException $e) { $invalidRadius=true; }
+if (!$invalidRadius) throw new RuntimeException('MySQL invalid radius accepted');
+echo "Office building-owned zone MySQL checks passed\\n";
