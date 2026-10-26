@@ -13,6 +13,10 @@ final class OnSitePresenceUploader: ObservableObject {
     private let queueKey = "brebo.onsite.pending-presence.v1"
     private let historyKey = "brebo.onsite.registration-history.v1"
     private var pending: [CrewPresenceEvent] = []
+    // Approval is Office-owned. Never infer it from successful upload or payment.
+    private let approvalKey = "brebo.onsite.approved-presence.v1"
+    @Published private(set) var approvedAtByEventId: [UUID: Date] = [:]
+    private let approvedVisibilityDays: TimeInterval = 5 * 24 * 60 * 60
     private var uploading = false
     private var seenEventIds: Set<UUID> = []
 
@@ -27,7 +31,30 @@ final class OnSitePresenceUploader: ObservableObject {
         restore()
     }
 
+    var activeRegistrations: [CrewPresenceEvent] {
+        visibleRegistrations(asOf: Date())
+    }
+
+    func visibleRegistrations(asOf date: Date) -> [CrewPresenceEvent] {
+        registrationHistory.filter { event in
+            guard let approvedAt = approvedAtByEventId[event.id] else { return true }
+            return date < approvedAt.addingTimeInterval(approvedVisibilityDays)
+        }
+    }
+
+    // Call only with approval timestamps verified by Office, never local user input.
+    func applyOfficeApprovals(_ approvals: [UUID: Date]) {
+        approvedAtByEventId = approvals
+        if let data = try? JSONEncoder().encode(approvals) {
+            defaults.set(data, forKey: approvalKey)
+        }
+    }
+
     private func restore() {
+        if let data = defaults.data(forKey: approvalKey),
+           let approvals = try? JSONDecoder().decode([UUID: Date].self, from: data) {
+            approvedAtByEventId = approvals
+        }
         if let data = defaults.data(forKey: historyKey),
            let history = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) {
             registrationHistory = history
