@@ -16,7 +16,7 @@ final class OnSitePresenceUploader: ObservableObject {
     // Approval is Office-owned. Never infer it from successful upload or payment.
     private let approvalKey = "brebo.onsite.approved-presence.v1"
     @Published private(set) var approvedAtByEventId: [UUID: Date] = [:]
-    private let approvedVisibilityDays: TimeInterval = 5 * 24 * 60 * 60
+    private let approvedVisibilityDays = 5
     private var uploading = false
     private var seenEventIds: Set<UUID> = []
 
@@ -38,7 +38,8 @@ final class OnSitePresenceUploader: ObservableObject {
     func visibleRegistrations(asOf date: Date) -> [CrewPresenceEvent] {
         registrationHistory.filter { event in
             guard let approvedAt = approvedAtByEventId[event.id] else { return true }
-            return date < approvedAt.addingTimeInterval(approvedVisibilityDays)
+            let expiry = Calendar(identifier: .gregorian).date(byAdding: .day, value: approvedVisibilityDays, to: approvedAt)
+            return date < (expiry ?? approvedAt)
         }
     }
 
