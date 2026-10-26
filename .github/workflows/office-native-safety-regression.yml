@@ -12,6 +12,7 @@ on:
       - 'office-independent/tests/OfficeNativeProjectAccessRegressionTest.php'
       - 'office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php'
       - '.github/workflows/office-native-safety-regression.yml'
+      - 'tools/office-test-release-gate.php'
   workflow_dispatch:
 
 permissions:
@@ -38,6 +39,10 @@ jobs:
           php -l office-independent/public/office-onsite-zone-create.php
           php -l office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
           php -l office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php
+      - name: Lint and verify release gate
+        run: |
+          php -l tools/office-test-release-gate.php
+          php tools/office-test-release-gate.php office-independent
       - name: Test project authorization
         run: php office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
       - name: Test zone creation safety
