@@ -124,6 +124,25 @@ $projectUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\
 $projectEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
   && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled';
+$visibleProjects = null;
+if ($projectEnabled && is_string($projectUrl)) {
+  try {
+    $projectsStatement = $db->prepare(
+      "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
+       FROM office_projects p
+       INNER JOIN office_project_memberships m ON m.project_id = p.id
+       INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+       LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
+       WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
+       GROUP BY p.id, p.code, p.title, p.status
+       ORDER BY p.id DESC LIMIT 100"
+    );
+    $projectsStatement->execute([':operator_id' => $operator->operatorId]);
+    $visibleProjects = $projectsStatement->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Throwable $exception) {
+    $visibleProjects = null;
+  }
+}
 $esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BREBO Office</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#1b2634;font:15px system-ui,sans-serif}
@@ -152,9 +171,10 @@ foreach ($modules as [$name, $url, $active]) {
 }
 echo '</nav></aside><main class="content">' . $environmentBanner . '<div class="top"><div><h1>Overzicht</h1><p>Mijn werkplek en projecten</p></div><form method="post" action="' . $esc($logoutUrl) . '"><button type="submit">Uitloggen</button></form></div>';
 echo '<nav class="tabs" aria-label="Overzicht tabs"><span class="tab" aria-current="page">Projecten</span></nav>';
-echo '<details class="panel"><summary>KPI’s en kritieke punten</summary><div class="kpis">';
-foreach (['Actieve projecten','Omzet / prognose','Openstaande facturen','Kritieke punten'] as $metric) {
-  echo '<div class="kpi"><span>' . $esc($metric) . '</span><strong>Niet beschikbaar</strong></div>';
+echo '<details class="panel" open><summary>KPI’s en kritieke punten</summary><div class="kpis">';
+foreach (['Toegankelijke projecten','Omzet / prognose','Openstaande facturen','Kritieke punten'] as $metric) {
+  $metricValue = $metric === 'Toegankelijke projecten' && is_array($visibleProjects) ? (string)count($visibleProjects) : 'Niet beschikbaar';
+  echo '<div class="kpi"><span>' . $esc($metric) . '</span><strong>' . $esc($metricValue) . '</strong></div>';
 }
 echo '</div><p class="muted">KPI’s worden pas getoond wanneer gegevensbron en rechten zijn geverifieerd.</p></details>';
 echo '<section class="panel"><div class="row"><h2>Projecten</h2>';
@@ -165,20 +185,9 @@ if ($projectEnabled && is_string($projectUrl)) {
 }
 echo '</div>';
 if ($projectEnabled && is_string($projectUrl)) {
-  try {
-    // Same ACL-filtered read model as the existing native project portfolio.
-    $projectsStatement = $db->prepare(
-      "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
-       FROM office_projects p
-       INNER JOIN office_project_memberships m ON m.project_id = p.id
-       INNER JOIN office_operator_accounts a ON a.id = m.operator_id
-       LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
-       WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
-       GROUP BY p.id, p.code, p.title, p.status
-       ORDER BY p.id DESC LIMIT 100"
-    );
-    $projectsStatement->execute([':operator_id' => $operator->operatorId]);
-    $visibleProjects = $projectsStatement->fetchAll(PDO::FETCH_ASSOC);
+  if ($visibleProjects === null) {
+    echo '<p class="muted">Projectenlijst tijdelijk niet beschikbaar. <a href="' . $esc($projectUrl) . '">Open de projectenmodule</a>.</p>';
+  } else {
     if ($visibleProjects === []) {
       echo '<p class="muted">Geen toegankelijke projecten gevonden.</p>';
     } else {
@@ -189,11 +198,9 @@ if ($projectEnabled && is_string($projectUrl)) {
       }
       echo '</tbody></table></div>';
     }
-  } catch (Throwable $exception) {
-    // Do not leak database details or bypass project access controls.
-    echo '<p class="muted">Projectenlijst tijdelijk niet beschikbaar. <a href="' . $esc($projectUrl) . '">Open de projectenmodule</a>.</p>';
   }
 }
+
 echo '</section>';
 if ($recentWork !== []) {
   echo '<section class="panel"><h2>Mijn laatste werkzaamheden</h2><ul>';
