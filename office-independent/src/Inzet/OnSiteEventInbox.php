@@ -51,7 +51,7 @@ final class OnSiteEventInbox {
         || (string)$row['zone_id'] !== $event['zone_id']
         || (string)$row['event_kind'] !== $event['kind']
         || (string)$row['occurred_at_utc'] !== $event['occurred_at']) {
-        throw new RuntimeException('Conflicting authenticated event replay');
+        throw new OnSiteEventReplayConflict('Conflicting authenticated event replay');
       }
       return false;
     }

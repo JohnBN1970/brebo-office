@@ -22,7 +22,10 @@ final class OnSiteActivationService {
       $this->db->beginTransaction();
       $q = $this->db->prepare('SELECT i.person_id FROM office_onsite_activation_invitations i
         INNER JOIN office_inzet_people p ON p.id = i.person_id AND p.active = 1
-        WHERE i.token_hash = ? AND i.consumed_at IS NULL AND i.expires_at > UTC_TIMESTAMP() FOR UPDATE');
+        WHERE i.token_hash = ? AND i.consumed_at IS NULL AND i.expires_at > UTC_TIMESTAMP()
+          AND EXISTS (SELECT 1 FROM office_inzet_project_team t
+            INNER JOIN office_projects pr ON pr.id = t.project_id
+            WHERE t.person_id = i.person_id AND t.project_id = i.project_id) FOR UPDATE');
       $q->execute([hash('sha256', $activationToken)]);
       $personId = $q->fetchColumn();
       if ($personId === false) {
