@@ -209,7 +209,9 @@ struct OnSiteAPIClient {
             let error = payload?["error"] as? String ?? "request_failed"
             throw OnSiteAPIError.server(error)
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(T.self, from: data)
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
