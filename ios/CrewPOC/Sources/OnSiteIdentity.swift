@@ -35,6 +35,7 @@ final class OnSiteIdentityStore: ObservableObject {
     @Published private(set) var language: OnSiteLanguage = .bootstrap()
     @Published private(set) var errorMessage: String?
     @Published private(set) var assignedProjects: [OnSiteBootstrapProject] = []
+    @Published private(set) var officeApprovals: [UUID: Date]?
 
     private let apiClient: OnSiteAPIClient
     private let defaults: UserDefaults
@@ -66,6 +67,14 @@ final class OnSiteIdentityStore: ObservableObject {
         let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
         language = officeLanguage
         assignedProjects = bootstrap.projects
+        // Nil means the Office endpoint has not provided an authoritative snapshot.
+        // Do not treat an omitted field as a revocation or as approval.
+        if let approvals = bootstrap.approvedEvents {
+            officeApprovals = Dictionary(uniqueKeysWithValues: approvals.compactMap { key, value in
+                guard let id = UUID(uuidString: key) else { return nil }
+                return (id, value)
+            })
+        }
         state = .linked(employeeId: bootstrap.employee.id,
                         displayName: bootstrap.employee.displayName, language: officeLanguage)
     }
@@ -171,6 +180,7 @@ final class OnSiteIdentityStore: ObservableObject {
         defaults.removeObject(forKey: cacheKey)
         clearDeviceToken()
         assignedProjects = []
+        officeApprovals = nil
         state = .unlinked
         language = .bootstrap()
         redeemedActivationToken = nil
