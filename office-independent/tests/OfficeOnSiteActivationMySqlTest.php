@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationSchema.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationReadiness.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationIssuer.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationAction.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceRevocationAction.php';
@@ -16,6 +17,7 @@ $db->exec('DROP TABLE IF EXISTS office_onsite_device_tokens');
 $db->exec('INSERT INTO office_inzet_people(id,active) VALUES (201,1),(202,0)');
 foreach (\Brebo\Office\Inzet\OnSiteDeviceTokenSchema::statements() as $sql) $db->exec($sql);
 foreach (\Brebo\Office\Inzet\OnSiteActivationInvitationSchema::statements() as $sql) $db->exec($sql);
+\Brebo\Office\Inzet\OnSiteActivationInvitationReadiness::requireReady($db);
 $issuer = new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db);
 $action = new \Brebo\Office\Inzet\OnSiteOfficeInvitationAction($db, $issuer);
 try { $action->issue('unknown-operator', 999, 201); throw new RuntimeException('Unauthorized invitation issued'); }
