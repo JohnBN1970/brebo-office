@@ -13,10 +13,15 @@ $db->exec("INSERT INTO office_projects VALUES (17,51.5,4.3),(18,52,5),(19,NULL,N
 $db->exec("INSERT INTO office_operator_accounts VALUES (10,1),(11,0),(12,1)");
 $db->exec("INSERT INTO office_project_memberships VALUES (17,10,'manage'),(18,10,'read'),(17,11,'manage'),(19,12,'manage')");
 $repo=new OnSiteOfficeProjectMapRepository($db);
-if ($repo->forManager(10,17)['project_id']!=='17') throw new RuntimeException('Authorized project missing');
+if ($repo->forManager('10',17)['project_id']!=='17') throw new RuntimeException('Authorized project missing');
 foreach ([[10,18],[11,17],[12,17],[12,19]] as [$operator,$project]) {
   $denied=false;
-  try {$repo->forManager($operator,$project);} catch (RuntimeException | InvalidArgumentException $e) {$denied=true;}
+  try {$repo->forManager((string)$operator,$project);} catch (RuntimeException | InvalidArgumentException $e) {$denied=true;}
   if (!$denied) throw new RuntimeException('Project map access not denied');
 }
-echo "Office project map MySQL access checks passed\n";
+foreach (['', '0', '10x', '-1', '999999999999999999999'] as $operator) {
+  $denied=false;
+  try { $repo->forManager($operator,17); } catch (RuntimeException | InvalidArgumentException $e) { $denied=true; }
+  if (!$denied) throw new RuntimeException('Invalid authenticated operator ID accepted');
+}
+echo "Office project map MySQL access checks passed\\n";
