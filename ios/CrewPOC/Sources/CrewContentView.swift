@@ -261,6 +261,35 @@ struct CrewContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                GroupBox("Registratiehistorie") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if presenceUploader.registrationHistory.isEmpty {
+                            Text("Nog geen IN/UIT-registraties")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(presenceUploader.registrationHistory.reversed()) { event in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(event.kind == .enteredProject ? "IN" : "UIT")
+                                            .fontWeight(.semibold)
+                                        Text(event.occurredAt.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Text(presenceUploader.isAwaitingUpload(event.id) ? "Wacht op Office" : "Verzonden")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text("Dit zijn aanwezigheidsmeldingen, geen goedgekeurde of betaalde uren.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 GroupBox("Laatste waarneming") {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(lastObservationText)
@@ -296,7 +325,7 @@ struct CrewContentView: View {
     }
 
     private var lastObservationText: String {
-        guard let event = locationMonitor.events.last else {
+        guard let event = presenceUploader.registrationHistory.last else {
             return "Nog geen IN/UIT-waarneming"
         }
         let action = event.kind == .enteredProject ? "IN" : "UIT"
