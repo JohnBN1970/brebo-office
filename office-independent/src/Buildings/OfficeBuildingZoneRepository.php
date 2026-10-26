@@ -121,6 +121,50 @@ final class OfficeBuildingZoneRepository {
     }
   }
 
+  /**
+   * Idempotent creation for a client-generated 64-character lowercase hex request key.
+   * The unique database index is the concurrency arbiter. A reused key with
+   * different content is rejected rather than silently returning another zone.
+   */
+  public function createOnce(array $zone, string $requestKey, \Closure $authorizedBuilding): string {
+    if (!preg_match('/^[a-f0-9]{64}$/D', $requestKey)) throw new InvalidArgumentException('invalid_zone_request_key');
+    if (array_key_exists('request_key', $zone) || array_key_exists('request_fingerprint', $zone)) {
+      throw new InvalidArgumentException('invalid_building_zone');
+    }
+    $buildingId=$zone['building_id']??null;
+    $name=$zone['zone_name']??null;
+    $lat=$zone['latitude']??null;
+    $lon=$zone['longitude']??null;
+    $radius=$zone['radius_metres']??null;
+    if (!is_string($buildingId) || !preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
+      || !is_string($name) || trim($name)==='' || strlen(trim($name))>160
+      || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
+      || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
+      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
+      || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
+      || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
+    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+    $fingerprint=hash('sha256', json_encode([$buildingId,trim($name),sprintf('%.7f',(float)$lat),sprintf('%.7f',(float)$lon),sprintf('%.2f',(float)$radius)], JSON_THROW_ON_ERROR));
+    if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
+    $this->db->beginTransaction();
+    try {
+      $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres,request_key,request_fingerprint) SELECT id,?,?,?,?,?,? FROM office_buildings WHERE id=? AND active=1 ON DUPLICATE KEY UPDATE id=id');
+      $stmt->execute([$name=trim($name),(float)$lat,(float)$lon,(float)$radius,$requestKey,$fingerprint,$buildingId]);
+      $lookup=$this->db->prepare('SELECT id,building_id,request_fingerprint FROM office_building_zones WHERE request_key=?');
+      $lookup->execute([$requestKey]);
+      $existing=$lookup->fetch(PDO::FETCH_ASSOC);
+      if (!is_array($existing)) throw new InvalidArgumentException('building_not_found');
+      if ((string)$existing['building_id']!==$buildingId || !hash_equals((string)$existing['request_fingerprint'],$fingerprint)) {
+        throw new InvalidArgumentException('zone_request_key_conflict');
+      }
+      $this->db->commit();
+      return (string)$existing['id'];
+    } catch (\Throwable $exception) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $exception;
+    }
+  }
+
   /** Only zones for the requested, already-authorized building. */
   public function forBuilding(string $buildingId, \Closure $authorizedBuilding): array {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
