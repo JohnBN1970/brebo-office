@@ -1,0 +1,27 @@
+name: Independent Office Calc policy
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - '.github/workflows/office-independent-calc.yml'
+  workflow_dispatch:
+
+jobs:
+  calc-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          php -l office-independent/src/Intake/WebsiteCrmOperatorContext.php
+          php -l office-independent/src/Intake/WebsiteOfficeCalculationAccessPolicy.php
+          php -l office-independent/tests/WebsiteOfficeCalculationAccessPolicySmoke.php
+      - name: Fail-closed Calc authorization smoke
+        run: php office-independent/tests/WebsiteOfficeCalculationAccessPolicySmoke.php
