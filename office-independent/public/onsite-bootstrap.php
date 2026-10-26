@@ -66,9 +66,19 @@ try {
     }
     return trim($name);
   };
+  $approvalReader = null;
+  if (getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled') {
+    require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursApprovalRepository.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OnSiteApprovalProjection.php';
+    $reviews = new \\Brebo\\Office\\Inzet\\OnSiteHoursApprovalRepository($db);
+    $approvalReader = static fn(string $employeeId): array => \\Brebo\\Office\\Inzet\\OnSiteApprovalProjection::forEmployee(
+      $reviews->approvedSessionsForPerson($employeeId), $employeeId
+    );
+  }
   $result = $service->bootstrap($match[1],
     static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native),
-    $employeeName);
+    $employeeName,
+    $approvalReader);
   http_response_code($result['status']);
   echo json_encode($result['body'], JSON_THROW_ON_ERROR);
 } catch (Throwable $error) {
