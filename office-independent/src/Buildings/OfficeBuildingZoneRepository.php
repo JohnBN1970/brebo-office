@@ -148,7 +148,7 @@ final class OfficeBuildingZoneRepository {
     if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
     $this->db->beginTransaction();
     try {
-      $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres,request_key,request_fingerprint) SELECT id,?,?,?,?,?,? FROM office_buildings WHERE id=? AND active=1 ON DUPLICATE KEY UPDATE id=id');
+      $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres,request_key,request_fingerprint) SELECT b.id,?,?,?,?,?,? FROM office_buildings b WHERE b.id=? AND b.active=1 ON DUPLICATE KEY UPDATE request_key=request_key');
       $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$requestKey,$fingerprint,$buildingId]);
       $lookup=$this->db->prepare('SELECT id,building_id,request_fingerprint FROM office_building_zones WHERE request_key=?');
       $lookup->execute([$requestKey]);
