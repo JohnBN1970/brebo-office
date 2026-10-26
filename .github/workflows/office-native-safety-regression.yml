@@ -42,6 +42,7 @@ jobs:
       - name: Lint and verify release gate
         run: |
           php -l tools/office-test-release-gate.php
+          php tools/office-test-release-gate.php --zone-only office-independent
       - name: Test project authorization
         run: php office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
       - name: Test zone creation safety
