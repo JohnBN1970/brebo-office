@@ -10,7 +10,8 @@ final class OnSiteBootstrapService {
   public function __construct(private OnSiteDeviceTokenRepository $devices) {}
 
   /** @param \Closure(string):array $assignments */
-  public function bootstrap(string $deviceToken, \Closure $assignments): array {
+  /** @param ?\Closure(string):string $employeeName */
+  public function bootstrap(string $deviceToken, \Closure $assignments, ?\Closure $employeeName = null): array {
     $employeeId = $this->devices->resolveEmployee($deviceToken);
     if ($employeeId === null) {
       return ['status'=>401,'body'=>['ok'=>false,'error'=>'device_not_linked']];
@@ -47,9 +48,11 @@ final class OnSiteBootstrapService {
         'radius_metres'=>$radius,
       ];
     }
+    $displayName = $employeeName === null ? $employeeId : trim($employeeName($employeeId));
+    if ($displayName === '') $displayName = $employeeId;
     return ['status'=>200,'body'=>[
       'ok'=>true,
-      'employee'=>['id'=>$employeeId,'display_name'=>$employeeId,'language'=>'nl'],
+      'employee'=>['id'=>$employeeId,'display_name'=>$displayName,'language'=>'nl'],
       'projects'=>array_values($projects),
     ]];
   }
