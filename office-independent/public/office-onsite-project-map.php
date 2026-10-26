@@ -132,7 +132,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   const zone=editableZones.find(z=>z.id===button.dataset.zoneId);
   if(!zone)return;
   selectedEdit=zone;center={lat:zone.lat,lng:zone.lng};zoneName.value=zone.name;
-  radius.value=String(zone.radius);metres.textContent=radius.value;
+  radius.value=String(Math.max(10,Math.min(5000,Math.round(zone.radius/10)*10)));metres.textContent=radius.value;
   document.getElementById("edit-id").value=zone.id;
   document.getElementById("edit-revision").value=zone.revision;
   document.getElementById("zone-edit").hidden=false;
@@ -152,7 +152,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   document.getElementById("edit-lon").value=center.lng.toFixed(7);
   document.getElementById("edit-radius").value=radius.value;
  });
- const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
+ const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{if(selectedEdit){event.preventDefault();status.textContent="Sluit eerst de zonebewerking af.";return;}const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
  preview.addEventListener("click",()=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160){status.textContent="Ongeldige zonenaam (maximaal 160 bytes).";return;}document.getElementById("result").textContent=JSON.stringify({building_id:'.($selectedBuilding!==null ? json_encode((string)$selectedBuilding['id'],JSON_THROW_ON_ERROR) : 'null').',zone_name:name,latitude:center.lat,longitude:center.lng,radius_metres:Number(radius.value),saved:false},null,2);});
 })();
 </script></body></html>';
