@@ -18,7 +18,7 @@ function rejects(callable $operation): bool {
 }
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $db->exec('CREATE TABLE office_buildings (id INTEGER PRIMARY KEY, active INTEGER NOT NULL)');
-$db->exec('CREATE TABLE office_building_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, zone_name TEXT, latitude REAL, longitude REAL, radius_metres REAL)');
+$db->exec('CREATE TABLE office_building_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, zone_name TEXT, latitude REAL, longitude REAL, radius_metres REAL, active INTEGER NOT NULL DEFAULT 1, revision INTEGER NOT NULL DEFAULT 1)');
 $db->exec('INSERT INTO office_buildings VALUES (1,1),(2,0)');
 $repo = new OfficeBuildingZoneRepository($db);
 $authorized = static fn(string $id): bool => $id === '1';
