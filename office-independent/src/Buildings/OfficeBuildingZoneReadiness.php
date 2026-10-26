@@ -24,6 +24,8 @@ final class OfficeBuildingZoneReadiness {
     }
     $report['database issued zone identity']=preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D', $columns['id']['COLUMN_TYPE'] ?? '')===1
       && str_contains($columns['id']['EXTRA'] ?? '', 'auto_increment');
+    $report['zone revision column']=isset($columns['revision'])
+      && preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D', $columns['revision']['COLUMN_TYPE'] ?? '')===1;
     $indexes=$db->query("SELECT INDEX_NAME,NON_UNIQUE,GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols,
       SUM(SUB_PART IS NOT NULL) AS prefixes
       FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_building_zones'
