@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -150,7 +150,7 @@ foreach ($modules as [$name, $url, $active]) {
     echo '<span class="side-item disabled" aria-disabled="true">' . $label . '</span>';
   }
 }
-echo '</nav></aside><main class="content"><div class="top"><div><h1>Overzicht</h1><p>Mijn werkplek en projecten</p></div><form method="post" action="' . $esc($logoutUrl) . '"><button type="submit">Uitloggen</button></form></div>';
+echo '</nav></aside><main class="content">' . $environmentBanner . '<div class="top"><div><h1>Overzicht</h1><p>Mijn werkplek en projecten</p></div><form method="post" action="' . $esc($logoutUrl) . '"><button type="submit">Uitloggen</button></form></div>';
 echo '<nav class="tabs" aria-label="Overzicht tabs"><span class="tab" aria-current="page">Projecten</span></nav>';
 echo '<details class="panel"><summary>KPI’s en kritieke punten</summary><div class="kpis">';
 foreach (['Actieve projecten','Omzet / prognose','Openstaande facturen','Kritieke punten'] as $metric) {
