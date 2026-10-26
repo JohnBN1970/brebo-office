@@ -263,11 +263,11 @@ struct CrewContentView: View {
 
                 GroupBox("Registratiehistorie") {
                     VStack(alignment: .leading, spacing: 8) {
-                        if presenceUploader.registrationHistory.isEmpty {
+                        if presenceUploader.activeRegistrations.isEmpty {
                             Text("Nog geen IN/UIT-registraties")
                                 .foregroundStyle(.secondary)
                         } else {
-                            ForEach(presenceUploader.registrationHistory.reversed()) { event in
+                            ForEach(presenceUploader.activeRegistrations.reversed()) { event in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(event.kind == .enteredProject ? "IN" : "UIT")
@@ -277,13 +277,13 @@ struct CrewContentView: View {
                                             .foregroundStyle(.secondary)
                                     }
                                     Spacer()
-                                    Text(presenceUploader.isAwaitingUpload(event.id) ? "Wacht op Office" : "Verzonden")
+                                    Text(registrationStatus(for: event))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
                         }
-                        Text("Dit zijn aanwezigheidsmeldingen, geen goedgekeurde of betaalde uren.")
+                        Text("Na goedkeuring nog 5 dagen zichtbaar. Office bewaart de volledige historie.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -310,6 +310,12 @@ struct CrewContentView: View {
                 }
             }
         }
+    }
+
+    private func registrationStatus(for event: CrewPresenceEvent) -> String {
+        if presenceUploader.isAwaitingUpload(event.id) { return "Wacht op Office" }
+        if presenceUploader.approvedAtByEventId[event.id] != nil { return "Goedgekeurd" }
+        return "Verzonden · wacht op goedkeuring"
     }
 
     private var activePresenceText: String? {
