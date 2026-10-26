@@ -22,7 +22,7 @@ $checks = [
     'CRM opportunity route' => ['public/crm-workspace.php', 'create-opportunity'],
     'Zone write uses verified test DB' => ['public/office-onsite-zone-create.php', 'u213420663_office_test'],
     'Zone write uses server-side CSRF' => ['public/office-onsite-zone-create.php', 'OnSiteOfficeZonePostAction'],
-    'Zone edit route' => ['public/office-onsite-project-map.php', '/office-test/inzet/zone/bewerken'],
+    'Zone edit route' => ['public/office-onsite-project-map.php', '/office-test/inzet/zone/bijwerken'],
     'Zone idempotency request key' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'requestKey'],
     'Zone compare-and-swap update' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'function update'],
 ];
