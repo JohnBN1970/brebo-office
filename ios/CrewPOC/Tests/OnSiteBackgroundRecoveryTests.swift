@@ -131,4 +131,30 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         XCTAssertTrue(uploader.isAwaitingUpload(event.id))
     }
 
+    func testApprovedRegistrationRemainsVisibleForFiveDays() {
+        let name = "OnSiteApprovalVisibility.\\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
+        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        uploader.enqueue(event)
+        let approved = Date(timeIntervalSince1970: 1_700_000_000)
+        uploader.applyOfficeApprovals([event.id: approved])
+        XCTAssertEqual(uploader.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400 - 1)), [event])
+        XCTAssertTrue(uploader.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400)).isEmpty)
+        XCTAssertEqual(uploader.registrationHistory, [event])
+        let restored = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        XCTAssertTrue(restored.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400)).isEmpty)
+    }
+
+    func testUnapprovedRegistrationNeverExpiresLocally() {
+        let name = "OnSiteUnapprovedVisibility.\\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
+        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        uploader.enqueue(event)
+        XCTAssertEqual(uploader.visibleRegistrations(asOf: Date.distantFuture), [event])
+    }
+
 }
