@@ -31,6 +31,8 @@ final class OnSitePresenceUploader: ObservableObject {
         restore()
     }
 
+    var pendingEventIds: Set<UUID> { Set(pending.map(\.id)) }
+
     var activeRegistrations: [CrewPresenceEvent] {
         visibleRegistrations(asOf: Date())
     }
