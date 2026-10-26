@@ -1,0 +1,50 @@
+name: Office-test release diff read-only
+
+on:
+  push:
+    branches:
+      - diagnostics/office-test-release-diff-20261026
+    paths:
+      - '.github/workflows/office-test-release-diff-readonly.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read existing Hostinger report over SSH
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST}"
+          : "${DEPLOY_PORT:?Missing DEPLOY_PORT}"
+          : "${DEPLOY_USER:?Missing DEPLOY_USER}"
+          : "${DEPLOY_SSH_KEY:?Missing DEPLOY_SSH_KEY}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 10 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts
+          mkdir -p release-diagnostics
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cat "$HOME/domains/brebobv.nl/office_calc_test/release-diff-review.txt"' \
+            > release-diagnostics/release-diff-review.txt
+          test -s release-diagnostics/release-diff-review.txt
+          echo "Report bytes: $(wc -c < release-diagnostics/release-diff-review.txt)"
+          echo "Report lines: $(wc -l < release-diagnostics/release-diff-review.txt)"
+      - name: Upload diagnostic artifact (private repository access required)
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-test-release-diff-review
+          path: release-diagnostics/release-diff-review.txt
+          if-no-files-found: error
+          retention-days: 3
