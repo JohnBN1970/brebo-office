@@ -46,7 +46,7 @@ final class OfficeBuildingZoneReadiness {
     }
     try {
       $db->query("SELECT z.id,z.building_id,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.active,z.revision,
-        z.request_key,z.request_fingerprint,b.name,b.address_line,b.postal_code,b.city,a.active,m.permission,p.id
+        z.request_key,z.request_fingerprint,b.building_name,b.street_address,b.postal_code,b.city,a.active,m.permission,p.id
         FROM office_building_zones z JOIN office_buildings b ON b.id=z.building_id
         JOIN office_project_buildings pb ON pb.building_id=b.id JOIN office_projects p ON p.id=pb.project_id
         JOIN office_project_memberships m ON m.project_id=p.id JOIN office_operator_accounts a ON a.id=m.operator_id LIMIT 0");
