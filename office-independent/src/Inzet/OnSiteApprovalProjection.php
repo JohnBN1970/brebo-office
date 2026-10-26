@@ -30,12 +30,15 @@ final class OnSiteApprovalProjection {
         || strtotime($approvedAt) === false) {
         continue;
       }
-      foreach ([$inId, $outId] as $id) {
-        if (!is_string($id) || !preg_match('/^[a-fA-F0-9-]{36}$/D', $id)) {
-          continue;
-        }
-        $approvals[$id] = $approvedAt;
+      // A complete reviewed session requires both valid, distinct event IDs.
+      $uuid = '/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/D';
+      if (!is_string($inId) || !is_string($outId)
+        || !preg_match($uuid, $inId) || !preg_match($uuid, $outId)
+        || strcasecmp($inId, $outId) === 0) {
+        continue;
       }
+      $approvals[$inId] = $approvedAt;
+      $approvals[$outId] = $approvedAt;
     }
     return $approvals;
   }
