@@ -77,7 +77,7 @@ if ($zoneWriteEnabled && $selectedBuilding!==null) {
   require_once dirname(__DIR__).'/src/Inzet/OnSiteOfficeZoneFormToken.php';
   $zoneSecret=getenv('OFFICE_TEST_ZONE_CSRF_SECRET')?:'';
   if (strlen($zoneSecret)>=32 && getenv('OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED')==='enabled') {
-    $zoneEditToken=\\Brebo\\Office\\Inzet\\OnSiteOfficeZoneFormToken::issue($operator,(string)$id,(string)$selectedBuilding['id'],$zoneSecret,time());
+    $zoneEditToken=\Brebo\Office\Inzet\OnSiteOfficeZoneFormToken::issue($operator,(string)$id,(string)$selectedBuilding['id'],$zoneSecret,time());
     foreach ($projectZones as $row) {
       $editableZones[]=['id'=>(string)$row['id'],'revision'=>(string)$row['revision'],'name'=>(string)$row['zone_name'],
         'lat'=>(float)$row['latitude'],'lng'=>(float)$row['longitude'],'radius'=>(float)$row['radius_metres']];
