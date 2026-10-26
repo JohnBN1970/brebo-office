@@ -50,7 +50,11 @@ try {
   require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneRepository.php';
   require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
-  if (!is_string($dsn) || $dsn === '') throw new RuntimeException('missing_test_database');
+  if (!is_string($dsn)
+    || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', $dsn)
+    || getenv('OFFICE_INTAKE_DB_USER') !== 'u213420663_office_test') {
+    throw new RuntimeException('missing_test_database');
+  }
   $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
   $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
