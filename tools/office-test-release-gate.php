@@ -8,7 +8,8 @@ declare(strict_types=1);
  * Read-only: no database connection, filesystem writes, or deploy.
  * This is a minimum safety gate, not a substitute for integration tests.
  */
-$root = $argv[1] ?? '';
+$zoneOnly = ($argv[1] ?? '') === '--zone-only';
+$root = $argv[$zoneOnly ? 2 : 1] ?? '';
 if ($root === '' || !is_dir($root)) {
     fwrite(STDERR, "Usage: php tools/office-test-release-gate.php <private-release-root>\n");
     exit(2);
@@ -25,7 +26,17 @@ $checks = [
     'Zone edit route' => ['public/office-onsite-project-map.php', '/office-test/inzet/zone/bijwerken'],
     'Zone idempotency request key' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'requestKey'],
     'Zone compare-and-swap update' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'function update'],
+    'Zone update handler' => ['public/office-onsite-zone-update.php', 'OnSiteOfficeZoneUpdatePostAction'],
+    'Zone schema readiness' => ['src/Buildings/OfficeBuildingZoneReadiness.php', 'function requireReady'],
+    'Zone edit token' => ['src/Inzet/OnSiteOfficeZoneFormToken.php', 'class OnSiteOfficeZoneFormToken'],
 ];
+if ($zoneOnly) {
+    $checks = array_filter($checks, static fn(string $name): bool =>
+        $name === 'Project read authorization' || in_array($name, [
+            'Zone edit route', 'Zone idempotency request key', 'Zone compare-and-swap update',
+            'Zone update handler', 'Zone schema readiness', 'Zone edit token',
+        ], true), ARRAY_FILTER_USE_KEY);
+}
 $failures = 0;
 foreach ($checks as $name => [$path, $needle]) {
     $file = rtrim($root, '/').'/'.$path;
