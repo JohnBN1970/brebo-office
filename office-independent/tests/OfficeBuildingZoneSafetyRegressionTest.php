@@ -31,3 +31,8 @@ assertZone(rejects(fn()=> $repo->create(array_replace($zone,['radius_metres'=>50
 assertZone(rejects(fn()=> $repo->create(array_replace($zone,['latitude'=>91]), $authorized)), 'invalid latitude rejected');
 assertZone(rejects(fn()=> $repo->create(array_replace($zone,['building_id'=>'2']), static fn(string $id): bool => true)), 'inactive building rejected');
 assertZone((int)$db->query('SELECT COUNT(*) FROM office_building_zones')->fetchColumn() === 1, 'failed creates do not write');
+
+assertZone($repo->update('1', 1, ['zone_name'=>'Nieuwe zone','latitude'=>51.41,'longitude'=>4.41,'radius_metres'=>250], $authorized), 'current revision updates');
+assertZone(!$repo->update('1', 1, ['zone_name'=>'Verouderd','latitude'=>51.42,'longitude'=>4.42,'radius_metres'=>250], $authorized), 'stale revision rejected');
+assertZone((int)$db->query('SELECT revision FROM office_building_zones WHERE id=1')->fetchColumn() === 2, 'revision incremented once');
+assertZone(rejects(fn()=> $repo->update('1', 2, ['zone_name'=>'Geen recht','latitude'=>51.42,'longitude'=>4.42,'radius_metres'=>250], static fn(string $id): bool => false)), 'unauthorized update rejected');
