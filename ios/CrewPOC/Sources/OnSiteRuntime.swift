@@ -30,6 +30,10 @@ final class OnSiteRuntime {
             self.wake()
         }
         location.onWake = { [weak self] in self?.wake() }
+        identity.$officeApprovals.sink { [weak self] approvals in
+            guard let approvals else { return }
+            self?.uploader.applyOfficeApprovals(approvals)
+        }.store(in: &subscriptions)
         identity.$assignedProjects.sink { [weak self] projects in
             self?.syncProjectZones(projects)
         }.store(in: &subscriptions)
