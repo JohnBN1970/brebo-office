@@ -44,6 +44,8 @@ $updatedId=filter_var($_GET['zone_updated']??null,FILTER_VALIDATE_INT,['options'
 $buildingId=filter_var($_GET['building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
 if (getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled') {
   try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneReadiness.php';
+    \Brebo\Office\Buildings\OfficeBuildingZoneReadiness::requireReady($db);
     $buildingRepo=new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
     $buildings=$buildingRepo->forProject((string)$id);
     if (count($buildings)===1 && !is_int($buildingId)) $buildingId=(int)$buildings[0]['id'];
