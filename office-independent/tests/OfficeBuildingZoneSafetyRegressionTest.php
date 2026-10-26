@@ -36,3 +36,9 @@ assertZone($repo->update('1', 1, ['zone_name'=>'Nieuwe zone','latitude'=>51.41,'
 assertZone(!$repo->update('1', 1, ['zone_name'=>'Verouderd','latitude'=>51.42,'longitude'=>4.42,'radius_metres'=>250], $authorized), 'stale revision rejected');
 assertZone((int)$db->query('SELECT revision FROM office_building_zones WHERE id=1')->fetchColumn() === 2, 'revision incremented once');
 assertZone(rejects(fn()=> $repo->update('1', 2, ['zone_name'=>'Geen recht','latitude'=>51.42,'longitude'=>4.42,'radius_metres'=>250], static fn(string $id): bool => false)), 'unauthorized update rejected');
+
+$routerSource=file_get_contents(dirname(__DIR__).'/deployment/hostinger/office-test-index.php');
+$mapSource=file_get_contents(dirname(__DIR__).'/public/office-onsite-project-map.php');
+assertZone(is_string($routerSource) && str_contains($routerSource,"'/office-test/inzet/zone/bijwerken' => 'office-onsite-zone-update.php'"),'zone edit endpoint registered in Office-test router');
+assertZone(is_string($mapSource) && str_contains($mapSource,'action="/office-test/inzet/zone/bijwerken"'),'zone edit form targets registered route');
+assertZone(!str_contains($mapSource,'action="/office-test/inzet/zone/bewerken"'),'obsolete zone edit route absent');
