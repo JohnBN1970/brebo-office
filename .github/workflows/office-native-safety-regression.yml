@@ -4,6 +4,11 @@ on:
     paths:
       - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
       - 'office-independent/src/Buildings/OfficeBuildingZoneRepository.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php'
+      - 'office-independent/public/office-onsite-project-map.php'
+      - 'office-independent/public/office-onsite-zone-update.php'
+      - 'office-independent/public/office-onsite-zone-create.php'
       - 'office-independent/tests/OfficeNativeProjectAccessRegressionTest.php'
       - 'office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php'
       - '.github/workflows/office-native-safety-regression.yml'
@@ -26,6 +31,11 @@ jobs:
         run: |
           php -l office-independent/src/Project/OfficeNativeProjectAccess.php
           php -l office-independent/src/Buildings/OfficeBuildingZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php
+          php -l office-independent/public/office-onsite-project-map.php
+          php -l office-independent/public/office-onsite-zone-update.php
+          php -l office-independent/public/office-onsite-zone-create.php
           php -l office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
           php -l office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php
       - name: Test project authorization
