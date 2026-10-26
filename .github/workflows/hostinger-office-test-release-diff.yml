@@ -1,0 +1,81 @@
+name: Hostinger Office-test release diff (read only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_host:
+        description: Hostinger SSH hostname (not sboffice)
+        required: true
+        type: string
+      ssh_user:
+        description: Hostinger SSH username
+        required: true
+        type: string
+      ssh_port:
+        description: SSH port
+        required: true
+        default: '65002'
+        type: string
+      ssh_key_secret:
+        description: Name of existing GitHub secret holding SSH private key
+        required: true
+        default: HOSTINGER_SSH_PRIVATE_KEY
+        type: string
+      known_hosts_secret:
+        description: Name of GitHub secret holding verified SSH known_hosts entry
+        required: true
+        default: HOSTINGER_SSH_KNOWN_HOSTS
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate configuration and prepare SSH
+        env:
+          SSH_KEY: ${{ secrets[inputs.ssh_key_secret] }}
+          SSH_KNOWN_HOSTS: ${{ secrets[inputs.known_hosts_secret] }}
+          SSH_HOST: ${{ inputs.ssh_host }}
+          SSH_USER: ${{ inputs.ssh_user }}
+          SSH_PORT: ${{ inputs.ssh_port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SSH_KEY" || { echo 'SSH key secret missing'; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo 'Verified known_hosts secret missing'; exit 1; }
+          [[ "$SSH_HOST" =~ ^[a-zA-Z0-9.-]+$ ]] || exit 1
+          [[ "$SSH_USER" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 1
+          [[ "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] || exit 1
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_hostinger
+          chmod 600 ~/.ssh/id_hostinger
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Read release diff report from Hostinger
+        env:
+          SSH_HOST: ${{ inputs.ssh_host }}
+          SSH_USER: ${{ inputs.ssh_user }}
+          SSH_PORT: ${{ inputs.ssh_port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -i ~/.ssh/id_hostinger -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            'cat "$HOME/domains/brebobv.nl/office_calc_test/release-diff-review.txt"' \
+            > release-diff-review.txt
+          test -s release-diff-review.txt
+          echo "Report captured; size in bytes: $(wc -c < release-diff-review.txt)"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-test-release-diff
+          path: release-diff-review.txt
+          retention-days: 3
+          if-no-files-found: error
