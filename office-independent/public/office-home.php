@@ -163,7 +163,38 @@ if ($projectEnabled && is_string($projectUrl)) {
 } else {
   echo '<span class="muted">Projectenlijst nog niet aangesloten</span>';
 }
-echo '</div><p>Projecten worden in de bestaande projectenmodule getoond. Hier wordt geen tweede projectenadministratie opgebouwd.</p></section>';
+echo '</div>';
+if ($projectEnabled && is_string($projectUrl)) {
+  try {
+    // Same ACL-filtered read model as the existing native project portfolio.
+    $projectsStatement = $db->prepare(
+      "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
+       FROM office_projects p
+       INNER JOIN office_project_memberships m ON m.project_id = p.id
+       INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+       LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
+       WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
+       GROUP BY p.id, p.code, p.title, p.status
+       ORDER BY p.id DESC LIMIT 100"
+    );
+    $projectsStatement->execute([':operator_id' => $operator->operatorId]);
+    $visibleProjects = $projectsStatement->fetchAll(PDO::FETCH_ASSOC);
+    if ($visibleProjects === []) {
+      echo '<p class="muted">Geen toegankelijke projecten gevonden.</p>';
+    } else {
+      echo '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Project</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Status</th><th style="text-align:left;padding:12px;border-bottom:1px solid #dbe1e8">Gebouwen</th></tr></thead><tbody>';
+      foreach ($visibleProjects as $project) {
+        $detailUrl = $projectUrl . '/' . rawurlencode((string)$project['id']);
+        echo '<tr><td style="padding:12px;border-bottom:1px solid #dbe1e8"><a href="' . $esc($detailUrl) . '">' . $esc((string)$project['code']) . ' · ' . $esc((string)$project['title']) . '</a></td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . $esc((string)$project['status']) . '</td><td style="padding:12px;border-bottom:1px solid #dbe1e8">' . (int)$project['building_count'] . '</td></tr>';
+      }
+      echo '</tbody></table></div>';
+    }
+  } catch (Throwable $exception) {
+    // Do not leak database details or bypass project access controls.
+    echo '<p class="muted">Projectenlijst tijdelijk niet beschikbaar. <a href="' . $esc($projectUrl) . '">Open de projectenmodule</a>.</p>';
+  }
+}
+echo '</section>';
 if ($recentWork !== []) {
   echo '<section class="panel"><h2>Mijn laatste werkzaamheden</h2><ul>';
   foreach ($recentWork as $item) {
