@@ -9,11 +9,14 @@ final class OnSiteActivationInvitationSchema {
     return ["CREATE TABLE office_onsite_activation_invitations (
       token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
       person_id BIGINT UNSIGNED NOT NULL,
+      project_id BIGINT UNSIGNED NOT NULL,
       expires_at DATETIME NOT NULL,
       consumed_at DATETIME NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_onsite_invitation_person (person_id),
-      CONSTRAINT fk_onsite_invitation_person FOREIGN KEY (person_id) REFERENCES office_inzet_people(id)
+      INDEX idx_onsite_invitation_project (project_id),
+      CONSTRAINT fk_onsite_invitation_person FOREIGN KEY (person_id) REFERENCES office_inzet_people(id),
+      CONSTRAINT fk_onsite_invitation_project FOREIGN KEY (project_id) REFERENCES office_projects(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"];
   }
 }
