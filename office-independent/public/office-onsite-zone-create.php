@@ -86,7 +86,11 @@ try {
     'radius_metres' => $_POST['radius_metres'] ?? null,
   ];
   $creator = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
-  $zoneId = $creator->create($zone, $authorizedBuilding);
+  $requestKey = $_POST['request_key'] ?? null;
+  if (!is_string($requestKey) || !preg_match('/^[a-f0-9]{64}$/D', $requestKey)) {
+    throw new InvalidArgumentException('invalid_zone_request_key');
+  }
+  $zoneId = $creator->createOnce($zone, $requestKey, $authorizedBuilding);
   header('Location: /office-test/inzet/projectkaart?id=' . $projectId . '&building_id=' . rawurlencode($buildingId) . '&zone_created=' . rawurlencode($zoneId), true, 303);
   exit;
 } catch (InvalidArgumentException $e) {
