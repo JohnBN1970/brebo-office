@@ -33,6 +33,18 @@ $buildings->linkProject('18',$one,$projectAccess);
 $buildings->linkProject('18',$two,$projectAccess);
 $buildingAccess = static fn(string $id): bool => $id===$one;
 $zoneId = $zones->create(['building_id'=>$one,'zone_name'=>'Hoofdingang','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>150],$buildingAccess);
+$key = str_repeat('a',64);
+$idempotent = ['building_id'=>$one,'zone_name'=>'Dubbele aanvraag','latitude'=>51.52,'longitude'=>4.32,'radius_metres'=>120];
+$first = $zones->createOnce($idempotent,$key,$buildingAccess);
+$second = $zones->createOnce($idempotent,$key,$buildingAccess);
+if ($first!==$second) throw new RuntimeException('Idempotent retry created another zone');
+$conflict=false;
+try {
+  $zones->createOnce(array_replace($idempotent,['zone_name'=>'Andere aanvraag']),$key,$buildingAccess);
+} catch (InvalidArgumentException $e) {
+  $conflict=$e->getMessage()==='zone_request_key_conflict';
+}
+if (!$conflict) throw new RuntimeException('Reused request key accepted different payload');
 if (count($zones->forBuilding($one,$buildingAccess))!==1) throw new RuntimeException('Building zone not found');
 if (count($zones->forProject('17',$projectAccess))!==1 || count($zones->forProject('18',$projectAccess))!==1) {
   throw new RuntimeException('Zone not shared across linked projects');
