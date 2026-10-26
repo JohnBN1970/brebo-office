@@ -74,6 +74,11 @@ header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:#fff}.office-side-item.disabled{opacity:.55}.office-shell main{max-width:none;width:100%;margin:0;padding:28px clamp(18px,4vw,55px);min-width:0}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin:0 0 22px;overflow:auto}.office-tab{display:inline-block;padding:12px 2px;text-decoration:none;white-space:nowrap;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}.office-kpi-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:18px;margin:18px 0}.office-kpi-panel summary{cursor:pointer;font-weight:700}.office-kpi-panel strong{font-size:22px;display:block;margin-top:10px}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;overflow:auto;gap:4px}.office-side-item{white-space:nowrap}.office-shell main{padding:18px}}
 </style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
+  if (getenv('OFFICE_TEST_INZET_OPERATIONAL_REVIEW_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_OPERATIONAL_SCHEMA_VERIFIED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_OPERATIONAL_IDENTITIES_VERIFIED') === 'enabled') {
+    echo '<p><a href="'.$escape($base.'/inzet/uren-beoordelen').'">Ingediende uren beoordelen</a></p>';
+  }
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
@@ -223,7 +228,8 @@ if ($inzetView) {
       $cancelManageIds = [];
       $cancelToken = null;
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
-        && getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled') {
+        && (getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled'
+          || getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled')) {
         $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
         if (is_string($secret) && strlen($secret) >= 32) {
           require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
@@ -236,7 +242,9 @@ if ($inzetView) {
         }
       }
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
-        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
+        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken,
+        getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled',
+        getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled'
       );
       $updatedShift = filter_var($_GET['shift_updated'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
@@ -361,7 +369,7 @@ if ($inzetView) {
         static fn(array $project): int => (int)$project['id'], $projects
       );
       $weeks = (new \Brebo\Office\Inzet\OnSiteSupplierWeekReadRepository($db))
-        ->listVisible((int)$operator->operatorId, $authorizedProjectIds);
+        ->listVisible($operator->operatorId, $authorizedProjectIds);
       echo '<section style="margin-top:20px"><h2>Leveranciersweekstaten</h2>';
       if ($weeks === []) {
         echo '<p>Geen toegankelijke leveranciersweekstaten gevonden.</p>';

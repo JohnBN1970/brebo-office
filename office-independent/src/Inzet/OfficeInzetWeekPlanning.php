@@ -42,6 +42,7 @@ final class OfficeInzetWeekPlanning {
       }
       if ($finish <= $start || $start >= $end->setTimezone($utc) || $finish <= $monday->setTimezone($utc)) continue;
       $rows[] = [
+        'id' => (int)($shift['id'] ?? 0),
         'project_id' => $project,
         'person_id' => isset($shift['person_id']) ? (int)$shift['person_id'] : null,
         'person_name' => isset($shift['person_name']) && is_string($shift['person_name']) ? $shift['person_name'] : '',

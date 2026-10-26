@@ -27,7 +27,7 @@ foreach (\Brebo\Office\Buildings\OfficeBuildingZoneSchema::statements() as $sql)
 $buildings = new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
 $zones = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
 $projectAccess = static fn(string $project):bool => $project==='17';
-$buildingId = $buildings->create(['building_name'=>'Fictief testgebouw','city'=>'Breda']);
+$buildingId = $buildings->create(['code'=>'TEST-FICTIEF','building_name'=>'Fictief testgebouw','city'=>'Breda']);
 $buildings->linkProject('17',$buildingId,$projectAccess);
 $zoneId = $zones->create([
   'building_id'=>$buildingId,'zone_name'=>'Testpoort',

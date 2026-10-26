@@ -389,8 +389,9 @@ if ($calculationScopes === null) {
 }
 $projectMapHtml = '';
 if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
-  && getenv('OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED') === 'enabled') {
-  $projectMapHtml = '<p><a href="/office-test/inzet/projectkaart?id=' . $projectId . '">Projectlocatie voor personeelszone bekijken</a></p>';
+  && getenv('OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED') === 'enabled'
+  && getenv('OFFICE_TEST_ZONE_WRITE_ENABLED') === 'enabled') {
+  $projectMapHtml = '<p><a href="/office-test/inzet/projectkaart?id=' . $projectId . '">Personeelszones van het gebouw bekijken</a></p>';
 }
 $inzetHtml = '<section id="inzet-uren"><h2>Inzet · urencontrole</h2>';
 if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
