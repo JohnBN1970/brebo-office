@@ -1,0 +1,36 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * BREBO Office-test release gate.
+ * Usage: php tools/office-test-release-gate.php /absolute/path/to/release/private
+ * Read-only: no database connection, filesystem writes, or deploy.
+ * This is a minimum safety gate, not a substitute for integration tests.
+ */
+$root = $argv[1] ?? '';
+if ($root === '' || !is_dir($root)) {
+    fwrite(STDERR, "Usage: php tools/office-test-release-gate.php <private-release-root>\n");
+    exit(2);
+}
+$checks = [
+    'CRM manual opportunity entry' => ['src/Crm/OfficeCrmRepository.php', 'function createManualOpportunity'],
+    'CRM opportunity preflight' => ['src/Crm/OfficeCrmSchemaPreflight.php', 'function requireOpportunityReady'],
+    'Project read authorization' => ['src/Project/OfficeNativeProjectAccess.php', 'function canRead'],
+    'OnSite invitation identity bridge' => ['public/office-onsite-invitation.php', 'identity'],
+    'Zone idempotency request key' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'requestKey'],
+    'Zone compare-and-swap update' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'function update'],
+];
+$failures = 0;
+foreach ($checks as $name => [$path, $needle]) {
+    $file = rtrim($root, '/').'/'.$path;
+    $source = is_file($file) ? file_get_contents($file) : false;
+    $passed = is_string($source) && str_contains($source, $needle);
+    echo ($passed ? 'PASS' : 'FAIL')." | ".$name." | ".$path."\n";
+    if (!$passed) $failures++;
+}
+if ($failures) {
+    fwrite(STDERR, "BLOCKED: ".$failures." missing release contract(s). No deploy.\n");
+    exit(1);
+}
+echo "Minimum static release contracts present. Run integration/security tests before deploy.\n";
