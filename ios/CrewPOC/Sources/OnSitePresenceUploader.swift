@@ -5,11 +5,13 @@ final class OnSitePresenceUploader: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastUploadedEventId: UUID?
     @Published private(set) var pendingCount = 0
+    @Published private(set) var registrationHistory: [CrewPresenceEvent] = []
 
     private let send: (CrewPresenceEvent, String) async throws -> Void
     private let defaults: UserDefaults
     private let deviceToken: () -> String?
     private let queueKey = "brebo.onsite.pending-presence.v1"
+    private let historyKey = "brebo.onsite.registration-history.v1"
     private var pending: [CrewPresenceEvent] = []
     private var uploading = false
     private var seenEventIds: Set<UUID> = []
@@ -26,11 +28,31 @@ final class OnSitePresenceUploader: ObservableObject {
     }
 
     private func restore() {
-        guard let data = defaults.data(forKey: queueKey),
-              let events = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) else { return }
-        pending = events
-        seenEventIds.formUnion(events.map(\.id))
-        pendingCount = events.count
+        if let data = defaults.data(forKey: historyKey),
+           let history = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) {
+            registrationHistory = history
+        }
+        if let data = defaults.data(forKey: queueKey),
+           let events = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) {
+            pending = events
+            pendingCount = events.count
+            // Recover unsent events after upgrading an existing installation.
+            let known = Set(registrationHistory.map(\.id))
+            registrationHistory.append(contentsOf: events.filter { !known.contains($0.id) })
+        }
+        seenEventIds.formUnion(registrationHistory.map(\.id))
+        seenEventIds.formUnion(pending.map(\.id))
+        persistHistory()
+    }
+
+    private func persistHistory() {
+        if let data = try? JSONEncoder().encode(registrationHistory) {
+            defaults.set(data, forKey: historyKey)
+        }
+    }
+
+    func isAwaitingUpload(_ id: UUID) -> Bool {
+        pending.contains { $0.id == id }
     }
 
     private func persist() {
@@ -43,6 +65,8 @@ final class OnSitePresenceUploader: ObservableObject {
     func enqueue(_ event: CrewPresenceEvent) {
         guard seenEventIds.insert(event.id).inserted else { return }
         pending.append(event)
+        registrationHistory.append(event)
+        persistHistory()
         persist()
     }
 
