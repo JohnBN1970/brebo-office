@@ -202,6 +202,26 @@ try {
     if (hash_file('sha256', $filePath) !== ($record['sha256'] ?? '')) throw new \OutOfBoundsException();
     require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceExtractionProposal.php';
     $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime,'review'=>is_array($record['review'] ?? null) ? $record['review'] : [], 'extraction'=>is_array($record['extraction'] ?? null) ? $record['extraction'] : null, 'proposals'=>is_string($record['extraction']['text'] ?? null) ? \Brebo\Office\Finance\OfficeInvoiceExtractionProposal::fromText($record['extraction']['text']) : []];
+    // Advisory scan: same operator's private drafts, not imported invoices.
+    $number = trim((string)($record['review']['invoice_number'] ?? ''));
+    if ($number === '') $number = trim((string)($data['draft']['proposals']['invoice_number']['value'] ?? ''));
+    $matches = [];
+    if ($number !== '') {
+      foreach (glob($root . '/*.json') ?: [] as $otherFile) {
+        if ($otherFile === $metaFile || is_link($otherFile) || !is_file($otherFile)) continue;
+        $other = json_decode((string)file_get_contents($otherFile), true);
+        if (!is_array($other) || ($other['operator_id'] ?? null) != $operator->operatorId) continue;
+        $otherId = (string)($other['id'] ?? '');
+        if (!preg_match('/^[a-f0-9]{32}$/D', $otherId)) continue;
+        $otherNumber = trim((string)($other['review']['invoice_number'] ?? ''));
+        if ($otherNumber === '' && is_string($other['extraction']['text'] ?? null)) {
+          $otherProposal = \Brebo\Office\Finance\OfficeInvoiceExtractionProposal::fromText($other['extraction']['text']);
+          $otherNumber = trim((string)($otherProposal['invoice_number']['value'] ?? ''));
+        }
+        if ($otherNumber !== '' && strcasecmp($number, $otherNumber) === 0) $matches[] = $otherId;
+      }
+    }
+    $data['draft']['duplicate_candidates'] = array_slice($matches, 0, 20);
     if (($_GET['document'] ?? '') === '1') {
       header('Content-Type: ' . $mime);
       header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
