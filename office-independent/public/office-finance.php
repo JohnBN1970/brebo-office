@@ -129,7 +129,9 @@ try {
     if (($_GET['document'] ?? '') === '1') {
       header('Content-Type: ' . $mime);
       header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
-      header('Content-Security-Policy: sandbox');
+      // The authenticated PDF viewer needs its own browser context; keep the
+      // document private and non-cacheable without sandboxing the PDF plugin.
+      header("Content-Security-Policy: default-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'");
       header('X-Content-Type-Options: nosniff');
       header('Content-Length: ' . filesize($filePath));
       readfile($filePath);
