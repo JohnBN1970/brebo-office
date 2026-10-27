@@ -51,3 +51,18 @@ Vervolgvolgorde:
 2. Resterende managementdashboard/receivables-adapters aansluiten op de bestaande command-center/monitor-kern; onbekende of verouderde data expliciet markeren.
 3. Bestaande codering/matching/vrijgave/batch/reconciliatie-commands aansluiten met Office-actoradapter, CSRF, audit en behoud van vierogen- en fasegatecontroles. Geen alternatieve betaalmotor bouwen.
 4. Operationele Finance-eindaudit pas na de volledige geautoriseerde factuur → betaalbatch → bank/reconciliatieketen. Deze leesintegratie bewijst die keten nog niet.
+
+
+## Test-runtime preflight en vrijgavevolgorde
+
+De CLI-controle `office-independent/bin/office-finance-preflight.php` is toegevoegd op de Finance-featurebranch. Draai deze uitsluitend op de geïsoleerde Office-testomgeving, met de echte Office-testconfiguratie in de CLI-omgeving:
+
+```sh
+php office-independent/bin/office-finance-preflight.php
+```
+
+De preflight schrijft niet naar databases, toont geen DSN, credentials of factuurinhoud en geeft een foutcode bij ontbrekende voorwaarden. Hij vereist dat `OFFICE_FINANCE_ENABLED` nog niet `enabled` is. De controles zijn: Office-sessieconfiguratie, publieke host, Office-identiteitsdatabase, modulegrants, Office-projecten en lidmaatschappen, geverifieerde bronprojectmapping, minimaal één daadwerkelijk geautoriseerde combinatie van actieve Finance-gebruiker en projectlidmaatschap, Finance-leesbron en zeven benodigde brontabellen. De financiële leesbron kan via `OFFICE_FINANCE_READ_PDO_DSN` apart worden aangesloten. Gebruik daarvoor een databaseaccount met uitsluitend SELECT-rechten; de applicatie opent bovendien een read-only transactie. De preflight alleen bewijst niet dat de brondata actueel, compleet of financieel juist zijn.
+
+Bij `FAIL`: niet activeren, ontbrekende randvoorwaarde herstellen en opnieuw controleren. Bij `PASS`: brondata en projectmapping inhoudelijk beoordelen, een bevoegde en een onbevoegde gebruiker via HTTPS op `/office-test/finance`, `/office-test/finance/betaalcentrum` en factuurdetail testen; controleer ook ingetrokken sessies en projectlidmaatschappen. Pas na die acceptatie mogen de flags `OFFICE_FINANCE_SCHEMA_VERIFIED` en `OFFICE_FINANCE_ENABLED` op `enabled` worden gezet. Deze PR voert die activering niet uit.
+
+Let op: de preflight is een voorbereidende test en mag niet worden gebruikt als bewijs dat de betaalopdrachten, Moneybird-synchronisatie of bankreconciliatie in de zelfstandige Office werken.
