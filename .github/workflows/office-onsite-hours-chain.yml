@@ -1,0 +1,77 @@
+name: Office OnSite hours chain
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - 'ios/CrewPOC/**'
+      - '.github/workflows/office-onsite-hours-chain.yml'
+permissions:
+  contents: read
+jobs:
+  hours-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['mysql:8.0', 'mariadb:11.8']
+    services:
+      mysql:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_onsite_hours_ci
+          MARIADB_ROOT_PASSWORD: test-root-only
+          MARIADB_DATABASE: office_onsite_hours_ci
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only || mariadb-admin ping -h 127.0.0.1 -uroot -ptest-root-only" --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, pdo_sqlite
+          coverage: none
+      - name: Lint independent Office PHP
+        run: find office-independent -name '*.php' -print0 | xargs -0 -n1 php -l > "$RUNNER_TEMP/office-php-lint.txt"
+      - name: Test signed review and approval projection
+        run: |
+          php office-independent/tests/OfficeOnSiteHoursPresentationTest.php
+          php office-independent/tests/OfficeOnSiteHoursReviewTest.php
+          php office-independent/tests/OfficeOnSiteSessionReviewWriterTest.php
+          php office-independent/tests/OfficeOnSiteApprovalProjectionTest.php
+          php office-independent/tests/OfficeOnSiteHoursChainTest.php
+      - name: Test actual MySQL ledger, authority and schema gate
+        env:
+          OFFICE_ONSITE_HOURS_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_onsite_hours_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: php office-independent/tests/OfficeOnSiteHoursChainTest.php
+
+  hostinger-readiness:
+    if: github.event.pull_request.head.ref == 'integration/onsite-hours-chain-20261027' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: source
+        shell: bash
+        run: echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-onsite-hours-preflight.php)" >> "$GITHUB_OUTPUT"
+      - name: Inspect existing Office-test ledger without changing anything
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          PREFLIGHT_SOURCE: ${{ steps.source.outputs.php }}
+        with:
+          host: 77.37.34.160
+          port: 65002
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: PREFLIGHT_SOURCE
+          script_stop: true
+          script: printf '%s' "$PREFLIGHT_SOURCE" | base64 -d | /opt/alt/php83/usr/bin/php /dev/stdin
+
+
+
+

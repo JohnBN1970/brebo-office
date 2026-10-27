@@ -58,7 +58,7 @@ final class OnSiteBootstrapService {
       'employee'=>['id'=>$employeeId,'display_name'=>$displayName,'language'=>'nl'],
       'projects'=>array_values($projects),
     ];
-    if ($approvals !== null) $body['approved_events'] = $approvals;
+    if ($approvals !== null) $body['approved_events'] = (object)$approvals;
     return ['status'=>200,'body'=>$body];
   }
 }

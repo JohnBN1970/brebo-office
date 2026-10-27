@@ -57,28 +57,10 @@ try {
     new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
   );
   $repository = new \Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
-  $employeeName = static function(string $employeeId) use ($db): string {
-    $statement = $db->prepare('SELECT display_name FROM office_inzet_people WHERE id = ? AND active = 1 LIMIT 1');
-    $statement->execute([$employeeId]);
-    $name = $statement->fetchColumn();
-    if (!is_string($name) || trim($name) === '') {
-      throw new RuntimeException('Verified employee display name unavailable');
-    }
-    return trim($name);
-  };
-  $approvalReader = null;
-  if (getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled') {
-    require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursApprovalRepository.php';
-    require_once dirname(__DIR__) . '/src/Inzet/OnSiteApprovalProjection.php';
-    $reviews = new \Brebo\Office\Inzet\OnSiteHoursApprovalRepository($db);
-    $approvalReader = static fn(string $employeeId): array => \Brebo\Office\Inzet\OnSiteApprovalProjection::forEmployee(
-      $reviews->approvedSessionsForPerson($employeeId), $employeeId
-    );
-  }
-  $result = $service->bootstrap($match[1],
-    static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native),
-    $employeeName,
-    $approvalReader);
+  $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native));
+  require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursBootstrapProjection.php';
+  $result = \Brebo\Office\Inzet\OnSiteHoursBootstrapProjection::enrich(
+    $result, $db, $match[1], getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled');
   http_response_code($result['status']);
   echo json_encode($result['body'], JSON_THROW_ON_ERROR);
 } catch (Throwable $error) {

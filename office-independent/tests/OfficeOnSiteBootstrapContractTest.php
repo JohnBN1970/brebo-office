@@ -20,10 +20,12 @@ foreach (['is_finite','abs($lat) > 90','abs($lon) > 180','$radius <= 0'] as $gua
   }
 }
 $endpoint = file_get_contents($root . '/public/onsite-bootstrap.php');
+$enrichment = file_get_contents($root . '/src/Inzet/OnSiteHoursBootstrapProjection.php');
 if (!is_string($endpoint)
-  || !str_contains($endpoint, 'SELECT display_name FROM office_inzet_people')
-  || !str_contains($endpoint, '$employeeName')
-  || !str_contains($service, "'display_name'=>\$displayName")) {
+  || !is_string($enrichment)
+  || !str_contains($enrichment, 'SELECT display_name FROM office_inzet_people')
+  || !str_contains($endpoint, 'OnSiteHoursBootstrapProjection::enrich')
+  || !str_contains($endpoint, '$service->bootstrap')) {
   throw new RuntimeException('Bootstrap must return Office personnel display name, not employee ID');
 }
 echo "OnSite static bootstrap contract checks passed\\n";

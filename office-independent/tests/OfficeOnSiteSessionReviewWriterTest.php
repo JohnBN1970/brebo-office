@@ -9,11 +9,11 @@ use Brebo\Office\Inzet\OnSiteSessionReviewWriter;
 $db = new PDO('sqlite::memory:');
 $writer = new OnSiteSessionReviewWriter($db);
 $invalid = [
-  ['0', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 3600, 1, null],
-  ['1', 'same', 'same', 'approved', 3600, 1, null],
-  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'pending', 3600, 1, null],
-  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'rejected', 0, 1, null],
-  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 90000, 1, null],
+  ['0', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 3600, 'manager-uuid', null, '17'],
+  ['1', 'same', 'same', 'approved', 3600, 'manager-uuid', null, '17'],
+  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'pending', 3600, 'manager-uuid', null, '17'],
+  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'rejected', 0, 'manager-uuid', null, '17'],
+  ['1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 90000, 'manager-uuid', null, '17'],
 ];
 foreach ($invalid as $args) {
   try { $writer->record(...$args); }

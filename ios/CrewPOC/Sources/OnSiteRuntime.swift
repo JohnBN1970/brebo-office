@@ -30,10 +30,17 @@ final class OnSiteRuntime {
             self.wake()
         }
         location.onWake = { [weak self] in self?.wake() }
+        identity.$state.sink { [weak self] state in
+            if case let .linked(employeeId, _, _) = state {
+                self?.uploader.bindEmployee(employeeId)
+            } else {
+                self?.uploader.bindEmployee(nil)
+            }
+        }.store(in: &subscriptions)
         identity.$officeApprovals.sink { [weak self] approvals in
             guard let self else { return }
-            // A reset or account switch must never retain another employee's approvals.
-            self.uploader.applyOfficeApprovals(approvals ?? [:])
+            // Omitted approval data is unknown; an explicit empty snapshot revokes.
+            if let approvals { self.uploader.applyOfficeApprovals(approvals) }
         }.store(in: &subscriptions)
         identity.$assignedProjects.sink { [weak self] projects in
             self?.syncProjectZones(projects)

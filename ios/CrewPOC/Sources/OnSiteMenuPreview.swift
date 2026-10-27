@@ -14,9 +14,9 @@ enum OnSiteMenuPreview {
                 projectId: "preview-project", zoneId: "preview-zone", kind: .enteredProject,
                 occurredAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!)
             // An empty queue represents successful upload; history must remain.
-            defaults.set(try! JSONEncoder().encode([event]), forKey: "brebo.onsite.registration-history.v1")
+            defaults.set(try! JSONEncoder().encode([event]), forKey: OnSitePresenceUploader.storageKey("registration-history", employeeId: "preview"))
         }
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "preview", deviceToken: { nil }, send: { _, _ in })
         let zone = OnSiteBootstrapZone(id: "preview-zone", name: "Werkterrein",
                                        latitude: 51.9, longitude: 4.5, radiusMetres: 100)
         let project = OnSiteBootstrapProject(id: "preview-project", name: "Voorbeeldproject", zones: [zone])

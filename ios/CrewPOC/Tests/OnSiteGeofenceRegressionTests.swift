@@ -22,13 +22,13 @@ final class OnSiteGeofenceRegressionTests: XCTestCase {
         let entered = event(.enteredProject)
         let left = event(.leftProject)
         let reentered = event(.enteredProject)
-        let offline = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil },
+        let offline = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil },
                                              send: { _, _ in XCTFail("Offline uploader must not send") })
         await offline.uploadNewEvents([entered, left, reentered])
         XCTAssertEqual(offline.pendingCount, 3)
 
         var sent: [UUID] = []
-        let restored = OnSitePresenceUploader(defaults: defaults, deviceToken: { "test-token" },
+        let restored = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "test-token" },
                                               send: { item, _ in sent.append(item.id) })
         XCTAssertEqual(restored.pendingCount, 3)
         await restored.retryPending()
@@ -39,7 +39,7 @@ final class OnSiteGeofenceRegressionTests: XCTestCase {
     func testDuplicateEventIdIsQueuedOnlyOnce() async {
         let defaults = isolatedDefaults()
         let entered = event(.enteredProject)
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil },
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil },
                                               send: { _, _ in XCTFail("Must not send") })
         await uploader.uploadNewEvents([entered, entered])
         XCTAssertEqual(uploader.pendingCount, 1)
@@ -49,13 +49,13 @@ final class OnSiteGeofenceRegressionTests: XCTestCase {
         enum NetworkFailure: Error { case offline }
         let defaults = isolatedDefaults()
         let entered = event(.enteredProject)
-        let failing = OnSitePresenceUploader(defaults: defaults, deviceToken: { "test-token" },
+        let failing = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "test-token" },
                                              send: { _, _ in throw NetworkFailure.offline })
         await failing.uploadNewEvents([entered])
         XCTAssertEqual(failing.pendingCount, 1)
 
         var sent: [UUID] = []
-        let recovered = OnSitePresenceUploader(defaults: defaults, deviceToken: { "test-token" },
+        let recovered = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "test-token" },
                                                send: { item, _ in sent.append(item.id) })
         await recovered.retryPending()
         XCTAssertEqual(sent, [entered.id])

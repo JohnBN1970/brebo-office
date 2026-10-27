@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Language is Office-owned and transported as a BCP-47 language tag.
 struct OnSiteLanguage: RawRepresentable, Codable, Equatable, Hashable {
@@ -44,7 +45,12 @@ final class OnSiteIdentityStore: ObservableObject {
     private var activationInProgress = false
     private var redeemedActivationToken: String?
     private var refreshing = false
-    private let cacheKey = "brebo.onsite.bootstrap.v1"
+    private var linkedCredentialKey: String?
+    private var cacheKey: String { Self.bootstrapCacheKey(for: deviceToken() ?? "unlinked") }
+    static func bootstrapCacheKey(for token: String) -> String {
+        let digest = SHA256.hash(data: Data(token.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "brebo.onsite.bootstrap.v2." + digest
+    }
 
     init(apiClient: OnSiteAPIClient = OnSiteAPIClient(), defaults: UserDefaults = .standard,
          deviceToken: @escaping () -> String? = OnSiteSecureStore.deviceToken,
@@ -57,23 +63,40 @@ final class OnSiteIdentityStore: ObservableObject {
     }
 
     func restoreCachedIdentity() {
-        guard deviceToken() != nil,
+        guard let token = deviceToken() else { return }
+        let credentialKey = Self.bootstrapCacheKey(for: token)
+        if let linkedCredentialKey, linkedCredentialKey != credentialKey {
+            assignedProjects = []
+            officeApprovals = nil
+            state = .unlinked
+            self.linkedCredentialKey = nil
+        }
+        guard
               let data = defaults.data(forKey: cacheKey),
               let bootstrap = try? JSONDecoder().decode(OnSiteBootstrap.self, from: data) else { return }
         apply(bootstrap)
     }
 
     private func apply(_ bootstrap: OnSiteBootstrap) {
+        linkedCredentialKey = cacheKey
         let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
+        if case let .linked(employeeId, _, _) = state, employeeId != bootstrap.employee.id {
+            officeApprovals = nil
+        }
+        // Bind the per-employee queue before publishing this employee's approvals.
+        state = .linked(employeeId: bootstrap.employee.id,
+                        displayName: bootstrap.employee.displayName, language: officeLanguage)
         language = officeLanguage
         assignedProjects = bootstrap.projects
         // Nil means the Office endpoint has not provided an authoritative snapshot.
         // Do not treat an omitted field as a revocation or as approval.
         if let approvals = bootstrap.approvedEvents {
-            officeApprovals = Dictionary(uniqueKeysWithValues: approvals.compactMap { key, value in
-                guard let id = UUID(uuidString: key) else { return nil }
-                return (id, value)
-            })
+            var verified: [UUID: Date] = [:]
+            for (key, value) in approvals {
+                guard let id = UUID(uuidString: key), value <= Date() else { continue }
+                verified[id] = value
+            }
+            officeApprovals = verified
         }
         state = .linked(employeeId: bootstrap.employee.id,
                         displayName: bootstrap.employee.displayName, language: officeLanguage)
@@ -134,6 +157,7 @@ final class OnSiteIdentityStore: ObservableObject {
         do {
             let verified = try await apiClient.verifyCode(challengeId: challengeId, code: code)
             try OnSiteSecureStore.saveDeviceToken(verified.deviceToken)
+            linkedCredentialKey = cacheKey
             let officeLanguage = OnSiteLanguage(rawValue: verified.language) ?? .dutch
             language = officeLanguage
             state = .linked(
@@ -181,6 +205,7 @@ final class OnSiteIdentityStore: ObservableObject {
         clearDeviceToken()
         assignedProjects = []
         officeApprovals = nil
+        linkedCredentialKey = nil
         state = .unlinked
         language = .bootstrap()
         redeemedActivationToken = nil
