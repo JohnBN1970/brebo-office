@@ -257,10 +257,15 @@ final class OfficeFinanceView {
           any=true;
           if(!desc||q===null||p===null||rate===null||rate>100){missing=true;continue;}
           const cents=Math.round(q*p*100);
-          if(total.dataset.auto==="1" || total.value.trim()===""){
+          const previous=total.dataset.previousCalculated;
+          const current=parse(total.value);
+          const currentCents=current===null?null:Math.round(current*100);
+          const mayAutoFill=total.dataset.auto==="1" || total.value.trim()==="" || (previous!==undefined && currentCents===Number(previous));
+          if(mayAutoFill){
             total.value=(cents/100).toFixed(2).replace(".",",");
             total.dataset.auto="1";
           }
+          total.dataset.previousCalculated=String(cents);
           const entered=parse(total.value);
           if(entered===null || Math.abs(Math.round(entered*100)-cents)>1){missing=true;continue;}
           const lineCents=Math.round(entered*100);
@@ -274,6 +279,17 @@ final class OfficeFinanceView {
         const breakdown=Array.from(vatRates).sort((a,b)=>a[0]-b[0]).map(([rate,cents])=>"Btw "+rate+"%: "+money(cents)).join(" · ");
         panel.textContent="Live: subtotaal excl. btw "+money(net)+" · "+breakdown+" · Totaal incl. btw "+money(net+vat)+" — "+(balanced?"Bedragen sluiten aan (nog niet goedgekeurd).":"Nog niet sluitend of onvolledig. Sla op voor servercontrole.");
         panel.style.color=balanced?"#146c2e":"#a32020";
+      }
+      for(const row of rows){
+        const inputs=Array.from(row.querySelectorAll("input"));
+        const field=k=>inputs.find(el=>el.name.startsWith("line_"+k+"["));
+        const q=parse(field("quantity").value),p=parse(field("unit_price").value),total=field("line_total");
+        if(q!==null&&p!==null){
+          const oldCents=Math.round(q*p*100);
+          total.dataset.previousCalculated=String(oldCents);
+          const saved=parse(total.value);
+          if(saved!==null&&Math.abs(Math.round(saved*100)-oldCents)<=1)total.dataset.auto="1";
+        }
       }
       form.addEventListener("input",event=>{if(event.target.matches("[name^=line_total]"))event.target.dataset.auto="0";refresh();});
       refresh();
