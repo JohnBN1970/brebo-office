@@ -38,13 +38,21 @@ final class OfficeInvoiceLineProposal {
         'unit_price'=>$match[3], 'vat_rate'=>'', 'line_total'=>$match[4],
       ];
     }
-    // Some PDF extractors concatenate a product code and description across lines.
-    // Recover only the description, never infer quantity, unit price or VAT.
-    if ($candidates === [] && preg_match('/(?:^|\\n)[^\\n]{0,180}?\\bm\\d+\\s*(PVC\\s+hoek\\s+\\d+\\s*x\\s*\\d+\\s*x\\s*\\d+\\s*mm\\s+zwart\\s+in)\\s*\\n\\s*(lengte\\s+\\d+\\s*cm)/iu', $text, $m)) {
-      $candidates[] = [
-        'description'=>trim($m[1] . ' ' . $m[2]), 'quantity'=>'', 'unit'=>'',
-        'unit_price'=>'', 'vat_rate'=>'', 'line_total'=>'',
-      ];
+    // PDF extractors may split a description across lines. Recover the
+    // description without inventing quantity, price, unit or VAT.
+    if ($candidates === []) {
+      $rows = preg_split('/\\r\\n|\\n|\\r/', $text) ?: [];
+      foreach ($rows as $i => $raw) {
+        $line = trim(preg_replace('/[ \\t]+/', ' ', $raw) ?? '');
+        if (!preg_match('/\\b(PVC\\s+hoek\\s+\\d+\\s*x\\s*\\d+\\s*x\\s*\\d+\\s*mm\\s+zwart\\s+in)\\s*$/iu', $line, $m)) continue;
+        $next = trim(preg_replace('/[ \\t]+/', ' ', $rows[$i + 1] ?? '') ?? '');
+        if (!preg_match('/^(lengte\\s+\\d+\\s*cm)\\b/iu', $next, $continuation)) continue;
+        $candidates[] = [
+          'description'=>trim($m[1] . ' ' . $continuation[1]),
+          'quantity'=>'', 'unit'=>'', 'unit_price'=>'', 'vat_rate'=>'', 'line_total'=>'',
+        ];
+        break;
+      }
     }
     return $candidates;
   }
