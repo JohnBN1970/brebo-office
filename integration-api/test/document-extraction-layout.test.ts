@@ -25,6 +25,7 @@ describe("document extraction optional PDF positions", () => {
       ...Object.fromEntries(body.headers),
       Authorization: "Bearer secret",
       "X-BREBO-Extraction-Contract": "v1",
+      "Content-Length": "1024",
     } });
   };
   const env = (getDocument?: (options: Record<string, unknown>) => { promise: Promise<unknown> }) => ({
