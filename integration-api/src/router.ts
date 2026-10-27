@@ -1,6 +1,7 @@
 import core from "./index";
 import { calcPublication } from "./calc-publication-route";
 import { documentExtraction, type ExtractionEnv } from "./document-extraction";
+import { getDocument as pdfGetDocument } from "pdfjs-dist/legacy/build/pdf.js";
 import { orderDraft } from "./order-draft";
 import { publicProjects } from "./public-projects";
 import { publicEuropakozijnIntake } from "./public-intake";
@@ -21,7 +22,8 @@ export default {
     }
 
     if (url.pathname === "/v1/internal/document-extraction") {
-      return documentExtraction(request, env);
+      const pdfEnabled = (env as ExtractionEnv & { PDF_EMBEDDED_POSITIONS_ENABLED?: string }).PDF_EMBEDDED_POSITIONS_ENABLED === "enabled";
+      return documentExtraction(request, pdfEnabled ? { ...env, PDF_GET_DOCUMENT: pdfGetDocument } : env);
     }
 
     if (url.pathname === "/v1/orders/draft") {
