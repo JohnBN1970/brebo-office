@@ -25,9 +25,10 @@ export default {
       if (pdfEnabled) {
         try {
           const pdfjs = await import("pdfjs-dist/legacy/build/pdf.js");
-          const getDocument = pdfjs.getDocument ?? pdfjs.default?.getDocument;
+          const module = pdfjs as { getDocument?: unknown; default?: { getDocument?: unknown } };
+          const getDocument = module.getDocument ?? module.default?.getDocument;
           if (typeof getDocument === "function") {
-            return documentExtraction(request, { ...env, PDF_GET_DOCUMENT: getDocument });
+            return documentExtraction(request, { ...env, PDF_GET_DOCUMENT: getDocument as NonNullable<ExtractionEnv["PDF_GET_DOCUMENT"]> });
           }
         } catch { /* Preserve text-only extraction if PDF.js cannot initialize. */ }
       }
