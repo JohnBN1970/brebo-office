@@ -14,10 +14,15 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
   private array $projects;
   private bool $unassigned;
 
-  public function __construct(private readonly PDO $db, OfficeFinanceAccess $access) {
+  public function __construct(private readonly PDO $db, OfficeFinanceAccess $access, ?int $officeProjectId = null) {
     if (!$access->allows()) throw new \DomainException('Finance access required');
-    $this->projects = array_keys($access->visibleProjects());
-    $this->unassigned = $access->allows('unassigned_read');
+    $visible = $access->visibleProjects();
+    if ($officeProjectId !== null) {
+      $visible = array_filter($visible, static fn(array $project): bool => (int)$project['office_project_id'] === $officeProjectId);
+      if ($visible === []) throw new \OutOfBoundsException('Project unavailable');
+    }
+    $this->projects = array_keys($visible);
+    $this->unassigned = $officeProjectId === null && $access->allows('unassigned_read');
   }
 
   private function scope(): string {

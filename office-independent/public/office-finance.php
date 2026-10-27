@@ -43,7 +43,12 @@ try {
     $invoiceId = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
     if ($invoiceId === false) throw new \OutOfBoundsException();
   }
-  $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db))->read($operator->operatorId, $invoiceId);
+  $projectId = null;
+  if (isset($_GET['project_id'])) {
+    $projectId = filter_var($_GET['project_id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+    if ($projectId === false) throw new \OutOfBoundsException();
+  }
+  $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db))->read($operator->operatorId, $invoiceId, $projectId);
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;

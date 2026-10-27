@@ -25,6 +25,12 @@ foreach ([7,8,9,11,999] as $id) {
   try { $app->read('1',$id); throw new RuntimeException('Unauthorized invoice accepted'); }
   catch (OutOfBoundsException) {}
 }
+financeCheck($app->read('1',null,17)['counts'] === $data['counts'], 'Project-scoped dashboard differs');
+foreach ([99,909] as $projectId) {
+  try { $app->read('1',null,$projectId); throw new RuntimeException('Foreign project accepted'); } catch (OutOfBoundsException) {}
+}
+$projectView=OfficeFinanceView::render($app->read('1',null,17),'payments','release_ready');
+financeCheck(str_contains($projectView,'project_id=17') && str_contains($projectView,'Zichtbaar project'),'Project scope lost in view');
 $repo=new OfficeFinanceReadRepository($db,new OfficeFinanceAccess($db,'1'));
 financeCheck($repo->performances(20)===[], 'Foreign commitment performance disclosed');
 financeCheck(count($repo->performances(10))===1, 'Visible performance missing');
@@ -41,6 +47,7 @@ financeCheck(str_contains($html,'finance/factuur?id=4'),'Invoice drill-through m
 financeCheck(str_contains(OfficeFinanceView::render($detail,'invoice'),'&lt;img'),'Invoice description not escaped');
 financeCheck(!str_contains($html,'method="post"'),'Read view contains mutation form');
 $db->exec("INSERT INTO office_module_permissions VALUES ('1','finance','unassigned_read')");
+financeCheck($app->read('1',null,17)['counts']['to_code']===1,'Unassigned invoice in scoped project');
 financeCheck($app->read('1')['counts']['to_code']===2,'Explicit unassigned permission not honored');
 $db->exec("UPDATE office_finance_project_mapping SET verified=0 WHERE source_project_id=101");
 financeCheck(array_sum($app->read('1')['counts'])===1,'Unverified project mapping exposed data');

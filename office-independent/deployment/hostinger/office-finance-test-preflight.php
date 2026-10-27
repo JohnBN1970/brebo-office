@@ -30,6 +30,8 @@ foreach (['office_projects','office_project_memberships','office_module_permissi
   $q->execute([$table]);
   echo 'FINANCE_TEST_SCHEMA | '.$table.' | '.json_encode($q->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
 }
+echo 'FINANCE_TEST_ACCOUNT_IDS | '.json_encode($db->query('SELECT id,active FROM office_operator_accounts')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
+echo 'FINANCE_TEST_PROJECT_IDS | '.json_encode($db->query('SELECT id,code FROM office_projects')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
 $db->rollBack();
 foreach (['OFFICE_FINANCE_ENABLED','OFFICE_FINANCE_SCHEMA_VERIFIED'] as $flag) echo 'FINANCE_FLAG | '.$flag.' | '.(($config[$flag]??'')==='enabled'?'enabled':'disabled').PHP_EOL;
 foreach (['public/office-home.php','src/Intake/OfficeNavigation.php','modules/office-navigation/routes.php','modules/office-finance/routes.php'] as $relative) {
@@ -41,3 +43,27 @@ $router='/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php';
 echo 'FINANCE_TEST_ROUTER | '.base64_encode(file_get_contents($router)).PHP_EOL;
 echo 'FINANCE_TEST_REWRITE | '.base64_encode(file_get_contents(dirname($router).'/.htaccess')).PHP_EOL;
 echo 'FINANCE_PREFLIGHT_READ_ONLY=PASS'.PHP_EOL;
+// Inspect existing source metadata using a database-enforced read-only transaction.
+$settingsFile='/home/u213420663/domains/brebobv.nl/public_html/sboffice/web/sites/default/settings.php';
+if (is_file($settingsFile)) {
+  try {
+    $sourceConfig=(static function(string $file):?array {
+      $databases=[]; $settings=[]; $config=[];
+      require $file;
+      return $databases['default']['default']??null;
+    })($settingsFile);
+    if (!is_array($sourceConfig) || ($sourceConfig['driver']??'')!=='mysql') throw new RuntimeException('Source not configured');
+    $sourceDsn='mysql:host='.($sourceConfig['host']??'localhost').';port='.($sourceConfig['port']??3306).';dbname='.$sourceConfig['database'].';charset=utf8mb4';
+    $source=new PDO($sourceDsn,$sourceConfig['username'],$sourceConfig['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $source->exec('SET SESSION TRANSACTION READ ONLY'); $source->beginTransaction();
+    $prefix=$sourceConfig['prefix']??'';
+    if (!is_string($prefix) || !preg_match('/^[a-zA-Z0-9_]*$/D',$prefix)) throw new RuntimeException('Unsupported source prefix');
+    foreach (['purchase_invoice','purchase_invoice_line','payment_release','commitment','commitment_line','performance_receipt','g_account_instruction'] as $name) {
+      $table=$prefix.'brebo_finance_'.$name;
+      try { echo 'FINANCE_SOURCE_TABLE | '.$name.' | '.$source->query('SELECT COUNT(*) FROM `'.$table.'`')->fetchColumn().PHP_EOL; }
+      catch (PDOException) { echo 'FINANCE_SOURCE_TABLE | '.$name.' | unavailable'.PHP_EOL; }
+    }
+    $source->rollBack();
+    echo 'FINANCE_SOURCE_READ_ONLY=PASS'.PHP_EOL;
+  } catch (Throwable $error) { echo 'FINANCE_SOURCE_METADATA_UNAVAILABLE | '.get_class($error).PHP_EOL; }
+} else echo 'FINANCE_SOURCE_SETTINGS_UNAVAILABLE'.PHP_EOL;

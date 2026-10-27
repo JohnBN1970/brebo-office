@@ -40,6 +40,10 @@ try {
   financeCheck($status===200 && str_contains($body,'INV-5') && str_contains($body,'id=5'),'Payment view drill-through failed');
   [$status,$body]=financeRequest(['endpoint'=>$root.'/public/office-finance-invoice.php','get'=>['id'=>'4']]);
   financeCheck($status===200 && str_contains($body,'Factuurcontrole'),'Invoice route failed');
+  [$status,$body]=financeRequest(['get'=>['project_id'=>'17']]);
+  financeCheck($status===200 && str_contains($body,'Zichtbaar project'),'Project filter route failed');
+  financeCheck(financeRequest(['get'=>['project_id'=>'99']])[0]===404,'Foreign project filter accepted');
+  financeCheck(financeRequest(['get'=>['project_id'=>['17']]])[0]===404,'Malformed project filter accepted');
   foreach (['7','8','11','999','-1','1 OR 1=1', ['4']] as $id) {
     [$status,$body]=financeRequest(['endpoint'=>$root.'/public/office-finance-invoice.php','get'=>['id'=>$id]]);
     financeCheck($status===404 && !str_contains($body,'INV-'),'IDOR or invalid ID exposed');
