@@ -61,7 +61,7 @@ if ($db !== null) {
     if ($n === 0) throw new RuntimeException();
     return 'at least one active authorized operator exists';
   });
-  $check('End-to-end Finance project authorization', static function () use ($db): void {
+  $check('End-to-end Finance project authorization', static function () use ($db): string {
     // A grant and a mapping are not sufficient independently: they must
     // resolve to the same active Office operator and verified Office project.
     $n = (int)$db->query("SELECT COUNT(*) FROM office_finance_project_mapping f
