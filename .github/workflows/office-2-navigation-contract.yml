@@ -1,0 +1,27 @@
+name: Office 2.0 navigation contracts
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/tests/OfficeNavigationV2Test.php'
+      - 'office-independent/tests/OfficeNavigationContractTest.php'
+      - '.github/workflows/office-2-navigation-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  navigation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php -l office-independent/tests/OfficeNavigationV2Test.php
+      - name: Office 2.0 navigation contract
+        run: php office-independent/tests/OfficeNavigationV2Test.php
