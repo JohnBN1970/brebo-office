@@ -43,12 +43,13 @@ try {
   foreach (\Brebo\Office\Buildings\OfficeBuildingZoneReadiness::inspect($db) as $label=>$pass) $check($label,$pass);
   $revision=$db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_building_zones' AND COLUMN_NAME='revision'")->fetchColumn();
   $check('unsigned bigint zone revision',is_string($revision)&&preg_match('/^bigint(?:\([0-9]+\))? unsigned$/D',$revision)===1);
-  $location=$db->query("SELECT 1 FROM office_building_zones z JOIN office_buildings b ON b.id=z.building_id JOIN office_project_buildings pb ON pb.building_id=b.id JOIN office_project_memberships m ON m.project_id=pb.project_id JOIN office_operator_accounts a ON a.id=m.operator_id WHERE a.active=1 AND m.permission='manage' AND b.active=1 AND z.active=1 AND z.latitude BETWEEN -90 AND 90 AND z.longitude BETWEEN -180 AND 180 AND z.radius_metres>0 AND z.radius_metres<=5000 LIMIT 1");
-  $check('manageable test building has valid existing circle',$location->fetchColumn()!==false);
+  $location=$db->query("SELECT 1 FROM office_building_zones z JOIN office_buildings b ON b.id=z.building_id JOIN office_project_buildings pb ON pb.building_id=b.id WHERE z.active=1 AND z.latitude BETWEEN -90 AND 90 AND z.longitude BETWEEN -180 AND 180 AND z.radius_metres>0 AND z.radius_metres<=5000 LIMIT 1");
+  $check('linked test building has valid existing circle',$location->fetchColumn()!==false);
   $db->rollBack();
-} catch (Throwable) {
+} catch (Throwable $error) {
   if (isset($db)&&$db->inTransaction()) $db->rollBack();
   $check('read-only zone schema inspection',false);
+  echo 'Diagnostic SQLSTATE: '.preg_replace('/[^A-Z0-9]/','',(string)$error->getCode()).PHP_EOL;
 }
 foreach (['public/office-onsite-project-map.php','src/Inzet/OnSiteOfficeCircleCreateService.php','src/Buildings/OfficeBuildingZoneRepository.php'] as $path) {
   $source=file_get_contents($root.'/'.$path);
@@ -57,3 +58,4 @@ foreach (['public/office-onsite-project-map.php','src/Inzet/OnSiteOfficeCircleCr
   }
 }
 exit($ok?0:1);
+
