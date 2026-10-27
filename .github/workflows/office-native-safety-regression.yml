@@ -5,6 +5,11 @@ on:
       - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
       - 'office-independent/src/Buildings/OfficeBuildingZoneRepository.php'
       - 'office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeCircleCreateService.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeZonePostAction.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeZoneFormToken.php'
+      - 'office-independent/tests/OfficeZoneFormBoundaryTest.php'
+      - 'office-independent/tests/OfficeZoneMapInteractionTest.cjs'
       - 'office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php'
       - 'office-independent/public/office-onsite-project-map.php'
       - 'office-independent/public/office-onsite-zone-update.php'
@@ -47,3 +52,46 @@ jobs:
         run: php office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
       - name: Test zone creation safety
         run: php office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php
+      - name: Test signed zone form boundaries
+        run: php office-independent/tests/OfficeZoneFormBoundaryTest.php
+      - name: Test zone map interactions
+        run: node office-independent/tests/OfficeZoneMapInteractionTest.cjs
+
+  hostinger-preflight:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 1434 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare read-only release contract checker
+        id: gate
+        shell: bash
+        run: echo "source=$(base64 -w0 tools/office-test-release-gate.php)" >> "$GITHUB_OUTPUT"
+      - name: Inspect isolated Hostinger test release without deploying
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GATE_SOURCE: ${{ steps.gate.outputs.source }}
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          envs: GATE_SOURCE
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private
+            PHP=/opt/alt/php83/usr/bin/php
+            test -d "$ROOT/public"
+            test -d "$ROOT/src"
+            echo 'READ ONLY: inspecting Office-test release; no deployment or database mutations'
+            sha256sum "$ROOT/public/office-onsite-project-map.php" "$ROOT/public/office-onsite-zone-create.php" "$ROOT/public/office-onsite-zone-update.php"
+            gate_status=0
+            printf '%s' "$GATE_SOURCE" | base64 -d | "$PHP" /dev/stdin "$ROOT" || gate_status=$?
+            schema_status=0
+            "$PHP" "$ROOT/deployment/hostinger/office-inzet-test-preflight.php" || schema_status=$?
+            echo "Full contract gate exit: $gate_status; Inzet preflight exit: $schema_status"
+            test "$gate_status" -eq 0
+            test "$schema_status" -eq 0

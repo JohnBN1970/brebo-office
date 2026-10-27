@@ -28,10 +28,10 @@ final class OfficeBuildingZoneRepository {
       || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
       || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
       || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
-    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
     if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
     $this->db->beginTransaction();
     try {
+      if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
       $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres) SELECT id,?,?,?,? FROM office_buildings WHERE id=? AND active=1');
       $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$buildingId]);
       if ($stmt->rowCount()!==1) throw new InvalidArgumentException('building_not_found');
@@ -143,11 +143,11 @@ final class OfficeBuildingZoneRepository {
       || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
       || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
       || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
-    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
     $fingerprint=hash('sha256', json_encode([$buildingId,trim($name),sprintf('%.7f',(float)$lat),sprintf('%.7f',(float)$lon),sprintf('%.2f',(float)$radius)], JSON_THROW_ON_ERROR));
     if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
     $this->db->beginTransaction();
     try {
+      if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
       $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres,request_key,request_fingerprint) SELECT b.id,?,?,?,?,?,? FROM office_buildings b WHERE b.id=? AND b.active=1 ON DUPLICATE KEY UPDATE request_key=request_key');
       $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$requestKey,$fingerprint,$buildingId]);
       $lookup=$this->db->prepare('SELECT id,building_id,request_fingerprint FROM office_building_zones WHERE request_key=?');

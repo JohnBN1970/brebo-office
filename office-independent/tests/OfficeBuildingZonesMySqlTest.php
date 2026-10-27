@@ -112,4 +112,41 @@ $invalidRadius=false;
 try { $zones->update($first,2,array_replace($changes,['radius_metres'=>5001]),$buildingAccess); }
 catch (InvalidArgumentException $e) { $invalidRadius=true; }
 if (!$invalidRadius) throw new RuntimeException('MySQL invalid radius accepted');
-echo "Office building-owned zone MySQL checks passed\\n";
+// Exercise the actual signed form -> service -> repository chain, rather than
+// only direct repository calls. Temporary identities stay in this CI connection.
+foreach (['Intake/WebsiteCrmOperatorContext','Inzet/OnSiteOfficeZoneFormToken',
+  'Inzet/OnSiteOfficeCircleCreateService','Inzet/OnSiteOfficeZonePostAction',
+  'Inzet/OnSiteOfficeCircleUpdateService','Inzet/OnSiteOfficeZoneUpdatePostAction'] as $class) {
+  require_once dirname(__DIR__).'/src/'.$class.'.php';
+}
+$db->exec('CREATE TEMPORARY TABLE office_projects (id BIGINT PRIMARY KEY) ENGINE=InnoDB');
+$db->exec('CREATE TEMPORARY TABLE office_operator_accounts (id VARCHAR(128) PRIMARY KEY, active TINYINT) ENGINE=InnoDB');
+$db->exec('CREATE TEMPORARY TABLE office_project_memberships (project_id BIGINT, operator_id VARCHAR(128), permission VARCHAR(20)) ENGINE=InnoDB');
+$db->exec("INSERT INTO office_projects VALUES (18)");
+$db->exec("INSERT INTO office_operator_accounts VALUES ('manager-uuid',1),('reader-uuid',1)");
+$db->exec("INSERT INTO office_project_memberships VALUES (18,'manager-uuid','manage'),(18,'reader-uuid','read')");
+$actor=new \Brebo\Office\Intake\WebsiteCrmOperatorContext('manager-uuid','ci-session',false);
+$secret=str_repeat('s',32); $now=time();
+$token=\Brebo\Office\Inzet\OnSiteOfficeZoneFormToken::issue($actor,'18',$one,$secret,$now);
+$post=['project_id'=>'18','building_id'=>$one,'zone_name'=>'Signed form',
+  'latitude'=>'51.5','longitude'=>'4.3','radius_metres'=>'155.25','form_token'=>$token];
+$action=new \Brebo\Office\Inzet\OnSiteOfficeZonePostAction(new \Brebo\Office\Inzet\OnSiteOfficeCircleCreateService($db));
+$send=fn(array $data)=>$action->handle('POST','brebobv.nl','brebobv.nl','https://brebobv.nl',
+  'application/x-www-form-urlencoded',http_build_query($data),$actor,$secret,$now);
+$created=$send($post); $retry=$send($post);
+if ($created!==$retry) throw new RuntimeException('Signed form retry created a duplicate zone');
+$edit=new \Brebo\Office\Inzet\OnSiteOfficeZoneUpdatePostAction(new \Brebo\Office\Inzet\OnSiteOfficeCircleUpdateService($db));
+$editPost=$post+['zone_id'=>$created['zone_id'],'revision'=>'1'];
+$edit->handle('application/x-www-form-urlencoded',http_build_query($editPost),$actor,$secret,$now);
+$row=$db->query('SELECT radius_metres,revision FROM office_building_zones WHERE id='.(int)$created['zone_id'])->fetch(PDO::FETCH_ASSOC);
+if ((float)$row['radius_metres']!==155.25 || (int)$row['revision']!==2) throw new RuntimeException('Signed update did not preserve exact radius');
+$stale=false;
+try { $edit->handle('application/x-www-form-urlencoded',http_build_query($editPost),$actor,$secret,$now); }
+catch (RuntimeException $e) { $stale=$e->getMessage()==='zone_revision_conflict'; }
+if (!$stale) throw new RuntimeException('Signed stale edit accepted');
+$db->exec("UPDATE office_project_memberships SET permission='read' WHERE operator_id='manager-uuid'");
+$revoked=false;
+try { $send($post); } catch (InvalidArgumentException $e) { $revoked=$e->getMessage()==='unauthorized_building_zone'; }
+if (!$revoked || $db->inTransaction()) throw new RuntimeException('Revoked membership retry not rejected and rolled back');
+echo "Office building-owned zone MySQL checks passed\n";
+echo "Signed form create/retry/edit/readback/stale/revoked-membership checks passed\n";

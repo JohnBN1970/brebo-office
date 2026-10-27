@@ -21,7 +21,10 @@ $db->exec('CREATE TABLE office_buildings (id INTEGER PRIMARY KEY, active INTEGER
 $db->exec('CREATE TABLE office_building_zones (id INTEGER PRIMARY KEY AUTOINCREMENT, building_id INTEGER, zone_name TEXT, latitude REAL, longitude REAL, radius_metres REAL, active INTEGER NOT NULL DEFAULT 1, revision INTEGER NOT NULL DEFAULT 1)');
 $db->exec('INSERT INTO office_buildings VALUES (1,1),(2,0)');
 $repo = new OfficeBuildingZoneRepository($db);
-$authorized = static fn(string $id): bool => $id === '1';
+$authorized = static function(string $id) use ($db): bool {
+    assertZone($db->inTransaction(), 'building authorization runs inside write transaction');
+    return $id === '1';
+};
 $zone = ['building_id'=>'1','zone_name'=>'Werkgebied','latitude'=>51.4,'longitude'=>4.4,'radius_metres'=>200];
 $id = $repo->create($zone, $authorized);
 assertZone($id === '1', 'authorized active building creates zone');
