@@ -123,6 +123,18 @@ try {
       if (in_array($key, ['amount_inc_vat','vat_amount'], true) && $value !== '' && !preg_match('/^\d{1,10}(?:[.,]\d{1,2})?$/D', $value)) { http_response_code(400); exit('Ongeldig bedrag.'); }
       $review[$key] = $value;
     }
+    $selectedProject = trim((string)($_POST['office_project_id'] ?? ''));
+    $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    $visibleProjects = $access->visibleProjects();
+    if ($selectedProject !== '') {
+      if (!ctype_digit($selectedProject) || (int)$selectedProject < 1) throw new \DomainException();
+      $authorized = false;
+      foreach ($visibleProjects as $project) {
+        if ((int)$project['office_project_id'] === (int)$selectedProject) { $authorized = true; break; }
+      }
+      if (!$authorized) throw new \DomainException();
+    }
+    $record['office_project_id'] = $selectedProject === '' ? null : (int)$selectedProject;
     $record['review'] = $review;
     $record['status'] = 'manual_review_incomplete';
     $record['reviewed_at'] = gmdate('c');
@@ -222,6 +234,14 @@ try {
       }
     }
     $data['draft']['duplicate_candidates'] = array_slice($matches, 0, 20);
+    $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    $projectChoices = [];
+    foreach ($access->visibleProjects() as $project) {
+      $projectChoices[(int)$project['office_project_id']] = (string)$project['title'];
+    }
+    $data['draft']['project_choices'] = $projectChoices;
+    $data['draft']['office_project_id'] = $record['office_project_id'] ?? null;
+
     $data['draft']['imported_duplicate_candidates'] = $number === '' ? [] :
       (new \Brebo\Office\Finance\OfficeFinanceApplication(
         $db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(),
