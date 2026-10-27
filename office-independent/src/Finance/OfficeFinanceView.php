@@ -166,6 +166,19 @@ final class OfficeFinanceView {
     }
     $html .= '</select></label>';
     if ($choices === []) $html .= '<p style="grid-column:1/-1">Geen geverifieerde projecten beschikbaar binnen je huidige toegangsrechten.</p>';
+    $lines = is_array($draft['review_lines'] ?? null) ? $draft['review_lines'] : ($draft['line_proposals'] ?? []);
+    $lines = array_slice($lines, 0, 30);
+    $lineCount = min(30, max(5, count($lines) + 2));
+    $html .= '<div style="grid-column:1/-1"><h3>Factuurregels controleren en opslaan</h3><p>Lege regels worden overgeslagen. Verwijder een regel door alle velden leeg te maken. Btw is een percentage per regel; geen boeking of goedkeuring.</p><input type="hidden" name="line_count" value="'.$lineCount.'"><div class="table"><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Prijs</th><th>Btw %</th><th>Regeltotaal excl. btw</th></tr></thead><tbody>';
+    for ($i = 0; $i < $lineCount; $i++) {
+      $line = $lines[$i] ?? [];
+      $html .= '<tr>';
+      foreach (['description'=>180,'quantity'=>20,'unit'=>20,'unit_price'=>20,'vat_rate'=>20,'line_total'=>20] as $field=>$limit) {
+        $html .= '<td><input aria-label="'.self::e($field.' regel '.($i+1)).'" name="line_'.$field.'['.$i.']" maxlength="'.$limit.'" style="width:100%;min-width:90px" value="'.self::e($line[$field] ?? '').'"></td>';
+      }
+      $html .= '</tr>';
+    }
+    $html .= '</tbody></table></div></div>';
     $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
     return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
