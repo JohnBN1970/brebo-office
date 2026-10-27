@@ -59,6 +59,10 @@ try {
     $projectId = filter_var($_GET['project_id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
     if ($projectId === false) throw new \OutOfBoundsException();
   }
+  if ($view === 'draft') {
+    // Enforce Finance read authorization before accessing private draft metadata.
+    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, null, $projectId);
+  }
   if ($method === 'POST' && $view === 'draft') {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
       || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))) throw new \DomainException();
