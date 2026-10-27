@@ -59,6 +59,20 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
   public function openInvoices(): array {
     return $this->rows("SELECT i.* FROM brebo_finance_purchase_invoice i WHERE " . $this->scope() . " AND i.status NOT IN ('paid','cancelled') ORDER BY i.due_date,i.id");
   }
+  /** Candidate matches in authorized Finance scope; never proves uniqueness. */
+  public function duplicateInvoiceCandidates(string $invoiceNumber, string $supplierName = ''): array {
+    $invoiceNumber = trim($invoiceNumber);
+    if ($invoiceNumber === '') return [];
+    $sql = 'SELECT i.id,i.invoice_number,i.supplier_name,i.status,i.amount_inc_vat
+      FROM brebo_finance_purchase_invoice i
+      WHERE ' . $this->scope() . ' AND i.invoice_number=?';
+    $args = [$invoiceNumber];
+    if (trim($supplierName) !== '') {
+      $sql .= ' AND LOWER(TRIM(i.supplier_name))=LOWER(?)';
+      $args[] = trim($supplierName);
+    }
+    return array_slice($this->rows($sql . ' ORDER BY i.id DESC LIMIT 20', $args), 0, 20);
+  }
   public function invoice(int $invoiceId): ?array {
     return $this->rows('SELECT i.* FROM brebo_finance_purchase_invoice i WHERE i.id=? AND ' . $this->scope(), [$invoiceId])[0] ?? null;
   }
