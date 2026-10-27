@@ -4,12 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Contract;
 
-/** Read source for the operational payables work queue. */
-interface PayablesWorkQueueRepositoryInterface {
-
-  public function purchaseInvoiceTableExists(): bool;
-
-  /** @return list<array<string,mixed>> */
-  public function openInvoices(): array;
-
-}
+// Compatibility alias: both runtimes execute the same framework-independent core.
+require_once dirname(__DIR__, 6) . '/packages/brebo-finance-core/bootstrap.php';
+class_alias(\Brebo\Finance\Contract\PayablesWorkQueueRepositoryInterface::class, __NAMESPACE__ . '\\PayablesWorkQueueRepositoryInterface');

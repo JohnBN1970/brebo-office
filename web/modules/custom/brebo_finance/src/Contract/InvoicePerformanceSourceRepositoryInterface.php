@@ -4,16 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Contract;
 
-interface InvoicePerformanceSourceRepositoryInterface {
-
-  public function invoiceLineTableExists(): bool;
-
-  /** @return array<string,mixed>|null */
-  public function invoiceLine(int $invoiceLineId): ?array;
-
-  public function performanceTableExists(): bool;
-
-  /** @return list<array<string,mixed>> */
-  public function performances(int $commitmentLineId): array;
-
-}
+// Compatibility alias: both runtimes execute the same framework-independent core.
+require_once dirname(__DIR__, 6) . '/packages/brebo-finance-core/bootstrap.php';
+class_alias(\Brebo\Finance\Contract\InvoicePerformanceSourceRepositoryInterface::class, __NAMESPACE__ . '\\InvoicePerformanceSourceRepositoryInterface');

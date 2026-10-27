@@ -1,5 +1,11 @@
 # BREBO Office — Continuïteit Finance — 2026-09-29
 
+## Office-native Finance — 27 oktober 2026
+
+De zelfstandige Office-tegel, het werkvoorraaddashboard en Betaalcentrum-/factuurcontroleviews zijn gebouwd op één gedeelde, framework-onafhankelijke kern uit de bestaande Finance-services. Centrale Office-sessies, expliciete Finance-grants, geverifieerde bronprojectmapping en bestaande projectlidmaatschappen begrenzen alle leesdata. Regressie-, route- en permissietests plus SQLite/MySQL-CI zijn toegevoegd.
+
+Zie [inventarisatie, runtimecontract, bewijs en resterende keten](OFFICE_FINANCE_INTEGRATION_2026-10-27.md). Dit is een leesintegratie: de volledige command-center/receivables- en betaalcommandoketen blijft vervolgwerk. Er is geen runtime uitgerold, geen database gewijzigd en geen betaling of Moneybird-mutatie uitgevoerd. Activatie vereist een gecontroleerde testbronaansluiting, grants/mapping en browseracceptatie. Bestaande vierogen-, matching-, fasegate- en reconciliatieregels blijven leidend.
+
 Dit document is per 29 september 2026 het actuele Finance-hervatpunt en vervangt voor nieuwe ontwikkelsessies de Finance-continuïteit van 5 september 2026. Lees dit samen met `docs/BREBO_CONTINUITEIT.md`, `docs/ROADMAP.md`, de actuele branch en open PR's. Ga niet terug naar oudere Finance-architectuur of een Drupal-/providergestuurde businesslogica.
 
 ## Update 29 september 2026 — architectuurcontinuiteit
