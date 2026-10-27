@@ -28,10 +28,16 @@ final class OfficeNavigation {
   }
   /** Office 2.0 presentation only; routes and ACL remain server-owned. */
   public static function mainV2(string $path):string {
+    // Only advertise modules whose existing test-environment gates are enabled.
+    // This is presentation logic, never a substitute for per-request ACL checks.
+    $crmAvailable=getenv('OFFICE_TEST_CRM_ENABLED')==='enabled'
+      && getenv('OFFICE_CRM_AUTH_MODE')==='session_only';
+    $projectsAvailable=getenv('OFFICE_NATIVE_PROJECTS_ENABLED')==='enabled'
+      && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED')==='enabled';
     $groups=[
       ['Mijn werkplek','werkplek',[['Startpagina','/office-test/']]],
-      ['Relaties & kansen','relaties',[['Aanvragen','/office-test/crm/aanvragen']]],
-      ['Projecten','projecten',[['Projectoverzicht','/office-test/projecten'],['Inzet','/office-test/projecten?view=inzet']]],
+      ['Relaties & kansen','relaties',$crmAvailable?[['Aanvragen','/office-test/crm/aanvragen']]:[]],
+      ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten'],['Inzet','/office-test/projecten?view=inzet']]:[]],
       ['Gebouwen','gebouwen',[]],
       ['Bedrijfsvoering','bedrijfsvoering',[]],
       ['Kennis & kwaliteit','kennis',[]],
