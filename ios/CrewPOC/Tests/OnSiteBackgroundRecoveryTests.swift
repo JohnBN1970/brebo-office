@@ -4,6 +4,26 @@ import CoreLocation
 
 @MainActor
 final class OnSiteBackgroundRecoveryTests: XCTestCase {
+    func testBootstrapCacheCannotCrossDeviceCredentials() throws {
+        let name = "OnSiteCredentialCache.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let a = OnSiteBootstrap(employee: OnSiteBootstrapEmployee(id: "7", displayName: "A", language: "nl"), projects: [])
+        let b = OnSiteBootstrap(employee: OnSiteBootstrapEmployee(id: "8", displayName: "B", language: "nl"), projects: [])
+        defaults.set(try JSONEncoder().encode(a), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "device-a"))
+        var token: String? = "device-a"
+        let identity = OnSiteIdentityStore(defaults: defaults, deviceToken: { token }, clearDeviceToken: { token = nil })
+        XCTAssertEqual(identity.state, .linked(employeeId: "7", displayName: "A", language: .dutch))
+        token = "device-b"
+        identity.restoreCachedIdentity()
+        XCTAssertEqual(identity.state, .unlinked)
+        XCTAssertTrue(identity.assignedProjects.isEmpty)
+        defaults.set(try JSONEncoder().encode(b), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "device-b"))
+        identity.restoreCachedIdentity()
+        XCTAssertEqual(identity.state, .linked(employeeId: "8", displayName: "B", language: .dutch))
+        XCTAssertFalse(OnSiteIdentityStore.bootstrapCacheKey(for: "device-a").contains("device-a"))
+    }
+
     func testEmployeeSwitchIsolatesQueueHistoryAndApprovals() async {
         let name = "OnSiteOwnerTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
@@ -65,13 +85,13 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let id = UUID()
         let employee = OnSiteBootstrapEmployee(id: "7", displayName: "Test", language: "nl")
         let approved = OnSiteBootstrap(employee: employee, projects: [], approvedEvents: [id.uuidString: Date(timeIntervalSince1970: 1_700_000_000)])
-        defaults.set(try JSONEncoder().encode(approved), forKey: "brebo.onsite.bootstrap.v1")
+        defaults.set(try JSONEncoder().encode(approved), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "device"))
         let identity = OnSiteIdentityStore(defaults: defaults, deviceToken: { "device" }, clearDeviceToken: {})
         XCTAssertNotNil(identity.officeApprovals?[id])
-        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [])), forKey: "brebo.onsite.bootstrap.v1")
+        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [])), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "device"))
         identity.restoreCachedIdentity()
         XCTAssertNotNil(identity.officeApprovals?[id])
-        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [], approvedEvents: [:])), forKey: "brebo.onsite.bootstrap.v1")
+        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [], approvedEvents: [:])), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "device"))
         identity.restoreCachedIdentity()
         XCTAssertTrue(identity.officeApprovals?.isEmpty == true)
     }
@@ -128,7 +148,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
             projects: [OnSiteBootstrapProject(id: "1", name: "Project", zones: [
                 OnSiteBootstrapZone(id: "3", name: "Zone", latitude: 51, longitude: 4, radiusMetres: 100)
             ])])
-        defaults.set(try JSONEncoder().encode(bootstrap), forKey: "brebo.onsite.bootstrap.v1")
+        defaults.set(try JSONEncoder().encode(bootstrap), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "saved-device"))
         var token: String? = "saved-device"
         let identity = OnSiteIdentityStore(defaults: defaults, deviceToken: { token }, clearDeviceToken: { token = nil })
         XCTAssertEqual(identity.state, .linked(employeeId: "7", displayName: "Test", language: .dutch))
@@ -137,7 +157,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         XCTAssertNil(token)
         XCTAssertEqual(identity.state, .unlinked)
         XCTAssertTrue(identity.assignedProjects.isEmpty)
-        XCTAssertNil(defaults.data(forKey: "brebo.onsite.bootstrap.v1"))
+        XCTAssertNil(defaults.data(forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "saved-device")))
     }
 
     func testCachedAssignmentsRequireDeviceCredential() throws {
@@ -145,7 +165,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let bootstrap = OnSiteBootstrap(employee: OnSiteBootstrapEmployee(id: "7", displayName: "Test", language: "nl"), projects: [])
-        defaults.set(try JSONEncoder().encode(bootstrap), forKey: "brebo.onsite.bootstrap.v1")
+        defaults.set(try JSONEncoder().encode(bootstrap), forKey: OnSiteIdentityStore.bootstrapCacheKey(for: "saved-device"))
         let identity = OnSiteIdentityStore(defaults: defaults, deviceToken: { nil }, clearDeviceToken: {})
         XCTAssertEqual(identity.state, .unlinked)
     }
