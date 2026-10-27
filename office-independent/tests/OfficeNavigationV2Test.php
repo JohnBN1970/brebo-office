@@ -21,7 +21,12 @@ putenv('OFFICE_TEST_NAV_V2_ENABLED=enabled');
 $html='<html><head></head><body><aside><nav aria-label="Hoofdnavigatie">Old</nav></aside><main><h1>Projecten</h1><nav aria-label="Module"><a href="/office-test/projecten?view=inzet">Inzet</a></nav></main></body></html>';
 $out=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html');
 if(substr_count($out,'aria-label="Hoofdnavigatie"')!==1||!str_contains($out,'aria-label="Module"')){fwrite(STDERR,"Navigation regression".PHP_EOL);exit(1);}
+$home='<html><head></head><body><nav aria-label="Hoofdnavigatie">Old</nav><main><h1>Goedemorgen, welkom in Office</h1><p>Mijn werkplek</p></main></body></html>';
+$homeV2=OfficeNavigation::decorate($home,'/office-test/',[],200,'text/html');
+if(!str_contains($homeV2,'<h1>Goedemorgen, welkom in Office</h1>')){fwrite(STDERR,"V2 workspace title lost".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_NAV_V2_ENABLED=disabled');
+$homeLegacy=OfficeNavigation::decorate($home,'/office-test/',[],200,'text/html');
+if(!str_contains($homeLegacy,'<h1>Bedrijfsoverzicht</h1>')){fwrite(STDERR,"Legacy dashboard title changed".PHP_EOL);exit(1);}
 $old=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html');
 if(str_contains($old,'<details class="office-nav-group"')){fwrite(STDERR,"Flag disabled but v2 active".PHP_EOL);exit(1);}
 echo "OfficeNavigationV2Test OK".PHP_EOL;
