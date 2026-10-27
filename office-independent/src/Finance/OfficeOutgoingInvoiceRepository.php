@@ -34,6 +34,7 @@ final class OfficeOutgoingInvoiceRepository {
     if (!$access->allows()) throw new \DomainException('Finance access required');
     $ids = array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects());
     if ($projectId !== null) $ids = array_values(array_filter($ids, static fn(int $id): bool => $id === $projectId));
+    if ($projectId !== null && $ids === []) throw new \OutOfBoundsException('Project unavailable');
     if ($ids === []) return [];
     $placeholders = implode(',', array_fill(0,count($ids),'?'));
     $q = $this->db->prepare("SELECT id,office_project_id,customer_name,status,created_at FROM office_finance_sales_drafts WHERE office_project_id IN ($placeholders) ORDER BY id DESC LIMIT 500");
