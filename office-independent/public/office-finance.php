@@ -323,8 +323,8 @@ try {
     $direction = is_string($_GET['direction'] ?? null) ? $_GET['direction'] : 'all';
     $rows = [];
     if (empty($data['finance_unlinked_project'])) {
-      $register = (new \\Brebo\\Office\\Finance\\OfficeFinanceApplication(
-        $db, \\Brebo\\Office\\Finance\\OfficeFinanceReadConnection::fromEnvironment(),
+      $register = (new \Brebo\Office\Finance\OfficeFinanceApplication(
+        $db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(),
         getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''
       ))->purchaseRegister($operator->operatorId, $projectId);
       foreach ($register as $invoice) {
