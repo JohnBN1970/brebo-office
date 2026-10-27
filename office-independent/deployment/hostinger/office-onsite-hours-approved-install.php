@@ -2,6 +2,7 @@
 declare(strict_types=1);
 // User-approved 2026-10-27: isolated Office-test only. Not a general deployer.
 if(PHP_SAPI!=='cli')exit(1);
+set_exception_handler(static function(Throwable $error):never{fwrite(STDERR,'INSTALL_STOP | '.get_class($error).' | '.substr($error->getMessage(),0,300).PHP_EOL);exit(1);});
 $base='/home/u213420663/domains/brebobv.nl/office_calc_test';
 $configPath=$base.'/config/config.php';$config=require $configPath;
 $root=realpath($config['OFFICE_PRIVATE_ROOT']??'');
