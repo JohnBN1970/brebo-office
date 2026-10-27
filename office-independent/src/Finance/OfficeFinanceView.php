@@ -111,6 +111,17 @@ final class OfficeFinanceView {
       }
       $html .= '</tbody></table></div>';
     }
+    $duplicateCandidates = $draft['duplicate_candidates'] ?? [];
+    if ($duplicateCandidates !== []) {
+      $html .= '<p role="alert"><strong>Mogelijk dubbele conceptfactuur.</strong> Hetzelfde factuurnummer komt voor bij een ander privéconcept. Controleer de leverancier en het document vóór verdere verwerking.</p><ul>';
+      foreach ($duplicateCandidates as $otherId) {
+        $link = self::e(OfficeMount::route('finance/concept', ['id'=>$otherId]));
+        $html .= '<li><a href="'.$link.'">Vergelijk concept '.self::e(substr($otherId, 0, 12)).'</a></li>';
+      }
+      $html .= '</ul>';
+    } else {
+      $html .= '<p>Dubbelcheck: geen overeenkomstig factuurnummer gevonden binnen je eigen privéconcepten. Geïmporteerde facturen en andere gebruikers zijn nog niet gecontroleerd.</p>';
+    }
     $review = $draft['review'] ?? [];
     $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
     $csrf = self::e($data['upload_csrf'] ?? '');
