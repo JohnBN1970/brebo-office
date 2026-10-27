@@ -1,0 +1,52 @@
+name: Finance PDF positions isolated staging
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: finance-pdfjs-staging
+    defaults:
+      run:
+        working-directory: integration-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-native-finance
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: integration-api/package-lock.json
+      - run: npm ci
+      - name: Validate staging credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$CF_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN"; exit 1; }
+          test -n "$CF_ACCOUNT" || { echo "Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+      - name: Create isolated staging configuration
+        run: |
+          node --input-type=module <<'EOF'
+          import fs from 'node:fs';
+          const config = JSON.parse(fs.readFileSync('wrangler.jsonc', 'utf8'));
+          config.name = 'brebo-finance-pdfjs-staging';
+          config.vars = {
+            ...config.vars,
+            PDF_EMBEDDED_POSITIONS_ENABLED: 'enabled',
+            OFFICE_PUBLICATION_BASE_URL: 'https://brebobv.nl/office-test'
+          };
+          delete config.routes;
+          delete config.route;
+          delete config.triggers;
+          fs.writeFileSync('wrangler.finance-staging.json', JSON.stringify(config, null, 2));
+          EOF
+      - name: Verify staging bundle
+        run: npx wrangler deploy --config wrangler.finance-staging.json --dry-run
+      - name: Deploy isolated Worker only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --config wrangler.finance-staging.json
