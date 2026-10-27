@@ -1,0 +1,25 @@
+name: Office 2.0 test rollout gate
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeTestUiRolloutGateTest.php'
+      - '.github/workflows/office-2-rollout-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  rollout-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - name: PHP syntax
+        run: |
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/tests/OfficeTestUiRolloutGateTest.php
+      - name: Test rollout contract
+        run: php office-independent/tests/OfficeTestUiRolloutGateTest.php
