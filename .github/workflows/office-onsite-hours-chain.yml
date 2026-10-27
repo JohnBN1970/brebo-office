@@ -73,28 +73,3 @@ jobs:
 
 
 
-  installed-acceptance-20261027:
-    if: github.event.pull_request.head.ref == 'integration/onsite-hours-chain-20261027' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - id: install-source
-        shell: bash
-        run: |
-          php -l office-independent/deployment/hostinger/office-onsite-hours-acceptance.php
-          echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-onsite-hours-acceptance.php)" >> "$GITHUB_OUTPUT"
-      - name: Verify installed synthetic review outcomes and rollback-only device fixtures
-        uses: appleboy/ssh-action@v1.2.0
-        env:
-          INSTALL_SOURCE: ${{ steps.install-source.outputs.php }}
-        with:
-          host: 77.37.34.160
-          port: 65002
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: INSTALL_SOURCE
-          script_stop: true
-          script: printf '%s' "$INSTALL_SOURCE" | base64 -d | /opt/alt/php83/usr/bin/php /dev/stdin
