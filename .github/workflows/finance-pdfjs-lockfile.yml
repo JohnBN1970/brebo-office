@@ -1,0 +1,34 @@
+name: Finance PDF.js dependency lockfile
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/office-native-finance
+    paths:
+      - integration-api/package.json
+      - .github/workflows/finance-pdfjs-lockfile.yml
+permissions:
+  contents: write
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-native-finance
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Update only the npm lockfile
+        working-directory: integration-api
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit reproducible dependency lockfile
+        run: |
+          git add integration-api/package-lock.json
+          if git diff --cached --quiet; then
+            echo "LOCKFILE_ALREADY_CURRENT"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Lock PDF.js dependency for Finance Worker"
+          git push origin HEAD:feature/office-native-finance
