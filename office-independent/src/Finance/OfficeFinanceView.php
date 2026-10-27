@@ -92,11 +92,20 @@ final class OfficeFinanceView {
     $html .= '<p><a href="'.$src.'" target="_blank" rel="noopener noreferrer">Document openen</a></p>';
     if ($draft['mime'] === 'application/pdf') $html .= '<iframe title="Factuurdocument" src="'.$src.'" style="width:100%;height:680px;border:1px solid #ccd5df"></iframe>';
     else $html .= '<img src="'.$src.'" alt="Geüpload factuurdocument" style="max-width:100%;height:auto">';
+    $extraction = $draft['extraction'] ?? null;
+    $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
+    $csrf = self::e($data['upload_csrf'] ?? '');
+    $html .= '<h3>Automatische documentextractie</h3><p>Lees de factuur uit met de bestaande BREBO-service. Dit wijzigt geen handmatig ingevoerde gegevens en boekt niets.</p>';
+    $html .= '<form method="post" action="'.$action.'"><input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="extract"><button type="submit">Factuur automatisch uitlezen</button></form>';
+    if (($_GET['extracted'] ?? '') === '1') $html .= '<p role="status">Extractie opgeslagen. Controleer de brontekst met de PDF.</p>';
+    if (is_array($extraction)) {
+      $html .= '<details><summary>Uitgelezen brontekst · '.self::e($extraction['status'] ?? '').'</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'.self::e($extraction['text'] ?? '').'</pre></details>';
+    }
     $review = $draft['review'] ?? [];
     $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
     $csrf = self::e($data['upload_csrf'] ?? '');
     if (($_GET['saved'] ?? '') === '1') $html .= '<p role="status">Controlegegevens opgeslagen. Nog niet goedgekeurd.</p>';
-    $html .= '<h3>Factuurgegevens controleren</h3><p>Vul gegevens over vanuit het document. Automatische herkenning is nog niet aangesloten.</p>';
+    $html .= '<h3>Factuurgegevens controleren</h3><p>Vul gegevens over vanuit het document. De uitgelezen brontekst is uitsluitend een hulpmiddel; vul de gecontroleerde gegevens zelf in.</p>';
     $html .= '<form method="post" action="'.$action.'" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px"><input type="hidden" name="csrf" value="'.$csrf.'">';
     $fields = ['supplier_name'=>'Leverancier','invoice_number'=>'Factuurnummer','invoice_date'=>'Factuurdatum (JJJJ-MM-DD)','due_date'=>'Vervaldatum (JJJJ-MM-DD)','reference'=>'Referentie / project','amount_inc_vat'=>'Totaal inclusief btw','vat_amount'=>'Btw-bedrag'];
     foreach ($fields as $name=>$label) {
