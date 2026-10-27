@@ -122,6 +122,17 @@ final class OfficeFinanceView {
     } else {
       $html .= '<p>Dubbelcheck: geen overeenkomstig factuurnummer gevonden binnen je eigen privéconcepten. Geïmporteerde facturen en andere gebruikers zijn nog niet gecontroleerd.</p>';
     }
+    $importedCandidates = $draft['imported_duplicate_candidates'] ?? [];
+    if ($importedCandidates !== []) {
+      $html .= '<p role="alert"><strong>Mogelijk dubbele geïmporteerde factuur.</strong> Hetzelfde factuurnummer bestaat in het toegankelijke Finance-register. Vergelijk leverancier, bedrag en document voordat je verdergaat.</p><ul>';
+      foreach ($importedCandidates as $candidate) {
+        $link = self::e(OfficeMount::route('finance/factuur', ['id'=>(int)$candidate['id']]));
+        $html .= '<li><a href="'.$link.'">Factuur '.self::e($candidate['invoice_number']).'</a> · '.self::e($candidate['supplier_name']).' · '.self::e($candidate['status']).'</li>';
+      }
+      $html .= '</ul>';
+    } else {
+      $html .= '<p>Geïmporteerde facturen: geen overeenkomstig factuurnummer binnen je toegankelijke Finance-register. Niet alle mogelijke bronnen zijn gecontroleerd.</p>';
+    }
     $review = $draft['review'] ?? [];
     $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
     $csrf = self::e($data['upload_csrf'] ?? '');
@@ -136,7 +147,7 @@ final class OfficeFinanceView {
       $html .= '<label>'.self::e($label).'<input style="display:block;width:100%" name="'.$name.'" value="'.$value.'" maxlength="160"></label>';
     }
     $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
-    return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
+    return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
 
   private static function invoice(array $data): string {
