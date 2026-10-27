@@ -61,6 +61,18 @@ if ($db !== null) {
     if ($n === 0) throw new RuntimeException();
     return 'at least one active authorized operator exists';
   });
+  $check('End-to-end Finance project authorization', static function () use ($db): void {
+    // A grant and a mapping are not sufficient independently: they must
+    // resolve to the same active Office operator and verified Office project.
+    $n = (int)$db->query("SELECT COUNT(*) FROM office_finance_project_mapping f
+      INNER JOIN office_projects p ON p.id=f.office_project_id
+      INNER JOIN office_project_memberships m ON m.project_id=p.id AND m.permission IN ('read','manage')
+      INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+      INNER JOIN office_module_permissions g ON g.operator_id=a.id AND g.module='finance' AND g.permission='read'
+      WHERE f.verified=1")->fetchColumn();
+    if ($n === 0) throw new RuntimeException();
+    return 'at least one fully authorized verified project mapping exists';
+  });
 }
 
 $source = null;
