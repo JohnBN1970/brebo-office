@@ -60,6 +60,8 @@ try {
     if ($projectId === false) throw new \OutOfBoundsException();
   }
   if ($method === 'POST') {
+    // Authorize the exact invoice before accepting a document.
+    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
       || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))
       || !isset($_FILES['invoice_file']) || !is_array($_FILES['invoice_file'])) {
