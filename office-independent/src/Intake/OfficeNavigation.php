@@ -27,6 +27,38 @@ final class OfficeNavigation {
     return $html.'</nav>';
   }
   /** Office 2.0 presentation only; routes and ACL remain server-owned. */
+  public static function financeVisible():bool {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+    return $cached = self::resolveFinanceVisibility();
+  }
+
+  private static function resolveFinanceVisibility():bool {
+    if (getenv('OFFICE_FINANCE_ENABLED')!=='enabled'
+      || getenv('OFFICE_FINANCE_SCHEMA_VERIFIED')!=='enabled'
+      || getenv('OFFICE_CRM_SESSION_MODE')!=='enabled') return false;
+    try {
+      foreach ([
+        'OfficeMount.php',
+        'WebsiteCrmOperatorContext.php',
+        'WebsiteCrmOperatorSessionProviderInterface.php',
+        'WebsiteOfficeCrmSessionRepository.php',
+        'WebsiteOfficeCrmCookieSessionProvider.php',
+      ] as $file) require_once __DIR__.'/'.$file;
+      require_once dirname(__DIR__).'/Finance/OfficeFinanceAccess.php';
+      $dsn=getenv('OFFICE_INTAKE_PDO_DSN');
+      if (!is_string($dsn)||$dsn==='') return false;
+      $db=new \PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
+        [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_EMULATE_PREPARES=>false]);
+      $provider=new WebsiteOfficeCrmCookieSessionProvider(
+        new WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time());
+      $operator=$provider->currentOperator();
+      return $operator!==null
+        && (new \Brebo\Office\Finance\OfficeFinanceAccess($db,$operator->operatorId))->allows('read');
+    } catch (\Throwable $e) {
+      return false;
+    }
+  }
   public static function mainV2(string $path):string {
     // Only advertise modules whose existing test-environment gates are enabled.
     // This is presentation logic, never a substitute for per-request ACL checks.
@@ -39,7 +71,11 @@ final class OfficeNavigation {
       ['Relaties & kansen','relaties',$crmAvailable?[['Aanvragen','/office-test/crm/aanvragen']]:[]],
       ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten'],['Inzet','/office-test/projecten?view=inzet']]:[]],
       ['Gebouwen','gebouwen',[]],
-      ['Bedrijfsvoering','bedrijfsvoering',[]],
+      ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
+        ['Finance overzicht','/office-test/finance'],
+        ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+        ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
+      ]:[]],
       ['Kennis & kwaliteit','kennis',[]],
     ];
     $selected='werkplek';
@@ -67,7 +103,7 @@ final class OfficeNavigation {
   public static function scope(int $id,string $area='projecten'):string {
     $base='/office-test/projecten/detail?id='.$id;
     $html='<section class="office-project-context" aria-label="Projectnavigatie"><p><a href="/office-test/projecten">Projecten</a> / <a href="'.$base.'">Project '.$id.'</a></p><nav aria-label="Projectonderdelen">';
-    foreach(['projecten'=>'Projectoverzicht','calculatie-offertes'=>'Calculatie & Offertes','finance'=>'Finance','informatie'=>'Informatie']as$key=>$label){$url=$key==='projecten'?$base:'/office-test/'.$key.'?project_id='.$id;$html.='<a'.($key===$area?' aria-current="page"':'').' href="'.$url.'">'.self::h($label).'</a>';}
+    foreach(['projecten'=>'Projectoverzicht','calculatie-offertes'=>'Calculatie & Offertes','finance'=>'Finance','informatie'=>'Informatie']as$key=>$label){if($key==='finance'&&!self::financeVisible())continue;$url=$key==='projecten'?$base:'/office-test/'.$key.'?project_id='.$id;$html.='<a'.($key===$area?' aria-current="page"':'').' href="'.$url.'">'.self::h($label).'</a>';}
     $html.='</nav><nav aria-label="GOTIK projectsturing">';
     foreach(self::GOTIK as$key=>$label)$html.='<a href="'.$base.'#gotik-'.$key.'">'.self::h($label).'</a>';
     return $html.'</nav></section>';
@@ -78,7 +114,7 @@ final class OfficeNavigation {
     $descriptions=['geld'=>'Begroting, verplichtingen, kosten, prognose en resultaat.','organisatie'=>'Verantwoordelijkheden, projectteam, inzet en OnSite.','tijd'=>'Planning, voortgang en mijlpalen.','informatie'=>'Documenten, correspondentie, afspraken en besluiten.','kwaliteit'=>'Eisen, controles, afwijkingen en oplevering.'];
     foreach(self::GOTIK as$key=>$label){$html.='<section id="gotik-'.$key.'"><h3>'.$label.'</h3><p>'.$descriptions[$key].'</p>';
       $query=$project===null?'':'?project_id='.$project;
-      if($key==='geld')$html.='<a href="/office-test/calculatie-offertes'.$query.'">Calculatie & Offertes</a> · <a href="/office-test/finance'.$query.'">Finance</a>';
+      if($key==='geld'){$html.='<a href="/office-test/calculatie-offertes'.$query.'">Calculatie & Offertes</a>';if(self::financeVisible())$html.=' · <a href="/office-test/finance'.$query.'">Finance</a>';}
       elseif($key==='organisatie')$html.=$project===null?'<a href="/office-test/projecten?view=inzet">Organisatie en inzet over projecten</a>':'<a href="/office-test/inzet/projectkaart?id='.$project.'">Projectkaart en zones</a> · <a href="/office-test/inzet/aanwezigheid?id='.$project.'">OnSite</a> · <a href="/office-test/inzet/onsite/uren-beoordelen?id='.$project.'">Uren beoordelen</a>';
       elseif($key==='informatie')$html.='<a href="/office-test/informatie'.$query.'">Informatie openen</a>';
       elseif($key==='tijd'&&$project===null)$html.='<a href="/office-test/projecten?view=inzet&amp;tab=planning">Weekplanning en inzet openen</a><p class="office-unavailable">Projectmijlpalen nog niet aangesloten.</p>';
