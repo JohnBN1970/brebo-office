@@ -20,6 +20,8 @@ jobs:
   worker-check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      RUN_CLOUDFLARE_TESTS: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     defaults:
       run:
         working-directory: integration-api
@@ -34,7 +36,12 @@ jobs:
         run: npm ci
       - name: TypeScript validation
         run: npm run typecheck
-      - name: Worker tests
+      - name: Position validation unit tests (no Cloudflare credentials)
+        run: npm exec vitest run -- --config vitest.layout.config.ts
+      - name: Full Worker integration tests
+        if: ${{ env.RUN_CLOUDFLARE_TESTS == 'true' }}
         run: npm test
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Worker dry-run build
         run: npm run deploy:dry-run
