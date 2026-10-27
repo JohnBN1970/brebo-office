@@ -52,4 +52,12 @@ jobs:
             },
           };
           EOF
-          npx wrangler deploy --dry-run --outdir dist/pdfjs-probe --name brebo-pdfjs-probe src/pdfjs-compat-probe.ts
+          cat > wrangler.pdfjs-probe.jsonc <<'EOF'
+          {
+            "name": "brebo-pdfjs-probe",
+            "main": "src/pdfjs-compat-probe.ts",
+            "compatibility_date": "2026-10-27",
+            "compatibility_flags": ["nodejs_compat"]
+          }
+          EOF
+          npx wrangler deploy --dry-run --config wrangler.pdfjs-probe.jsonc --outdir dist/pdfjs-probe
