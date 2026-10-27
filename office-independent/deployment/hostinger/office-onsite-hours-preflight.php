@@ -36,3 +36,13 @@ echo 'Review signing secret configured: '.(strlen($config['OFFICE_TEST_ONSITE_HO
 echo 'Review endpoint installed: '.(is_file($root.'/public/office-onsite-hours-review.php')?'yes':'no').PHP_EOL;
 echo $present?'SCHEMA_REVIEW_REQUIRED_BEFORE_ENABLE'.PHP_EOL:'NEEDS_EXPLICIT_TEST_SCHEMA_APPROVAL'.PHP_EOL;
 echo 'Read-only discovery complete; no migration, flag change, deploy or event writes.'.PHP_EOL;
+
+// Read-only installation dependency inspection. Never output private config.
+foreach(['office_inzet_people','office_onsite_event_inbox','office_operator_accounts','office_project_memberships','office_onsite_device_tokens'] as $table){
+ $q=$db->prepare('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');$q->execute([$table]);
+ echo 'INSTALL_SCHEMA | '.$table.' | '.json_encode($q->fetchAll(PDO::FETCH_ASSOC)).PHP_EOL;
+}
+foreach(['public/onsite-bootstrap.php','public/office-onsite-presence-review.php','src/Intake/WebsiteCrmOperatorContext.php','src/Intake/WebsiteOfficeCrmCookieSessionProvider.php','src/Inzet/OnSitePresenceIntervalProjector.php']as$relative){
+ $file=$root.'/'.$relative;if(is_file($file))echo 'INSTALL_SOURCE | '.$relative.' | '.base64_encode(file_get_contents($file)).PHP_EOL;
+}
+echo 'INSTALL_SOURCE | router | '.base64_encode(file_get_contents('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php')).PHP_EOL;
