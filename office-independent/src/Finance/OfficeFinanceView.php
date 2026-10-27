@@ -69,6 +69,11 @@ final class OfficeFinanceView {
     $hasLines = !empty($data['lines']);
     $html = '<section><h2>'.$e($invoice['invoice_number']).'</h2><p>'.$e($invoice['supplier_name']).' · '.self::money($invoice['amount_inc_vat']).' inclusief btw · Vervalt '.self::date($invoice['due_date']).'</p>';
     $html .= $hasLines ? '<p>'.$data['summary']['blocked_lines'].' geblokkeerde regels · '.$data['summary']['unmatched_lines'].' ongematchte regels</p>' : '<p class="notice" role="alert"><strong>Controle niet mogelijk — factuurregels ontbreken.</strong> De factuur is niet inhoudelijk gecontroleerd. Nul blokkades betekent hier niet dat de factuur akkoord is. Betaalvrijgave is niet toegestaan zonder de vereiste controles.</p>';
+    if (isset($data['upload_csrf']) && OfficeMount::isTest()) {
+      $action = self::e(OfficeMount::route('finance/factuur', ['id'=>(int)($invoice['id'] ?? $invoice['invoice_id'] ?? 0)]));
+      $html .= '<section><h3>Factuurdocument toevoegen (test)</h3><p>PDF, JPG of PNG, maximaal 10 MB. Privé opgeslagen; geen automatische verwerking of verzending naar Moneybird.</p><form method="post" enctype="multipart/form-data" action="'.$action.'"><input type="hidden" name="csrf" value="'.$e($data['upload_csrf']).'"><label>Document <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></label><button type="submit">Document uploaden</button></form></section>';
+      if (($_GET['uploaded'] ?? '') === '1') $html .= '<p role="status">Document veilig opgeslagen in de testomgeving. Nog niet verwerkt of doorgestuurd.</p>';
+    }
     $status = ['pending_approval'=>'Ter goedkeuring','approved'=>'Goedgekeurd','rejected'=>'Afgewezen','cancelled'=>'Geannuleerd','executed'=>'Uitgevoerd'];
     $release = $data['payment_release']['status'] ?? '';
     $html .= '<p>Laatste betaalvrijgave: '.$e($status[$release] ?? ($release === '' ? 'Geen vrijgave' : 'Overige status')).'</p><p>G-rekeninginstructie: '.($data['g_account'] === null ? 'Geen instructie' : 'Aanwezig').'</p><details open><summary>Factuurregels en blokkades</summary><div class="table"><table><thead><tr><th>Regel</th><th>Omschrijving</th><th>Inclusief btw</th><th>Controle</th></tr></thead><tbody>';
