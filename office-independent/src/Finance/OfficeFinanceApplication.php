@@ -29,7 +29,15 @@ final class OfficeFinanceApplication {
       if ($allowed === []) throw new \OutOfBoundsException('Project unavailable');
     }
     $repo = new OfficeFinanceReadRepository($this->source ?? $this->db, $access, $officeProjectId, $this->tablePrefix);
-    return $repo->allPurchaseInvoices();
+    $invoices = $repo->allPurchaseInvoices();
+    $mapping = $access->visibleProjects();
+    foreach ($invoices as &$invoice) {
+      $project = $mapping[(int)($invoice['project_nid'] ?? 0)] ?? null;
+      $invoice['office_project_id'] = $project === null ? null : (int)$project['office_project_id'];
+      $invoice['office_project_title'] = $project === null ? '' : (string)$project['title'];
+    }
+    unset($invoice);
+    return $invoices;
   }
 
   public function read(string $operatorId, ?int $invoiceId = null, ?int $officeProjectId = null): array {
