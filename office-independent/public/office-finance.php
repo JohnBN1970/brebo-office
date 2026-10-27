@@ -200,7 +200,8 @@ try {
     $filePath = $root . '/' . $filename;
     if (!is_file($filePath) || is_link($filePath) || filesize($filePath) > 10 * 1024 * 1024) throw new \OutOfBoundsException();
     if (hash_file('sha256', $filePath) !== ($record['sha256'] ?? '')) throw new \OutOfBoundsException();
-    $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime,'review'=>is_array($record['review'] ?? null) ? $record['review'] : [], 'extraction'=>is_array($record['extraction'] ?? null) ? $record['extraction'] : null];
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceExtractionProposal.php';
+    $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime,'review'=>is_array($record['review'] ?? null) ? $record['review'] : [], 'extraction'=>is_array($record['extraction'] ?? null) ? $record['extraction'] : null, 'proposals'=>is_string($record['extraction']['text'] ?? null) ? \Brebo\Office\Finance\OfficeInvoiceExtractionProposal::fromText($record['extraction']['text']) : []];
     if (($_GET['document'] ?? '') === '1') {
       header('Content-Type: ' . $mime);
       header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
