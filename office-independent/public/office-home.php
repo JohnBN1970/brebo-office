@@ -207,6 +207,15 @@ echo '</nav></aside><div class="workspace">';
 if ($isTestEnvironment) {
   echo '<div class="testbanner" role="status">TESTOMGEVING — geen productiegegevens</div>';
 }
+// Office 2.0 workspace overview uses only existing operator-scoped data.
+$workspaceSummary = '<section class="panel" aria-label="Werkplekoverzicht"><h2>Mijn werkplek</h2><p class="muted-text">Persoonlijk overzicht op basis van je bestaande toegangsrechten.</p><div class="cards">';
+if ($projectsEnabled && $myProjectCount !== null) {
+  $workspaceSummary .= '<div><strong>Mijn projecten</strong><p class="number">' . (int)$myProjectCount . '</p></div>';
+}
+if ($importReviewEnabled) {
+  $workspaceSummary .= '<div><strong>Importcontrole</strong><p class="number">' . ($importIssueCount === null ? 'Niet beschikbaar' : (string)(int)$importIssueCount) . '</p></div>';
+}
+$workspaceSummary .= '</div></section>';
 echo '<header class="topbar"><strong>Mijn werkplek</strong><form method="post" action="' . $e($logoutUrl) . '"><button type="submit">Uitloggen</button></form></header><main class="content"><nav class="office-home-tabs" aria-label="Werkplek tabbladen"><a class="office-home-tab" aria-current="page" href="' . $e(\Brebo\Office\Intake\OfficeMount::basePath() . '/') . '">Overzicht</a></nav><h1>Goedemorgen, welkom in Office</h1><p class="intro">Jouw projecten, aandachtspunten en beschikbare werkzaamheden.</p><div class="cards">';
 if ($projectsEnabled && $myProjectCount !== null) {
   echo '<section class="panel"><h2>Mijn projecten</h2><div class="number">' . $myProjectCount . '</div><p class="muted-text">Projecten waartoe je toegang hebt</p><a href="' . $e((string)$projectsUrl) . '">Open projecten →</a></section>';
@@ -215,6 +224,7 @@ if ($importReviewEnabled) {
   echo '<section class="panel"><h2>Urenverantwoording</h2><div class="number">' . ($importIssueCount === null ? '—' : (string)$importIssueCount) . '</div><p class="muted-text">Afwijkingen ter controle</p><a href="' . $e(\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole')) . '#afwijkingen">Bekijk afwijkingen →</a></section>';
 }
 echo '</div>';
+if ($isTestEnvironment && getenv('OFFICE_TEST_WORKSPACE_V2_ENABLED') === 'enabled') { echo $workspaceSummary; }
 if ($recentProjectsUnavailable) {
   echo '<section class="panel"><h2>Mijn recente projecten</h2><p>Het overzicht is tijdelijk niet beschikbaar.</p></section>';
 } elseif ($myRecentProjects !== []) {
