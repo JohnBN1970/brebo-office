@@ -146,6 +146,14 @@ final class OfficeFinanceView {
       $value = self::e($saved !== '' ? $saved : $suggested);
       $html .= '<label>'.self::e($label).'<input style="display:block;width:100%" name="'.$name.'" value="'.$value.'" maxlength="160"></label>';
     }
+    $choices = $draft['project_choices'] ?? [];
+    $selected = (int)($draft['office_project_id'] ?? 0);
+    $html .= '<label style="grid-column:1/-1">BREBO Office-project (gecontroleerde koppeling)<select name="office_project_id" style="display:block;width:100%"><option value="">Nog niet gekoppeld</option>';
+    foreach ($choices as $projectId=>$projectTitle) {
+      $html .= '<option value="'.(int)$projectId.'"'.($selected === (int)$projectId ? ' selected' : '').'>'.self::e($projectTitle).' (#'.(int)$projectId.')</option>';
+    }
+    $html .= '</select></label>';
+    if ($choices === []) $html .= '<p style="grid-column:1/-1">Geen geverifieerde projecten beschikbaar binnen je huidige toegangsrechten.</p>';
     $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
     return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
