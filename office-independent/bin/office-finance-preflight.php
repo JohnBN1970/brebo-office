@@ -51,12 +51,12 @@ if ($db !== null) {
       $db->query('SELECT * FROM ' . $table . ' WHERE 1=0');
     });
   }
-  $check('Verified project mappings only', static function () use ($db): void {
+  $check('Verified project mappings only', static function () use ($db): string {
     $n = (int)$db->query('SELECT COUNT(*) FROM office_finance_project_mapping WHERE verified=1')->fetchColumn();
     if ($n === 0) throw new RuntimeException();
     return 'at least one verified mapping exists';
   });
-  $check('Explicit Finance read grant', static function () use ($db): void {
+  $check('Explicit Finance read grant', static function () use ($db): string {
     $n = (int)$db->query("SELECT COUNT(*) FROM office_module_permissions g INNER JOIN office_operator_accounts a ON a.id=g.operator_id WHERE g.module='finance' AND g.permission='read' AND a.active=1")->fetchColumn();
     if ($n === 0) throw new RuntimeException();
     return 'at least one active authorized operator exists';
