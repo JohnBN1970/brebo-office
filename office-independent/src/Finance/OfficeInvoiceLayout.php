@@ -50,4 +50,46 @@ final class OfficeInvoiceLayout {
     return $rows;
   }
 
+  /**
+   * Extract a candidate from a visually separated invoice row. This does not
+   * approve an invoice and refuses rows without unambiguous numeric columns.
+   * Header column boundaries are supplier-specific and must be supplied.
+   */
+  public static function lineCandidate(array $row, array $columns): ?array {
+    if (!isset($row['blocks']) || !is_array($row['blocks'])) return null;
+    foreach (['article','description','quantity','unit','price','total'] as $key) {
+      if (!isset($columns[$key]) || !is_array($columns[$key]) || count($columns[$key]) !== 2
+        || !is_numeric($columns[$key][0]) || !is_numeric($columns[$key][1])) return null;
+    }
+    $values = [];
+    foreach ($columns as $key => $bounds) {
+      if (!is_array($bounds) || count($bounds) !== 2) return null;
+      $values[$key] = [];
+      foreach ($row['blocks'] as $block) {
+        if (!isset($block['x'], $block['text']) || !is_numeric($block['x']) || !is_string($block['text'])) return null;
+        if ($block['x'] >= (float)$bounds[0] && $block['x'] < (float)$bounds[1]) $values[$key][] = trim($block['text']);
+      }
+      $values[$key] = trim(implode(' ', $values[$key]));
+    }
+    foreach (['article','description','quantity','price','total'] as $key) {
+      if (($values[$key] ?? '') === '') return null;
+    }
+    $number = static function (string $raw): ?float {
+      $raw = str_replace(' ', '', $raw);
+      if (!preg_match('/^\\d{1,9}(?:\\.\\d{3})*(?:,\\d{1,4})?$/D', $raw)) return null;
+      return (float)str_replace(',', '.', str_replace('.', '', $raw));
+    };
+    $quantity = $number($values['quantity']);
+    $price = $number($values['price']);
+    $total = $number($values['total']);
+    if ($quantity === null || $price === null || $total === null
+      || abs(round($quantity * $price, 2) - $total) > 0.01) return null;
+    return [
+      'article' => $values['article'], 'description' => $values['description'],
+      'quantity' => $quantity, 'unit' => $values['unit'],
+      'unit_price' => $price, 'line_total' => $total,
+      'review_required' => true,
+    ];
+  }
+
 }
