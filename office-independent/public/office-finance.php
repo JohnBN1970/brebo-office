@@ -333,8 +333,8 @@ try {
           'direction'=>'incoming',
           'number'=>(string)($invoice['invoice_number'] ?? ''),
           'relation'=>(string)($invoice['supplier_name'] ?? ''),
-          'project_id'=>$projectId ?? 0,
-          'project_label'=>$projectId !== null ? (string)($data['project']['title'] ?? '') : '',
+          'project_id'=>$invoice['office_project_id'] ?? 0,
+          'project_label'=>(string)($invoice['office_project_title'] ?? ''),
           'status'=>(string)($invoice['status'] ?? ''),
           'amount_inc_vat'=>(string)($invoice['amount_inc_vat'] ?? ''),
         ];
