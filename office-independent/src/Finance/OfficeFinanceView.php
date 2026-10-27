@@ -193,9 +193,19 @@ final class OfficeFinanceView {
     $invoiceVatCents = (int)round((float)str_replace(',', '.', $invoiceVat) * 100);
     $difference = $netCents + $vatCents - $grossCents;
     $vatDifference = $vatCents - $invoiceVatCents;
+    $missing = [];
+    if ($savedLines === []) $missing[] = 'Er zijn nog geen opgeslagen factuurregels';
+    foreach ($savedLines as $i=>$line) {
+      foreach (['description'=>'omschrijving','quantity'=>'aantal','unit_price'=>'prijs','line_total'=>'regeltotaal','vat_rate'=>'btw-percentage'] as $field=>$label) {
+        if (trim((string)($line[$field] ?? '')) === '') $missing[] = 'Regel '.($i+1).': '.$label.' ontbreekt';
+      }
+    }
+    if ($gross === '') $missing[] = 'Factuurtotaal inclusief btw ontbreekt';
+    if ($invoiceVat === '') $missing[] = 'Btw-bedrag op factuur ontbreekt';
     $balanced = $complete && abs($difference) <= 1 && abs($vatDifference) <= 1;
     $html .= '<div style="grid-column:1/-1"><h3>Financiële controle (opgeslagen regels)</h3><p>Regels excl. btw: € '.number_format($netCents / 100, 2, ',', '.').' · Btw regels: € '.number_format($vatCents / 100, 2, ',', '.').' · Regels incl. btw: € '.number_format(($netCents + $vatCents) / 100, 2, ',', '.').'</p>';
     $html .= '<p>Verschil met factuurtotaal: € '.number_format($difference / 100, 2, ',', '.').' · Verschil btw: € '.number_format($vatDifference / 100, 2, ',', '.').'</p>';
+    if ($missing !== []) $html .= '<p role="alert"><strong>Ontbrekende gegevens:</strong> '.self::e(implode('; ', $missing)).'.</p>';
     $html .= $balanced ? '<p style="color:#146c2e"><strong>Bedragen sluiten aan.</strong> Nog niet goedgekeurd of geboekt.</p>' : '<p role="alert" style="color:#a32020"><strong>Controle niet sluitend.</strong> Vul alle regelvelden en factuurbedragen in en controleer de verschillen. Nog niet goedgekeurd of geboekt.</p>';
     $html .= '</div>';
     $lineCount = min(30, max(5, count($lines) + 2));
