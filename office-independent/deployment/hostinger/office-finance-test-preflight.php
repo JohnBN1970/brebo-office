@@ -68,6 +68,16 @@ if (is_file($settingsFile)) {
       try { echo 'FINANCE_SOURCE_TABLE | '.$name.' | '.$source->query('SELECT COUNT(*) FROM `'.$table.'`')->fetchColumn().PHP_EOL; }
       catch (PDOException) { echo 'FINANCE_SOURCE_TABLE | '.$name.' | unavailable'.PHP_EOL; }
     }
+    $invoiceTable=$prefix.'brebo_finance_purchase_invoice';
+    echo 'FINANCE_SOURCE_PROJECT_COUNTS | '.json_encode($source->query('SELECT project_nid,COUNT(*) AS invoice_count FROM `'.$invoiceTable.'` GROUP BY project_nid ORDER BY project_nid')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
+    $sourceProjects=$source->query("SELECT nid,title FROM `".$prefix."node_field_data` WHERE type='brebo_project' AND default_langcode=1")->fetchAll(PDO::FETCH_ASSOC);
+    $normalize=static fn(string $text):string=>preg_replace('/[^a-z0-9]/','',strtolower(preg_replace('/^TEST\\s*-\\s*/i','',$text)));
+    $matches=[];
+    foreach($db->query('SELECT id,title FROM office_projects')->fetchAll(PDO::FETCH_ASSOC) as $project) {
+      $candidates=array_values(array_filter($sourceProjects,static fn(array $candidate):bool=>$normalize($candidate['title'])===$normalize($project['title'])));
+      if(count($candidates)===1)$matches[]=['office_project_id'=>(int)$project['id'],'source_project_id'=>(int)$candidates[0]['nid'],'basis'=>'unique_exact_normalized_title'];
+    }
+    echo 'FINANCE_SOURCE_MAPPING_CANDIDATES | '.json_encode($matches,JSON_THROW_ON_ERROR).PHP_EOL;
     $source->rollBack();
     echo 'FINANCE_SOURCE_READ_ONLY=PASS'.PHP_EOL;
   } catch (Throwable $error) { $message=$error->getMessage();

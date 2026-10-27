@@ -14,7 +14,8 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
   private array $projects;
   private bool $unassigned;
 
-  public function __construct(private readonly PDO $db, OfficeFinanceAccess $access, ?int $officeProjectId = null) {
+  public function __construct(private readonly PDO $db, OfficeFinanceAccess $access, ?int $officeProjectId = null, private readonly string $tablePrefix = '') {
+    if (!preg_match('/^[a-zA-Z0-9_]*$/D',$tablePrefix)) throw new \InvalidArgumentException('Invalid Finance table prefix');
     if (!$access->allows()) throw new \DomainException('Finance access required');
     $visible = $access->visibleProjects();
     if ($officeProjectId !== null) {
@@ -32,23 +33,27 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
     return '(' . $projectScope . ($this->unassigned ? ' OR COALESCE(i.project_nid,0)=0' : '') . ')';
   }
 
+  private function sourceSql(string $sql): string {
+    return preg_replace_callback('/\\bbrebo_finance_[a-z_]+\\b/', fn(array $match): string => '`'.$this->tablePrefix.$match[0].'`', $sql);
+  }
+
   private function rows(string $sql, array $args = []): array {
-    $q = $this->db->prepare($sql);
+    $q = $this->db->prepare($this->sourceSql($sql));
     $q->execute($args);
     return $q->fetchAll(PDO::FETCH_ASSOC);
   }
 
   public function purchaseInvoiceTableExists(): bool {
-    $this->db->query('SELECT id FROM brebo_finance_purchase_invoice WHERE 1=0');
+    $this->db->query($this->sourceSql('SELECT id FROM brebo_finance_purchase_invoice WHERE 1=0'));
     return true;
   }
   public function available(): bool { return $this->purchaseInvoiceTableExists(); }
   public function invoiceLineTableExists(): bool {
-    $this->db->query('SELECT id FROM brebo_finance_purchase_invoice_line WHERE 1=0');
+    $this->db->query($this->sourceSql('SELECT id FROM brebo_finance_purchase_invoice_line WHERE 1=0'));
     return true;
   }
   public function performanceTableExists(): bool {
-    $this->db->query('SELECT id FROM brebo_finance_performance_receipt WHERE 1=0');
+    $this->db->query($this->sourceSql('SELECT id FROM brebo_finance_performance_receipt WHERE 1=0'));
     return true;
   }
   public function openInvoices(): array {

@@ -10,7 +10,7 @@ use Brebo\Finance\Service\PayablesWorkQueueBuilder;
 use PDO;
 
 final class OfficeFinanceApplication {
-  public function __construct(private readonly PDO $db) {}
+  public function __construct(private readonly PDO $db, private readonly ?PDO $source = null, private readonly string $tablePrefix = '') {}
 
   public function read(string $operatorId, ?int $invoiceId = null, ?int $officeProjectId = null): array {
     $access = new OfficeFinanceAccess($this->db, $operatorId);
@@ -22,7 +22,7 @@ final class OfficeFinanceApplication {
       if ($projects === []) throw new \OutOfBoundsException('Project unavailable');
       $scope = reset($projects);
     }
-    $repository = new OfficeFinanceReadRepository($this->db, $access, $officeProjectId);
+    $repository = new OfficeFinanceReadRepository($this->source ?? $this->db, $access, $officeProjectId, $this->tablePrefix);
     $control = new PurchaseInvoiceControlViewBuilder($repository, new InvoicePerformanceBlockerResolver($repository));
     if ($invoiceId !== null) {
       if ($repository->invoice($invoiceId) === null) throw new \OutOfBoundsException('Invoice unavailable');
