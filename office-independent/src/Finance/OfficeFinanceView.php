@@ -203,13 +203,31 @@ final class OfficeFinanceView {
     if ($gross === '') $missing[] = 'Factuurtotaal inclusief btw ontbreekt';
     if ($invoiceVat === '') $missing[] = 'Btw-bedrag op factuur ontbreekt';
     $balanced = $complete && abs($difference) <= 1 && abs($vatDifference) <= 1;
-    $html .= '<div style="grid-column:1/-1"><h3>Financiële controle (opgeslagen regels)</h3><p>Regels excl. btw: € '.number_format($netCents / 100, 2, ',', '.').' · Btw regels: € '.number_format($vatCents / 100, 2, ',', '.').' · Regels incl. btw: € '.number_format(($netCents + $vatCents) / 100, 2, ',', '.').'</p>';
+    $html .= '<div style="grid-column:1/-1"><h3>Factuurtotalisatie (opgeslagen regels)</h3>';
+    $html .= '<table style="max-width:560px;width:100%"><tbody>';
+    $html .= '<tr><th style="text-align:left">Subtotaal exclusief btw</th><td style="text-align:right">€ '.number_format($netCents / 100, 2, ',', '.').'</td></tr>';
+    $vatByRate = [];
+    foreach ($savedLines as $line) {
+      $rateText = trim((string)($line['vat_rate'] ?? ''));
+      $lineTotal = trim((string)($line['line_total'] ?? ''));
+      if ($rateText === '' || $lineTotal === '') continue;
+      $rate = (float)str_replace(',', '.', $rateText);
+      $cents = (int)round((float)str_replace(',', '.', $lineTotal) * 100);
+      $key = number_format($rate, 2, '.', '');
+      $vatByRate[$key] = ($vatByRate[$key] ?? 0) + (int)round($cents * $rate / 100);
+    }
+    ksort($vatByRate, SORT_NUMERIC);
+    foreach ($vatByRate as $rate=>$cents) {
+      $html .= '<tr><th style="text-align:left">Btw '.self::e(rtrim(rtrim(number_format((float)$rate, 2, ',', ''), '0'), ',')).'%</th><td style="text-align:right">€ '.number_format($cents / 100, 2, ',', '.').'</td></tr>';
+    }
+    $html .= '<tr><th style="text-align:left"><strong>Totaal inclusief btw</strong></th><td style="text-align:right"><strong>€ '.number_format(($netCents + $vatCents) / 100, 2, ',', '.').'</strong></td></tr>';
+    $html .= '</tbody></table>';
     $html .= '<p>Verschil met factuurtotaal: € '.number_format($difference / 100, 2, ',', '.').' · Verschil btw: € '.number_format($vatDifference / 100, 2, ',', '.').'</p>';
     if ($missing !== []) $html .= '<p role="alert"><strong>Ontbrekende gegevens:</strong> '.self::e(implode('; ', $missing)).'.</p>';
     $html .= $balanced ? '<p style="color:#146c2e"><strong>Bedragen sluiten aan.</strong> Nog niet goedgekeurd of geboekt.</p>' : '<p role="alert" style="color:#a32020"><strong>Controle niet sluitend.</strong> Vul alle regelvelden en factuurbedragen in en controleer de verschillen. Nog niet goedgekeurd of geboekt.</p>';
     $html .= '</div>';
     $lineCount = min(30, max(5, count($lines) + 2));
-    $html .= '<div style="grid-column:1/-1"><h3>Factuurregels controleren en opslaan</h3><p>Lege regels worden overgeslagen. Verwijder een regel door alle velden leeg te maken. Btw is een percentage per regel; geen boeking of goedkeuring.</p><input type="hidden" name="line_count" value="'.$lineCount.'"><div class="table"><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Prijs</th><th>Btw %</th><th>Regeltotaal excl. btw</th></tr></thead><tbody>';
+    $html .= '<div style="grid-column:1/-1"><h3>Factuurregels controleren en opslaan</h3><p>Lege regels worden overgeslagen. Verwijder een regel door alle velden leeg te maken. Btw is een percentage per regel; geen boeking of goedkeuring.</p><input type="hidden" name="line_count" value="'.$lineCount.'"><div class="table"><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Eenheidsprijs excl. btw</th><th>Btw %</th><th>Regeltotaal excl. btw</th></tr></thead><tbody>';
     for ($i = 0; $i < $lineCount; $i++) {
       $line = $lines[$i] ?? [];
       $html .= '<tr>';
