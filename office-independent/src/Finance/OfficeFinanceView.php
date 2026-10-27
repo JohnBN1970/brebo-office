@@ -92,7 +92,19 @@ final class OfficeFinanceView {
     $html .= '<p><a href="'.$src.'" target="_blank" rel="noopener noreferrer">Document openen</a></p>';
     if ($draft['mime'] === 'application/pdf') $html .= '<iframe title="Factuurdocument" src="'.$src.'" style="width:100%;height:680px;border:1px solid #ccd5df"></iframe>';
     else $html .= '<img src="'.$src.'" alt="Geüpload factuurdocument" style="max-width:100%;height:auto">';
-    return $html . '<p>Herkenning, controle en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
+    $review = $draft['review'] ?? [];
+    $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
+    $csrf = self::e($data['upload_csrf'] ?? '');
+    if (($_GET['saved'] ?? '') === '1') $html .= '<p role="status">Controlegegevens opgeslagen. Nog niet goedgekeurd.</p>';
+    $html .= '<h3>Factuurgegevens controleren</h3><p>Vul gegevens over vanuit het document. Automatische herkenning is nog niet aangesloten.</p>';
+    $html .= '<form method="post" action="'.$action.'" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px"><input type="hidden" name="csrf" value="'.$csrf.'">';
+    $fields = ['supplier_name'=>'Leverancier','invoice_number'=>'Factuurnummer','invoice_date'=>'Factuurdatum (JJJJ-MM-DD)','due_date'=>'Vervaldatum (JJJJ-MM-DD)','reference'=>'Referentie / project','amount_inc_vat'=>'Totaal inclusief btw','vat_amount'=>'Btw-bedrag'];
+    foreach ($fields as $name=>$label) {
+      $value = self::e($review[$name] ?? '');
+      $html .= '<label>'.self::e($label).'<input style="display:block;width:100%" name="'.$name.'" value="'.$value.'" maxlength="160"></label>';
+    }
+    $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
+    return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
 
   private static function invoice(array $data): string {
