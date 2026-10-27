@@ -23,7 +23,7 @@ $checks = [
     'CRM opportunity route' => ['public/crm-workspace.php', 'create-opportunity'],
     'Zone write uses verified test DB' => ['public/office-onsite-zone-create.php', 'u213420663_office_test'],
     'Zone write uses server-side CSRF' => ['public/office-onsite-zone-create.php', 'OnSiteOfficeZonePostAction'],
-    'Zone edit route' => ['public/office-onsite-project-map.php', '/office-test/inzet/zone/bijwerken'],
+    'Zone edit route' => ['public/office-onsite-project-map.php', ['/office-test/inzet/zone/bijwerken', '/office-test/inzet/zone/bewerken']],
     'Zone idempotency request key' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'requestKey'],
     'Zone compare-and-swap update' => ['src/Buildings/OfficeBuildingZoneRepository.php', 'function update'],
     'Zone update handler' => ['public/office-onsite-zone-update.php', 'OnSiteOfficeZoneUpdatePostAction'],
@@ -32,16 +32,16 @@ $checks = [
 ];
 if ($zoneOnly) {
     $checks = array_filter($checks, static fn(string $name): bool =>
-        $name === 'Project read authorization' || in_array($name, [
-            'Zone edit route', 'Zone idempotency request key', 'Zone compare-and-swap update',
-            'Zone update handler', 'Zone schema readiness', 'Zone edit token',
-        ], true), ARRAY_FILTER_USE_KEY);
+        $name === 'Project read authorization' || str_starts_with($name, 'Zone '), ARRAY_FILTER_USE_KEY);
 }
 $failures = 0;
 foreach ($checks as $name => [$path, $needle]) {
     $file = rtrim($root, '/').'/'.$path;
     $source = is_file($file) ? file_get_contents($file) : false;
-    $passed = is_string($source) && str_contains($source, $needle);
+    $passed = false;
+    foreach ((array)$needle as $candidate) {
+        if (is_string($source) && str_contains($source, $candidate)) $passed = true;
+    }
     echo ($passed ? 'PASS' : 'FAIL')." | ".$name." | ".$path."\n";
     if (!$passed) $failures++;
 }

@@ -15,14 +15,21 @@ $check('isolated test database',preg_match('/^mysql:host=(?:localhost|127\.0\.0\
 $check('Calc launch disabled',($config['OFFICE_CALC_LAUNCH_ENABLED']??'')!=='enabled');
 $isolated=$ok;
 if (!$isolated) exit(1);
+$map=file_get_contents($root.'/public/office-onsite-project-map.php');
 foreach (['OFFICE_NATIVE_PROJECTS_ENABLED','OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED',
-  'OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED','OFFICE_TEST_ZONE_WRITE_ENABLED',
+  'OFFICE_TEST_ZONE_WRITE_ENABLED',
   'OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED','OFFICE_CRM_SESSION_MODE'] as $flag) {
   $check($flag,($config[$flag]??'')==='enabled');
 }
 $check('zone signing secret configured',strlen($config['OFFICE_TEST_ZONE_CSRF_SECRET']??'')>=32);
+$check('project coordinates flag if required by map',!str_contains($map,"getenv('OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED')") || ($config['OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED']??'')==='enabled');
 $router=file_get_contents('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php');
-foreach (['/office-test/inzet/projectkaart','/office-test/inzet/zone/aanmaken','/office-test/inzet/zone/bijwerken'] as $route) $check('router '.$route,is_string($router)&&str_contains($router,$route));
+foreach (['/office-test/inzet/projectkaart','/office-test/inzet/zone/aanmaken'] as $route) $check('router '.$route,is_string($router)&&str_contains($router,$route));
+$editRouteMatches=false;
+foreach (['/office-test/inzet/zone/bijwerken','/office-test/inzet/zone/bewerken'] as $route) {
+  if (str_contains($map,$route)&&is_string($router)&&str_contains($router,$route)&&str_contains($router,'office-onsite-zone-update.php')) $editRouteMatches=true;
+}
+$check('map edit route matches deployed router and update handler',$editRouteMatches);
 $check('router selects active root',is_string($router)&&(str_contains($router,(string)$root)||str_contains($router,"getenv('OFFICE_PRIVATE_ROOT')")));
 $class=$root.'/src/Buildings/OfficeBuildingZoneReadiness.php';
 $check('schema inspector present',is_file($class));
@@ -34,8 +41,10 @@ try {
   $db->exec('SET TRANSACTION READ ONLY');
   $db->beginTransaction();
   foreach (\Brebo\Office\Buildings\OfficeBuildingZoneReadiness::inspect($db) as $label=>$pass) $check($label,$pass);
-  $location=$db->query("SELECT 1 FROM office_projects p JOIN office_project_memberships m ON m.project_id=p.id JOIN office_operator_accounts a ON a.id=m.operator_id WHERE a.active=1 AND m.permission='manage' AND p.latitude BETWEEN -90 AND 90 AND p.longitude BETWEEN -180 AND 180 LIMIT 1");
-  $check('manageable test project has valid coordinates',$location->fetchColumn()!==false);
+  $revision=$db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_building_zones' AND COLUMN_NAME='revision'")->fetchColumn();
+  $check('unsigned bigint zone revision',is_string($revision)&&preg_match('/^bigint(?:\([0-9]+\))? unsigned$/D',$revision)===1);
+  $location=$db->query("SELECT 1 FROM office_building_zones z JOIN office_buildings b ON b.id=z.building_id JOIN office_project_buildings pb ON pb.building_id=b.id JOIN office_project_memberships m ON m.project_id=pb.project_id JOIN office_operator_accounts a ON a.id=m.operator_id WHERE a.active=1 AND m.permission='manage' AND b.active=1 AND z.active=1 AND z.latitude BETWEEN -90 AND 90 AND z.longitude BETWEEN -180 AND 180 AND z.radius_metres>0 AND z.radius_metres<=5000 LIMIT 1");
+  $check('manageable test building has valid existing circle',$location->fetchColumn()!==false);
   $db->rollBack();
 } catch (Throwable) {
   if (isset($db)&&$db->inTransaction()) $db->rollBack();
@@ -48,4 +57,3 @@ foreach (['public/office-onsite-project-map.php','src/Inzet/OnSiteOfficeCircleCr
   }
 }
 exit($ok?0:1);
-
