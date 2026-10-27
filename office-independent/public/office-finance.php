@@ -86,11 +86,11 @@ try {
       $filename = (string)($record['file'] ?? '');
       $mime = (string)($record['mime'] ?? '');
       if (!preg_match('/^[a-f0-9]{48}\\.(pdf|jpg|png)$/D', $filename)
-        || !in_array($mime, ['application/pdf','image/jpeg','image/png'], true)) throw new \\OutOfBoundsException();
+        || !in_array($mime, ['application/pdf','image/jpeg','image/png'], true)) throw new \OutOfBoundsException();
       $path = $root . '/' . $filename;
       if (!is_file($path) || is_link($path) || filesize($path) < 1 || filesize($path) > 10 * 1024 * 1024
-        || !hash_equals((string)($record['sha256'] ?? ''), hash_file('sha256', $path))) throw new \\OutOfBoundsException();
-      $form = ['document'=>new \\CURLFile($path, $mime, 'factuur.' . pathinfo($filename, PATHINFO_EXTENSION))];
+        || !hash_equals((string)($record['sha256'] ?? ''), hash_file('sha256', $path))) throw new \OutOfBoundsException();
+      $form = ['document'=>new \CURLFile($path, $mime, 'factuur.' . pathinfo($filename, PATHINFO_EXTENSION))];
       $ch = curl_init($endpoint);
       curl_setopt_array($ch, [CURLOPT_POST=>true, CURLOPT_POSTFIELDS=>$form,
         CURLOPT_HTTPHEADER=>['Accept: application/json','Authorization: Bearer ' . $token,'X-BREBO-Extraction-Contract: v1'],
@@ -108,10 +108,10 @@ try {
         'extractor'=>(string)($decoded['extractor'] ?? 'brebo_managed_extraction_v1'),
         'at'=>gmdate('c'), 'source_sha256'=>$record['sha256']];
       $tmp = tempnam($root, '.extract-');
-      if ($tmp === false || file_put_contents($tmp, json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX) === false) throw new \\RuntimeException('Opslaan mislukt');
+      if ($tmp === false || file_put_contents($tmp, json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX) === false) throw new \RuntimeException('Opslaan mislukt');
       chmod($tmp, 0600);
-      if (!rename($tmp, $metaFile)) throw new \\RuntimeException('Opslaan mislukt');
-      header('Location: ' . \\Brebo\\Office\\Intake\\OfficeMount::route('finance/concept', ['id'=>$draftId,'extracted'=>'1']), true, 303);
+      if (!rename($tmp, $metaFile)) throw new \RuntimeException('Opslaan mislukt');
+      header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/concept', ['id'=>$draftId,'extracted'=>'1']), true, 303);
       exit;
     }
     $fields = ['supplier_name'=>120,'invoice_number'=>80,'invoice_date'=>10,'due_date'=>10,'reference'=>160,'amount_inc_vat'=>30,'vat_amount'=>30];
