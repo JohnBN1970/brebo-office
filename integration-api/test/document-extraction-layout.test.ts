@@ -22,7 +22,7 @@ describe("document extraction optional PDF positions", () => {
     form.set("document", new File([new Uint8Array([37, 80, 68, 70])], "test.pdf", { type: "application/pdf" }));
     const body = new Request("https://example.test", { method: "POST", body: form });
     return new Request(body, { headers: {
-      ...Object.fromEntries(body.headers),
+      "Content-Type": body.headers.get("Content-Type") ?? "",
       Authorization: "Bearer secret",
       "X-BREBO-Extraction-Contract": "v1",
       "Content-Length": "1024",
