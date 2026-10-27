@@ -22,6 +22,14 @@ final class OfficeInvoiceLineProposal {
       ];
       if (count($candidates) >= 50) break;
     }
+    // Some PDF extractors concatenate a product code and description across lines.
+    // Recover only the description, never infer quantity, unit price or VAT.
+    if ($candidates === [] && preg_match('/(?:^|\\n)[^\\n]{0,180}?\\bm\\d+\\s*(PVC\\s+hoek\\s+\\d+\\s*x\\s*\\d+\\s*x\\s*\\d+\\s*mm\\s+zwart\\s+in)\\s*\\n\\s*(lengte\\s+\\d+\\s*cm)/iu', $text, $m)) {
+      $candidates[] = [
+        'description'=>trim($m[1] . ' ' . $m[2]), 'quantity'=>'', 'unit'=>'',
+        'unit_price'=>'', 'vat_rate'=>'', 'line_total'=>'',
+      ];
+    }
     return $candidates;
   }
 }
