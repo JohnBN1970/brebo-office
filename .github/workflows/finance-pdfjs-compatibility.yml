@@ -37,7 +37,7 @@ jobs:
           tar -xzf /tmp/pdfjs-dist-3.11.174.tgz -C node_modules/pdfjs-dist --strip-components=1
       - name: Verify PDF.js ESM import and API
         run: |
-          node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js'); if (typeof pdfjs.getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
+          node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js'); const getDocument = pdfjs.getDocument ?? pdfjs.default?.getDocument; console.log('PDFJS_IMPORT', typeof getDocument); if (typeof getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
       - name: Run positional extraction unit tests
         run: npx vitest run --config vitest.layout.config.ts
       - name: Check Cloudflare Workers bundling with PDF.js
@@ -47,7 +47,7 @@ jobs:
           import { pdfEmbeddedPositions } from "./pdf-embedded-positions";
           export default {
             async fetch(): Promise<Response> {
-              const ok = typeof pdfjs.getDocument === "function" && typeof pdfEmbeddedPositions === "function";
+              const ok = typeof (pdfjs.getDocument ?? pdfjs.default?.getDocument) === "function" && typeof pdfEmbeddedPositions === "function";
               return new Response(ok ? "PDFJS_WORKER_BUNDLE_OK" : "PDFJS_UNAVAILABLE", { status: ok ? 200 : 500 });
             },
           };
