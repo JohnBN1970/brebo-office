@@ -17,4 +17,8 @@ $check(Nav::projectId('/office-test/projecten/detail',['id'=>'7<script>'])===nul
 foreach([[403,'text/html','/office-test/projecten/detail'],[200,'application/json','/office-test/api/onsite/v1/bootstrap'],[200,'text/html','/office-test/inloggen'],[200,'text/html','/office/projecten']]as[$status,$type,$path])$check(Nav::decorate($fixture,$path,[],$status,$type)===$fixture,'error/auth/API/production content left intact');
 $root=Nav::decorate($fixture,'/office-test/',[],200,'text/html');$check(str_contains($root,'Bedrijfssturing volgens GOTIK')&&!str_contains($root,'project_id='),'company steering keeps portfolio scope');
 $check(str_contains(Nav::steering(7),'uren-beoordelen?id=7'),'project organisation links to the existing review chain');
+$kpiFixture='<!doctype html><html><head></head><body><main><h1>Home</h1><div class="cards">VERIFIED KPI</div><!--office-overview-navigation--><h2>Recente projecten</h2></main></body></html>';
+$kpiPage=Nav::decorate($kpiFixture,'/office-test/',[],200,'text/html');
+$check(strpos($kpiPage,'VERIFIED KPI')<strpos($kpiPage,'Onderdelen per GOTIK'),'KPIs precede module navigation on the overview');
+$check(str_contains($kpiPage,'<details class="office-steering-links">')&&!str_contains($kpiPage,'<details class="office-steering-links" open'),'GOTIK navigation starts collapsed below KPIs');
 echo 'Office navigation passed | '.$checks.' checks'.PHP_EOL;

@@ -5,6 +5,9 @@ on:
       - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/public/office-area.php'
       - 'office-independent/tests/OfficeNavigationTest.php'
+      - 'office-independent/tests/OfficeOverviewKpisTest.php'
+      - 'office-independent/src/Intake/OfficeOverviewKpis.php'
+      - 'office-independent/public/office-home.php'
       - 'office-independent/modules/office-navigation/**'
       - 'office-independent/deployment/hostinger/office-navigation-control-test-install.php'
       - '.github/workflows/office-navigation.yml'
@@ -19,11 +22,13 @@ jobs:
         with:
           php-version: '8.3'
           coverage: none
+          extensions: pdo_sqlite
       - run: |
           php -l office-independent/public/office-area.php
           php -l office-independent/modules/office-navigation/routes.php
           php -l office-independent/deployment/hostinger/office-navigation-control-test-install.php
           php office-independent/tests/OfficeNavigationTest.php
+          php office-independent/tests/OfficeOverviewKpisTest.php
   unauthenticated-entrypoints:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -36,3 +41,30 @@ jobs:
             test "$status" = 302
             echo "PASS | anonymous GET $route redirects to sign-in ($status)"
           done
+
+  test-overview-kpis-install:
+    needs: navigation-contract
+    if: github.event.pull_request.head.ref == 'structure/office-gotik-navigation-20261027' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: install-source
+        shell: bash
+        run: |
+          php -l office-independent/deployment/hostinger/office-overview-kpi-test-install.php
+          echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-overview-kpi-test-install.php)" >> "$GITHUB_OUTPUT"
+      - name: Apply requested read-only KPI overview in isolated Office-test
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          INSTALL_SOURCE: ${{ steps.install-source.outputs.php }}
+        with:
+          host: 77.37.34.160
+          port: 65002
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: INSTALL_SOURCE
+          script_stop: true
+          script: printf '%s' "$INSTALL_SOURCE" | base64 -d | /opt/alt/php83/usr/bin/php /dev/stdin

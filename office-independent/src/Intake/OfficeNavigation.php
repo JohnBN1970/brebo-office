@@ -67,7 +67,12 @@ final class OfficeNavigation {
     $scope=$project===null?'':self::scope($project,$current);
     $root=in_array($path,['/office-test','/office-test/'],true);
     if($root)$html=str_replace(['Mijn werkplek','Goedemorgen, welkom in Office'],['Bedrijfsoverzicht','Bedrijfsoverzicht'],$html);
-    $steering=($root||$path==='/office-test/projecten/detail')?self::steering($project):'';
+    $steering=$path==='/office-test/projecten/detail'?self::steering($project):'';
+    if($root){
+      $links='<details class="office-steering-links"><summary>Onderdelen per GOTIK</summary>'.self::steering(null).'</details>';
+      if(str_contains($html,'<!--office-overview-navigation-->'))$html=str_replace('<!--office-overview-navigation-->',$links,$html);
+      else $html=preg_replace_callback('~</main>~i',static fn()=>$links.'</main>',$html,1)??$html;
+    }
     if($scope!==''||$steering!=='')$html=preg_replace_callback('~</h1>~i',static fn() => '</h1>'.$scope.$steering,$html,1)??$html;
     return $html;
   }
