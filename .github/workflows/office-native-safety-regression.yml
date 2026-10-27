@@ -1,0 +1,102 @@
+name: Office native safety regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
+      - 'office-independent/src/Buildings/OfficeBuildingZoneRepository.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeCircleCreateService.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeZonePostAction.php'
+      - 'office-independent/src/Inzet/OnSiteOfficeZoneFormToken.php'
+      - 'office-independent/tests/OfficeZoneFormBoundaryTest.php'
+      - 'office-independent/tests/OfficeZoneMapInteractionTest.cjs'
+      - 'office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php'
+      - 'office-independent/public/office-onsite-project-map.php'
+      - 'office-independent/public/office-onsite-zone-update.php'
+      - 'office-independent/public/office-onsite-zone-create.php'
+      - 'office-independent/tests/OfficeNativeProjectAccessRegressionTest.php'
+      - 'office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php'
+      - '.github/workflows/office-native-safety-regression.yml'
+      - 'tools/office-test-release-gate.php'
+      - 'tools/office-test-hostinger-schema-preflight.php'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PHP and SQLite driver
+        run: |
+          php -v
+          php -r 'if (!in_array("sqlite", PDO::getAvailableDrivers(), true)) { fwrite(STDERR, "pdo_sqlite is required\n"); exit(1); }'
+      - name: Lint safety code
+        run: |
+          php -l office-independent/src/Project/OfficeNativeProjectAccess.php
+          php -l office-independent/src/Buildings/OfficeBuildingZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleUpdateService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneUpdatePostAction.php
+          php -l office-independent/public/office-onsite-project-map.php
+          php -l office-independent/public/office-onsite-zone-update.php
+          php -l office-independent/public/office-onsite-zone-create.php
+          php -l office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
+          php -l office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php
+      - name: Lint and verify release gate
+        run: |
+          php -l tools/office-test-release-gate.php
+          php tools/office-test-release-gate.php --zone-only office-independent
+      - name: Test project authorization
+        run: php office-independent/tests/OfficeNativeProjectAccessRegressionTest.php
+      - name: Test zone creation safety
+        run: php office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php
+      - name: Test signed zone form boundaries
+        run: php office-independent/tests/OfficeZoneFormBoundaryTest.php
+      - name: Test zone map interactions
+        run: node office-independent/tests/OfficeZoneMapInteractionTest.cjs
+
+  hostinger-preflight:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 1434 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare read-only release contract checker
+        id: gate
+        shell: bash
+        run: |
+          echo "source=$(base64 -w0 tools/office-test-release-gate.php)" >> "$GITHUB_OUTPUT"
+          echo "schema=$(base64 -w0 tools/office-test-hostinger-schema-preflight.php)" >> "$GITHUB_OUTPUT"
+      - name: Inspect isolated Hostinger test release without deploying
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GATE_SOURCE: ${{ steps.gate.outputs.source }}
+          SCHEMA_SOURCE: ${{ steps.gate.outputs.schema }}
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          envs: GATE_SOURCE,SCHEMA_SOURCE
+          script_stop: true
+          script: |
+            set -eu
+            PHP=/opt/alt/php83/usr/bin/php
+            ROOT=$("$PHP" -r '$b="/home/u213420663/domains/brebobv.nl/office_calc_test";$c=require $b."/config/config.php";$r=realpath($c["OFFICE_PRIVATE_ROOT"]??"");if(!is_string($r)||!str_starts_with($r,$b."/")||!str_ends_with($r,"/private"))exit(1);echo $r;')
+            echo "Configured Office-test release: $ROOT"
+            test -d "$ROOT/public"
+            test -d "$ROOT/src"
+            echo 'READ ONLY: inspecting Office-test release; no deployment or database mutations'
+            sha256sum "$ROOT/public/office-onsite-project-map.php" "$ROOT/public/office-onsite-zone-create.php" "$ROOT/public/office-onsite-zone-update.php"
+            gate_status=0
+            printf '%s' "$GATE_SOURCE" | base64 -d | "$PHP" /dev/stdin "$ROOT" || gate_status=$?
+            schema_status=0
+            printf '%s' "$SCHEMA_SOURCE" | base64 -d | "$PHP" /dev/stdin "$ROOT" || schema_status=$?
+            echo "Full contract gate exit: $gate_status; read-only zone schema preflight exit: $schema_status"
+            test "$gate_status" -eq 0
+            test "$schema_status" -eq 0

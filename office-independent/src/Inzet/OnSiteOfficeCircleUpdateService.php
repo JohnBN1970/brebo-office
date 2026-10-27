@@ -26,6 +26,6 @@ final class OnSiteOfficeCircleUpdateService {
       $stmt->execute([$operator->operatorId,$projectId,$candidate]);
       return $stmt->fetchColumn()!==false;
     };
-    return (new OfficeBuildingZoneRepository($this->db))->update($zoneId,$buildingId,$revision,$changes,$authorize);
+    return (new OfficeBuildingZoneRepository($this->db))->update($zoneId,$revision,$changes,$authorize);
   }
 }

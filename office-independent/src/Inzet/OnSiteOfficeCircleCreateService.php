@@ -39,6 +39,6 @@ final class OnSiteOfficeCircleCreateService {
       $query->execute([$operator->operatorId, $projectId, $buildingId]);
       return $query->fetchColumn() !== false;
     };
-    return (new OfficeBuildingZoneRepository($this->db))->create($input, $authorize, $requestKey);
+    return (new OfficeBuildingZoneRepository($this->db))->createOnce($input, $requestKey, $authorize);
   }
 }

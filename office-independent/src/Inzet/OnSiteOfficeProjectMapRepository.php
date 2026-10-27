@@ -12,8 +12,8 @@ final class OnSiteOfficeProjectMapRepository {
   public function __construct(private PDO $db) {}
 
   /** @return array{project_id:string,latitude:float,longitude:float} */
-  public function forManager(int $operatorId, int $projectId): array {
-    if ($operatorId < 1 || $projectId < 1) throw new RuntimeException('office_project_map_access_denied');
+  public function forManager(string $operatorId, int $projectId): array {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D',$operatorId) || $projectId < 1) throw new RuntimeException('office_project_map_access_denied');
     $statement=$this->db->prepare(
       "SELECT p.id, p.latitude, p.longitude
        FROM office_projects p
