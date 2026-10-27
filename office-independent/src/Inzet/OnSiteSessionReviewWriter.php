@@ -69,7 +69,8 @@ final class OnSiteSessionReviewWriter {
       $prior=$this->db->prepare('SELECT id FROM office_onsite_hours_reviews WHERE in_event_id IN (?,?) OR out_event_id IN (?,?)'.$lock);
       $prior->execute([$inId,$outId,$inId,$outId]);
       if ($prior->fetchColumn()!==false) throw new RuntimeException('hours_session_already_reviewed');
-      $result=(new OnSiteHoursReview())->decide(['approval_status'=>'pending','in_event_id'=>$inId,'out_event_id'=>$outId,'duration_seconds'=>$ended-$started],$decision==='approved'?'approve':'reject',$seconds,$reason);
+      require_once __DIR__.'/OnSiteHoursReviewDecision.php';
+      $result=(new OnSiteHoursReviewDecision())->decide(['approval_status'=>'pending','in_event_id'=>$inId,'out_event_id'=>$outId,'duration_seconds'=>$ended-$started],$decision==='approved'?'approve':'reject',$seconds,$reason);
       $stamp=$now->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
       $insert=$this->db->prepare('INSERT INTO office_onsite_hours_reviews (person_id,project_id,zone_id,in_event_id,out_event_id,approval_status,reviewed_seconds,reviewer_operator_id,approved_at,reviewed_at,reason,revision,request_key,request_fingerprint) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?,?)');
       $insert->execute([$personId,$projectId,(string)$start['zone_id'],$inId,$outId,$result['status'],$result['reviewed_seconds'],$operatorId,$decision==='approved'?$stamp:null,$stamp,$reason===''?null:$reason,$requestKey,$fingerprint]);

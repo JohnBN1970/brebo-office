@@ -16,7 +16,9 @@ if($dsn){
  $db->exec('CREATE TABLE office_onsite_event_inbox(event_id VARCHAR(100) PRIMARY KEY,person_id BIGINT UNSIGNED,project_id VARCHAR(64),zone_id VARCHAR(64),event_kind VARCHAR(3),occurred_at_utc VARCHAR(27),INDEX(person_id,project_id,occurred_at_utc)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
  $db->exec('CREATE TABLE office_operator_accounts(id VARCHAR(128) PRIMARY KEY,active TINYINT) ENGINE=InnoDB');
  $db->exec('CREATE TABLE office_project_memberships(operator_id VARCHAR(128),project_id BIGINT,permission VARCHAR(20)) ENGINE=InnoDB');
- $db->exec(file_get_contents(dirname(__DIR__).'/migrations/proposed-onsite-hours-reviews.sql'));
+ require_once dirname(__DIR__).'/src/Inzet/OnSiteHoursReviewSchema.php';
+ $eventCollation=$db->query("SELECT COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_onsite_event_inbox' AND COLUMN_NAME='event_id'")->fetchColumn();
+ $db->exec(\Brebo\Office\Inzet\OnSiteHoursReviewSchema::reviewSql($eventCollation));
  require_once dirname(__DIR__).'/src/Inzet/OnSiteHoursReviewReadiness.php';
  \Brebo\Office\Inzet\OnSiteHoursReviewReadiness::requireReady($db);
  hoursCheck(true,'proposed ledger installs and passes actual MySQL schema gate');
@@ -93,4 +95,15 @@ hoursCheck(!array_key_exists('approved_events',$response['body']),'unknown appro
 $response=$bootstrap->bootstrap($device,static fn()=>[['project_id'=>'17','zone_id'=>'3','zone_name'=>'Test','latitude'=>51,'longitude'=>4,'radius_metres'=>5000]]);
 hoursCheck($response['status']===200,'bootstrap preserves existing 5000 metre zone policy');
 hoursCheck($bootstrap->bootstrap(str_repeat('unknown',8),static fn()=>[])['status']===401,'unlinked device cannot read bootstrap approvals');
+if($dsn){
+ require_once dirname(__DIR__).'/src/Inzet/OnSiteHoursBootstrapProjection.php';
+ $original=$bootstrap->bootstrap($device,static fn()=>[]);
+ $enriched=\Brebo\Office\Inzet\OnSiteHoursBootstrapProjection::enrich($original,$db,$device,true);
+ hoursCheck(count((array)$enriched['body']['approved_events'])===6&&$enriched['body']['projects']===$original['body']['projects'],'existing bootstrap authority is preserved while approved events are added');
+ $otherDevice=str_repeat('other',10);$db->prepare('INSERT INTO office_onsite_device_tokens VALUES(?,8,NULL,NULL)')->execute([hash('sha256',$otherDevice)]);
+ $other=$bootstrap->bootstrap($otherDevice,static fn()=>[]);
+ $other=\Brebo\Office\Inzet\OnSiteHoursBootstrapProjection::enrich($other,$db,$otherDevice,true);
+ hoursCheck(json_encode($other['body']['approved_events'])==='{}','real device projection emits an empty object for another employee');
+ hoursReject(fn()=>\Brebo\Office\Inzet\OnSiteHoursBootstrapProjection::enrich($original,$db,$otherDevice,true),'bootstrap enrichment rechecks token against returned employee identity');
+}
 echo "Office OnSite authenticated hours chain passed\n";

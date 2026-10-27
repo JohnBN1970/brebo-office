@@ -33,7 +33,7 @@ try {
   $project=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
   if(!is_int($project)){http_response_code(400);exit('Ongeldig project.');}
   $review=(new \Brebo\Office\Inzet\OnSiteSessionReviewReader($db))->forManager($actor->operatorId,(string)$project);
-}catch(InvalidArgumentException|DomainException $e){http_response_code(422);exit('Controleer het formulier, de reden en de sessie.');}
+}catch(InvalidArgumentException|DomainException $e){http_response_code(in_array($e->getMessage(),['invalid_hours_form_token','invalid_hours_form_context'],true)?403:422);exit('Controleer het formulier, de reden en de sessie.');}
 catch(Throwable $e){http_response_code(match($e->getMessage()){'hours_review_access_denied','hours_review_person_unavailable'=>403,'hours_review_request_conflict','hours_session_already_reviewed','ambiguous_review_evidence'=>409,'hours_review_media_type'=>415,'hours_review_payload_limit'=>413,default=>503});exit('Beoordeling niet verwerkt. Vernieuw de pagina of controleer de vrijgave.');}
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');

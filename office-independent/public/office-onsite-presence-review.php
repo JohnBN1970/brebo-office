@@ -45,6 +45,8 @@ try {
  http_response_code(503);exit('Aanwezigheidscontrole tijdelijk niet beschikbaar.');
 }
 $escape=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+$hoursReviewLink=getenv('OFFICE_TEST_ONSITE_HOURS_REVIEW_ENABLED')==='enabled' && getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED')==='enabled'
+ ? '<p><a href="/office-test/inzet/onsite/uren-beoordelen?id='.$id.'">Uren beoordelen</a></p>' : '';
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
  .'<title>Aanwezigheidscontrole · BREBO Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:1100px;padding:1rem;color:#243244}'
@@ -52,6 +54,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'section{padding:1rem}a{color:#245b8a}</style></head><body><main>'
  .'<p><a href="/office-test/projecten/detail?id='.$id.'">← Project '.$escape($id).'</a></p>'
  .'<h1>Inzet · project '.$escape($id).'</h1>'
+ .$hoursReviewLink
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
  .'</main><script nonce="'.$escape($nonce).'">'
  .'function updateTimers(){for(const el of document.querySelectorAll(".onsite-live-duration")){const start=Number(el.dataset.start);if(!Number.isFinite(start)||start<=0)continue;const seconds=Math.max(0,Math.floor(Date.now()/1000-start));const h=Math.floor(seconds/3600);const m=Math.floor(seconds%3600/60);const s=seconds%60;el.textContent=[h,m,s].map(n=>String(n).padStart(2,"0")).join(":");}}'
