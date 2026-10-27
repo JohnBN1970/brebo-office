@@ -7,7 +7,7 @@ final class OnSiteSessionReviewReader {
   public function __construct(private PDO $db) {}
   public function forManager(string $operatorId,string $projectId): array {
     if ($operatorId===''||strlen($operatorId)>128||!preg_match('/^[1-9][0-9]{0,18}$/D',$projectId)) throw new \InvalidArgumentException('invalid_hours_review_context');
-    $auth=$this->db->prepare("SELECT a.id FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id WHERE a.id=? AND a.active=1 AND m.project_id=? AND m.permission='manage' LIMIT 1");
+    $auth=$this->db->prepare("SELECT a.id FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id JOIN office_projects p ON p.id=m.project_id WHERE a.id=? AND a.active=1 AND m.project_id=? AND m.permission='manage' LIMIT 1");
     $auth->execute([$operatorId,$projectId]);
     if($auth->fetchColumn()===false) throw new \RuntimeException('hours_review_access_denied');
     $q=$this->db->prepare('SELECT e.event_id,e.person_id,e.project_id,e.zone_id,e.event_kind,e.occurred_at_utc,p.display_name FROM office_onsite_event_inbox e JOIN office_inzet_people p ON p.id=e.person_id WHERE e.project_id=? ORDER BY e.occurred_at_utc,e.event_id LIMIT 1001');

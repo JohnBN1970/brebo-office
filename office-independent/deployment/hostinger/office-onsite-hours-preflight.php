@@ -17,6 +17,17 @@ foreach($q->fetchAll(PDO::FETCH_ASSOC)as$row){
  if(in_array($row['TABLE_NAME'],['office_onsite_hours_reviews','office_onsite_reviewed_sessions'],true)||in_array($row['COLUMN_NAME'],['id','event_id'],true)) echo 'SCHEMA | '.$row['TABLE_NAME'].' | '.$row['COLUMN_NAME'].' | '.$row['COLUMN_TYPE'].' | '.($row['COLLATION_NAME']??'none').PHP_EOL;
 }
 $db->rollBack();
+foreach(['OnSiteBootstrapService'=>'bootstrap','OnSiteBootstrapRepository'=>'forEmployee']as$class=>$method){
+ $file=$root.'/src/Inzet/'.$class.'.php';
+ if(is_file($file)){
+  require_once $file;
+  $ref=new ReflectionMethod('Brebo\\Office\\Inzet\\'.$class,$method);
+  echo 'RUNTIME_CONTRACT | '.$class.' | '.implode(',',array_map(static fn(ReflectionParameter $p):string=>$p->getName().':'.(string)$p->getType(),$ref->getParameters())).' | '.hash_file('sha256',$file).PHP_EOL;
+ }
+}
+echo 'ROUTER_SHA256 | '.hash_file('sha256','/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php').PHP_EOL;
+echo 'BOOTSTRAP_ENDPOINT_SHA256 | '.hash_file('sha256',$root.'/public/onsite-bootstrap.php').PHP_EOL;
+echo 'DATABASE_COLLATION | '.$db->query('SELECT @@collation_database')->fetchColumn().PHP_EOL;
 $required=['person_id','project_id','zone_id','in_event_id','out_event_id','approval_status','reviewed_seconds','reviewer_operator_id','approved_at','reviewed_at','reason','revision','request_key','request_fingerprint'];
 $present=!array_diff($required,array_keys($columns['office_onsite_hours_reviews']??[]));
 echo 'Canonical hours ledger shape: '.($present?'PRESENT':'MISSING_OR_DIFFERENT').PHP_EOL;

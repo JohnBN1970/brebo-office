@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-foreach(['Intake/WebsiteCrmOperatorContext','Inzet/OnSiteHoursReview','Inzet/OnSiteSessionReviewWriter','Inzet/OnSiteHoursReviewToken','Inzet/OnSiteHoursReviewPostAction','Inzet/OnSiteApprovalProjection','Inzet/OnSiteHoursApprovalRepository','Inzet/OnSiteSessionReviewReader','Inzet/OnSitePresenceIntervalProjector'] as $class)require_once dirname(__DIR__).'/src/'.$class.'.php';
+foreach(['Intake/WebsiteCrmOperatorContext','Inzet/OnSiteHoursReview','Inzet/OnSiteSessionReviewWriter','Inzet/OnSiteHoursReviewToken','Inzet/OnSiteHoursReviewPostAction','Inzet/OnSiteApprovalProjection','Inzet/OnSiteHoursApprovalRepository','Inzet/OnSiteSessionReviewReader','Inzet/OnSitePresenceIntervalProjector','Inzet/OnSiteBootstrapService','Inzet/OnSiteDeviceTokenRepository'] as $class)require_once dirname(__DIR__).'/src/'.$class.'.php';
 use Brebo\Office\Inzet\OnSiteSessionReviewWriter as Writer;
 use Brebo\Office\Inzet\OnSiteHoursReviewToken as Token;
 use Brebo\Office\Inzet\OnSiteHoursReviewPostAction as Action;
@@ -11,7 +11,7 @@ $dsn=getenv('OFFICE_ONSITE_HOURS_TEST_DSN');
 if($dsn){
  if(!preg_match('/^mysql:host=127\.0\.0\.1;port=3306;dbname=office_onsite_hours_ci;charset=utf8mb4$/D',$dsn))throw new RuntimeException('Dedicated hours CI database required');
  $db=new PDO($dsn,getenv('OFFICE_INZET_TEST_USER'),getenv('OFFICE_INZET_TEST_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
- foreach(['office_onsite_hours_reviews','office_onsite_event_inbox','office_project_memberships','office_operator_accounts','office_inzet_people']as$table)$db->exec('DROP TABLE IF EXISTS '.$table);
+ foreach(['office_onsite_hours_reviews','office_onsite_device_tokens','office_onsite_event_inbox','office_project_memberships','office_operator_accounts','office_inzet_people','office_projects']as$table)$db->exec('DROP TABLE IF EXISTS '.$table);
  $db->exec('CREATE TABLE office_inzet_people (id BIGINT UNSIGNED PRIMARY KEY,active TINYINT,display_name VARCHAR(100)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
  $db->exec('CREATE TABLE office_onsite_event_inbox(event_id VARCHAR(100) PRIMARY KEY,person_id BIGINT UNSIGNED,project_id VARCHAR(64),zone_id VARCHAR(64),event_kind VARCHAR(3),occurred_at_utc VARCHAR(27),INDEX(person_id,project_id,occurred_at_utc)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
  $db->exec('CREATE TABLE office_operator_accounts(id VARCHAR(128) PRIMARY KEY,active TINYINT) ENGINE=InnoDB');
@@ -24,6 +24,8 @@ if($dsn){
  $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
  $db->exec('CREATE TABLE office_inzet_people(id INTEGER PRIMARY KEY,active INT,display_name TEXT); CREATE TABLE office_onsite_event_inbox(event_id TEXT PRIMARY KEY,person_id INT,project_id TEXT,zone_id TEXT,event_kind TEXT,occurred_at_utc TEXT); CREATE TABLE office_operator_accounts(id TEXT PRIMARY KEY,active INT); CREATE TABLE office_project_memberships(operator_id TEXT,project_id INT,permission TEXT); CREATE TABLE office_onsite_hours_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT,person_id INT,project_id TEXT,zone_id TEXT,in_event_id TEXT UNIQUE,out_event_id TEXT UNIQUE,approval_status TEXT,reviewed_seconds INT,reviewer_operator_id TEXT,approved_at TEXT,reviewed_at TEXT,reason TEXT,revision INT,request_key TEXT UNIQUE,request_fingerprint TEXT)');
 }
+$db->exec('CREATE TABLE office_projects(id BIGINT PRIMARY KEY)');
+$db->exec('INSERT INTO office_projects VALUES(17),(18)');
 $db->exec("INSERT INTO office_inzet_people VALUES(7,1,'Test Seven'),(8,1,'Test Eight'); INSERT INTO office_operator_accounts VALUES('manager-uuid',1),('reader-uuid',1),('disabled-uuid',0),('other-manager',1); INSERT INTO office_project_memberships VALUES('manager-uuid',17,'manage'),('reader-uuid',17,'read'),('disabled-uuid',17,'manage'),('other-manager',18,'manage')");
 $counter=0;
 $seed=function(string $person='7',string $project='17')use($db,&$counter):array{
@@ -80,4 +82,15 @@ hoursCheck(count($reader->forManager('manager-uuid','17')['sessions'])>=3,'manag
 $db->exec("UPDATE office_project_memberships SET permission='read' WHERE operator_id='manager-uuid'");
 hoursReject(fn()=>$writer->record('7',$in,$out,'approved',null,'manager-uuid',null,'17',$key),'revoked manager cannot retrieve successful retry receipt');
 hoursCheck(!$db->inTransaction(),'all rejected operations close their transaction');
+$db->exec('CREATE TABLE office_onsite_device_tokens(token_hash VARCHAR(64) PRIMARY KEY,person_id BIGINT,revoked_at DATETIME NULL,expires_at DATETIME NULL)');
+if(!$dsn)$db->sqliteCreateFunction('UTC_TIMESTAMP',static fn()=>gmdate('Y-m-d H:i:s'));
+$device=str_repeat('device',8);$db->prepare('INSERT INTO office_onsite_device_tokens VALUES(?,7,NULL,NULL)')->execute([hash('sha256',$device)]);
+$bootstrap=new \Brebo\Office\Inzet\OnSiteBootstrapService(new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db));
+$response=$bootstrap->bootstrap($device,static fn()=>[],static fn()=>'Test Seven',static fn()=>[]);
+hoursCheck(json_encode($response['body']['approved_events'])==='{}','empty approval snapshot is a JSON object for native clients');
+$response=$bootstrap->bootstrap($device,static fn()=>[]);
+hoursCheck(!array_key_exists('approved_events',$response['body']),'unknown approval source omits snapshot instead of revoking');
+$response=$bootstrap->bootstrap($device,static fn()=>[['project_id'=>'17','zone_id'=>'3','zone_name'=>'Test','latitude'=>51,'longitude'=>4,'radius_metres'=>5000]]);
+hoursCheck($response['status']===200,'bootstrap preserves existing 5000 metre zone policy');
+hoursCheck($bootstrap->bootstrap(str_repeat('unknown',8),static fn()=>[])['status']===401,'unlinked device cannot read bootstrap approvals');
 echo "Office OnSite authenticated hours chain passed\n";

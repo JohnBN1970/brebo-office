@@ -32,7 +32,7 @@ final class OnSiteSessionReviewWriter {
     $this->db->beginTransaction();
     try {
       // Authority is locked before evidence or a retry receipt is returned.
-      $auth=$this->db->prepare("SELECT a.id FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id WHERE a.id=? AND a.active=1 AND m.project_id=? AND m.permission='manage' LIMIT 1".$lock);
+      $auth=$this->db->prepare("SELECT a.id FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id JOIN office_projects p ON p.id=m.project_id WHERE a.id=? AND a.active=1 AND m.project_id=? AND m.permission='manage' LIMIT 1".$lock);
       $auth->execute([$operatorId,$projectId]);
       if ($auth->fetchColumn()===false) throw new RuntimeException('hours_review_access_denied');
       $person=$this->db->prepare('SELECT id FROM office_inzet_people WHERE id=? AND active=1'.$lock);
