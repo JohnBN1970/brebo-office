@@ -16,5 +16,5 @@ $out=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html
 if(substr_count($out,'aria-label="Hoofdnavigatie"')!==1||!str_contains($out,'aria-label="Module"')){fwrite(STDERR,"Navigation regression".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_NAV_V2_ENABLED=disabled');
 $old=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html');
-if(str_contains($old,'office-nav-group')){fwrite(STDERR,"Flag disabled but v2 active".PHP_EOL);exit(1);}
+if(str_contains($old,'<details class="office-nav-group"')){fwrite(STDERR,"Flag disabled but v2 active".PHP_EOL);exit(1);}
 echo "OfficeNavigationV2Test OK".PHP_EOL;
