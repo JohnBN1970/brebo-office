@@ -1,0 +1,23 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Brebo\Finance\Contract;
+
+/**
+ * Resolves project identity for Finance without coupling domain services to Drupal entities.
+ */
+interface ProjectReferenceGatewayInterface {
+
+  public function exists(int $projectId): bool;
+
+  public function canView(int $projectId): bool;
+
+  public function canViewAs(int $projectId, int $actorUid): bool;
+
+  public function label(int $projectId): ?string;
+
+  /** @return list<int> */
+  public function viewableIds(int $actorUid): array;
+
+}
