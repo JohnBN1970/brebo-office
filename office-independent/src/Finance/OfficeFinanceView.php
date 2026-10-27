@@ -111,6 +111,18 @@ final class OfficeFinanceView {
       }
       $html .= '</tbody></table></div>';
     }
+    $lineCandidates = $draft['line_proposals'] ?? [];
+    $html .= '<h3>Factuurregels herkennen (voorstellen)</h3>';
+    if ($lineCandidates === []) {
+      $html .= '<p>Geen betrouwbaar herkenbare factuurregels. Controleer de PDF; er zijn geen regels aangenomen.</p>';
+    } else {
+      $html .= '<p>Niet gecontroleerd of geboekt. Btw per regel is nog onbekend. Vergelijk elke regel met de originele factuur.</p>';
+      $html .= '<div class="table"><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Eenheidsprijs</th><th>Regeltotaal</th><th>Btw</th></tr></thead><tbody>';
+      foreach ($lineCandidates as $candidate) {
+        $html .= '<tr><td>'.self::e($candidate['description']).'</td><td>'.self::e($candidate['quantity']).'</td><td>'.self::e($candidate['unit']).'</td><td>'.self::e($candidate['unit_price']).'</td><td>'.self::e($candidate['line_total']).'</td><td>Nog controleren</td></tr>';
+      }
+      $html .= '</tbody></table></div>';
+    }
     $duplicateCandidates = $draft['duplicate_candidates'] ?? [];
     if ($duplicateCandidates !== []) {
       $html .= '<p role="alert"><strong>Mogelijk dubbele conceptfactuur.</strong> Hetzelfde factuurnummer komt voor bij een ander privéconcept. Controleer de leverancier en het document vóór verdere verwerking.</p><ul>';
