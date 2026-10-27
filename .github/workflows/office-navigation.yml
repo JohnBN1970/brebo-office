@@ -1,0 +1,46 @@
+name: Office shared navigation
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/public/office-area.php'
+      - 'office-independent/tests/OfficeNavigationTest.php'
+      - 'office-independent/tests/OfficeOverviewKpisTest.php'
+      - 'office-independent/src/Intake/OfficeOverviewKpis.php'
+      - 'office-independent/deployment/hostinger/office-overview-kpi-test-install.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/modules/office-navigation/**'
+      - 'office-independent/deployment/hostinger/office-navigation-control-test-install.php'
+      - '.github/workflows/office-navigation.yml'
+permissions:
+  contents: read
+jobs:
+  navigation-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: pdo_sqlite
+      - run: |
+          php -l office-independent/public/office-area.php
+          php -l office-independent/modules/office-navigation/routes.php
+          php -l office-independent/deployment/hostinger/office-navigation-control-test-install.php
+          php office-independent/tests/OfficeNavigationTest.php
+          php office-independent/tests/OfficeOverviewKpisTest.php
+          php -l office-independent/deployment/hostinger/office-overview-kpi-test-install.php
+  unauthenticated-entrypoints:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify new test-only entrypoints still require an Office session
+        shell: bash
+        run: |
+          for route in calculatie-offertes finance informatie 'finance?project_id=1'; do
+            status=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' "https://brebobv.nl/office-test/$route")
+            test "$status" = 302
+            echo "PASS | anonymous GET $route redirects to sign-in ($status)"
+          done
+

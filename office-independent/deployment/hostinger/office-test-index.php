@@ -48,6 +48,9 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   exit('Testomgeving niet beschikbaar.');
 }
 
+require_once $private . '/src/Intake/OfficeNavigation.php';
+\Brebo\Office\Intake\OfficeNavigation::register();
+
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $routes = [
   '/office-test/inzet/onsite/uren-beoordelen' => 'office-onsite-hours-review.php',
