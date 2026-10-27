@@ -24,4 +24,30 @@ final class OfficeInvoiceLayout {
     }
     return $result;
   }
+  /**
+   * Group normalized text blocks into visual rows without guessing monetary
+   * columns. Consumers can inspect these rows before assigning semantics.
+   */
+  public static function rows(array $blocks, float $tolerance = 0.008): array {
+    $blocks = self::sanitize($blocks);
+    if ($blocks === []) return [];
+    usort($blocks, static fn(array $a, array $b): int =>
+      ($a['page'] <=> $b['page']) ?: ($a['y'] <=> $b['y']) ?: ($a['x'] <=> $b['x']));
+    $rows = [];
+    foreach ($blocks as $block) {
+      $last = count($rows) - 1;
+      if ($last >= 0 && $rows[$last]['page'] === $block['page']
+        && abs($rows[$last]['y'] - $block['y']) <= $tolerance) {
+        $rows[$last]['blocks'][] = $block;
+      } else {
+        $rows[] = ['page'=>$block['page'], 'y'=>$block['y'], 'blocks'=>[$block]];
+      }
+    }
+    foreach ($rows as &$row) {
+      usort($row['blocks'], static fn(array $a, array $b): int => $a['x'] <=> $b['x']);
+    }
+    unset($row);
+    return $rows;
+  }
+
 }
