@@ -29,8 +29,10 @@ export async function pdfEmbeddedPositions(
     const result: PdfPosition[] = [];
     for (let page = 1; page <= document.numPages; page++) {
       const pdfPage = await document.getPage(page);
-      const width = pdfPage.view[2] - pdfPage.view[0];
-      const height = pdfPage.view[3] - pdfPage.view[1];
+      const [left, bottom, right, top] = pdfPage.view;
+      if (left === undefined || bottom === undefined || right === undefined || top === undefined) return [];
+      const width = right - left;
+      const height = top - bottom;
       if (!(width > 0 && height > 0)) return [];
       const content = await pdfPage.getTextContent();
       for (const raw of content.items) {
@@ -41,8 +43,11 @@ export async function pdfEmbeddedPositions(
         const text = item.str.trim();
         if (text === "") continue;
         const transform = item.transform as number[];
-        const x = (transform[4] - pdfPage.view[0]) / width;
-        const y = (pdfPage.view[3] - transform[5]) / height;
+        const tx = transform[4];
+        const ty = transform[5];
+        if (tx === undefined || ty === undefined) return [];
+        const x = (tx - left) / width;
+        const y = (top - ty) / height;
         if (text.length > 500 || !Number.isFinite(x) || !Number.isFinite(y)
           || x < 0 || x > 1 || y < 0 || y > 1) return [];
         result.push({ page, text, x, y });
