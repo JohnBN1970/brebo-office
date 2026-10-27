@@ -50,6 +50,49 @@ final class OfficeInvoiceLayout {
     return $rows;
   }
 
+
+  /**
+   * Derive column intervals from genuine PDF header coordinates. Never infer
+   * geometry from OCR text order. Returns null when headings are incomplete.
+   */
+  public static function columnsFromHeader(array $row): ?array {
+    if (!isset($row['blocks']) || !is_array($row['blocks'])) return null;
+    $aliases = [
+      'article' => ['art.nr.', 'artikelnr.', 'artikelnummer'],
+      'description' => ['omschrijving'],
+      'specification' => ['specificatie'],
+      'quantity' => ['aantal'],
+      'price' => ['prijs'],
+      'total' => ['totaal'],
+    ];
+    $found = [];
+    foreach ($row['blocks'] as $block) {
+      if (!isset($block['text'], $block['x']) || !is_string($block['text']) || !is_numeric($block['x'])) return null;
+      $label = mb_strtolower(trim($block['text']), 'UTF-8');
+      foreach ($aliases as $key => $names) {
+        if (in_array($label, $names, true)) {
+          if (isset($found[$key])) return null;
+          $found[$key] = (float)$block['x'];
+        }
+      }
+    }
+    foreach (array_keys($aliases) as $key) if (!isset($found[$key])) return null;
+    $keys = array_keys($aliases);
+    $positions = array_values($found);
+    $ordered = [];
+    foreach ($keys as $key) $ordered[] = $found[$key];
+    for ($i = 1; $i < count($ordered); $i++) {
+      if ($ordered[$i] <= $ordered[$i - 1] + 0.01) return null;
+    }
+    $bounds = [];
+    foreach ($keys as $i => $key) {
+      $left = $i === 0 ? 0.0 : ($ordered[$i - 1] + $ordered[$i]) / 2;
+      $right = $i === count($keys) - 1 ? 1.0 : ($ordered[$i] + $ordered[$i + 1]) / 2;
+      $bounds[$key] = [$left, $right];
+    }
+    return $bounds;
+  }
+
   /**
    * Extract a candidate from a visually separated invoice row. This does not
    * approve an invoice and refuses rows without unambiguous numeric columns.
