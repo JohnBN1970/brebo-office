@@ -1,7 +1,6 @@
 import core from "./index";
 import { calcPublication } from "./calc-publication-route";
 import { documentExtraction, type ExtractionEnv } from "./document-extraction";
-import { getDocument as pdfGetDocument } from "pdfjs-dist/legacy/build/pdf.js";
 import { orderDraft } from "./order-draft";
 import { publicProjects } from "./public-projects";
 import { publicEuropakozijnIntake } from "./public-intake";
@@ -23,7 +22,16 @@ export default {
 
     if (url.pathname === "/v1/internal/document-extraction") {
       const pdfEnabled = (env as ExtractionEnv & { PDF_EMBEDDED_POSITIONS_ENABLED?: string }).PDF_EMBEDDED_POSITIONS_ENABLED === "enabled";
-      return documentExtraction(request, pdfEnabled ? { ...env, PDF_GET_DOCUMENT: pdfGetDocument } : env);
+      if (pdfEnabled) {
+        try {
+          const pdfjs = await import("pdfjs-dist/legacy/build/pdf.js");
+          const getDocument = pdfjs.getDocument ?? pdfjs.default?.getDocument;
+          if (typeof getDocument === "function") {
+            return documentExtraction(request, { ...env, PDF_GET_DOCUMENT: getDocument });
+          }
+        } catch { /* Preserve text-only extraction if PDF.js cannot initialize. */ }
+      }
+      return documentExtraction(request, env);
     }
 
     if (url.pathname === "/v1/orders/draft") {
