@@ -51,6 +51,11 @@ final class OfficeMount {
       'crm/aanvragen/detail' => '/crm/aanvragen/detail',
       'calc-werkbank' => '/calc-werkbank',
       'projecten/detail' => '/projecten/detail',
+      'finance' => '/finance',
+      'finance/betaalcentrum' => '/finance/betaalcentrum',
+      'finance/factuur' => '/finance/factuur',
+      'finance/nieuw' => '/finance/nieuw',
+      'finance/concept' => '/finance/concept',
       'inzet/importcontrole' => '/inzet/importcontrole',
     ];
     if (!isset($paths[$name])) {
