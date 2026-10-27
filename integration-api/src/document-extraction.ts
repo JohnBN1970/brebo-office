@@ -28,7 +28,27 @@ type ConversionResult = {
   format?: string;
   data?: string;
   error?: string;
+  blocks?: unknown;
 };
+
+type PositionedBlock = { page: number; text: string; x: number; y: number };
+
+/** Accept only normalized positions actually supplied by the extractor. */
+export function verifiedPositionBlocks(raw: unknown): PositionedBlock[] {
+  if (!Array.isArray(raw) || raw.length > 2000) return [];
+  const blocks: PositionedBlock[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") return [];
+    const block = item as Record<string, unknown>;
+    if (!Number.isInteger(block.page) || (block.page as number) < 1 || (block.page as number) > 100
+      || typeof block.text !== "string" || block.text.length > 500
+      || typeof block.x !== "number" || !Number.isFinite(block.x) || block.x < 0 || block.x > 1
+      || typeof block.y !== "number" || !Number.isFinite(block.y) || block.y < 0 || block.y > 1) return [];
+    blocks.push({ page: block.page as number, text: block.text, x: block.x, y: block.y });
+  }
+  return blocks;
+}
+
 
 function json(body: unknown, status = 200, headers?: HeadersInit): Response {
   return Response.json(body, {
@@ -167,9 +187,11 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
   }
 
   const text = first.data.trim();
+  const blocks = verifiedPositionBlocks(first.blocks);
   return json({
     status: text === "" ? "no_text" : "extracted",
     text,
+    ...(blocks.length > 0 ? { blocks } : {}),
     extractor: "cloudflare_workers_ai_tomarkdown_text_v1",
     confidence: text === "" ? 0 : 0.85,
   });
