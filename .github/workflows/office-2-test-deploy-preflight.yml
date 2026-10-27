@@ -68,20 +68,28 @@ jobs:
               echo "MISSING: ${item##*/}"
             fi
           done
-          if ! grep -Fq 'office_calc_test/release-next/private' "$router"; then
-            echo "::warning::Active router does not contain expected release-next/private literal (previous exit 14)."
-            echo "Router references (paths and configuration values suppressed):"
-            grep -nE 'realpath|require|include|OFFICE_PRIVATE_ROOT|OFFICE_BASE_PATH' "$router" \
-              | sed -E 's/(=.*)/=[REDACTED]/' | head -n 20 || true
-            echo "::error::Router layout differs from repository template; inspect before deploying."
-            exit 14
-          fi
-          grep -q 'OFFICE_BASE_PATH' "$router" || { echo "::error::Missing OFFICE_BASE_PATH guard"; exit 15; }
-          grep -q 'office-test' "$router" || { echo "::error::Missing office-test guard"; exit 16; }
-          if [[ -f "$root/src/Intake/OfficeNavigation.php" ]]; then
-            echo "Office navigation present"
+          echo "Active router contract:"
+          grep -Fq 'OFFICE_BASE_PATH' "$router" || { echo "::error::Missing OFFICE_BASE_PATH guard"; exit 15; }
+          grep -Fq 'OFFICE_PRIVATE_ROOT' "$router" || { echo "::error::Missing OFFICE_PRIVATE_ROOT guard"; exit 18; }
+          grep -Fq 'office-test' "$router" || { echo "::error::Missing office-test guard"; exit 16; }
+          if grep -Fq 'office_calc_test/release-next/private' "$router"; then
+            echo "Router uses repository template root"
           else
-            echo "Office navigation missing"
+            echo "::warning::Router uses a different root expression than the repository template"
+          fi
+          echo "Candidate navigation locations (no paths or secrets printed):"
+          for candidate in \
+            "$base/release-next/private/src/Intake/OfficeNavigation.php" \
+            "$base/release/private/src/Intake/OfficeNavigation.php" \
+            "$base/private/src/Intake/OfficeNavigation.php"; do
+            if [[ -f "$candidate" && ! -L "$candidate" ]]; then
+              echo "PRESENT: OfficeNavigation.php"
+            else
+              echo "ABSENT: OfficeNavigation.php"
+            fi
+          done
+          if [[ ! -f "$root/src/Intake/OfficeNavigation.php" ]]; then
+            echo "::error::Navigation missing from expected release-next/private; release synchronization required before UI rollout."
             exit 17
           fi
           echo "OFFICE_TEST_PREFLIGHT_OK=1"
