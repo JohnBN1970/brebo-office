@@ -43,11 +43,11 @@ jobs:
       - name: Check Cloudflare Workers bundling with PDF.js
         run: |
           cat > src/pdfjs-compat-probe.ts <<'EOF'
-          import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+          import * as pdfjs from "pdfjs-dist/legacy/build/pdf.js";
           import { pdfEmbeddedPositions } from "./pdf-embedded-positions";
           export default {
             async fetch(): Promise<Response> {
-              const ok = typeof getDocument === "function" && typeof pdfEmbeddedPositions === "function";
+              const ok = typeof pdfjs.getDocument === "function" && typeof pdfEmbeddedPositions === "function";
               return new Response(ok ? "PDFJS_WORKER_BUNDLE_OK" : "PDFJS_UNAVAILABLE", { status: ok ? 200 : 500 });
             },
           };
