@@ -49,7 +49,7 @@ try {
   }
   if (!isset($_SESSION['finance_upload_csrf'])) $_SESSION['finance_upload_csrf'] = bin2hex(random_bytes(32));
   $view = $officeFinanceView ?? 'dashboard';
-  if (!in_array($view, ['dashboard','payments','invoice','new','draft'], true)) throw new \OutOfBoundsException();
+  if (!in_array($view, ['dashboard','payments','invoice','new','draft','list'], true)) throw new \OutOfBoundsException();
   $invoiceId = null;
   if ($view === 'invoice') {
     $invoiceId = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
@@ -316,7 +316,17 @@ try {
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
-  $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
+  if ($view === 'list') {
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceDirection.php';
+    require_once dirname(__DIR__) . '/src/Finance/OfficeIncomingInvoiceQueueAdapter.php';
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceListView.php';
+    $direction = is_string($_GET['direction'] ?? null) ? $_GET['direction'] : 'all';
+    $rows = \Brebo\Office\Finance\OfficeIncomingInvoiceQueueAdapter::fromFinanceRead($data);
+    $html = \Brebo\Office\Finance\OfficeInvoiceListView::render($rows, $direction, $search);
+    $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facturen · BREBO Office</title></head><body><nav><a href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('finance'), ENT_QUOTES, 'UTF-8') . '">Finance</a></nav>' . $html . '<p>Dit overzicht bevat uitsluitend facturen uit de bestaande inkoopwerkvoorraad. Uitgaande facturen zijn nog niet aangesloten.</p></body></html>';
+  } else {
+    $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
+  }
 } catch (\DomainException $e) {
   http_response_code(403);
   exit('Geen toegang tot Finance.');
