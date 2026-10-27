@@ -222,6 +222,12 @@ try {
       }
     }
     $data['draft']['duplicate_candidates'] = array_slice($matches, 0, 20);
+    $data['draft']['imported_duplicate_candidates'] = $number === '' ? [] :
+      (new \Brebo\Office\Finance\OfficeFinanceApplication(
+        $db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(),
+        getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''
+      ))->duplicateInvoiceCandidates($operator->operatorId, $number);
+
     if (($_GET['document'] ?? '') === '1') {
       header('Content-Type: ' . $mime);
       header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
