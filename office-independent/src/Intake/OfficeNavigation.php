@@ -99,7 +99,7 @@ final class OfficeNavigation {
     $project=self::projectId($path,$query);
     $scope=$project===null?'':self::scope($project,$current);
     $root=in_array($path,['/office-test','/office-test/'],true);
-    if($root)$html=str_replace(['Mijn werkplek','Goedemorgen, welkom in Office'],['Bedrijfsoverzicht','Bedrijfsoverzicht'],$html);
+    if($root && getenv('OFFICE_TEST_NAV_V2_ENABLED')!=='enabled')$html=str_replace(['Mijn werkplek','Goedemorgen, welkom in Office'],['Bedrijfsoverzicht','Bedrijfsoverzicht'],$html);
     $steering=$path==='/office-test/projecten/detail'?self::steering($project):'';
     if($root){
       $links='<details class="office-steering-links"><summary>Onderdelen per GOTIK</summary>'.self::steering(null).'</details>';
