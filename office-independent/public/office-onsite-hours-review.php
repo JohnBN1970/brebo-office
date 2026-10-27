@@ -15,7 +15,7 @@ if($method==='POST'&&(!is_string($_SERVER['HTTP_ORIGIN']??null)||!hash_equals('h
 if($method==='POST'&&(int)($_SERVER['CONTENT_LENGTH']??0)>4096){http_response_code(413);exit('Formulier te groot.');}
 try {
   foreach(['OfficeMount','WebsiteCrmOperatorContext','WebsiteCrmOperatorSessionProviderInterface','WebsiteOfficeCrmSessionRepository','WebsiteOfficeCrmCookieSessionProvider'] as $name)require_once dirname(__DIR__).'/src/Intake/'.$name.'.php';
-  foreach(['OnSiteSessionReviewWriter','OnSiteSessionReviewReader','OnSiteHoursReviewToken','OnSiteHoursReviewPostAction','OnSiteHoursReviewReadiness','OnSitePresenceIntervalProjector'] as $name)require_once dirname(__DIR__).'/src/Inzet/'.$name.'.php';
+  foreach(['OnSiteHoursPresentation','OnSiteSessionReviewWriter','OnSiteSessionReviewReader','OnSiteHoursReviewToken','OnSiteHoursReviewPostAction','OnSiteHoursReviewReadiness','OnSitePresenceIntervalProjector'] as $name)require_once dirname(__DIR__).'/src/Inzet/'.$name.'.php';
   $dsn=getenv('OFFICE_INTAKE_PDO_DSN')?:'';
   if(!preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)||getenv('OFFICE_INTAKE_DB_USER')!=='u213420663_office_test')throw new RuntimeException('hours_test_database_required');
   $secret=getenv('OFFICE_TEST_ONSITE_HOURS_REVIEW_CSRF_SECRET')?:'';
@@ -36,21 +36,23 @@ try {
 }catch(InvalidArgumentException|DomainException $e){http_response_code(in_array($e->getMessage(),['invalid_hours_form_token','invalid_hours_form_context'],true)?403:422);exit('Controleer het formulier, de reden en de sessie.');}
 catch(Throwable $e){http_response_code(match($e->getMessage()){'hours_review_access_denied','hours_review_person_unavailable'=>403,'hours_review_request_conflict','hours_session_already_reviewed','ambiguous_review_evidence'=>409,'hours_review_media_type'=>415,'hours_review_payload_limit'=>413,default=>503});exit('Beoordeling niet verwerkt. Vernieuw de pagina of controleer de vrijgave.');}
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+$duration=static fn(int $seconds):string=>\Brebo\Office\Inzet\OnSiteHoursPresentation::duration($seconds);
+$moment=static fn(string $utc):string=>\Brebo\Office\Inzet\OnSiteHoursPresentation::moment($utc);
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Uren beoordelen · Office</title><style>body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:1rem}table{border-collapse:collapse;width:100%}td,th{padding:1rem;border-bottom:1px solid #ccd5df;text-align:left}label{display:block;margin:.5rem 0}button{padding:.6rem}input,textarea{max-width:100%}</style><main><a href="/office-test/projecten/detail?id='.$project.'">← Project</a><h1>OnSite · uren beoordelen</h1><p>IN/UIT is aanwezigheidsbewijs. Alleen een expliciete beoordeling legt goedgekeurde tijd vast. Er wordt niets geboekt of betaald.</p>';
+echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Uren beoordelen · Office</title><style>body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:1rem}table{border-collapse:collapse;width:100%}td,th{padding:1rem;border-bottom:1px solid #ccd5df;text-align:left}label{display:block;margin:.5rem 0}button{padding:.6rem}input,textarea{max-width:100%}.moment{white-space:nowrap;display:block;margin:.25rem 0}.time-note{color:#526173;font-size:.9rem}input[inputmode=decimal]{width:8rem}</style><main><a href="/office-test/projecten/detail?id='.$project.'">← Project</a><h1>OnSite · uren beoordelen</h1><p>IN/UIT is aanwezigheidsbewijs. Alleen een expliciete beoordeling legt goedgekeurde tijd vast. Er wordt niets geboekt of betaald.</p>';
 if(($_GET['saved']??'')==='1')echo '<p role="status">Beoordeling verwerkt. Hieronder staat de actuele Office-status.</p>';
 if($review['active'])echo '<p>Er zijn open registraties; die kunnen nog niet worden goedgekeurd.</p>';
 if($review['exceptions'])echo '<p>Er zijn afwijkende of overlappende registraties. Deze vereisen afzonderlijke controle.</p>';
-echo '<table><thead><tr><th>Medewerker</th><th>IN / UIT (UTC)</th><th>Duur</th><th>Beoordeling</th></tr></thead><tbody>';
+echo '<table><thead><tr><th>Medewerker</th><th>In / uit<br><small>Nederlandse tijd</small></th><th>Duur</th><th>Beoordeling</th></tr></thead><tbody>';
 foreach($review['sessions'] as $session){
- echo '<tr><td>'.$h($session['display_name']).'</td><td>'.$h($session['entered_at']).'<br>'.$h($session['left_at']).'</td><td>'.$h($session['duration_seconds']).' seconden</td><td>';
+ echo '<tr><td>'.$h($session['display_name']).'</td><td>'.'In: <span class="moment">'.$h($moment($session['entered_at'])).'</span>Uit: <span class="moment">'.$h($moment($session['left_at'])).'</span>'.'</td><td>'.$h($duration((int)$session['duration_seconds'])).'</td><td>';
  if($session['approval_status']==='pending'){
   $context=[(string)$project,$session['person_id'],$session['in_event_id'],$session['out_event_id']];
   $token=\Brebo\Office\Inzet\OnSiteHoursReviewToken::issue($actor,$context,$secret,time());
   echo '<form method="post" action="/office-test/inzet/onsite/uren-beoordelen">';
   foreach(array_combine(['project_id','person_id','in_event_id','out_event_id'],$context)+['form_token'=>$token] as $key=>$value)echo '<input type="hidden" name="'.$h($key).'" value="'.$h($value).'">';
-  echo '<label>Correctie in seconden (leeg = gemeten duur)<input type="number" name="corrected_seconds" min="0" max="86400" step="1"></label><label>Reden (verplicht bij afkeuren of correctie)<textarea name="reason" maxlength="2000"></textarea></label><button name="decision" value="approved" type="submit">Uren goedkeuren</button> <button name="decision" value="rejected" type="submit">Afkeuren</button></form>';
- }else{echo '<strong>'.$h($session['approval_status']==='approved'?'Goedgekeurd':'Afgekeurd').'</strong><br>'.$h($session['reviewed_seconds']).' seconden<br>'.$h($session['reviewer_operator_id']).' · '.$h($session['reviewed_at']).' UTC<br>'.$h($session['reason']);}
+  echo '<label>Correctie in uren (leeg = gemeten duur)<input type="text" inputmode="decimal" name="corrected_hours" placeholder="Bijv. 1,5" maxlength="5"><span class="time-note">1,5 uur = 1 uur 30 min. Maximaal 24 uur.</span></label><label>Reden (verplicht bij afkeuren of correctie)<textarea name="reason" maxlength="2000"></textarea></label><button name="decision" value="approved" type="submit">Uren goedkeuren</button> <button name="decision" value="rejected" type="submit">Afkeuren</button></form>';
+ }else{echo '<strong>'.$h($session['approval_status']==='approved'?'Goedgekeurd':'Afgekeurd').'</strong><br>'.$h($duration((int)$session['reviewed_seconds'])).'<br><span class="moment">'.$h($moment($session['reviewed_at'])).'</span>Beoordelaar: '.$h($session['reviewer_operator_id']).'<br>'.$h($session['reason']);}
  echo '</td></tr>';
 }
 if(!$review['sessions'])echo '<tr><td colspan="4">Geen volledige, beoordeelbare sessies beschikbaar.</td></tr>';

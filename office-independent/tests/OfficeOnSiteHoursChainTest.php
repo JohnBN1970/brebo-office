@@ -106,4 +106,12 @@ if($dsn){
  hoursCheck(json_encode($other['body']['approved_events'])==='{}','real device projection emits an empty object for another employee');
  hoursReject(fn()=>\Brebo\Office\Inzet\OnSiteHoursBootstrapProjection::enrich($original,$db,$otherDevice,true),'bootstrap enrichment rechecks token against returned employee identity');
 }
+[$hoursIn,$hoursOut]=$seed('7','18');
+$hoursActor=new Actor('other-manager','hours-session',false);
+$hoursContext=['18','7',$hoursIn,$hoursOut];
+$hoursPost=['project_id'=>'18','person_id'=>'7','in_event_id'=>$hoursIn,'out_event_id'=>$hoursOut,'decision'=>'approved','corrected_hours'=>'1,5','reason'=>'TEST - Decimal hour correction','form_token'=>Token::issue($hoursActor,$hoursContext,$secret,$now->getTimestamp())];
+$hoursResult=$action->handle('application/x-www-form-urlencoded',http_build_query($hoursPost),$hoursActor,$secret,$now->getTimestamp());
+$hoursRow=$db->query('SELECT reviewed_seconds FROM office_onsite_hours_reviews WHERE id='.(int)$hoursResult['id'])->fetchColumn();
+hoursCheck((int)$hoursRow===5400,'signed decimal-hour form stores exact seconds');
+hoursReject(fn()=>$action->handle('application/x-www-form-urlencoded',http_build_query($hoursPost+['corrected_seconds'=>'5400']),$hoursActor,$secret,$now->getTimestamp()),'mixed hour and legacy second fields rejected');
 echo "Office OnSite authenticated hours chain passed\n";
