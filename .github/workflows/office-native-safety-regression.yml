@@ -18,6 +18,7 @@ on:
       - 'office-independent/tests/OfficeBuildingZoneSafetyRegressionTest.php'
       - '.github/workflows/office-native-safety-regression.yml'
       - 'tools/office-test-release-gate.php'
+      - 'tools/office-test-hostinger-schema-preflight.php'
   workflow_dispatch:
 
 permissions:
@@ -68,22 +69,26 @@ jobs:
       - name: Prepare read-only release contract checker
         id: gate
         shell: bash
-        run: echo "source=$(base64 -w0 tools/office-test-release-gate.php)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "source=$(base64 -w0 tools/office-test-release-gate.php)" >> "$GITHUB_OUTPUT"
+          echo "schema=$(base64 -w0 tools/office-test-hostinger-schema-preflight.php)" >> "$GITHUB_OUTPUT"
       - name: Inspect isolated Hostinger test release without deploying
         uses: appleboy/ssh-action@v1.2.0
         env:
           GATE_SOURCE: ${{ steps.gate.outputs.source }}
+          SCHEMA_SOURCE: ${{ steps.gate.outputs.schema }}
         with:
           host: 77.37.34.160
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 65002
-          envs: GATE_SOURCE
+          envs: GATE_SOURCE,SCHEMA_SOURCE
           script_stop: true
           script: |
             set -eu
-            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private
             PHP=/opt/alt/php83/usr/bin/php
+            ROOT=$("$PHP" -r '$b="/home/u213420663/domains/brebobv.nl/office_calc_test";$c=require $b."/config/config.php";$r=realpath($c["OFFICE_PRIVATE_ROOT"]??"");if(!is_string($r)||!str_starts_with($r,$b."/")||!str_ends_with($r,"/private"))exit(1);echo $r;')
+            echo "Configured Office-test release: $ROOT"
             test -d "$ROOT/public"
             test -d "$ROOT/src"
             echo 'READ ONLY: inspecting Office-test release; no deployment or database mutations'
@@ -91,7 +96,7 @@ jobs:
             gate_status=0
             printf '%s' "$GATE_SOURCE" | base64 -d | "$PHP" /dev/stdin "$ROOT" || gate_status=$?
             schema_status=0
-            "$PHP" "$ROOT/deployment/hostinger/office-inzet-test-preflight.php" || schema_status=$?
-            echo "Full contract gate exit: $gate_status; Inzet preflight exit: $schema_status"
+            printf '%s' "$SCHEMA_SOURCE" | base64 -d | "$PHP" /dev/stdin "$ROOT" || schema_status=$?
+            echo "Full contract gate exit: $gate_status; read-only zone schema preflight exit: $schema_status"
             test "$gate_status" -eq 0
             test "$schema_status" -eq 0
