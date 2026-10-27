@@ -321,9 +321,27 @@ try {
     require_once dirname(__DIR__) . '/src/Finance/OfficeIncomingInvoiceQueueAdapter.php';
     require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceListView.php';
     $direction = is_string($_GET['direction'] ?? null) ? $_GET['direction'] : 'all';
-    $rows = \Brebo\Office\Finance\OfficeIncomingInvoiceQueueAdapter::fromFinanceRead($data);
+    $rows = [];
+    if (empty($data['finance_unlinked_project'])) {
+      $register = (new \\Brebo\\Office\\Finance\\OfficeFinanceApplication(
+        $db, \\Brebo\\Office\\Finance\\OfficeFinanceReadConnection::fromEnvironment(),
+        getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''
+      ))->purchaseRegister($operator->operatorId, $projectId);
+      foreach ($register as $invoice) {
+        $rows[] = [
+          'id'=>(int)$invoice['id'],
+          'direction'=>'incoming',
+          'number'=>(string)($invoice['invoice_number'] ?? ''),
+          'relation'=>(string)($invoice['supplier_name'] ?? ''),
+          'project_id'=>$projectId ?? 0,
+          'project_label'=>$projectId !== null ? (string)($data['project']['title'] ?? '') : '',
+          'status'=>(string)($invoice['status'] ?? ''),
+          'amount_inc_vat'=>(string)($invoice['amount_inc_vat'] ?? ''),
+        ];
+      }
+    }
     $html = \Brebo\Office\Finance\OfficeInvoiceListView::render($rows, $direction, $search, $projectId);
-    $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facturen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f6fa;color:#17283a;margin:0;padding:24px}main{max-width:1200px;margin:auto;background:white;padding:24px;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce4ed}form{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{padding:8px}nav{margin-bottom:20px}.notice{padding:12px;background:#fff0b3}</style></head><body><main><nav><a href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('finance'), ENT_QUOTES, 'UTF-8') . '">Finance</a></nav>' . $html . '<p class="notice">Dit overzicht bevat uitsluitend facturen uit de bestaande inkoopwerkvoorraad. Uitgaande facturen zijn nog niet aangesloten.</p></main></body></html>';
+    $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facturen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f6fa;color:#17283a;margin:0;padding:24px}main{max-width:1200px;margin:auto;background:white;padding:24px;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce4ed}form{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{padding:8px}nav{margin-bottom:20px}.notice{padding:12px;background:#fff0b3}</style></head><body><main><nav><a href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('finance'), ENT_QUOTES, 'UTF-8') . '">Finance</a></nav>' . $html . '<p class="notice">Dit overzicht bevat maximaal 5.000 recentste, toegankelijke inkoopfacturen, inclusief afgesloten facturen. Uitgaande facturen zijn nog niet aangesloten.</p></main></body></html>';
   } else {
     $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
   }
