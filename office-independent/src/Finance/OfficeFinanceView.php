@@ -34,6 +34,7 @@ final class OfficeFinanceView {
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
+    if ($view === 'draft') return $html . self::draft($data) . '</main></div></body></html>';
     if ($view === 'new') return $html . self::newInvoice($data) . '</main></div></body></html>';
     if ($view === 'invoice') return $html . self::invoice($data) . '</main></div></body></html>';
     $count = array_sum($data['counts']);
@@ -76,9 +77,22 @@ final class OfficeFinanceView {
     if (empty($data['drafts'])) return $html . '<p>Geen concepten gevonden.</p></section>';
     $html .= '<div class="table"><table><thead><tr><th>Concept</th><th>Aangemaakt UTC</th><th>Type</th><th>Status</th></tr></thead><tbody>';
     foreach ($data['drafts'] as $draft) {
-      $html .= '<tr><td>'.self::e(substr($draft['id'], 0, 12)).'</td><td>'.self::e($draft['created_at']).'</td><td>'.self::e($draft['mime']).'</td><td>'.self::e($draft['status']).'</td></tr>';
+      $link = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
+      $html .= '<tr><td><a href="'.$link.'">'.self::e(substr($draft['id'], 0, 12)).'</a></td><td>'.self::e($draft['created_at']).'</td><td>'.self::e($draft['mime']).'</td><td>'.self::e($draft['status']).'</td></tr>';
     }
     return $html . '</tbody></table></div></section>';
+  }
+
+  private static function draft(array $data): string {
+    $draft = $data['draft'];
+    $id = self::e($draft['id']);
+    $mime = self::e($draft['mime']);
+    $src = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id'], 'document'=>'1']));
+    $html = '<section><h2>Conceptfactuur '.$id.'</h2><p>Aangemaakt: '.self::e($draft['created_at']).' · '.$mime.'</p><p>Status: '.self::e($draft['status']).' — nog niet uitgelezen of gecontroleerd.</p>';
+    $html .= '<p><a href="'.$src.'" target="_blank" rel="noopener noreferrer">Document openen</a></p>';
+    if ($draft['mime'] === 'application/pdf') $html .= '<iframe title="Factuurdocument" src="'.$src.'" style="width:100%;height:680px;border:1px solid #ccd5df"></iframe>';
+    else $html .= '<img src="'.$src.'" alt="Geüpload factuurdocument" style="max-width:100%;height:auto">';
+    return $html . '<p>Herkenning, controle en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
 
   private static function invoice(array $data): string {
