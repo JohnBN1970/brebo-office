@@ -12,6 +12,14 @@ use PDO;
 final class OfficeFinanceApplication {
   public function __construct(private readonly PDO $db, private readonly ?PDO $source = null, private readonly string $tablePrefix = '') {}
 
+  /** Read-only, access-scoped candidate search. */
+  public function duplicateInvoiceCandidates(string $operatorId, string $invoiceNumber, string $supplierName = ''): array {
+    $access = new OfficeFinanceAccess($this->db, $operatorId);
+    if (!$access->allows()) throw new \DomainException('Finance access required');
+    $repository = new OfficeFinanceReadRepository($this->source ?? $this->db, $access, null, $this->tablePrefix);
+    return $repository->duplicateInvoiceCandidates($invoiceNumber, $supplierName);
+  }
+
   public function read(string $operatorId, ?int $invoiceId = null, ?int $officeProjectId = null): array {
     $access = new OfficeFinanceAccess($this->db, $operatorId);
     if (!$access->allows()) throw new \DomainException('Finance access required');
