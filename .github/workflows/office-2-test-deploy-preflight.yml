@@ -56,9 +56,28 @@ jobs:
           [[ -d "$root/public" && -d "$root/src" && ! -L "$root" ]] || exit 11
           [[ -f "$router" && ! -L "$router" ]] || exit 12
           [[ -f "$base/config/config.php" ]] || exit 13
-          grep -q 'office_calc_test/release-next/private' "$router" || exit 14
-          grep -q 'OFFICE_BASE_PATH' "$router" || exit 15
-          grep -q 'office-test' "$router" || exit 16
+          echo "Router and release layout (read-only):"
+          for item in "$router" "$root" "$root/src/Intake/OfficeNavigation.php"; do
+            if [[ -L "$item" ]]; then
+              echo "SYMLINK: ${item##*/}"
+            elif [[ -f "$item" ]]; then
+              echo "FILE: ${item##*/}"
+            elif [[ -d "$item" ]]; then
+              echo "DIRECTORY: ${item##*/}"
+            else
+              echo "MISSING: ${item##*/}"
+            fi
+          done
+          if ! grep -Fq 'office_calc_test/release-next/private' "$router"; then
+            echo "::warning::Active router does not contain expected release-next/private literal (previous exit 14)."
+            echo "Router references (paths and configuration values suppressed):"
+            grep -nE 'realpath|require|include|OFFICE_PRIVATE_ROOT|OFFICE_BASE_PATH' "$router" \
+              | sed -E 's/(=.*)/=[REDACTED]/' | head -n 20 || true
+            echo "::error::Router layout differs from repository template; inspect before deploying."
+            exit 14
+          fi
+          grep -q 'OFFICE_BASE_PATH' "$router" || { echo "::error::Missing OFFICE_BASE_PATH guard"; exit 15; }
+          grep -q 'office-test' "$router" || { echo "::error::Missing office-test guard"; exit 16; }
           if [[ -f "$root/src/Intake/OfficeNavigation.php" ]]; then
             echo "Office navigation present"
           else
