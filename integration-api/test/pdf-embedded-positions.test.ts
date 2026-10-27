@@ -17,8 +17,8 @@ describe("embedded PDF text positions adapter", () => {
   it("converts PDF user-space coordinates to normalized top-left positions", async () => {
     const blocks = await pdfEmbeddedPositions(new Uint8Array([37, 80, 68, 70]), mock);
     expect(blocks).toHaveLength(2);
-    expect(blocks[0].x).toBeCloseTo(51 / 595);
-    expect(blocks[0].y).toBeCloseTo(327 / 842);
+    expect(blocks[0]?.x).toBeCloseTo(51 / 595);
+    expect(blocks[0]?.y).toBeCloseTo(327 / 842);
   });
   it("returns no layout for failed PDF parsing", async () => {
     expect(await pdfEmbeddedPositions(new Uint8Array([1]), () => {
