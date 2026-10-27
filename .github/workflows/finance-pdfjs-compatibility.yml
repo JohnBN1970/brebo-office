@@ -8,6 +8,8 @@ on:
     paths:
       - "integration-api/src/pdf-embedded-positions.ts"
       - "integration-api/src/document-extraction.ts"
+      - "integration-api/src/router.ts"
+      - "integration-api/package-lock.json"
       - "integration-api/test/document-extraction-layout.test.ts"
       - "integration-api/test/pdf-embedded-positions.test.ts"
       - "integration-api/test/pdfjs-real-pdf-smoke.mjs"
