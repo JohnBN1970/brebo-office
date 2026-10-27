@@ -168,6 +168,36 @@ final class OfficeFinanceView {
     if ($choices === []) $html .= '<p style="grid-column:1/-1">Geen geverifieerde projecten beschikbaar binnen je huidige toegangsrechten.</p>';
     $lines = is_array($draft['review_lines'] ?? null) ? $draft['review_lines'] : ($draft['line_proposals'] ?? []);
     $lines = array_slice($lines, 0, 30);
+    // Financial check uses saved lines only; extraction proposals are never approved implicitly.
+    $savedLines = is_array($draft['review_lines'] ?? null) ? $draft['review_lines'] : [];
+    $netCents = 0; $vatCents = 0; $complete = $savedLines !== [];
+    foreach ($savedLines as $line) {
+      $desc = trim((string)($line['description'] ?? ''));
+      $qty = trim((string)($line['quantity'] ?? ''));
+      $price = trim((string)($line['unit_price'] ?? ''));
+      $total = trim((string)($line['line_total'] ?? ''));
+      $rate = trim((string)($line['vat_rate'] ?? ''));
+      if ($desc === '' || $qty === '' || $price === '' || $total === '' || $rate === '') { $complete = false; continue; }
+      $q = (float)str_replace(',', '.', $qty);
+      $p = (float)str_replace(',', '.', $price);
+      $t = (int)round((float)str_replace(',', '.', $total) * 100);
+      $v = (float)str_replace(',', '.', $rate);
+      if (abs($q * $p * 100 - $t) > 1 || $v < 0 || $v > 100) $complete = false;
+      $netCents += $t;
+      $vatCents += (int)round($t * $v / 100);
+    }
+    $gross = trim((string)($review['amount_inc_vat'] ?? ''));
+    $invoiceVat = trim((string)($review['vat_amount'] ?? ''));
+    if ($gross === '' || $invoiceVat === '') $complete = false;
+    $grossCents = (int)round((float)str_replace(',', '.', $gross) * 100);
+    $invoiceVatCents = (int)round((float)str_replace(',', '.', $invoiceVat) * 100);
+    $difference = $netCents + $vatCents - $grossCents;
+    $vatDifference = $vatCents - $invoiceVatCents;
+    $balanced = $complete && abs($difference) <= 1 && abs($vatDifference) <= 1;
+    $html .= '<div style="grid-column:1/-1"><h3>Financiële controle (opgeslagen regels)</h3><p>Regels excl. btw: € '.number_format($netCents / 100, 2, ',', '.').' · Btw regels: € '.number_format($vatCents / 100, 2, ',', '.').' · Regels incl. btw: € '.number_format(($netCents + $vatCents) / 100, 2, ',', '.').'</p>';
+    $html .= '<p>Verschil met factuurtotaal: € '.number_format($difference / 100, 2, ',', '.').' · Verschil btw: € '.number_format($vatDifference / 100, 2, ',', '.').'</p>';
+    $html .= $balanced ? '<p style="color:#146c2e"><strong>Bedragen sluiten aan.</strong> Nog niet goedgekeurd of geboekt.</p>' : '<p role="alert" style="color:#a32020"><strong>Controle niet sluitend.</strong> Vul alle regelvelden en factuurbedragen in en controleer de verschillen. Nog niet goedgekeurd of geboekt.</p>';
+    $html .= '</div>';
     $lineCount = min(30, max(5, count($lines) + 2));
     $html .= '<div style="grid-column:1/-1"><h3>Factuurregels controleren en opslaan</h3><p>Lege regels worden overgeslagen. Verwijder een regel door alle velden leeg te maken. Btw is een percentage per regel; geen boeking of goedkeuring.</p><input type="hidden" name="line_count" value="'.$lineCount.'"><div class="table"><table><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Prijs</th><th>Btw %</th><th>Regeltotaal excl. btw</th></tr></thead><tbody>';
     for ($i = 0; $i < $lineCount; $i++) {
@@ -180,7 +210,7 @@ final class OfficeFinanceView {
     }
     $html .= '</tbody></table></div></div>';
     $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
-    return $html . '<p>Opslaan is geen goedkeuring. Factuurregels, volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
+    return $html . '<p>Opslaan is geen goedkeuring. Volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
 
   private static function invoice(array $data): string {
