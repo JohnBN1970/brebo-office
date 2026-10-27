@@ -48,6 +48,7 @@ final class OfficeMount {
       'finance' => '/finance',
       'finance/betaalcentrum' => '/finance/betaalcentrum',
       'finance/factuur' => '/finance/factuur',
+      'finance/nieuw' => '/finance/nieuw',
       'inloggen' => '/inloggen',
       'uitloggen' => '/uitloggen',
       'crm/aanvragen' => '/crm/aanvragen',
