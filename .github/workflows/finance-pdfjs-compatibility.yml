@@ -10,6 +10,7 @@ on:
       - "integration-api/src/document-extraction.ts"
       - "integration-api/src/router.ts"
       - "integration-api/package-lock.json"
+      - "integration-api/wrangler.jsonc"
       - "integration-api/test/document-extraction-layout.test.ts"
       - "integration-api/test/pdf-embedded-positions.test.ts"
       - "integration-api/test/pdfjs-real-pdf-smoke.mjs"
@@ -47,6 +48,8 @@ jobs:
         run: npx vitest run --config vitest.layout.config.ts
       - name: Extract actual embedded text coordinates from synthetic PDF
         run: node --experimental-strip-types test/pdfjs-real-pdf-smoke.mjs
+      - name: Check actual BREBO Worker bundle without deployment
+        run: npx wrangler deploy --dry-run --outdir dist/finance-real-worker
       - name: Check Cloudflare Workers bundling with PDF.js
         run: |
           cat > src/pdfjs-compat-probe.ts <<'EOF'
