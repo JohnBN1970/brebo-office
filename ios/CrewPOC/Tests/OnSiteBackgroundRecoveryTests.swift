@@ -4,13 +4,85 @@ import CoreLocation
 
 @MainActor
 final class OnSiteBackgroundRecoveryTests: XCTestCase {
+    func testEmployeeSwitchIsolatesQueueHistoryAndApprovals() async {
+        let name = "OnSiteOwnerTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let a = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
+        let b = CrewPresenceEvent(projectId: "2", zoneId: "4", kind: .leftProject)
+        var sent: [UUID] = []
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { event, _ in sent.append(event.id) })
+        uploader.enqueue(a)
+        uploader.applyOfficeApprovals([a.id: Date(timeIntervalSince1970: 1_700_000_000)])
+        uploader.bindEmployee("8")
+        XCTAssertTrue(uploader.registrationHistory.isEmpty)
+        XCTAssertTrue(uploader.approvedAtByEventId.isEmpty)
+        XCTAssertEqual(uploader.pendingCount, 0)
+        uploader.enqueue(b)
+        await uploader.retryPending()
+        XCTAssertEqual(sent, [b.id])
+        uploader.bindEmployee("7")
+        XCTAssertEqual(uploader.registrationHistory, [a])
+        XCTAssertEqual(uploader.pendingCount, 1)
+        XCTAssertNotNil(uploader.approvedAtByEventId[a.id])
+        uploader.bindEmployee(nil)
+        await uploader.retryPending()
+        XCTAssertTrue(uploader.registrationHistory.isEmpty)
+        XCTAssertEqual(sent, [b.id])
+    }
+
+    func testInFlightOldUploadCannotConsumeNewEmployeeQueue() async {
+        let name = "OnSiteOwnerRace.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let a = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
+        let b = CrewPresenceEvent(projectId: "2", zoneId: "4", kind: .leftProject)
+        var token = "device-a"
+        var sent: [UUID] = []
+        var uploader: OnSitePresenceUploader!
+        uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { token }, send: { event, _ in
+            sent.append(event.id)
+            if event.id == a.id {
+                token = "device-b"
+                uploader.bindEmployee("8")
+                uploader.enqueue(b)
+                await Task.yield()
+            }
+        })
+        uploader.enqueue(a)
+        await uploader.retryPending()
+        XCTAssertEqual(uploader.registrationHistory, [b])
+        XCTAssertEqual(uploader.pendingCount, 1)
+        await uploader.retryPending()
+        XCTAssertEqual(sent, [a.id, b.id])
+        XCTAssertEqual(uploader.pendingCount, 0)
+    }
+
+    func testOmittedOfficeApprovalSnapshotRetainsKnownApproval() throws {
+        let name = "OnSiteApprovalOmission.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let id = UUID()
+        let employee = OnSiteBootstrapEmployee(id: "7", displayName: "Test", language: "nl")
+        let approved = OnSiteBootstrap(employee: employee, projects: [], approvedEvents: [id.uuidString: Date(timeIntervalSince1970: 1_700_000_000)])
+        defaults.set(try JSONEncoder().encode(approved), forKey: "brebo.onsite.bootstrap.v1")
+        let identity = OnSiteIdentityStore(defaults: defaults, deviceToken: { "device" }, clearDeviceToken: {})
+        XCTAssertNotNil(identity.officeApprovals?[id])
+        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [])), forKey: "brebo.onsite.bootstrap.v1")
+        identity.restoreCachedIdentity()
+        XCTAssertNotNil(identity.officeApprovals?[id])
+        defaults.set(try JSONEncoder().encode(OnSiteBootstrap(employee: employee, projects: [], approvedEvents: [:])), forKey: "brebo.onsite.bootstrap.v1")
+        identity.restoreCachedIdentity()
+        XCTAssertTrue(identity.officeApprovals?.isEmpty == true)
+    }
+
     func testNativeCallbackQueueSurvivesRelaunchAndRetriesSameEventOnce() async throws {
         let name = "OnSiteQueueTests.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
         var attempts: [UUID] = []
-        let first = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { event, _ in
+        let first = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { event, _ in
             attempts.append(event.id)
             throw URLError(.notConnectedToInternet)
         })
@@ -20,7 +92,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         await first.retryPending()
         XCTAssertEqual(first.pendingCount, 1)
 
-        let relaunched = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { event, _ in
+        let relaunched = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { event, _ in
             attempts.append(event.id)
         })
         XCTAssertEqual(relaunched.pendingCount, 1)
@@ -35,7 +107,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         var count = 0
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { _, _ in
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { _, _ in
             count += 1
             await Task.yield()
         })
@@ -107,28 +179,29 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
-        let first = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { _, _ in })
+        let first = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { _, _ in })
         first.enqueue(event)
         await first.retryPending()
         XCTAssertEqual(first.pendingCount, 0)
         XCTAssertEqual(first.registrationHistory, [event])
         XCTAssertFalse(first.isAwaitingUpload(event.id))
-        let restored = OnSitePresenceUploader(defaults: defaults, deviceToken: { "device" }, send: { _, _ in })
+        let restored = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { "device" }, send: { _, _ in })
         XCTAssertEqual(restored.registrationHistory, [event])
         restored.enqueue(event)
         XCTAssertEqual(restored.registrationHistory.count, 1)
     }
 
-    func testExistingPendingQueueMigratesIntoHistory() {
+    func testUnscopedLegacyQueueIsQuarantinedWithoutDataLoss() {
         let name = "OnSiteHistoryMigration.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
         defaults.set(try! JSONEncoder().encode([event]), forKey: "brebo.onsite.pending-presence.v1")
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
-        XCTAssertEqual(uploader.pendingCount, 1)
-        XCTAssertEqual(uploader.registrationHistory, [event])
-        XCTAssertTrue(uploader.isAwaitingUpload(event.id))
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil }, send: { _, _ in })
+        XCTAssertEqual(uploader.pendingCount, 0)
+        XCTAssertTrue(uploader.registrationHistory.isEmpty)
+        XCTAssertEqual(uploader.quarantinedLegacyCount, 1)
+        XCTAssertNotNil(defaults.data(forKey: "brebo.onsite.pending-presence.v1"))
     }
 
     func testApprovedRegistrationRemainsVisibleForFiveDays() {
@@ -136,14 +209,14 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .enteredProject)
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil }, send: { _, _ in })
         uploader.enqueue(event)
         let approved = Date(timeIntervalSince1970: 1_700_000_000)
         uploader.applyOfficeApprovals([event.id: approved])
         XCTAssertEqual(uploader.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400 - 1)), [event])
         XCTAssertTrue(uploader.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400)).isEmpty)
         XCTAssertEqual(uploader.registrationHistory, [event])
-        let restored = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        let restored = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil }, send: { _, _ in })
         XCTAssertTrue(restored.visibleRegistrations(asOf: approved.addingTimeInterval(5 * 86400)).isEmpty)
     }
 
@@ -152,7 +225,7 @@ final class OnSiteBackgroundRecoveryTests: XCTestCase {
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
         let event = CrewPresenceEvent(projectId: "1", zoneId: "3", kind: .leftProject)
-        let uploader = OnSitePresenceUploader(defaults: defaults, deviceToken: { nil }, send: { _, _ in })
+        let uploader = OnSitePresenceUploader(defaults: defaults, employeeId: "7", deviceToken: { nil }, send: { _, _ in })
         uploader.enqueue(event)
         XCTAssertEqual(uploader.visibleRegistrations(asOf: Date.distantFuture), [event])
     }

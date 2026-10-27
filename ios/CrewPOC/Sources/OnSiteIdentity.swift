@@ -65,15 +65,23 @@ final class OnSiteIdentityStore: ObservableObject {
 
     private func apply(_ bootstrap: OnSiteBootstrap) {
         let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
+        if case let .linked(employeeId, _, _) = state, employeeId != bootstrap.employee.id {
+            officeApprovals = nil
+        }
+        // Bind the per-employee queue before publishing this employee's approvals.
+        state = .linked(employeeId: bootstrap.employee.id,
+                        displayName: bootstrap.employee.displayName, language: officeLanguage)
         language = officeLanguage
         assignedProjects = bootstrap.projects
         // Nil means the Office endpoint has not provided an authoritative snapshot.
         // Do not treat an omitted field as a revocation or as approval.
         if let approvals = bootstrap.approvedEvents {
-            officeApprovals = Dictionary(uniqueKeysWithValues: approvals.compactMap { key, value in
-                guard let id = UUID(uuidString: key) else { return nil }
-                return (id, value)
-            })
+            var verified: [UUID: Date] = [:]
+            for (key, value) in approvals {
+                guard let id = UUID(uuidString: key), value <= Date() else { continue }
+                verified[id] = value
+            }
+            officeApprovals = verified
         }
         state = .linked(employeeId: bootstrap.employee.id,
                         displayName: bootstrap.employee.displayName, language: officeLanguage)

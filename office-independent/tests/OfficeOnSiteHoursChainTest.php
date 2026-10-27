@@ -1,0 +1,83 @@
+<?php
+declare(strict_types=1);
+foreach(['Intake/WebsiteCrmOperatorContext','Inzet/OnSiteHoursReview','Inzet/OnSiteSessionReviewWriter','Inzet/OnSiteHoursReviewToken','Inzet/OnSiteHoursReviewPostAction','Inzet/OnSiteApprovalProjection','Inzet/OnSiteHoursApprovalRepository','Inzet/OnSiteSessionReviewReader','Inzet/OnSitePresenceIntervalProjector'] as $class)require_once dirname(__DIR__).'/src/'.$class.'.php';
+use Brebo\Office\Inzet\OnSiteSessionReviewWriter as Writer;
+use Brebo\Office\Inzet\OnSiteHoursReviewToken as Token;
+use Brebo\Office\Inzet\OnSiteHoursReviewPostAction as Action;
+use Brebo\Office\Intake\WebsiteCrmOperatorContext as Actor;
+function hoursCheck(bool $ok,string $label):void{if(!$ok)throw new RuntimeException($label);echo "PASS: $label\n";}
+function hoursReject(callable $operation,string $label):void{try{$operation();}catch(Throwable){hoursCheck(true,$label);return;}throw new RuntimeException('Accepted: '.$label);}
+$dsn=getenv('OFFICE_ONSITE_HOURS_TEST_DSN');
+if($dsn){
+ if(!preg_match('/^mysql:host=127\.0\.0\.1;port=3306;dbname=office_onsite_hours_ci;charset=utf8mb4$/D',$dsn))throw new RuntimeException('Dedicated hours CI database required');
+ $db=new PDO($dsn,getenv('OFFICE_INZET_TEST_USER'),getenv('OFFICE_INZET_TEST_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
+ foreach(['office_onsite_hours_reviews','office_onsite_event_inbox','office_project_memberships','office_operator_accounts','office_inzet_people']as$table)$db->exec('DROP TABLE IF EXISTS '.$table);
+ $db->exec('CREATE TABLE office_inzet_people (id BIGINT UNSIGNED PRIMARY KEY,active TINYINT,display_name VARCHAR(100)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+ $db->exec('CREATE TABLE office_onsite_event_inbox(event_id VARCHAR(100) PRIMARY KEY,person_id BIGINT UNSIGNED,project_id VARCHAR(64),zone_id VARCHAR(64),event_kind VARCHAR(3),occurred_at_utc VARCHAR(27),INDEX(person_id,project_id,occurred_at_utc)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+ $db->exec('CREATE TABLE office_operator_accounts(id VARCHAR(128) PRIMARY KEY,active TINYINT) ENGINE=InnoDB');
+ $db->exec('CREATE TABLE office_project_memberships(operator_id VARCHAR(128),project_id BIGINT,permission VARCHAR(20)) ENGINE=InnoDB');
+ $db->exec(file_get_contents(dirname(__DIR__).'/migrations/proposed-onsite-hours-reviews.sql'));
+ require_once dirname(__DIR__).'/src/Inzet/OnSiteHoursReviewReadiness.php';
+ \Brebo\Office\Inzet\OnSiteHoursReviewReadiness::requireReady($db);
+ hoursCheck(true,'proposed ledger installs and passes actual MySQL schema gate');
+}else{
+ $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+ $db->exec('CREATE TABLE office_inzet_people(id INTEGER PRIMARY KEY,active INT,display_name TEXT); CREATE TABLE office_onsite_event_inbox(event_id TEXT PRIMARY KEY,person_id INT,project_id TEXT,zone_id TEXT,event_kind TEXT,occurred_at_utc TEXT); CREATE TABLE office_operator_accounts(id TEXT PRIMARY KEY,active INT); CREATE TABLE office_project_memberships(operator_id TEXT,project_id INT,permission TEXT); CREATE TABLE office_onsite_hours_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT,person_id INT,project_id TEXT,zone_id TEXT,in_event_id TEXT UNIQUE,out_event_id TEXT UNIQUE,approval_status TEXT,reviewed_seconds INT,reviewer_operator_id TEXT,approved_at TEXT,reviewed_at TEXT,reason TEXT,revision INT,request_key TEXT UNIQUE,request_fingerprint TEXT)');
+}
+$db->exec("INSERT INTO office_inzet_people VALUES(7,1,'Test Seven'),(8,1,'Test Eight'); INSERT INTO office_operator_accounts VALUES('manager-uuid',1),('reader-uuid',1),('disabled-uuid',0),('other-manager',1); INSERT INTO office_project_memberships VALUES('manager-uuid',17,'manage'),('reader-uuid',17,'read'),('disabled-uuid',17,'manage'),('other-manager',18,'manage')");
+$counter=0;
+$seed=function(string $person='7',string $project='17')use($db,&$counter):array{
+ $n=++$counter;$in=sprintf('%08x-aaaa-4aaa-8aaa-aaaaaaaaaaaa',$n*2);$out=sprintf('%08x-bbbb-4bbb-8bbb-bbbbbbbbbbbb',$n*2+1);
+ $time=(new DateTimeImmutable('2026-10-20T00:00:00Z'))->modify('+'.($n*2).' hours');
+ $s=$db->prepare('INSERT INTO office_onsite_event_inbox VALUES(?,?,?,?,?,?)');
+ $s->execute([$in,$person,$project,'3','in',$time->format('Y-m-d\TH:i:s\Z')]);$s->execute([$out,$person,$project,'3','out',$time->modify('+1 hour')->format('Y-m-d\TH:i:s\Z')]);return[$in,$out];
+};
+$now=new DateTimeImmutable('2026-11-10T12:00:00Z');$writer=new Writer($db,static fn()=>$now);
+[$in,$out]=$seed();$key=str_repeat('a',64);
+$first=$writer->record('7',$in,$out,'approved',null,'manager-uuid',null,'17',$key);
+$retry=$writer->record('7',$in,$out,'approved',null,'manager-uuid',null,'17',$key);
+hoursCheck($first['id']===$retry['id']&&$retry['replayed'],'identical signed retry returns one review receipt');
+$row=$db->query('SELECT * FROM office_onsite_hours_reviews')->fetch(PDO::FETCH_ASSOC);
+hoursCheck((int)$row['reviewed_seconds']===3600&&$row['reviewer_operator_id']==='manager-uuid','duration comes from evidence and opaque reviewer identity is preserved');
+hoursCheck($row['approved_at']==='2026-11-10 12:00:00','approval timestamp is server UTC');
+hoursReject(fn()=>$writer->record('7',$in,$out,'approved',3300,'manager-uuid','Break','17',$key),'request key rejects changed payload');
+hoursReject(fn()=>$writer->record('7',$in,$out,'approved',null,'manager-uuid',null,'17',str_repeat('b',64)),'different request cannot review same evidence again');
+foreach(['reader-uuid','disabled-uuid','other-manager']as$operator)hoursReject(fn()=>$writer->record('7',$in,$out,'approved',null,$operator,null,'17'),'current manager required: '.$operator);
+[$x,$y]=$seed();hoursReject(fn()=>$writer->record('8',$x,$y,'approved',null,'manager-uuid',null,'17'),'cross-employee evidence rejected');
+hoursReject(fn()=>$writer->record('7',$x,$y,'approved',null,'manager-uuid',null,'18'),'cross-project evidence rejected');
+hoursReject(fn()=>$writer->record('7',$x,$x,'approved',null,'manager-uuid',null,'17'),'identical IN/OUT rejected');
+hoursReject(fn()=>$writer->record('7',$x,$y,'approved',3300,'manager-uuid',null,'17'),'duration correction requires a reason');
+hoursReject(fn()=>$writer->record('7',$x,$y,'rejected',null,'manager-uuid',null,'17'),'rejection requires a reason');
+$corrected=$writer->record('7',$x,$y,'approved',3300,'manager-uuid','Pauze','17');
+hoursCheck((int)$db->query('SELECT reviewed_seconds FROM office_onsite_hours_reviews WHERE id='.(int)$corrected['id'])->fetchColumn()===3300,'explicit reason permits reviewed time correction');
+[$x,$y]=$seed();$writer->record('7',$x,$y,'rejected',null,'manager-uuid','Onjuiste registratie','17');
+$row=$db->query("SELECT * FROM office_onsite_hours_reviews WHERE approval_status='rejected'")->fetch(PDO::FETCH_ASSOC);
+hoursCheck($row['approved_at']===null&&(int)$row['reviewed_seconds']===0,'rejection creates no approval timestamp or approved seconds');
+[$x,$y]=$seed();$db->prepare("UPDATE office_onsite_event_inbox SET event_kind='in' WHERE event_id=?")->execute([$y]);
+hoursReject(fn()=>$writer->record('7',$x,$y,'approved',null,'manager-uuid',null,'17'),'incomplete or wrong transition rejected');
+[$x,$y]=$seed();$db->prepare('INSERT INTO office_onsite_event_inbox SELECT ?,person_id,project_id,zone_id,event_kind,occurred_at_utc FROM office_onsite_event_inbox WHERE event_id=?')->execute(['ffffffff-ffff-4fff-8fff-ffffffffffff',$x]);
+hoursReject(fn()=>$writer->record('7',$x,$y,'approved',null,'manager-uuid',null,'17'),'ambiguous duplicate arrival cannot be approved');
+$actor=new Actor('manager-uuid','session-a',false);$secret=str_repeat('s',32);[$x,$y]=$seed();
+$context=['17','7',$x,$y];$token=Token::issue($actor,$context,$secret,$now->getTimestamp());
+$post=['project_id'=>'17','person_id'=>'7','in_event_id'=>$x,'out_event_id'=>$y,'decision'=>'approved','corrected_seconds'=>'','reason'=>'','form_token'=>$token];
+$action=new Action($writer);$send=fn(array $p)=>$action->handle('application/x-www-form-urlencoded',http_build_query($p),$actor,$secret,$now->getTimestamp());
+hoursCheck($send($post)['revision']===1,'signed session form completes Office review');
+hoursReject(fn()=>$send(array_replace($post,['form_token'=>'forged'])),'forged form proof rejected');
+hoursReject(fn()=>$send(array_replace($post,['person_id'=>'8'])),'form token is bound to employee and evidence');
+hoursReject(fn()=>$action->handle('application/x-www-form-urlencoded',http_build_query($post).'&decision=rejected',$actor,$secret,$now->getTimestamp()),'duplicate form fields rejected');
+hoursReject(fn()=>$action->handle('application/json','{}',$actor,$secret,$now->getTimestamp()),'JSON review rejected');
+hoursReject(fn()=>$action->handle('application/x-www-form-urlencoded',str_repeat('x',4097),$actor,$secret,$now->getTimestamp()),'oversized review rejected');
+hoursReject(fn()=>Token::requestKey($token,new Actor('manager-uuid','session-b',false),$context,$secret,$now->getTimestamp()),'different authenticated session cannot reuse form');
+hoursReject(fn()=>Token::requestKey($token,$actor,$context,$secret,$now->getTimestamp()+1800),'expired review token rejected');
+$approvals=(new \Brebo\Office\Inzet\OnSiteHoursApprovalRepository($db))->approvedSessionsForPerson('7');
+$projection=\Brebo\Office\Inzet\OnSiteApprovalProjection::forEmployee($approvals,'7');
+hoursCheck(count($projection)===6,'bootstrap projects both events of three approved sessions only');
+hoursCheck(\Brebo\Office\Inzet\OnSiteApprovalProjection::forEmployee($approvals,'8')===[],'another employee receives no approvals');
+hoursCheck((int)$db->query('SELECT COUNT(*) FROM office_onsite_hours_reviews')->fetchColumn()===4,'rejected requests never add ledger records');
+$reader=new \Brebo\Office\Inzet\OnSiteSessionReviewReader($db);
+hoursReject(fn()=>$reader->forManager('reader-uuid','17'),'reader cannot open hours workbench');
+hoursCheck(count($reader->forManager('manager-uuid','17')['sessions'])>=3,'manager workbench reads ledger status alongside evidence');
+$db->exec("UPDATE office_project_memberships SET permission='read' WHERE operator_id='manager-uuid'");
+hoursReject(fn()=>$writer->record('7',$in,$out,'approved',null,'manager-uuid',null,'17',$key),'revoked manager cannot retrieve successful retry receipt');
+hoursCheck(!$db->inTransaction(),'all rejected operations close their transaction');
+echo "Office OnSite authenticated hours chain passed\n";

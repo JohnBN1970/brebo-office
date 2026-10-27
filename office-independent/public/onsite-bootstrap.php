@@ -68,6 +68,8 @@ try {
   };
   $approvalReader = null;
   if (getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled') {
+    require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReadiness.php';
+    \Brebo\Office\Inzet\OnSiteHoursReviewReadiness::requireReady($db);
     require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursApprovalRepository.php';
     require_once dirname(__DIR__) . '/src/Inzet/OnSiteApprovalProjection.php';
     $reviews = new \Brebo\Office\Inzet\OnSiteHoursApprovalRepository($db);
