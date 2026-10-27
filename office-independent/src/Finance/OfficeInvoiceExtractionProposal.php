@@ -66,6 +66,22 @@ final class OfficeInvoiceExtractionProposal {
         }
       }
     }
+    // Managed extraction can flatten all footer lines into one paragraph.
+    // Look for the explicit payment reference, then a net/VAT/gross triplet.
+    // This is a proposal only, and requires exact cent reconciliation.
+    if (!isset($result['amount_inc_vat'])
+      && stripos($compact, 'Totaal excl. BTW') !== false
+      && stripos($compact, 'Totaal incl. BTW') !== false
+      && preg_match('/Betaling binnen\\s+\\d+\\s+dagen\\s+o\\.v\\.v\\.:\\s*\\d+\\/\\d+\\s+([0-9]{1,10},[0-9]{2})\\s+([0-9]{1,10},[0-9]{2})\\s+((?:[0-9]\\s*){1,10},\\s*[0-9]\\s*[0-9])(?=\\s*€)/iu', $compact, $m)) {
+      $net = self::amount($m[1]);
+      $vat = self::amount($m[2]);
+      $gross = self::amount(preg_replace('/\\s+/u', '', $m[3]) ?? '');
+      if ($net !== '' && $vat !== '' && $gross !== ''
+        && abs(round((float)$net + (float)$vat - (float)$gross, 2)) < 0.001) {
+        $result['amount_inc_vat'] = self::proposal($gross);
+        $result['vat_amount'] = self::proposal($vat);
+      }
+    }
     // Never guess supplier, dates, project or line items from unlabelled OCR.
     return $result;
   }
