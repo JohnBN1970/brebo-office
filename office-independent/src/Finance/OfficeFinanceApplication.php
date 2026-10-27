@@ -20,6 +20,18 @@ final class OfficeFinanceApplication {
     return $repository->duplicateInvoiceCandidates($invoiceNumber, $supplierName);
   }
 
+  /** Authorized purchase register; never exposes invoices outside Finance scope. */
+  public function purchaseRegister(string $operatorId, ?int $officeProjectId = null): array {
+    $access = new OfficeFinanceAccess($this->db, $operatorId);
+    if (!$access->allows()) throw new \DomainException('Finance access required');
+    if ($officeProjectId !== null) {
+      $allowed = array_filter($access->draftProjects(), static fn(array $p): bool => (int)$p['office_project_id'] === $officeProjectId);
+      if ($allowed === []) throw new \OutOfBoundsException('Project unavailable');
+    }
+    $repo = new OfficeFinanceReadRepository($this->source ?? $this->db, $access, $officeProjectId, $this->tablePrefix);
+    return $repo->allPurchaseInvoices();
+  }
+
   public function read(string $operatorId, ?int $invoiceId = null, ?int $officeProjectId = null): array {
     $access = new OfficeFinanceAccess($this->db, $operatorId);
     if (!$access->allows()) throw new \DomainException('Finance access required');
