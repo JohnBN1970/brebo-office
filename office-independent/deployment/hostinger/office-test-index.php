@@ -48,6 +48,12 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   exit('Testomgeving niet beschikbaar.');
 }
 
+// Office 2.0 rollout: never enable UI experiments outside this isolated test router.
+// An explicit allow flag is required in addition to each feature flag.
+if (getenv('OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED') !== 'enabled') {
+  putenv('OFFICE_TEST_NAV_V2_ENABLED=disabled');
+  putenv('OFFICE_TEST_WORKSPACE_V2_ENABLED=disabled');
+}
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $routes = [
   '/office-test' => 'office-home.php',
