@@ -35,6 +35,11 @@ $check('Finance remains disabled until acceptance', static function (): void {
   if (getenv('OFFICE_FINANCE_ENABLED') === 'enabled') throw new RuntimeException();
 });
 
+$testUnassigned = getenv('OFFICE_FINANCE_TEST_UNASSIGNED_ONLY') === 'enabled';
+$check('Unassigned-only mode restricted to Office test', static function () use ($testUnassigned): void {
+  if ($testUnassigned && getenv('OFFICE_MOUNT_PATH') !== '/office-test') throw new RuntimeException();
+});
+
 $db = null;
 $check('Office identity database connection', static function () use (&$db): void {
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
@@ -51,7 +56,8 @@ if ($db !== null) {
       $db->query('SELECT * FROM ' . $table . ' WHERE 1=0');
     });
   }
-  $check('Verified project mappings only', static function () use ($db): string {
+  $check('Verified project mappings only', static function () use ($db, $testUnassigned): string {
+    if ($testUnassigned) return 'test-only unassigned scope; project mapping not required';
     $n = (int)$db->query('SELECT COUNT(*) FROM office_finance_project_mapping WHERE verified=1')->fetchColumn();
     if ($n === 0) throw new RuntimeException();
     return 'at least one verified mapping exists';
@@ -61,7 +67,12 @@ if ($db !== null) {
     if ($n === 0) throw new RuntimeException();
     return 'at least one active authorized operator exists';
   });
-  $check('End-to-end Finance project authorization', static function () use ($db): string {
+  $check('End-to-end Finance project authorization', static function () use ($db, $testUnassigned): string {
+    if ($testUnassigned) {
+      $n = (int)$db->query("SELECT COUNT(*) FROM office_operator_accounts a INNER JOIN office_module_permissions r ON r.operator_id=a.id AND r.module='finance' AND r.permission='read' INNER JOIN office_module_permissions u ON u.operator_id=a.id AND u.module='finance' AND u.permission='unassigned_read' WHERE a.active=1")->fetchColumn();
+      if ($n === 0) throw new RuntimeException();
+      return 'active operator has both explicit unassigned test read grants';
+    }
     // A grant and a mapping are not sufficient independently: they must
     // resolve to the same active Office operator and verified Office project.
     $n = (int)$db->query("SELECT COUNT(*) FROM office_finance_project_mapping f
@@ -94,6 +105,15 @@ if ($source !== null) {
       });
     }
   }
+}
+if ($source !== null && $testUnassigned) {
+  $check('Unassigned test invoices exist', static function () use ($source): string {
+    $prefix = getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: '';
+    if (preg_match('/^[a-zA-Z0-9_]*$/D', $prefix) !== 1) throw new RuntimeException();
+    $n = (int)$source->query('SELECT COUNT(*) FROM `' . $prefix . 'brebo_finance_purchase_invoice` WHERE COALESCE(project_nid,0)=0')->fetchColumn();
+    if ($n === 0) throw new RuntimeException();
+    return 'unassigned test invoices available';
+  });
 }
 echo $failed ? 'Finance activation: NOT READY' . PHP_EOL : 'Finance preflight: structural checks passed; manual mapping, data and browser acceptance still required' . PHP_EOL;
 exit($failed ? 1 : 0);
