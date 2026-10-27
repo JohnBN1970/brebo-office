@@ -6,7 +6,7 @@ on:
       - 'office-independent/public/office-area.php'
       - 'office-independent/tests/OfficeNavigationTest.php'
       - 'office-independent/modules/office-navigation/**'
-      - 'office-independent/deployment/hostinger/office-navigation-test-finish.php'
+      - 'office-independent/deployment/hostinger/office-navigation-control-test-install.php'
       - '.github/workflows/office-navigation.yml'
 permissions:
   contents: read
@@ -22,9 +22,9 @@ jobs:
       - run: |
           php -l office-independent/public/office-area.php
           php -l office-independent/modules/office-navigation/routes.php
-          php -l office-independent/deployment/hostinger/office-navigation-test-finish.php
+          php -l office-independent/deployment/hostinger/office-navigation-control-test-install.php
           php office-independent/tests/OfficeNavigationTest.php
-  test-navigation-finish:
+  test-navigation-control:
     needs: navigation-contract
     if: github.event.pull_request.head.ref == 'structure/office-gotik-navigation-20261027' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
         with:
           persist-credentials: false
       - id: source
-        run: echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-navigation-test-finish.php)" >> "$GITHUB_OUTPUT"
+        run: echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-navigation-control-test-install.php)" >> "$GITHUB_OUTPUT"
       - name: Apply requested shared structure to isolated Office-test with private backups
         uses: appleboy/ssh-action@v1.2.0
         env:

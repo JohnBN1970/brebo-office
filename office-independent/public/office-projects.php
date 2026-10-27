@@ -108,7 +108,7 @@ html,body {
     max-width:100%;
   }
 }
-</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
+</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Organisatie en inzet van je toegankelijke projecten. Kies een project voor het team, de planning, OnSite en urencontrole.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   // Dashboard wordt na de tabselectie weergegeven.
@@ -181,8 +181,16 @@ if ($inzetView) {
 
   // INZET_TABS_V2 - tabinhoud.
   if ($activeInzetTab === 'controle') {
-    echo '<section><h2>Urencontrole</h2>'
-      . '<p>Urencontrole, afwijkingen en goedkeuringen zijn nog niet beschikbaar.</p></section>';
+    echo '<section><h2>Urencontrole per project</h2><p>Open de aanwezigheid of de expliciete urenbeoordeling van een toegankelijk project.</p><ul>';
+    foreach ($projects as $controlProject) {
+      $controlId = (int)$controlProject['id'];
+      echo '<li><strong>' . $escape($controlProject['code'] . ' · ' . $controlProject['title']) . '</strong> — <a href="' . $escape($base . '/inzet/aanwezigheid?id=' . $controlId) . '">Aanwezigheid</a>';
+      if (getenv('OFFICE_TEST_ONSITE_HOURS_REVIEW_ENABLED') === 'enabled' && getenv('OFFICE_ONSITE_HOURS_REVIEWS_SCHEMA_VERIFIED') === 'enabled') {
+        echo ' · <a href="' . $escape($base . '/inzet/onsite/uren-beoordelen?id=' . $controlId) . '">Uren beoordelen</a>';
+      }
+      echo '</li>';
+    }
+    echo '</ul></section>';
   }
 
   if ($activeInzetTab === 'medewerkers'
