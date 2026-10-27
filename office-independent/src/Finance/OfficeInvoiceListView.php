@@ -27,7 +27,7 @@ final class OfficeInvoiceListView {
       if ($search !== '' && stripos($haystack, $search) === false) continue;
       $rows[] = $invoice;
     }
-    $html = '<section aria-label="Facturen"><h1>Facturen</h1><form method="get">';
+    $html = '<section aria-label="Facturen"><h1>Facturen</h1><p><a href="' . self::e(\Brebo\Office\Intake\OfficeMount::route('finance/verkoop/nieuw')) . '">Nieuw verkoopfactuurconcept</a></p><form method="get">';
     if ($projectId !== null) $html .= '<input type="hidden" name="project_id" value="' . $projectId . '">';
     $html .= '<label>Richting <select name="direction">';
     foreach (['all', 'incoming', 'outgoing'] as $option) {
