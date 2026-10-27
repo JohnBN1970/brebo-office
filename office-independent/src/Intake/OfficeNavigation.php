@@ -26,6 +26,31 @@ final class OfficeNavigation {
     foreach(self::AREAS as$key=>[$label,$path])$html.='<a'.($key===$current?' aria-current="page"':'').' href="/office-test'.$path.'">'.self::h($label).'</a>';
     return $html.'</nav>';
   }
+  /** Office 2.0 presentation only; routes and ACL remain server-owned. */
+  public static function mainV2(string $path):string {
+    $groups=[
+      ['Mijn werkplek','werkplek',[['Startpagina','/office-test/']]],
+      ['Relaties & kansen','relaties',[['Aanvragen','/office-test/crm/aanvragen']]],
+      ['Projecten','projecten',[['Projectoverzicht','/office-test/projecten'],['Inzet','/office-test/projecten?view=inzet']]],
+      ['Gebouwen','gebouwen',[]],
+      ['Bedrijfsvoering','bedrijfsvoering',[]],
+      ['Kennis & kwaliteit','kennis',[]],
+    ];
+    $selected='werkplek';
+    if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
+    elseif(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))$selected='projecten';
+    elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
+    elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
+    $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
+    foreach($groups as [$label,$key,$links]){
+      $open=$selected===$key;
+      $html.='<details class="office-nav-group"'.($open?' open':'').'><summary'.($open?' aria-current="page"':'').'>'.self::h($label).'</summary><div class="office-nav-children">';
+      if($links===[])$html.='<span class="office-nav-unavailable">Nog niet aangesloten</span>';
+      foreach($links as [$name,$url])$html.='<a href="'.self::h($url).'">'.self::h($name).'</a>';
+      $html.='</div></details>';
+    }
+    return $html.'</nav>';
+  }
   public static function projectId(string $path,array $query):?int {
     if(in_array($path,['/office-test/projecten/detail','/office-test/inzet/projectkaart','/office-test/inzet/aanwezigheid','/office-test/inzet/onsite/uren-beoordelen'],true))$value=$query['id']??null;
     elseif(in_array($path,['/office-test/calculatie-offertes','/office-test/finance','/office-test/informatie'],true))$value=$query['project_id']??null;
@@ -58,11 +83,11 @@ final class OfficeNavigation {
   }
   public static function decorate(string $html,string $path,array $query,int $status,string $type):string {
     if($status!==200||!str_starts_with(strtolower($type),'text/html')||!str_starts_with($path,'/office-test')||in_array($path,['/office-test/inloggen','/office-test/uitloggen'],true)||str_contains($path,'/api/')||!preg_match('/<html\b/i',$html))return $html;
-    $current=self::current($path);$nav=self::main($current);
+    $current=self::current($path);$nav=getenv('OFFICE_TEST_NAV_V2_ENABLED')==='enabled'?self::mainV2($path):self::main($current);
     $count=0;$html=preg_replace_callback('~<nav\b[^>]*\baria-label="Hoofdnavigatie"[^>]*>.*?</nav>~si',static fn()=>$nav,$html,1,$count)??$html;
     if($count===0)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$m[0].$nav,$html,1)??$html;
     // Keep page-owned Module tabs. Removing them hides Projecten/Inzet navigation.
-    $css='<style>.office-global-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}.office-global-nav a,.office-project-context nav a{display:inline-block;padding:9px 12px;border-radius:7px;text-decoration:none;background:#edf2f7;color:#173c60;font-weight:650}.office-global-nav a[aria-current=page],.office-project-context a[aria-current=page]{background:#175a91;color:white}aside .office-global-nav{display:grid;gap:6px}aside .office-global-nav a{margin:0}.office-project-context{padding:12px 0;border-block:1px solid #dce3eb;margin:16px 0 24px}.office-project-context nav{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.office-steering{margin:24px 0}.office-steering-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.office-steering-grid>section{padding:16px;border:1px solid #dce3eb;border-radius:10px;background:#fff;color:#243244}.office-steering-grid h3{margin:0 0 10px}.office-unavailable{color:#627185;font-size:.9rem}</style>';
+    $css='<style>.office-global-nav-v2{display:block!important}.office-global-nav-v2 .office-nav-group{margin:4px 0;border-radius:8px}.office-global-nav-v2 summary{cursor:pointer;padding:12px;font-weight:650;list-style-position:inside}.office-global-nav-v2 summary[aria-current=page]{background:#175a91;color:white}.office-global-nav-v2 .office-nav-children{display:grid;gap:4px;padding:4px 8px 8px 16px}.office-global-nav-v2 .office-nav-children a{display:block;margin:0}.office-global-nav-v2 .office-nav-unavailable{font-size:13px;color:#697789;padding:8px}.office-global-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}.office-global-nav a,.office-project-context nav a{display:inline-block;padding:9px 12px;border-radius:7px;text-decoration:none;background:#edf2f7;color:#173c60;font-weight:650}.office-global-nav a[aria-current=page],.office-project-context a[aria-current=page]{background:#175a91;color:white}aside .office-global-nav{display:grid;gap:6px}aside .office-global-nav a{margin:0}.office-project-context{padding:12px 0;border-block:1px solid #dce3eb;margin:16px 0 24px}.office-project-context nav{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.office-steering{margin:24px 0}.office-steering-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.office-steering-grid>section{padding:16px;border:1px solid #dce3eb;border-radius:10px;background:#fff;color:#243244}.office-steering-grid h3{margin:0 0 10px}.office-unavailable{color:#627185;font-size:.9rem}</style>';
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;
     if(!$styled)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$css.$m[0],$html,1)??$html;
     $project=self::projectId($path,$query);
