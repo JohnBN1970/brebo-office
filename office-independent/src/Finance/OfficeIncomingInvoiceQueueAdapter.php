@@ -21,6 +21,7 @@ final class OfficeIncomingInvoiceQueueAdapter {
         $seen[$id] = true;
         $invoices[] = [
           'id' => $id,
+          'project_id' => isset($data['project']['office_project_id']) ? (int)$data['project']['office_project_id'] : (int)($row['office_project_id'] ?? 0),
           'direction' => OfficeInvoiceDirection::INCOMING,
           'number' => (string)($row['invoice_number'] ?? ''),
           'relation' => (string)($row['supplier_name'] ?? ''),
