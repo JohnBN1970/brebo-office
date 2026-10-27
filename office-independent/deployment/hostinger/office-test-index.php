@@ -48,9 +48,10 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   exit('Testomgeving niet beschikbaar.');
 }
 
-// Office 2.0 rollout: never enable UI experiments outside this isolated test router.
-// An explicit allow flag is required in addition to each feature flag.
-if (getenv('OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED') !== 'enabled') {
+// Office 2.0 rollout: require the isolated test router and an explicit allow flag.
+// Deny by default even if a feature flag was accidentally enabled in shared config.
+if (getenv('OFFICE_BASE_PATH') !== '/office-test'
+  || getenv('OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED') !== 'enabled') {
   putenv('OFFICE_TEST_NAV_V2_ENABLED=disabled');
   putenv('OFFICE_TEST_WORKSPACE_V2_ENABLED=disabled');
 }
