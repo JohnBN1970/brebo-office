@@ -27,12 +27,14 @@ final class OfficeFinanceView {
     $home = $e(OfficeMount::route('home'));
     $dashboard = $e($url('finance'));
     $payments = $e($url('finance/betaalcentrum'));
+    $newInvoice = $e($url('finance/nieuw'));
     $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finance · BREBO Office</title><style>
       *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17283a;font:16px system-ui,sans-serif}a{color:#155c87}a:focus-visible,input:focus-visible,button:focus-visible{outline:3px solid #e9a72c;outline-offset:3px}.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}aside{background:#162639;color:white;padding:26px 18px}aside strong{display:block;font-size:21px;margin-bottom:24px}aside a{display:block;color:white;padding:12px}main{padding:28px clamp(16px,4vw,52px);min-width:0}nav{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}nav a{padding:10px 0}h1{margin:0 0 8px}h2{font-size:20px}.muted,small{color:#536479}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:24px 0}.card,section{background:white;border:1px solid #dce4ed;border-radius:10px;padding:20px}.card strong{display:block;font-size:26px;margin:8px 0}.table{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dce4ed}td.amount{text-align:right;white-space:nowrap}form{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}input,button{padding:9px;border:1px solid #bfcbd7;border-radius:6px;background:white}.notice{padding:12px;background:#fff0b3;color:#473500}.queues a{display:inline-block;padding:10px 14px;background:#e6edf5;border-radius:6px;text-decoration:none}.queues [aria-current]{background:#162639;color:white}@media(max-width:760px){.shell{display:block}aside{padding:14px}aside strong{margin-bottom:10px}aside a{display:inline-block}main{padding:20px 14px}}
       </style></head><body>';
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
-    $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a></nav><h1>'.($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance')).'</h1>';
+    $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance')).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
+    if ($view === 'new') return $html . self::newInvoice($data) . '</main></div></body></html>';
     if ($view === 'invoice') return $html . self::invoice($data) . '</main></div></body></html>';
     $count = array_sum($data['counts']);
     $amount = array_sum(array_map('floatval', $data['amounts_inc_vat']));
@@ -61,6 +63,15 @@ final class OfficeFinanceView {
       $html .= '</nav>';
     }
     return $html . '<p>Een goedgekeurde vrijgave bewijst geen bankbetaling. Betaal-, vierogen- en reconciliatiecontroles blijven leidend.</p></section></main></div></body></html>';
+  }
+
+  private static function newInvoice(array $data): string {
+    if (!OfficeMount::isTest() || !isset($data['upload_csrf'])) return '<p>Alleen beschikbaar in test.</p>';
+    $action = self::e(OfficeMount::route('finance/nieuw'));
+    $csrf = self::e($data['upload_csrf']);
+    $html = '<section><h2>Nieuwe inkoopfactuur</h2><p>PDF, JPG of PNG (max. 10 MB). Alleen conceptopslag; geen verzending naar Moneybird.</p>';
+    if (($_GET['uploaded'] ?? '') === '1') $html .= '<p role="status">Concept opgeslagen; nog niet verwerkt.</p>';
+    return $html . '<form method="post" enctype="multipart/form-data" action="'.$action.'"><input type="hidden" name="csrf" value="'.$csrf.'"><label>Document <input type="file" name="invoice_file" accept=".pdf,.jpg,.jpeg,.png" required></label><button>Nieuwe factuur uploaden</button></form></section>';
   }
 
   private static function invoice(array $data): string {
