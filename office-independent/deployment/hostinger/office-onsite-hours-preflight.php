@@ -46,3 +46,5 @@ foreach(['public/onsite-bootstrap.php','public/office-onsite-presence-review.php
  $file=$root.'/'.$relative;if(is_file($file))echo 'INSTALL_SOURCE | '.$relative.' | '.base64_encode(file_get_contents($file)).PHP_EOL;
 }
 echo 'INSTALL_SOURCE | router | '.base64_encode(file_get_contents('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php')).PHP_EOL;
+foreach(['/home/u213420663/domains/brebobv.nl/public_html/office-test/.htaccess','/home/u213420663/domains/brebobv.nl/public_html/.htaccess'] as $rewriteFile){if(is_file($rewriteFile)){foreach(file($rewriteFile)as$line)if(preg_match('/^\s*(Rewrite|DirectoryIndex|Options)/',$line))echo 'WEB_REWRITE | '.basename(dirname($rewriteFile)).' | '.trim($line).PHP_EOL;}}
+echo 'ROUTER_TEXT | '.json_encode(str_replace('/home/u213420663','<home>',file_get_contents('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php'))).PHP_EOL;
