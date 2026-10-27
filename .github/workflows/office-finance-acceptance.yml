@@ -1,0 +1,67 @@
+name: Office Finance acceptance
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'packages/brebo-finance-core/**'
+      - 'office-independent/src/Finance/**'
+      - 'office-independent/src/Intake/**'
+      - 'office-independent/public/office-finance*.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeFinance*.php'
+      - 'web/modules/custom/brebo_finance/**'
+      - '.github/workflows/office-finance-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent:
+    name: Finance PHP ${{ matrix.php }} regression and permissions
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite
+          coverage: none
+      - name: Lint Finance core and Office boundary
+        run: |
+          set -euo pipefail
+          find packages/brebo-finance-core office-independent/src/Finance -name '*.php' -print0 | xargs -0 -n1 php -l
+          for file in office-independent/public/office-finance*.php office-independent/tests/OfficeFinance*.php office-independent/src/Intake/OfficeMount.php office-independent/public/office-home.php office-independent/deployment/hostinger/office-test-index.php; do php -l "$file"; done
+      - name: Domain reuse, scoped reads, ACL and rendering regression
+        run: php office-independent/tests/OfficeFinanceRegressionTest.php
+      - name: Real PHP route and session boundary regression
+        run: php office-independent/tests/OfficeFinanceHttpTest.php
+  mysql:
+    name: Finance MySQL scoped reads and ACL
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: finance-ci-only
+          MYSQL_DATABASE: office_finance_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pfinance-ci-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Execute identical regression against isolated MySQL
+        env:
+          OFFICE_FINANCE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_finance_ci;charset=utf8mb4
+        run: php office-independent/tests/OfficeFinanceRegressionTest.php

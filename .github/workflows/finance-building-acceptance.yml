@@ -6,6 +6,7 @@ on:
       - develop
     paths:
       - 'web/modules/custom/brebo_finance/**'
+      - 'packages/brebo-finance-core/**'
       - 'web/modules/custom/brebo_building_data/**'
       - '.github/workflows/finance-building-acceptance.yml'
   push:
@@ -13,6 +14,7 @@ on:
       - develop
     paths:
       - 'web/modules/custom/brebo_finance/**'
+      - 'packages/brebo-finance-core/**'
       - 'web/modules/custom/brebo_building_data/**'
       - '.github/workflows/finance-building-acceptance.yml'
 

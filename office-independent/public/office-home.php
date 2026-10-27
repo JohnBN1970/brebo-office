@@ -135,6 +135,17 @@ $crmEnabled = !\Brebo\Office\Intake\OfficeMount::isTest()
 // canEditCrm controls edit actions, not whether the operator may view CRM.
 // Do not infer finance, project or organization permissions from this CRM-only flag.
 // Navigation groups are presentation-only. Server-side route authorization remains authoritative.
+$financeEnabled = false;
+$financeUrl = null;
+if (getenv('OFFICE_FINANCE_ENABLED') === 'enabled' && getenv('OFFICE_FINANCE_SCHEMA_VERIFIED') === 'enabled') {
+  try {
+    require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
+    $financeEnabled = (new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->allows();
+    if ($financeEnabled) $financeUrl = \Brebo\Office\Intake\OfficeMount::route('finance');
+  } catch (Throwable $e) {
+    $financeEnabled = false;
+  }
+}
 $modules = [
   ['Relaties & CRM', 'Aanvragen, klanten en kansen', [['CRM', $crmUrl, $crmEnabled]]],
   ['Projecten', 'Van voorbereiding tot uitvoering', [
@@ -146,7 +157,7 @@ $modules = [
     ['Overleg', null, false],
   ]],
   ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie', $calcUrl, $calcEnabled]]],
-  ['Financiën', 'Facturen en betalingen', [['Financiën', null, false]]],
+  ['Financiën', 'Facturen en betalingen', [['Finance', $financeUrl, $financeEnabled]]],
   ['Organisatie', 'Medewerkers en bedrijfsvoering', [['Organisatie', null, false]]],
   ['Communicatie', 'Berichten en correspondentie', [['Mail', null, false]]],
 ];
@@ -213,6 +224,9 @@ if ($projectsEnabled && $myProjectCount !== null) {
 }
 if ($importReviewEnabled) {
   echo '<section class="panel"><h2>Urenverantwoording</h2><div class="number">' . ($importIssueCount === null ? '—' : (string)$importIssueCount) . '</div><p class="muted-text">Afwijkingen ter controle</p><a href="' . $e(\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole')) . '#afwijkingen">Bekijk afwijkingen →</a></section>';
+}
+if ($financeEnabled) {
+  echo '<section class="panel"><h2>Finance</h2><p class="muted-text">Facturen, blokkades en betaalcontrole</p><a href="' . $e((string)$financeUrl) . '">Open Finance →</a></section>';
 }
 echo '</div>';
 if ($recentProjectsUnavailable) {

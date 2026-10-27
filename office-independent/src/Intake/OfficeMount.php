@@ -45,6 +45,9 @@ final class OfficeMount {
   public static function route(string $name, array $query = []): string {
     $paths = [
       'home' => '/',
+      'finance' => '/finance',
+      'finance/betaalcentrum' => '/finance/betaalcentrum',
+      'finance/factuur' => '/finance/factuur',
       'inloggen' => '/inloggen',
       'uitloggen' => '/uitloggen',
       'crm/aanvragen' => '/crm/aanvragen',

@@ -4,14 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Contract;
 
-interface PurchaseInvoiceControlRepositoryInterface {
-  public function available(): bool;
-  /** @return array<string,mixed>|null */
-  public function invoice(int $invoiceId): ?array;
-  /** @return list<array<string,mixed>> */
-  public function lines(int $invoiceId): array;
-  /** @return array<string,mixed>|null */
-  public function latestPaymentRelease(int $invoiceId): ?array;
-  /** @return array<string,mixed>|null */
-  public function latestGAccountInstruction(int $invoiceId): ?array;
-}
+// Compatibility alias: both runtimes execute the same framework-independent core.
+require_once dirname(__DIR__, 6) . '/packages/brebo-finance-core/bootstrap.php';
+class_alias(\Brebo\Finance\Contract\PurchaseInvoiceControlRepositoryInterface::class, __NAMESPACE__ . '\\PurchaseInvoiceControlRepositoryInterface');

@@ -1,5 +1,11 @@
 # BREBO Office-roadmap
 
+## Office-native Finance — 27 oktober 2026
+
+De zelfstandige Office-tegel, het werkvoorraaddashboard en Betaalcentrum-/factuurcontroleviews zijn gebouwd op één gedeelde, framework-onafhankelijke kern uit de bestaande Finance-services. Centrale Office-sessies, expliciete Finance-grants, geverifieerde bronprojectmapping en bestaande projectlidmaatschappen begrenzen alle leesdata. Regressie-, route- en permissietests plus SQLite/MySQL-CI zijn toegevoegd.
+
+Zie [inventarisatie, runtimecontract, bewijs en resterende keten](OFFICE_FINANCE_INTEGRATION_2026-10-27.md). Dit is een leesintegratie: de volledige command-center/receivables- en betaalcommandoketen blijft vervolgwerk. Er is geen runtime uitgerold, geen database gewijzigd en geen betaling of Moneybird-mutatie uitgevoerd. Activatie vereist een gecontroleerde testbronaansluiting, grants/mapping en browseracceptatie. Bestaande vierogen-, matching-, fasegate- en reconciliatieregels blijven leidend.
+
 ## Doel
 
 BREBO Office gefaseerd ontwikkelen tot een betrouwbaar digitaal bedrijfs- en gebouwmanagementsysteem waarin het gebouw de permanente informatiekern vormt, projecten tijdelijke uitvoeringseenheden zijn en informatie, bewijs, risico's, besluiten en leerpunten beheerst en herleidbaar worden vastgelegd.
