@@ -41,6 +41,31 @@ final class OfficeInvoiceExtractionProposal {
         $result['vat_amount'] = self::proposal($vat);
       }
     }
+    // OCR often emits the net/VAT/gross footer as separate lines, with the
+    // gross amount split into glyphs. Only propose values when all three
+    // amounts reconcile and the invoice total labels occur in the document.
+    if (stripos($compact, 'Totaal excl. BTW') !== false
+      && stripos($compact, 'Totaal incl. BTW') !== false) {
+      $lines = preg_split('/\\n/u', $text) ?: [];
+      foreach ($lines as $i => $line) {
+        if (!preg_match('/^\\s*([0-9]{1,10},[0-9]{2})\\s*$/u', $line, $netMatch)) continue;
+        $vatLine = $lines[$i + 1] ?? '';
+        $grossLine = $lines[$i + 2] ?? '';
+        if (!preg_match('/^\\s*([0-9]{1,10},[0-9]{2})\\s*$/u', $vatLine, $vatMatch)) continue;
+        // Join spaces only within this candidate monetary value.
+        $grossLine = preg_replace('/\\s+/u', '', $grossLine) ?? '';
+        if (!preg_match('/^([0-9]{1,10},[0-9]{2})$/u', $grossLine, $grossMatch)) continue;
+        $net = self::amount($netMatch[1]);
+        $vat = self::amount($vatMatch[1]);
+        $gross = self::amount($grossMatch[1]);
+        if ($net !== '' && $vat !== '' && $gross !== ''
+          && abs(round((float)$net + (float)$vat - (float)$gross, 2)) < 0.001) {
+          $result['amount_inc_vat'] = self::proposal($gross);
+          $result['vat_amount'] = self::proposal($vat);
+          break;
+        }
+      }
+    }
     // Never guess supplier, dates, project or line items from unlabelled OCR.
     return $result;
   }
