@@ -36,4 +36,24 @@ if (array_column($progeRows[1]['blocks'], 'text') !== ['lengte 200 cm'])
 if (round(96 * 2.23, 2) !== 214.08) throw new RuntimeException('Proge invoice amount mismatch');
 echo "PROGE_287842_LAYOUT_REGRESSION_OK\\n";
 
+
+$columns = [
+ 'article'=>[0.08,0.21], 'description'=>[0.21,0.54],
+ 'quantity'=>[0.70,0.75], 'unit'=>[0.75,0.80],
+ 'price'=>[0.80,0.90], 'total'=>[0.90,1.0],
+];
+$candidate = OfficeInvoiceLayout::lineCandidate($progeRows[0], $columns);
+if ($candidate === null || $candidate['article'] !== 'PVC40101'
+  || $candidate['quantity'] !== 96.0 || $candidate['unit'] !== 'm1'
+  || $candidate['unit_price'] !== 2.23 || $candidate['line_total'] !== 214.08
+  || $candidate['review_required'] !== true) throw new RuntimeException('Proge positional line validation failed');
+$invalid = $progeRows[0];
+foreach ($invalid['blocks'] as &$block) {
+ if ($block['text'] === '214,08') $block['text'] = '999,00';
+}
+unset($block);
+if (OfficeInvoiceLayout::lineCandidate($invalid, $columns) !== null)
+ throw new RuntimeException('Invalid invoice arithmetic accepted');
+echo "PROGE_POSITIONAL_LINE_CANDIDATE_OK\\n";
+
 echo "PDF_LAYOUT_REGRESSION_OK\n";
