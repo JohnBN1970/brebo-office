@@ -14,6 +14,7 @@ final class OfficeNavigation {
   public const GOTIK=['geld'=>'Geld','organisatie'=>'Organisatie','tijd'=>'Tijd','informatie'=>'Informatie','kwaliteit'=>'Kwaliteit'];
   private static function h(string $value):string{return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function current(string $path):string {
+    if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
     foreach(['crm','calculatie-offertes','finance','informatie']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
     if(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))return 'projecten';
     return 'bedrijf';
@@ -47,6 +48,7 @@ final class OfficeNavigation {
       if($key==='geld')$html.='<a href="/office-test/calculatie-offertes'.$query.'">Calculatie & Offertes</a> · <a href="/office-test/finance'.$query.'">Finance</a>';
       elseif($key==='organisatie')$html.=$project===null?'<a href="/office-test/projecten?view=inzet">Organisatie en inzet over projecten</a>':'<a href="/office-test/inzet/projectkaart?id='.$project.'">Projectkaart en zones</a> · <a href="/office-test/inzet/aanwezigheid?id='.$project.'">OnSite</a> · <a href="/office-test/inzet/onsite/uren-beoordelen?id='.$project.'">Uren beoordelen</a>';
       elseif($key==='informatie')$html.='<a href="/office-test/informatie'.$query.'">Informatie openen</a>';
+      elseif($key==='tijd'&&$project===null)$html.='<a href="/office-test/projecten?view=inzet&amp;tab=planning">Weekplanning en inzet openen</a><p class="office-unavailable">Projectmijlpalen nog niet aangesloten.</p>';
       else $html.='<p class="office-unavailable">'.($key==='tijd'?'Projectplanning en mijlpalen nog niet aangesloten.':'Kwaliteitscontroles nog niet aangesloten.').'</p>';
       $html.='</section>';
     }
