@@ -28,7 +28,9 @@ jobs:
           cache-dependency-path: integration-api/package-lock.json
       - run: npm ci
       - name: Install isolated PDF.js probe (no lockfile changes)
-        run: npm install --no-save --package-lock=false pdfjs-dist@5.4.149
+        run: npm pack pdfjs-dist@5.4.149 --pack-destination /tmp
+          mkdir -p node_modules/pdfjs-dist
+          tar -xzf /tmp/pdfjs-dist-5.4.149.tgz -C node_modules/pdfjs-dist --strip-components=1
       - name: Verify PDF.js ESM import and API
         run: |
           node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs'); if (typeof pdfjs.getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
