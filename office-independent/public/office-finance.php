@@ -214,6 +214,9 @@ try {
     if (hash_file('sha256', $filePath) !== ($record['sha256'] ?? '')) throw new \OutOfBoundsException();
     require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceExtractionProposal.php';
     $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime,'review'=>is_array($record['review'] ?? null) ? $record['review'] : [], 'extraction'=>is_array($record['extraction'] ?? null) ? $record['extraction'] : null, 'proposals'=>is_string($record['extraction']['text'] ?? null) ? \Brebo\Office\Finance\OfficeInvoiceExtractionProposal::fromText($record['extraction']['text']) : []];
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceLineProposal.php';
+    $data['draft']['line_proposals'] = is_string($record['extraction']['text'] ?? null)
+      ? \Brebo\Office\Finance\OfficeInvoiceLineProposal::fromText($record['extraction']['text']) : [];
     // Advisory scan: same operator's private drafts, not imported invoices.
     $number = trim((string)($record['review']['invoice_number'] ?? ''));
     if ($number === '') $number = trim((string)($data['draft']['proposals']['invoice_number']['value'] ?? ''));
