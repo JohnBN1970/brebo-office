@@ -31,13 +31,13 @@ jobs:
         run: |
           set -e
           curl --fail --location --silent --show-error --retry 3 \
-            https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-5.4.149.tgz \
-            --output /tmp/pdfjs-dist-5.4.149.tgz
+            https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-3.11.174.tgz \
+            --output /tmp/pdfjs-dist-3.11.174.tgz
           mkdir -p node_modules/pdfjs-dist
-          tar -xzf /tmp/pdfjs-dist-5.4.149.tgz -C node_modules/pdfjs-dist --strip-components=1
+          tar -xzf /tmp/pdfjs-dist-3.11.174.tgz -C node_modules/pdfjs-dist --strip-components=1
       - name: Verify PDF.js ESM import and API
         run: |
-          node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs'); if (typeof pdfjs.getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
+          node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js'); if (typeof pdfjs.getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
       - name: Run positional extraction unit tests
         run: npx vitest run --config vitest.layout.config.ts
       - name: Check Cloudflare Workers bundling with PDF.js
