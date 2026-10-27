@@ -138,6 +138,10 @@ try {
       foreach ([$quantity, $price, $vat, $total] as $number) {
         if ($number !== '' && !preg_match('/^\\d{1,9}(?:[.,]\\d{1,3})?$/D', $number)) { http_response_code(400); exit('Ongeldig regelbedrag of aantal.'); }
       }
+      // Calculate the line total from quantity and unit price when left blank.
+      if ($quantity !== '' && $price !== '' && $total === '') {
+        $total = number_format(round((float)str_replace(',', '.', $quantity) * (float)str_replace(',', '.', $price), 2), 2, '.', '');
+      }
       if ($quantity !== '' && $price !== '' && $total !== '' && abs((float)str_replace(',', '.', $quantity) * (float)str_replace(',', '.', $price) - (float)str_replace(',', '.', $total)) > 0.03) {
         http_response_code(400); exit('Regeltotaal wijkt af van aantal maal prijs.');
       }
