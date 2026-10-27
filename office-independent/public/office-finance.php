@@ -48,7 +48,7 @@ try {
   }
   if (!isset($_SESSION['finance_upload_csrf'])) $_SESSION['finance_upload_csrf'] = bin2hex(random_bytes(32));
   $view = $officeFinanceView ?? 'dashboard';
-  if (!in_array($view, ['dashboard','payments','invoice','new'], true)) throw new \OutOfBoundsException();
+  if (!in_array($view, ['dashboard','payments','invoice','new','draft'], true)) throw new \OutOfBoundsException();
   $invoiceId = null;
   if ($view === 'invoice') {
     $invoiceId = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
@@ -106,6 +106,36 @@ try {
   }
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
   if (in_array($view, ['invoice','new'], true)) $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
+  if ($view === 'draft') {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest()) throw new \OutOfBoundsException();
+    $draftId = $_GET['id'] ?? '';
+    if (!is_string($draftId) || !preg_match('/^[a-f0-9]{32}$/D', $draftId)) throw new \OutOfBoundsException();
+    $storage = getenv('OFFICE_FINANCE_UPLOAD_PRIVATE_ROOT') ?: '';
+    $root = realpath($storage);
+    $webroot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '/');
+    if ($root === false || !is_dir($root) || is_link($storage) || ($webroot !== false && ($root === $webroot || str_starts_with($root, $webroot . '/')))) throw new \OutOfBoundsException();
+    $metaFile = $root . '/' . $draftId . '.json';
+    if (!is_file($metaFile) || is_link($metaFile)) throw new \OutOfBoundsException();
+    $record = json_decode((string)file_get_contents($metaFile), true);
+    if (!is_array($record) || ($record['id'] ?? '') !== $draftId || ($record['operator_id'] ?? null) != $operator->operatorId) throw new \OutOfBoundsException();
+    $filename = $record['file'] ?? '';
+    $mime = $record['mime'] ?? '';
+    if (!is_string($filename) || !preg_match('/^[a-f0-9]{48}\.(pdf|jpg|png)$/D', $filename)
+      || !in_array($mime, ['application/pdf','image/jpeg','image/png'], true)) throw new \OutOfBoundsException();
+    $filePath = $root . '/' . $filename;
+    if (!is_file($filePath) || is_link($filePath) || filesize($filePath) > 10 * 1024 * 1024) throw new \OutOfBoundsException();
+    if (hash_file('sha256', $filePath) !== ($record['sha256'] ?? '')) throw new \OutOfBoundsException();
+    $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime];
+    if (($_GET['document'] ?? '') === '1') {
+      header('Content-Type: ' . $mime);
+      header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
+      header('Content-Security-Policy: sandbox');
+      header('X-Content-Type-Options: nosniff');
+      header('Content-Length: ' . filesize($filePath));
+      readfile($filePath);
+      exit;
+    }
+  }
   if ($view === 'new') {
     $storage = getenv('OFFICE_FINANCE_UPLOAD_PRIVATE_ROOT') ?: '';
     $drafts = [];
