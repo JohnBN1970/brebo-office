@@ -1,0 +1,40 @@
+name: Finance Extraction Worker Checks
+
+on:
+  pull_request:
+    paths:
+      - 'integration-api/**'
+      - '.github/workflows/finance-extraction-worker-check.yml'
+  push:
+    branches:
+      - feature/office-native-finance
+    paths:
+      - 'integration-api/**'
+      - '.github/workflows/finance-extraction-worker-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: integration-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: integration-api/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: TypeScript validation
+        run: npm run typecheck
+      - name: Worker tests
+        run: npm test
+      - name: Worker dry-run build
+        run: npm run deploy:dry-run
