@@ -29,4 +29,54 @@ $homeLegacy=OfficeNavigation::decorate($home,'/office-test/',[],200,'text/html')
 if(!str_contains($homeLegacy,'<h1>Bedrijfsoverzicht</h1>')){fwrite(STDERR,"Legacy dashboard title changed".PHP_EOL);exit(1);}
 $old=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html');
 if(str_contains($old,'<details class="office-nav-group"')){fwrite(STDERR,"Flag disabled but v2 active".PHP_EOL);exit(1);}
+
+// Finance must never be advertised when the feature is disabled.
+putenv('OFFICE_FINANCE_ENABLED=disabled');
+putenv('OFFICE_FINANCE_SCHEMA_VERIFIED=disabled');
+
+$financeNav = OfficeNavigation::mainV2('/office-test/finance');
+foreach ([
+  '/office-test/finance',
+  '/office-test/finance/betaalcentrum',
+  '/office-test/finance/nieuw',
+] as $financeUrl) {
+  if (str_contains($financeNav, 'href="' . $financeUrl . '"')) {
+    fwrite(STDERR, "Disabled Finance link exposed: " . $financeUrl . PHP_EOL);
+    exit(1);
+  }
+}
+
+$scope = OfficeNavigation::scope(1);
+if (str_contains($scope, 'href="/office-test/finance')) {
+  fwrite(STDERR, "Finance link exposed in project navigation" . PHP_EOL);
+  exit(1);
+}
+
+$steering = OfficeNavigation::steering(1);
+if (str_contains($steering, 'href="/office-test/finance')) {
+  fwrite(STDERR, "Finance link exposed in GOTIK" . PHP_EOL);
+  exit(1);
+}
+
+
+// Finance enabled without an authenticated Office session must fail closed.
+putenv('OFFICE_FINANCE_ENABLED=enabled');
+putenv('OFFICE_FINANCE_SCHEMA_VERIFIED=enabled');
+putenv('OFFICE_CRM_SESSION_MODE=enabled');
+
+require_once dirname(__DIR__) . '/src/Intake/OfficeMount.php';
+unset($_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')]);
+
+$unauthorizedNav = OfficeNavigation::mainV2('/office-test/finance');
+if (str_contains($unauthorizedNav, 'href="/office-test/finance')) {
+  fwrite(STDERR, "Finance exposed without authenticated session".PHP_EOL);
+  exit(1);
+}
+
+if (str_contains(OfficeNavigation::scope(1), 'href="/office-test/finance')
+  || str_contains(OfficeNavigation::steering(1), 'href="/office-test/finance')) {
+  fwrite(STDERR, "Finance project links exposed without session".PHP_EOL);
+  exit(1);
+}
+
 echo "OfficeNavigationV2Test OK".PHP_EOL;

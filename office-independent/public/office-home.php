@@ -146,7 +146,11 @@ $modules = [
     ['Overleg', null, false],
   ]],
   ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie', $calcUrl, $calcEnabled]]],
-  ['Financiën', 'Facturen en betalingen', [['Financiën', null, false]]],
+  ['Financiën', 'Facturen en betalingen', [['Financiën',
+    \Brebo\Office\Intake\OfficeNavigation::financeVisible()
+      ? \Brebo\Office\Intake\OfficeMount::basePath() . '/finance'
+      : null,
+    \Brebo\Office\Intake\OfficeNavigation::financeVisible()]]],
   ['Organisatie', 'Medewerkers en bedrijfsvoering', [['Organisatie', null, false]]],
   ['Communicatie', 'Berichten en correspondentie', [['Mail', null, false]]],
 ];
