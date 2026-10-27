@@ -101,6 +101,16 @@ final class OfficeFinanceView {
     if (is_array($extraction)) {
       $html .= '<details><summary>Uitgelezen brontekst · '.self::e($extraction['status'] ?? '').'</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'.self::e($extraction['text'] ?? '').'</pre></details>';
     }
+    $proposals = $draft['proposals'] ?? [];
+    if ($proposals !== []) {
+      $labels = ['invoice_number'=>'Factuurnummer','amount_inc_vat'=>'Totaal inclusief btw','vat_amount'=>'Btw-bedrag'];
+      $html .= '<h3>Herkenningsvoorstellen (niet gecontroleerd)</h3><p>Neem een waarde pas over nadat je deze met het originele document hebt vergeleken. Bestaande invoer wordt niet aangepast.</p><div class="table"><table><thead><tr><th>Veld</th><th>Voorstel</th><th>Controle</th></tr></thead><tbody>';
+      foreach ($proposals as $key=>$proposal) {
+        if (!isset($labels[$key])) continue;
+        $html .= '<tr><td>'.self::e($labels[$key]).'</td><td>'.self::e($proposal['value'] ?? '').'</td><td>Handmatig controleren</td></tr>';
+      }
+      $html .= '</tbody></table></div>';
+    }
     $review = $draft['review'] ?? [];
     $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
     $csrf = self::e($data['upload_csrf'] ?? '');
