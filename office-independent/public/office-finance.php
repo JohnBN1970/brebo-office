@@ -105,9 +105,12 @@ try {
         || !is_string($decoded['text'] ?? null) || strlen($decoded['text']) > 1000000) {
         http_response_code(502); exit('Documentextractie mislukt; concept ongewijzigd.');
       }
+      require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceLayout.php';
+      $layout = \Brebo\Office\Finance\OfficeInvoiceLayout::sanitize($decoded['blocks'] ?? null);
       $record['extraction'] = ['status'=>$decoded['status'], 'text'=>$decoded['text'],
         'extractor'=>(string)($decoded['extractor'] ?? 'brebo_managed_extraction_v1'),
         'at'=>gmdate('c'), 'source_sha256'=>$record['sha256']];
+      if ($layout !== []) $record['extraction']['blocks'] = $layout;
       $tmp = tempnam($root, '.extract-');
       if ($tmp === false || file_put_contents($tmp, json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX) === false) throw new \RuntimeException('Opslaan mislukt');
       chmod($tmp, 0600);
