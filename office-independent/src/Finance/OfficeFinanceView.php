@@ -237,7 +237,48 @@ final class OfficeFinanceView {
       $html .= '</tr>';
     }
     $html .= '</tbody></table></div></div>';
+    $html .= '<div id="finance-live-check" role="status" aria-live="polite" style="grid-column:1/-1"><strong>Live berekening:</strong> vul aantal, prijs en btw per regel in.</div>';
     $html .= '<div style="grid-column:1/-1"><button type="submit">Controle opslaan</button></div></form>';
+    $nonce = self::e($draft['script_nonce'] ?? '');
+    if ($nonce !== '') $html .= '<script nonce="'.$nonce.'">(function(){
+      const panel=document.getElementById("finance-live-check");
+      const form=panel.closest("form");
+      const rows=Array.from(form.querySelectorAll("input[name^=line_description]")).map(el=>el.closest("tr"));
+      const money=n=>"€ "+(n/100).toLocaleString("nl-NL",{minimumFractionDigits:2,maximumFractionDigits:2});
+      const parse=v=>{v=v.trim().replace(",",".");return /^\\d{1,9}(?:\\.\\d{1,3})?$/.test(v)?Number(v):null;};
+      function refresh(){
+        let net=0,vat=0,missing=false,any=false;
+        const vatRates=new Map();
+        for(const row of rows){
+          const get=k=>row.querySelector("[name^=line_"+k+"\\[]");
+          const desc=get("description").value.trim(), q=parse(get("quantity").value),p=parse(get("unit_price").value),rate=parse(get("vat_rate").value);
+          const total=get("line_total");
+          if(!desc && !get("quantity").value && !get("unit_price").value && !get("vat_rate").value && !total.value)continue;
+          any=true;
+          if(!desc||q===null||p===null||rate===null||rate>100){missing=true;continue;}
+          const cents=Math.round(q*p*100);
+          if(total.dataset.auto==="1" || total.value.trim()===""){
+            total.value=(cents/100).toFixed(2).replace(".",",");
+            total.dataset.auto="1";
+          }
+          const entered=parse(total.value);
+          if(entered===null || Math.abs(Math.round(entered*100)-cents)>1){missing=true;continue;}
+          const lineCents=Math.round(entered*100);
+          const tax=Math.round(lineCents*rate/100);
+          net+=lineCents;vat+=tax;
+          vatRates.set(rate,(vatRates.get(rate)||0)+tax);
+        }
+        const gross=parse(form.querySelector("[name=amount_inc_vat]").value);
+        const declaredVat=parse(form.querySelector("[name=vat_amount]").value);
+        const balanced=any&&!missing&&gross!==null&&declaredVat!==null&&Math.abs(net+vat-Math.round(gross*100))<=1&&Math.abs(vat-Math.round(declaredVat*100))<=1;
+        const breakdown=Array.from(vatRates).sort((a,b)=>a[0]-b[0]).map(([rate,cents])=>"Btw "+rate+"%: "+money(cents)).join(" · ");
+        panel.textContent="Live: subtotaal excl. btw "+money(net)+" · "+breakdown+" · Totaal incl. btw "+money(net+vat)+" — "+(balanced?"Bedragen sluiten aan (nog niet goedgekeurd).":"Nog niet sluitend of onvolledig. Sla op voor servercontrole.");
+        panel.style.color=balanced?"#146c2e":"#a32020";
+      }
+      form.addEventListener("input",event=>{if(event.target.matches("[name^=line_total]"))event.target.dataset.auto="0";refresh();});
+      refresh();
+    })();</script>';
+
     return $html . '<p>Opslaan is geen goedkeuring. Volledige dubbele-factuurcontrole en Moneybird-verzending zijn nog niet beschikbaar.</p></section>';
   }
 
