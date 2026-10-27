@@ -37,7 +37,7 @@ try {
     exit;
   }
   $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-  if ($method === 'POST' && !in_array(($officeFinanceView ?? ''), ['invoice', 'new'], true)) {
+  if ($method === 'POST' && !in_array(($officeFinanceView ?? ''), ['invoice', 'new', 'draft'], true)) {
     http_response_code(405);
     exit('Upload alleen op de factuurpagina.');
   }
@@ -58,6 +58,39 @@ try {
   if (isset($_GET['project_id'])) {
     $projectId = filter_var($_GET['project_id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
     if ($projectId === false) throw new \OutOfBoundsException();
+  }
+  if ($method === 'POST' && $view === 'draft') {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest()
+      || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))) throw new \DomainException();
+    $draftId = $_GET['id'] ?? '';
+    if (!is_string($draftId) || !preg_match('/^[a-f0-9]{32}$/D', $draftId)) throw new \OutOfBoundsException();
+    $storage = getenv('OFFICE_FINANCE_UPLOAD_PRIVATE_ROOT') ?: '';
+    $root = realpath($storage);
+    $webroot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '/');
+    if ($root === false || is_link($storage) || ($webroot !== false && ($root === $webroot || str_starts_with($root, $webroot . '/')))) throw new \OutOfBoundsException();
+    $metaFile = $root . '/' . $draftId . '.json';
+    if (!is_file($metaFile) || is_link($metaFile)) throw new \OutOfBoundsException();
+    $record = json_decode((string)file_get_contents($metaFile), true);
+    if (!is_array($record) || ($record['id'] ?? '') !== $draftId || ($record['operator_id'] ?? null) != $operator->operatorId) throw new \OutOfBoundsException();
+    $fields = ['supplier_name'=>120,'invoice_number'=>80,'invoice_date'=>10,'due_date'=>10,'reference'=>160,'amount_inc_vat'=>30,'vat_amount'=>30];
+    $review = [];
+    foreach ($fields as $key=>$limit) {
+      $value = trim((string)($_POST[$key] ?? ''));
+      if (strlen($value) > $limit || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $value)) { http_response_code(400); exit('Ongeldige invoer.'); }
+      if (in_array($key, ['invoice_date','due_date'], true) && $value !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $value) || !checkdate((int)substr($value,5,2),(int)substr($value,8,2),(int)substr($value,0,4)))) { http_response_code(400); exit('Ongeldige datum.'); }
+      if (in_array($key, ['amount_inc_vat','vat_amount'], true) && $value !== '' && !preg_match('/^\d{1,10}(?:[.,]\d{1,2})?$/D', $value)) { http_response_code(400); exit('Ongeldig bedrag.'); }
+      $review[$key] = $value;
+    }
+    $record['review'] = $review;
+    $record['status'] = 'manual_review_incomplete';
+    $record['reviewed_at'] = gmdate('c');
+    $record['reviewed_by'] = $operator->operatorId;
+    $tmp = tempnam($root, '.review-');
+    if ($tmp === false || file_put_contents($tmp, json_encode($record, JSON_THROW_ON_ERROR), LOCK_EX) === false) throw new RuntimeException('Opslaan mislukt');
+    chmod($tmp, 0600);
+    if (!rename($tmp, $metaFile)) throw new RuntimeException('Opslaan mislukt');
+    header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/concept', ['id'=>$draftId,'saved'=>'1']), true, 303);
+    exit;
   }
   if ($method === 'POST') {
     // Verify finance access; for existing invoices also authorize the exact invoice.
@@ -105,7 +138,7 @@ try {
     exit;
   }
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
-  if (in_array($view, ['invoice','new'], true)) $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
+  if (in_array($view, ['invoice','new','draft'], true)) $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
   if ($view === 'draft') {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()) throw new \OutOfBoundsException();
     $draftId = $_GET['id'] ?? '';
@@ -125,7 +158,7 @@ try {
     $filePath = $root . '/' . $filename;
     if (!is_file($filePath) || is_link($filePath) || filesize($filePath) > 10 * 1024 * 1024) throw new \OutOfBoundsException();
     if (hash_file('sha256', $filePath) !== ($record['sha256'] ?? '')) throw new \OutOfBoundsException();
-    $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime];
+    $data['draft'] = ['id'=>$draftId,'created_at'=>$record['created_at'] ?? '', 'status'=>$record['status'] ?? '', 'mime'=>$mime,'review'=>is_array($record['review'] ?? null) ? $record['review'] : []];
     if (($_GET['document'] ?? '') === '1') {
       header('Content-Type: ' . $mime);
       header('Content-Disposition: inline; filename="factuurconcept.' . pathinfo($filename, PATHINFO_EXTENSION) . '"');
