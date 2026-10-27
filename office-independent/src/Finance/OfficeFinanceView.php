@@ -245,12 +245,12 @@ final class OfficeFinanceView {
       const form=panel.closest("form");
       const rows=Array.from(form.querySelectorAll("input[name^=line_description]")).map(el=>el.closest("tr"));
       const money=n=>"€ "+(n/100).toLocaleString("nl-NL",{minimumFractionDigits:2,maximumFractionDigits:2});
-      const parse=v=>{v=v.trim().replace(",",".");return /^\\d{1,9}(?:\\.\\d{1,3})?$/.test(v)?Number(v):null;};
+      const parse=v=>{v=v.trim().replace(",",".");return /^[0-9]{1,9}(?:[.][0-9]{1,3})?$/.test(v)?Number(v):null;};
       function refresh(){
         let net=0,vat=0,missing=false,any=false;
         const vatRates=new Map();
         for(const row of rows){
-          const get=k=>row.querySelector("[name^=line_"+k+"\\[]");
+          const get=k=>Array.from(row.querySelectorAll("input")).find(el=>el.name.startsWith("line_"+k+"["));
           const desc=get("description").value.trim(), q=parse(get("quantity").value),p=parse(get("unit_price").value),rate=parse(get("vat_rate").value);
           const total=get("line_total");
           if(!desc && !get("quantity").value && !get("unit_price").value && !get("vat_rate").value && !total.value)continue;
