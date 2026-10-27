@@ -50,7 +50,8 @@ jobs:
             -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"
-          root="$base/release-next/private"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"]) || !is_string($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$base/config/config.php")" || { echo "::error::Unable to read configured private root"; exit 19; }
+          case "$root" in "$base"/release-*/private) ;; *) echo "::error::Active root is outside an isolated Office-test release"; exit 20;; esac
           router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
           [[ -d "$base" && ! -L "$base" ]] || exit 10
           [[ -d "$root/public" && -d "$root/src" && ! -L "$root" ]] || exit 11
@@ -72,26 +73,16 @@ jobs:
           grep -Fq 'OFFICE_BASE_PATH' "$router" || { echo "::error::Missing OFFICE_BASE_PATH guard"; exit 15; }
           grep -Fq 'OFFICE_PRIVATE_ROOT' "$router" || { echo "::error::Missing OFFICE_PRIVATE_ROOT guard"; exit 18; }
           grep -Fq 'office-test' "$router" || { echo "::error::Missing office-test guard"; exit 16; }
-          if grep -Fq 'office_calc_test/release-next/private' "$router"; then
-            echo "Router uses repository template root"
-          else
-            echo "::warning::Router uses a different root expression than the repository template"
-          fi
-          echo "Candidate navigation locations (no paths or secrets printed):"
-          for candidate in \
-            "$base/release-next/private/src/Intake/OfficeNavigation.php" \
-            "$base/release/private/src/Intake/OfficeNavigation.php" \
-            "$base/private/src/Intake/OfficeNavigation.php"; do
-            if [[ -f "$candidate" && ! -L "$candidate" ]]; then
-              echo "PRESENT: OfficeNavigation.php"
-            else
-              echo "ABSENT: OfficeNavigation.php"
-            fi
-          done
+          echo "Checking the configured active Office-test release (not release-next)"
           if [[ ! -f "$root/src/Intake/OfficeNavigation.php" ]]; then
-            echo "::error::Navigation missing from expected release-next/private; release synchronization required before UI rollout."
+            echo "::error::Navigation missing from configured active private release."
             exit 17
           fi
+          for required in "$root/public/office-home.php" "$root/public/office-project.php"; do
+            [[ -f "$required" && ! -L "$required" ]] || { echo "::error::Required Office page missing"; exit 21; }
+            php -l "$required" >/dev/null || exit 22
+          done
+          php -l "$root/src/Intake/OfficeNavigation.php" >/dev/null || exit 22
           echo "OFFICE_TEST_PREFLIGHT_OK=1"
           echo "No server files, configuration or databases were modified"
           REMOTE
