@@ -32,6 +32,7 @@ foreach (['office_projects','office_project_memberships','office_module_permissi
 }
 echo 'FINANCE_TEST_ACCOUNT_IDS | '.json_encode($db->query('SELECT id,active FROM office_operator_accounts')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
 echo 'FINANCE_TEST_PROJECT_IDS | '.json_encode($db->query('SELECT id,code FROM office_projects')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
+if(in_array('office_onsite_project_mapping',$tables,true)) echo 'FINANCE_REUSABLE_PROJECT_MAPPING | '.json_encode($db->query('SELECT source_project_id,office_project_id,verified FROM office_onsite_project_mapping')->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
 $db->rollBack();
 foreach (['OFFICE_FINANCE_ENABLED','OFFICE_FINANCE_SCHEMA_VERIFIED'] as $flag) echo 'FINANCE_FLAG | '.$flag.' | '.(($config[$flag]??'')==='enabled'?'enabled':'disabled').PHP_EOL;
 foreach (['public/office-home.php','src/Intake/OfficeNavigation.php','modules/office-navigation/routes.php','modules/office-finance/routes.php'] as $relative) {
@@ -49,6 +50,10 @@ if (is_file($settingsFile)) {
   try {
     $sourceConfig=(static function(string $file):?array {
       $databases=[]; $settings=[]; $config=[];
+      $app_root=dirname($file,3); $site_path='sites/default';
+      if (!defined('DRUPAL_ROOT')) define('DRUPAL_ROOT',$app_root);
+      $autoload=dirname($app_root).'/vendor/autoload.php';
+      if (is_file($autoload)) require_once $autoload;
       require $file;
       return $databases['default']['default']??null;
     })($settingsFile);
@@ -65,5 +70,7 @@ if (is_file($settingsFile)) {
     }
     $source->rollBack();
     echo 'FINANCE_SOURCE_READ_ONLY=PASS'.PHP_EOL;
-  } catch (Throwable $error) { echo 'FINANCE_SOURCE_METADATA_UNAVAILABLE | '.get_class($error).PHP_EOL; }
+  } catch (Throwable $error) { $message=$error->getMessage();
+    $safe=preg_match('/(?:Undefined constant "[A-Z_]+"|Class "[A-Za-z_\\\\]+" not found|Call to undefined function [A-Za-z_\\\\]+\(\))/', $message, $match) ? $match[0] : 'details suppressed';
+    echo 'FINANCE_SOURCE_METADATA_UNAVAILABLE | '.get_class($error).' | '.basename($error->getFile()).':'.$error->getLine().' | '.$safe.PHP_EOL; }
 } else echo 'FINANCE_SOURCE_SETTINGS_UNAVAILABLE'.PHP_EOL;
