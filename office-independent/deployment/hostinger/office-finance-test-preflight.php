@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+// CLI-only metadata inspection. No database or runtime writes, no configuration values in output.
+if (PHP_SAPI !== 'cli') exit(1);
+set_exception_handler(static function (Throwable $error): never {
+  fwrite(STDERR, 'FINANCE_PREFLIGHT_STOP | ' . get_class($error) . PHP_EOL);
+  exit(1);
+});
+$base='/home/u213420663/domains/brebobv.nl/office_calc_test';
+$config=require $base.'/config/config.php';
+if (!is_array($config) || ($config['OFFICE_BASE_PATH']??'')!=='/office-test'
+  || ($config['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test'
+  || !preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$config['OFFICE_INTAKE_PDO_DSN']??'')) throw new RuntimeException('Isolation required');
+$root=realpath($config['OFFICE_PRIVATE_ROOT']??'');
+if (!is_string($root) || !str_starts_with($root,$base.'/release-') || !str_ends_with($root,'/private')) throw new RuntimeException('Private test root required');
+echo 'FINANCE_TEST_ROOT | '.$root.PHP_EOL;
+$db=new PDO($config['OFFICE_INTAKE_PDO_DSN'],$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD']??'',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+$db->exec('SET TRANSACTION READ ONLY');
+$db->beginTransaction();
+$tables=$db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+$interesting=array_values(array_filter($tables,static fn(string $table):bool=>str_starts_with($table,'brebo_finance_')||str_starts_with($table,'office_finance_')||in_array($table,['office_projects','office_project_memberships','office_module_permissions','office_operator_accounts'],true)));
+foreach ($interesting as $table) {
+  if (!preg_match('/^[a-z0-9_]+$/D',$table)) throw new RuntimeException('Invalid table');
+  echo 'FINANCE_TEST_TABLE | '.$table.' | '.$db->query('SELECT COUNT(*) FROM `'.$table.'`')->fetchColumn().PHP_EOL;
+}
+foreach (['office_projects','office_project_memberships','office_module_permissions','office_finance_project_mapping','office_operator_accounts','brebo_finance_purchase_invoice','brebo_finance_performance_receipt'] as $table) {
+  $q=$db->prepare('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');
+  $q->execute([$table]);
+  echo 'FINANCE_TEST_SCHEMA | '.$table.' | '.json_encode($q->fetchAll(PDO::FETCH_ASSOC),JSON_THROW_ON_ERROR).PHP_EOL;
+}
+$db->rollBack();
+foreach (['OFFICE_FINANCE_ENABLED','OFFICE_FINANCE_SCHEMA_VERIFIED'] as $flag) echo 'FINANCE_FLAG | '.$flag.' | '.(($config[$flag]??'')==='enabled'?'enabled':'disabled').PHP_EOL;
+foreach (['public/office-home.php','src/Intake/OfficeNavigation.php','modules/office-navigation/routes.php','modules/office-finance/routes.php'] as $relative) {
+  $file=$root.'/'.$relative;
+  echo 'FINANCE_RUNTIME_FILE | '.$relative.' | '.(is_file($file)?hash_file('sha256',$file):'missing').PHP_EOL;
+  if (is_file($file) && str_ends_with($relative,'routes.php')) echo 'FINANCE_RUNTIME_ROUTES | '.$relative.' | '.base64_encode(file_get_contents($file)).PHP_EOL;
+}
+$router='/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php';
+echo 'FINANCE_TEST_ROUTER | '.base64_encode(file_get_contents($router)).PHP_EOL;
+echo 'FINANCE_TEST_REWRITE | '.base64_encode(file_get_contents(dirname($router).'/.htaccess')).PHP_EOL;
+echo 'FINANCE_PREFLIGHT_READ_ONLY=PASS'.PHP_EOL;

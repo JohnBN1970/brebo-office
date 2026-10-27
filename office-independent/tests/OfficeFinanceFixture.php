@@ -30,7 +30,7 @@ function financeFixture(?string $sqliteFile = null): PDO {
     'CREATE TABLE brebo_finance_g_account_instruction (id INTEGER PRIMARY KEY,source_type VARCHAR(32),source_id INTEGER,direction VARCHAR(32))',
     'CREATE TABLE brebo_finance_commitment (id INTEGER PRIMARY KEY,project_nid INTEGER)',
     'CREATE TABLE brebo_finance_commitment_line (id INTEGER PRIMARY KEY,commitment_id INTEGER)',
-    'CREATE TABLE brebo_finance_performance_receipt (id INTEGER PRIMARY KEY,commitment_line_id INTEGER,status VARCHAR(32),description VARCHAR(255),amount_ex_vat DECIMAL(14,2),building_evidence_complete INTEGER,quality_accepted INTEGER,created INTEGER,changed INTEGER)',
+    'CREATE TABLE brebo_finance_performance_receipt (id INTEGER PRIMARY KEY,project_nid INTEGER,commitment_line_id INTEGER,status VARCHAR(32),description VARCHAR(255),amount_ex_vat DECIMAL(14,2),building_evidence_complete INTEGER,quality_accepted INTEGER,created INTEGER,changed INTEGER)',
   ] as $sql) $db->exec($sql);
   $db->exec("INSERT INTO office_operator_accounts VALUES ('1',1,0),('2',1,1),('3',0,1),('4',1,0)");
   $db->exec("INSERT INTO office_projects VALUES (17,'Zichtbaar project'),(99,'Verborgen project')");
@@ -39,7 +39,7 @@ function financeFixture(?string $sqliteFile = null): PDO {
   $db->exec('INSERT INTO office_finance_project_mapping VALUES (101,17,1),(17,99,1)');
   $db->exec("INSERT INTO brebo_finance_commitment VALUES (1,101),(2,17)");
   $db->exec('INSERT INTO brebo_finance_commitment_line VALUES (10,1),(20,2)');
-  $db->exec("INSERT INTO brebo_finance_performance_receipt VALUES (1,10,'verified','Zichtbaar bewijs',100,1,1,100,100),(2,20,'draft','Verborgen bewijs',9000,0,0,100,100)");
+  $db->exec("INSERT INTO brebo_finance_performance_receipt VALUES (1,101,10,'verified','Zichtbaar bewijs',100,1,1,100,100),(2,17,20,'draft','Verborgen bewijs',9000,0,0,100,100),(3,17,10,'verified','Verkeerd gekoppeld vreemd bewijs',9000,1,1,100,100)");
   $invoice = $db->prepare('INSERT INTO brebo_finance_purchase_invoice VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   $line = $db->prepare('INSERT INTO brebo_finance_purchase_invoice_line VALUES (?,?,?,?,?,?,?,?,?,?)');
   foreach (range(1,12) as $id) {

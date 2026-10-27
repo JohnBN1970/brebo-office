@@ -75,7 +75,7 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
       WHERE r.commitment_line_id=? AND EXISTS (
         SELECT 1 FROM brebo_finance_purchase_invoice_line l
         INNER JOIN brebo_finance_purchase_invoice i ON i.id=l.invoice_id
-        WHERE l.commitment_line_id=r.commitment_line_id AND c.project_nid=i.project_nid AND ' . $this->scope() . ')
+        WHERE l.commitment_line_id=r.commitment_line_id AND c.project_nid=i.project_nid AND r.project_nid=i.project_nid AND ' . $this->scope() . ')
       ORDER BY r.changed DESC,r.id', [$commitmentLineId]);
   }
 }

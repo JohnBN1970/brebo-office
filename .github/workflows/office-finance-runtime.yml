@@ -1,0 +1,34 @@
+name: Office Finance test-runtime preflight
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/hostinger/office-finance-test-preflight.php'
+      - '.github/workflows/office-finance-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  inspect-test:
+    if: github.event.pull_request.head.ref == 'feature/office-native-finance' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint read-only preflight
+        run: php -l office-independent/deployment/hostinger/office-finance-test-preflight.php
+      - id: source
+        run: echo "php=$(base64 -w0 office-independent/deployment/hostinger/office-finance-test-preflight.php)" >> "$GITHUB_OUTPUT"
+      - name: Inspect isolated Office-test metadata without runtime or database changes
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          PREFLIGHT_SOURCE: ${{ steps.source.outputs.php }}
+        with:
+          host: 77.37.34.160
+          port: 65002
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: PREFLIGHT_SOURCE
+          script_stop: true
+          script: printf '%s' "$PREFLIGHT_SOURCE" | base64 -d | /opt/alt/php83/usr/bin/php /dev/stdin
