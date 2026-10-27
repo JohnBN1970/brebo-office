@@ -1,0 +1,49 @@
+name: Finance PDF.js Workers compatibility probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/office-native-finance
+    paths:
+      - "integration-api/src/pdf-embedded-positions.ts"
+      - "integration-api/test/pdf-embedded-positions.test.ts"
+      - ".github/workflows/finance-pdfjs-compatibility.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pdfjs-compatibility:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integration-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: integration-api/package-lock.json
+      - run: npm ci
+      - name: Install isolated PDF.js probe (no lockfile changes)
+        run: npm install --no-save --package-lock=false pdfjs-dist@5.4.149
+      - name: Verify PDF.js ESM import and API
+        run: |
+          node --input-type=module -e "const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs'); if (typeof pdfjs.getDocument !== 'function') process.exit(1); console.log('PDFJS_IMPORT_OK')"
+      - name: Run positional extraction unit tests
+        run: npx vitest run --config vitest.layout.config.ts
+      - name: Check Cloudflare Workers bundling with PDF.js
+        run: |
+          cat > src/pdfjs-compat-probe.ts <<'EOF'
+          import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+          import { pdfEmbeddedPositions } from "./pdf-embedded-positions";
+          export default {
+            async fetch(): Promise<Response> {
+              const ok = typeof getDocument === "function" && typeof pdfEmbeddedPositions === "function";
+              return new Response(ok ? "PDFJS_WORKER_BUNDLE_OK" : "PDFJS_UNAVAILABLE", { status: ok ? 200 : 500 });
+            },
+          };
+          EOF
+          npx wrangler deploy --dry-run --outdir dist/pdfjs-probe --name brebo-pdfjs-probe src/pdfjs-compat-probe.ts
