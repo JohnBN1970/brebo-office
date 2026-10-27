@@ -1,3 +1,5 @@
+import { pdfEmbeddedPositions } from "./pdf-embedded-positions";
+
 const SUPPORTED_MIME_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -17,6 +19,8 @@ export type ExtractionEnv = Env & {
     ): Promise<unknown>;
   };
   DOCUMENT_EXTRACTION_TOKEN?: string;
+  /** Optional PDF parser; not enabled until Worker runtime integration is validated. */
+  PDF_GET_DOCUMENT?: (options: Record<string, unknown>) => { promise: Promise<unknown>; destroy?: () => Promise<void> };
   EXTRACTION_RATE_WINDOW_SECONDS?: string;
   MAX_EXTRACTIONS_PER_WINDOW?: string;
   MONTHLY_EXTRACTION_BUDGET?: string;
@@ -187,7 +191,13 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
   }
 
   const text = first.data.trim();
-  const blocks = verifiedPositionBlocks(first.blocks);
+  let blocks = verifiedPositionBlocks(first.blocks);
+  if (mimeType === "application/pdf" && blocks.length === 0 && env.PDF_GET_DOCUMENT) {
+    try {
+      const embedded = await pdfEmbeddedPositions(new Uint8Array(await document.arrayBuffer()), env.PDF_GET_DOCUMENT);
+      blocks = verifiedPositionBlocks(embedded);
+    } catch { /* Preserve existing text-only extraction on PDF parsing failure. */ }
+  }
   return json({
     status: text === "" ? "no_text" : "extracted",
     text,
