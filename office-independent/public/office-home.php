@@ -135,6 +135,9 @@ $crmEnabled = !\Brebo\Office\Intake\OfficeMount::isTest()
 // canEditCrm controls edit actions, not whether the operator may view CRM.
 // Do not infer finance, project or organization permissions from this CRM-only flag.
 // Navigation groups are presentation-only. Server-side route authorization remains authoritative.
+require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
+$financeVisible = \Brebo\Office\Intake\OfficeNavigation::financeVisible();
+
 $modules = [
   ['Relaties & CRM', 'Aanvragen, klanten en kansen', [['CRM', $crmUrl, $crmEnabled]]],
   ['Projecten', 'Van voorbereiding tot uitvoering', [
@@ -147,10 +150,8 @@ $modules = [
   ]],
   ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie', $calcUrl, $calcEnabled]]],
   ['Financiën', 'Facturen en betalingen', [['Financiën',
-    \Brebo\Office\Intake\OfficeNavigation::financeVisible()
-      ? \Brebo\Office\Intake\OfficeMount::basePath() . '/finance'
-      : null,
-    \Brebo\Office\Intake\OfficeNavigation::financeVisible()]]],
+    $financeVisible ? \Brebo\Office\Intake\OfficeMount::basePath() . '/finance' : null,
+    $financeVisible]]],
   ['Organisatie', 'Medewerkers en bedrijfsvoering', [['Organisatie', null, false]]],
   ['Communicatie', 'Berichten en correspondentie', [['Mail', null, false]]],
 ];
