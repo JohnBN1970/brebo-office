@@ -44,7 +44,7 @@ final class OfficeInvoiceLineProposal {
       $rows = preg_split('/\\r\\n|\\n|\\r/', $text) ?: [];
       foreach ($rows as $i => $raw) {
         $line = trim(preg_replace('/[ \\t]+/', ' ', $raw) ?? '');
-        if (!preg_match('/\\b(PVC\\s+hoek\\s+\\d+\\s*x\\s*\\d+\\s*x\\s*\\d+\\s*mm\\s+zwart\\s+in)\\s*$/iu', $line, $m)) continue;
+        if (!preg_match('/(PVC\\s+hoek\\s+\\d+\\s*x\\s*\\d+\\s*x\\s*\\d+\\s*mm\\s+zwart\\s+in)\\s*$/iu', $line, $m)) continue;
         $next = trim(preg_replace('/[ \\t]+/', ' ', $rows[$i + 1] ?? '') ?? '');
         if (!preg_match('/^(lengte\\s+\\d+\\s*cm)\\b/iu', $next, $continuation)) continue;
         $candidates[] = [
