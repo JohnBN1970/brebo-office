@@ -106,6 +106,27 @@ try {
   }
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
   if (in_array($view, ['invoice','new'], true)) $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
+  if ($view === 'new') {
+    $storage = getenv('OFFICE_FINANCE_UPLOAD_PRIVATE_ROOT') ?: '';
+    $drafts = [];
+    if ($storage !== '' && is_dir($storage) && !is_link($storage)) {
+      foreach (glob(rtrim($storage, '/') . '/*.json') ?: [] as $metadataFile) {
+        if (!is_file($metadataFile) || is_link($metadataFile)) continue;
+        $record = json_decode((string)file_get_contents($metadataFile), true);
+        if (!is_array($record) || ($record['operator_id'] ?? null) != $operator->operatorId) continue;
+        if (!is_string($record['id'] ?? null) || !preg_match('/^[a-f0-9]{32}$/D', $record['id'])) continue;
+        $drafts[] = [
+          'id'=>$record['id'],
+          'created_at'=>(string)($record['created_at'] ?? ''),
+          'status'=>(string)($record['status'] ?? 'unknown'),
+          'mime'=>(string)($record['mime'] ?? ''),
+        ];
+      }
+    }
+    usort($drafts, static fn(array $a, array $b): int => strcmp($b['created_at'], $a['created_at']));
+    $data['drafts'] = array_slice($drafts, 0, 50);
+  }
+
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
