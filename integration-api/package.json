@@ -20,6 +20,7 @@
     "wrangler": "4.120.1"
   },
   "dependencies": {
+    "pdfjs-dist": "3.11.174",
     "zod": "4.4.3"
   }
 }
