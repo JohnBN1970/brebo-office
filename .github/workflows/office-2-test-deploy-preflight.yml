@@ -1,0 +1,70 @@
+name: Office 2.0 isolated test deploy preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Check isolated test source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check test router syntax
+        run: |
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php office-independent/tests/OfficeTestUiRolloutGateTest.php
+      - name: Validate SSH settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing SSH setting: $name"
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Read-only Hostinger Office-test preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root="$base/release-next/private"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          [[ -d "$base" && ! -L "$base" ]] || exit 10
+          [[ -d "$root/public" && -d "$root/src" && ! -L "$root" ]] || exit 11
+          [[ -f "$router" && ! -L "$router" ]] || exit 12
+          [[ -f "$base/config/config.php" ]] || exit 13
+          grep -q 'office_calc_test/release-next/private' "$router" || exit 14
+          grep -q 'OFFICE_BASE_PATH' "$router" || exit 15
+          grep -q 'office-test' "$router" || exit 16
+          if [[ -f "$root/src/Intake/OfficeNavigation.php" ]]; then
+            echo "Office navigation present"
+          else
+            echo "Office navigation missing"
+            exit 17
+          fi
+          echo "OFFICE_TEST_PREFLIGHT_OK=1"
+          echo "No server files, configuration or databases were modified"
+          REMOTE
