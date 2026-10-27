@@ -56,4 +56,25 @@ if (OfficeInvoiceLayout::lineCandidate($invalid, $columns) !== null)
  throw new RuntimeException('Invalid invoice arithmetic accepted');
 echo "PROGE_POSITIONAL_LINE_CANDIDATE_OK\\n";
 
+
+$header = [
+ 'page'=>1,'y'=>307/842,'blocks'=>[
+  ['text'=>'Art.nr.','x'=>51/595],
+  ['text'=>'Omschrijving','x'=>127.56/595],
+  ['text'=>'Specificatie','x'=>328.54/595],
+  ['text'=>'Aantal','x'=>418.40/595],
+  ['text'=>'Prijs','x'=>489.55/595],
+  ['text'=>'Totaal','x'=>548.51/595],
+ ]
+];
+$autoColumns = OfficeInvoiceLayout::columnsFromHeader($header);
+if ($autoColumns === null) throw new RuntimeException('Proge column header detection failed');
+$autoCandidate = OfficeInvoiceLayout::lineCandidate($progeRows[0], $autoColumns);
+if ($autoCandidate === null || $autoCandidate['quantity'] !== 96.0
+  || $autoCandidate['unit'] !== 'm1' || $autoCandidate['line_total'] !== 214.08)
+ throw new RuntimeException('Proge automatic column assignment failed');
+if (OfficeInvoiceLayout::columnsFromHeader(['blocks'=>[['text'=>'Aantal','x'=>0.5]]]) !== null)
+ throw new RuntimeException('Incomplete PDF header accepted');
+echo "PROGE_HEADER_COLUMNS_OK\\n";
+
 echo "PDF_LAYOUT_REGRESSION_OK\n";
