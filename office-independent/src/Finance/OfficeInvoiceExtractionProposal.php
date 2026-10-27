@@ -82,6 +82,23 @@ final class OfficeInvoiceExtractionProposal {
         $result['vat_amount'] = self::proposal($vat);
       }
     }
+    // The managed PDF extractor may concatenate the entire page into one
+    // line. Match the monetary triplet after the payment reference directly
+    // in original text, not after digit-space normalization (which can merge
+    // adjacent monetary fields).
+    if (!isset($result['amount_inc_vat'])
+      && stripos($text, 'Totaal incl. BTW') !== false
+      && stripos($text, 'Totaal excl. BTW') !== false
+      && preg_match('/Betaling binnen\\s+\\d+\\s+dagen\\s+o\\.v\\.v\\.:\\s*\\d+\\/\\d+\\s+([0-9]{1,10},[0-9]{2})\\s+([0-9]{1,10},[0-9]{2})\\s+((?:[0-9]\\s*){1,10},\\s*[0-9]\\s*[0-9])\\s*€/iu', $text, $m)) {
+      $net = self::amount($m[1]);
+      $vat = self::amount($m[2]);
+      $gross = self::amount(preg_replace('/\\s+/u', '', $m[3]) ?? '');
+      if ($net !== '' && $vat !== '' && $gross !== ''
+        && abs(round((float)$net + (float)$vat - (float)$gross, 2)) < 0.001) {
+        $result['amount_inc_vat'] = self::proposal($gross);
+        $result['vat_amount'] = self::proposal($vat);
+      }
+    }
     // Never guess supplier, dates, project or line items from unlabelled OCR.
     return $result;
   }
