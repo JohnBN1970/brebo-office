@@ -68,7 +68,7 @@ final class OfficeInvoiceLayout {
     $found = [];
     foreach ($row['blocks'] as $block) {
       if (!isset($block['text'], $block['x']) || !is_string($block['text']) || !is_numeric($block['x'])) return null;
-      $label = mb_strtolower(trim($block['text']), 'UTF-8');
+      $label = strtolower(trim($block['text']));
       foreach ($aliases as $key => $names) {
         if (in_array($label, $names, true)) {
           if (isset($found[$key])) return null;
@@ -78,7 +78,6 @@ final class OfficeInvoiceLayout {
     }
     foreach (array_keys($aliases) as $key) if (!isset($found[$key])) return null;
     $keys = array_keys($aliases);
-    $positions = array_values($found);
     $ordered = [];
     foreach ($keys as $key) $ordered[] = $found[$key];
     for ($i = 1; $i < count($ordered); $i++) {
@@ -100,7 +99,7 @@ final class OfficeInvoiceLayout {
    */
   public static function lineCandidate(array $row, array $columns): ?array {
     if (!isset($row['blocks']) || !is_array($row['blocks'])) return null;
-    foreach (['article','description','quantity','unit','price','total'] as $key) {
+    foreach (['article','description','quantity','price','total'] as $key) {
       if (!isset($columns[$key]) || !is_array($columns[$key]) || count($columns[$key]) !== 2
         || !is_numeric($columns[$key][0]) || !is_numeric($columns[$key][1])) return null;
     }
@@ -122,6 +121,14 @@ final class OfficeInvoiceLayout {
       if (!preg_match('/^\\d{1,9}(?:\\.\\d{3})*(?:,\\d{1,4})?$/D', $raw)) return null;
       return (float)str_replace(',', '.', str_replace('.', '', $raw));
     };
+    if (!isset($values['unit'])) {
+      if (preg_match('/^([0-9., ]+)\\s+([a-zA-Z][a-zA-Z0-9]*)$/D', $values['quantity'], $matches)) {
+        $values['quantity'] = trim($matches[1]);
+        $values['unit'] = $matches[2];
+      } else {
+        $values['unit'] = '';
+      }
+    }
     $quantity = $number($values['quantity']);
     $price = $number($values['price']);
     $total = $number($values['total']);
