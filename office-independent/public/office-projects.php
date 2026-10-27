@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; form-action 'self'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -71,10 +71,47 @@ $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, E
 $base = \Brebo\Office\Intake\OfficeMount::basePath();
 $inzetView = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['view'] ?? '') === 'inzet';
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}</style></head><body><main><p><a href="' . $escape($base . '/') . '">← Mijn werkplek</a></p><section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:#fff}.office-side-item.disabled{opacity:.55}.office-shell main{max-width:none;width:100%;margin:0;padding:28px clamp(18px,4vw,55px);min-width:0}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin:0 0 22px;overflow:auto}.office-tab{display:inline-block;padding:12px 2px;text-decoration:none;white-space:nowrap;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}.office-kpi-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:18px;margin:18px 0}.office-kpi-panel summary{cursor:pointer;font-weight:700}.office-kpi-panel strong{font-size:22px;display:block;margin-top:10px}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;overflow:auto;gap:4px}.office-side-item{white-space:nowrap}.office-shell main{padding:18px}}
+
+/* BREBO Office: responsive layout correction */
+html,body {
+  max-width:100%;
+  overflow-x:hidden;
+}
+*,*::before,*::after {
+  box-sizing:border-box;
+}
+.office-shell {
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+.office-shell > main {
+  min-width:0;
+  max-width:100%;
+}
+.office-shell section,
+.office-shell article {
+  min-width:0;
+  max-width:100%;
+}
+.office-tabs {
+  max-width:100%;
+  flex-wrap:wrap;
+}
+@media(max-width:900px) {
+  .office-shell {
+    display:block;
+  }
+  .office-sidebar {
+    width:100%;
+    max-width:100%;
+  }
+}
+</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
-  echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
+  // Dashboard wordt na de tabselectie weergegeven.
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
   $projectTeams = [];
   if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled'
@@ -100,10 +137,64 @@ if ($inzetView) {
       $projectTeams = [];
     }
   }
-  echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base, $projectTeams);
+
+  // INZET_TABS_V1 - Navigatie, bestaande werkstromen blijven intact.
+  $inzetTabs = [
+    'overzicht' => 'Overzicht',
+    'planning' => 'Planning',
+    'medewerkers' => 'Medewerkers',
+    'onsite' => 'OnSite',
+    'controle' => 'Controle',
+
+  ];
+  $activeInzetTab = (string) ($_GET['tab'] ?? 'overzicht');
+  if ($activeInzetTab === 'leveranciers') $activeInzetTab = 'controle';
+  if (!isset($inzetTabs[$activeInzetTab])) {
+    $activeInzetTab = 'overzicht';
+  }
+
+  if (isset($_GET['profile_project'], $_GET['profile_person'])) {
+    $activeInzetTab = 'medewerkers';
+  } elseif (isset($_GET['shift_saved'])
+    || isset($_GET['shift_updated'])
+    || isset($_GET['shift_cancelled'])) {
+    $activeInzetTab = 'planning';
+  }
+
+  echo '<nav aria-label="Inzet navigatie" style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">';
+  foreach ($inzetTabs as $tabKey => $tabLabel) {
+    $tabUrl = $base . '/projecten?' . http_build_query([
+      'view' => 'inzet',
+      'tab' => $tabKey,
+    ]);
+    $tabStyle = $activeInzetTab === $tabKey
+      ? 'background:#175a91;color:white;'
+      : 'background:#f8fafc;color:#175a91;';
+    echo '<a href="' . $escape($tabUrl) . '" style="padding:10px 16px;border:1px solid #dbe1e8;border-radius:8px;text-decoration:none;' . $tabStyle . '">'
+      . $escape($tabLabel) . '</a>';
+  }
+  echo '</nav>';
+
+  if ($activeInzetTab === 'overzicht') {
+    echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
+  }
+
+  // INZET_TABS_V2 - tabinhoud.
+  if ($activeInzetTab === 'controle') {
+    echo '<section><h2>Urencontrole</h2>'
+      . '<p>Urencontrole, afwijkingen en goedkeuringen zijn nog niet beschikbaar.</p></section>';
+  }
+
+  if ($activeInzetTab === 'medewerkers'
+      && getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') !== 'enabled') {
+    echo '<p>Personeelsbeheer is momenteel niet beschikbaar.</p>';
+  }
+
+  if ($activeInzetTab === 'planning') echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base, $projectTeams);
   // Test-only personnel editor: select exclusively from the server-authorized
   // project team; never accept a client-supplied employee list.
-  if (getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'
+  if ($activeInzetTab === 'medewerkers'
+    && getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'
     && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled') {
     $profileSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
     if (is_string($profileSecret) && strlen($profileSecret) >= 32) {
@@ -112,6 +203,41 @@ if ($inzetView) {
         require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPersonnelNumberForm.php';
         $requestedProjectId = filter_var($_GET['profile_project'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
         $requestedPersonId = filter_var($_GET['profile_person'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        // PERSONNEL_SELECTOR_V1
+        echo '<section><h2>Medewerkers en personeelsgegevens</h2>';
+        $availablePeople = 0;
+        foreach ($projectTeams as $teamProjectId => $teamPeople) {
+          foreach ($teamPeople as $teamPerson) {
+            $personId = (int)($teamPerson['id'] ?? 0);
+            if ($personId < 1) continue;
+            $availablePeople++;
+            $profileUrl = $base . '/projecten?' . http_build_query([
+              'view' => 'inzet',
+              'tab' => 'medewerkers',
+              'profile_project' => (int)$teamProjectId,
+              'profile_person' => $personId
+            ]);
+            // PERSONNEL_CARD_V1
+            echo '<article style="border:1px solid #dbe1e8;border-radius:10px;padding:18px;margin:12px 0;background:#f8fafc">';
+            echo '<h3 style="margin-top:0">' . $escape($teamPerson['display_name'] ?? '') . '</h3>';
+            echo '<p><strong>Personeelsnummer:</strong> '
+              . $escape(($teamPerson['personnel_number'] ?? '') ?: 'Niet ingevuld') . '</p>';
+            echo '<p><strong>Project:</strong> ';
+            foreach ($projects as $linkedProject) {
+              if ((int)$linkedProject['id'] === (int)$teamProjectId) {
+                echo $escape($linkedProject['title']);
+                break;
+              }
+            }
+            echo '</p>';
+            echo '<a href="' . $escape($profileUrl) . '">Personeelsgegevens bewerken</a>';
+            echo '</article>';
+          }
+        }
+        if ($availablePeople === 0) {
+          echo '<p>Geen medewerkers beschikbaar voor beheer.</p>';
+        }
+        echo '</section>';
         if (is_int($requestedProjectId) && is_int($requestedPersonId)
           && isset($projectTeams[$requestedProjectId])) {
           foreach ($projectTeams[$requestedProjectId] as $person) {
@@ -133,9 +259,11 @@ if ($inzetView) {
     }
   }
 
+
   // Office-native OnSite invitation form. Only show employees from the
   // verified operator's manageable project team; POST rechecks authorization.
-  if (getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') === 'enabled'
+  if ($activeInzetTab === 'onsite'
+    && getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') === 'enabled'
     && getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') === 'enabled'
     && getenv('OFFICE_CRM_SESSION_MODE') === 'enabled'
     && \Brebo\Office\Intake\OfficeMount::isTest()) {
@@ -199,7 +327,8 @@ if ($inzetView) {
   }
 
   // Read-only weekly planning is gated independently from the projects module.
-  if (getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
+  if ($activeInzetTab === 'planning'
+    && getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
     && getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') === 'enabled') {
     try {
       require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekShiftReadRepository.php';
@@ -302,6 +431,7 @@ if ($inzetView) {
           }
           echo '<form method="get" action="/office-test/projecten" aria-label="Project voor dienst kiezen">'
             . '<input type="hidden" name="view" value="inzet">'
+            . '<input type="hidden" name="tab" value="planning">'
             . '<input type="hidden" name="year" value="' . (int)$year . '">'
             . '<input type="hidden" name="week" value="' . (int)$week . '">'
             . '<label for="shift-project-choice">Project voor nieuwe dienst</label>'
@@ -316,8 +446,8 @@ if ($inzetView) {
           $manageablePeople = (new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db))
             ->listForOperator($operator->operatorId, (int)$selectedProject['id']);
           if ($manageablePeople === []) {
-            echo '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld. Koppel eerst medewerkers aan het project.</p>';
-          } elseif (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
+              echo '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld. Koppel eerst medewerkers aan het project.</p>';
+            } elseif (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
             require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
             require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetAuthenticatedShiftAction.php';
             $csrfSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
@@ -339,6 +469,7 @@ if ($inzetView) {
   }
 
 }
+if (!$inzetView || $activeInzetTab === 'overzicht') {
 if ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
@@ -349,7 +480,8 @@ if ($projects === []) {
   }
   echo '</tbody></table>';
 }
-if ($inzetView) {
+}
+if ($inzetView && $activeInzetTab === 'controle') {
   // Test-only, read-only supplier-week register. Never expose the register when
   // the schema, supplier/project links or operator permissions are unverified.
   if (getenv('OFFICE_TEST_SUPPLIER_WEEKS_ENABLED') === 'enabled'
@@ -382,4 +514,4 @@ if ($inzetView) {
     }
   }
 }
-echo '</section></main></body></html>';
+echo '</section></main></div></body></html>';
