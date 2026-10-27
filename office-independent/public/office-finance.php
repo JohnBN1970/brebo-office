@@ -37,7 +37,7 @@ try {
     exit;
   }
   $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-  if ($method === 'POST' && ($officeFinanceView ?? '') !== 'invoice') {
+  if ($method === 'POST' && !in_array(($officeFinanceView ?? ''), ['invoice', 'new'], true)) {
     http_response_code(405);
     exit('Upload alleen op de factuurpagina.');
   }
@@ -48,7 +48,7 @@ try {
   }
   if (!isset($_SESSION['finance_upload_csrf'])) $_SESSION['finance_upload_csrf'] = bin2hex(random_bytes(32));
   $view = $officeFinanceView ?? 'dashboard';
-  if (!in_array($view, ['dashboard','payments','invoice'], true)) throw new \OutOfBoundsException();
+  if (!in_array($view, ['dashboard','payments','invoice','new'], true)) throw new \OutOfBoundsException();
   $invoiceId = null;
   if ($view === 'invoice') {
     $invoiceId = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
@@ -60,7 +60,7 @@ try {
     if ($projectId === false) throw new \OutOfBoundsException();
   }
   if ($method === 'POST') {
-    // Authorize the exact invoice before accepting a document.
+    // Verify finance access; for existing invoices also authorize the exact invoice.
     (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
       || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))
@@ -95,11 +95,17 @@ try {
       exit('Upload niet opgeslagen.');
     }
     chmod($destination, 0600);
-    header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/factuur', ['id'=>$invoiceId,'uploaded'=>'1']), true, 303);
+    if ($view === 'new') {
+      $draft = ['id'=>bin2hex(random_bytes(16)), 'file'=>$name, 'mime'=>$mime, 'sha256'=>hash_file('sha256', $destination), 'created_at'=>gmdate('c'), 'operator_id'=>$operator->operatorId, 'status'=>'uploaded_not_processed'];
+      $meta = rtrim($storage, '/') . '/' . $draft['id'] . '.json';
+      if (file_put_contents($meta, json_encode($draft, JSON_THROW_ON_ERROR), LOCK_EX) === false) { unlink($destination); throw new RuntimeException('Conceptregistratie mislukt'); }
+      chmod($meta, 0600);
+    }
+    header('Location: ' . \Brebo\Office\Intake\OfficeMount::route($view === 'new' ? 'finance/nieuw' : 'finance/factuur', $view === 'new' ? ['uploaded'=>'1'] : ['id'=>$invoiceId,'uploaded'=>'1']), true, 303);
     exit;
   }
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
-  if ($view === 'invoice') $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
+  if (in_array($view, ['invoice','new'], true)) $data['upload_csrf'] = $_SESSION['finance_upload_csrf'];
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
