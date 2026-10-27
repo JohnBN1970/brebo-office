@@ -19,6 +19,19 @@ final class OfficeFinanceAccess {
     return $q->fetchColumn() !== false;
   }
 
+  /** Office-native draft assignments do not require legacy Finance source mappings. */
+  public function draftProjects(): array {
+    if (!$this->allows()) return [];
+    $q = $this->db->prepare("SELECT DISTINCT p.id AS office_project_id, p.title
+      FROM office_projects p
+      INNER JOIN office_project_memberships m ON m.project_id=p.id
+      INNER JOIN office_operator_accounts a ON a.id=m.operator_id
+      WHERE m.operator_id=? AND m.permission IN ('read','manage') AND a.active=1
+      ORDER BY p.title,p.id");
+    $q->execute([$this->operatorId]);
+    return $q->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   /** Source project identifiers are never assumed to equal Office project identifiers. */
   public function visibleProjects(): array {
     if (!$this->allows()) return [];
