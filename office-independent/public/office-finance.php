@@ -123,6 +123,27 @@ try {
       if (in_array($key, ['amount_inc_vat','vat_amount'], true) && $value !== '' && !preg_match('/^\d{1,10}(?:[.,]\d{1,2})?$/D', $value)) { http_response_code(400); exit('Ongeldig bedrag.'); }
       $review[$key] = $value;
     }
+    $lineRows = [];
+    $lineCount = filter_var($_POST['line_count'] ?? 0, FILTER_VALIDATE_INT);
+    if ($lineCount === false || $lineCount < 0 || $lineCount > 30) { http_response_code(400); exit('Ongeldig aantal factuurregels.'); }
+    for ($i = 0; $i < $lineCount; $i++) {
+      $description = trim((string)($_POST['line_description'][$i] ?? ''));
+      $quantity = trim((string)($_POST['line_quantity'][$i] ?? ''));
+      $unit = trim((string)($_POST['line_unit'][$i] ?? ''));
+      $price = trim((string)($_POST['line_unit_price'][$i] ?? ''));
+      $vat = trim((string)($_POST['line_vat_rate'][$i] ?? ''));
+      $total = trim((string)($_POST['line_total'][$i] ?? ''));
+      if ($description === '' && $quantity === '' && $unit === '' && $price === '' && $vat === '' && $total === '') continue;
+      if (strlen($description) > 180 || strlen($unit) > 20 || preg_match('/[\\x00-\\x1F]/', $description . $unit)) { http_response_code(400); exit('Ongeldige factuurregel.'); }
+      foreach ([$quantity, $price, $vat, $total] as $number) {
+        if ($number !== '' && !preg_match('/^\\d{1,9}(?:[.,]\\d{1,3})?$/D', $number)) { http_response_code(400); exit('Ongeldig regelbedrag of aantal.'); }
+      }
+      if ($quantity !== '' && $price !== '' && $total !== '' && abs((float)str_replace(',', '.', $quantity) * (float)str_replace(',', '.', $price) - (float)str_replace(',', '.', $total)) > 0.03) {
+        http_response_code(400); exit('Regeltotaal wijkt af van aantal maal prijs.');
+      }
+      $lineRows[] = ['description'=>$description, 'quantity'=>$quantity, 'unit'=>$unit,
+        'unit_price'=>$price, 'vat_rate'=>$vat, 'line_total'=>$total];
+    }
     $selectedProject = trim((string)($_POST['office_project_id'] ?? ''));
     $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
     $visibleProjects = $access->draftProjects();
@@ -136,6 +157,7 @@ try {
     }
     $record['office_project_id'] = $selectedProject === '' ? null : (int)$selectedProject;
     $record['review'] = $review;
+    $record['review_lines'] = $lineRows;
     $record['status'] = 'manual_review_incomplete';
     $record['reviewed_at'] = gmdate('c');
     $record['reviewed_by'] = $operator->operatorId;
@@ -243,6 +265,7 @@ try {
       $projectChoices[(int)$project['office_project_id']] = (string)$project['title'];
     }
     $data['draft']['project_choices'] = $projectChoices;
+    $data['draft']['review_lines'] = $record['review_lines'] ?? null;
     $data['draft']['office_project_id'] = $record['office_project_id'] ?? null;
 
     $data['draft']['imported_duplicate_candidates'] = $number === '' ? [] :
