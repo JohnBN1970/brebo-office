@@ -166,7 +166,7 @@ final class OfficeFinanceView {
     }
     $html .= '</select></label>';
     if ($choices === []) $html .= '<p style="grid-column:1/-1">Geen geverifieerde projecten beschikbaar binnen je huidige toegangsrechten.</p>';
-    $lines = is_array($draft['review_lines'] ?? null) ? $draft['review_lines'] : ($draft['line_proposals'] ?? []);
+    $lines = is_array($draft['review_lines'] ?? null) && $draft['review_lines'] !== [] ? $draft['review_lines'] : ($draft['line_proposals'] ?? []);
     $lines = array_slice($lines, 0, 30);
     // Financial check uses saved lines only; extraction proposals are never approved implicitly.
     $savedLines = is_array($draft['review_lines'] ?? null) ? $draft['review_lines'] : [];
