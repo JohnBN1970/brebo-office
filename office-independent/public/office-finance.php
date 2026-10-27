@@ -340,6 +340,11 @@ try {
         ];
       }
     }
+    if (getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') === 'enabled' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+      foreach ((new \Brebo\Office\Finance\OfficeOutgoingInvoiceRepository($db))->listForOperator($operator->operatorId, $projectId) as $draft) {
+        $rows[] = ['id'=>0, 'direction'=>'outgoing', 'number'=>'Concept #' . $draft['id'], 'relation'=>$draft['customer_name'], 'project_id'=>$draft['office_project_id'], 'project_label'=>'', 'status'=>$draft['status'], 'amount_inc_vat'=>''];
+      }
+    }
     $html = \Brebo\Office\Finance\OfficeInvoiceListView::render($rows, $direction, $search, $projectId);
     $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facturen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f6fa;color:#17283a;margin:0;padding:24px}main{max-width:1200px;margin:auto;background:white;padding:24px;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce4ed}form{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{padding:8px}nav{margin-bottom:20px}.notice{padding:12px;background:#fff0b3}</style></head><body><main><nav><a href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('finance'), ENT_QUOTES, 'UTF-8') . '">Finance</a></nav>' . $html . '<p class="notice">Dit overzicht bevat maximaal 5.000 recentste, toegankelijke inkoopfacturen, inclusief afgesloten facturen. Uitgaande facturen zijn nog niet aangesloten.</p></main></body></html>';
   } else {
