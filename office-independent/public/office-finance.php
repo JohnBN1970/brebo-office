@@ -125,7 +125,7 @@ try {
     }
     $selectedProject = trim((string)($_POST['office_project_id'] ?? ''));
     $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
-    $visibleProjects = $access->visibleProjects();
+    $visibleProjects = $access->draftProjects();
     if ($selectedProject !== '') {
       if (!ctype_digit($selectedProject) || (int)$selectedProject < 1) throw new \DomainException();
       $authorized = false;
@@ -236,7 +236,7 @@ try {
     $data['draft']['duplicate_candidates'] = array_slice($matches, 0, 20);
     $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
     $projectChoices = [];
-    foreach ($access->visibleProjects() as $project) {
+    foreach ($access->draftProjects() as $project) {
       $projectChoices[(int)$project['office_project_id']] = (string)$project['title'];
     }
     $data['draft']['project_choices'] = $projectChoices;
