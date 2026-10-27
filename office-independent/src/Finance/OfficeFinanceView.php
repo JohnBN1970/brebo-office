@@ -53,7 +53,7 @@ final class OfficeFinanceView {
     if ($rows === []) $html .= '<p>Geen facturen in deze selectie. Kies een andere werkvoorraad of pas de zoekopdracht aan.</p>';
     else {
       $html .= '<div class="table"><table><thead><tr><th>Factuur / leverancier</th><th>Project</th><th>Vervaldatum</th><th>Inclusief btw</th><th>Controle</th></tr></thead><tbody>';
-      foreach (array_slice($rows,($page-1)*50,50) as $row) $html .= '<tr><td><a href="'.$e($url('finance/factuur',['id'=>$row['invoice_id']])).'">'.$e($row['invoice_number']).'</a><br><small>'.$e($row['supplier_name']).'</small></td><td>'.$e($row['project_label']).'</td><td>'.self::date($row['due_date']).'<br><small>'.$e($row['priority']).'</small></td><td class="amount">'.self::money($row['amount_inc_vat']).'</td><td>'.$row['blocked_lines'].' blokkades · '.$row['unmatched_lines'].' ongematcht</td></tr>';
+      foreach (array_slice($rows,($page-1)*50,50) as $row) $html .= '<tr><td><a href="'.$e($url('finance/factuur',['id'=>$row['invoice_id']])).'">'.$e($row['invoice_number']).'</a><br><small>'.$e($row['supplier_name']).'</small></td><td>'.$e($row['project_label']).'</td><td>'.self::date($row['due_date']).'<br><small>'.$e($row['priority']).'</small></td><td class="amount">'.self::money($row['amount_inc_vat']).'</td><td>' . (isset($row['line_count']) && (int)$row['line_count'] === 0 ? 'Controle niet mogelijk — factuurregels ontbreken' : $row['blocked_lines'].' blokkades · '.$row['unmatched_lines'].' ongematcht') . '</td></tr>';
       $html .= '</tbody></table></div><nav aria-label="Paginering">';
       if ($page>1) $html .= '<a href="'.$e($url('finance/betaalcentrum',['queue'=>$queue,'q'=>$search,'page'=>$page-1])).'">Vorige</a>';
       $html .= '<span>Pagina '.$page.' van '.$pages.'</span>';
@@ -66,7 +66,9 @@ final class OfficeFinanceView {
   private static function invoice(array $data): string {
     $e = self::e(...);
     $invoice = $data['invoice'];
-    $html = '<section><h2>'.$e($invoice['invoice_number']).'</h2><p>'.$e($invoice['supplier_name']).' · '.self::money($invoice['amount_inc_vat']).' inclusief btw · Vervalt '.self::date($invoice['due_date']).'</p><p>'.$data['summary']['blocked_lines'].' geblokkeerde regels · '.$data['summary']['unmatched_lines'].' ongematchte regels</p>';
+    $hasLines = !empty($data['lines']);
+    $html = '<section><h2>'.$e($invoice['invoice_number']).'</h2><p>'.$e($invoice['supplier_name']).' · '.self::money($invoice['amount_inc_vat']).' inclusief btw · Vervalt '.self::date($invoice['due_date']).'</p>';
+    $html .= $hasLines ? '<p>'.$data['summary']['blocked_lines'].' geblokkeerde regels · '.$data['summary']['unmatched_lines'].' ongematchte regels</p>' : '<p class="notice" role="alert"><strong>Controle niet mogelijk — factuurregels ontbreken.</strong> De factuur is niet inhoudelijk gecontroleerd. Nul blokkades betekent hier niet dat de factuur akkoord is. Betaalvrijgave is niet toegestaan zonder de vereiste controles.</p>';
     $status = ['pending_approval'=>'Ter goedkeuring','approved'=>'Goedgekeurd','rejected'=>'Afgewezen','cancelled'=>'Geannuleerd','executed'=>'Uitgevoerd'];
     $release = $data['payment_release']['status'] ?? '';
     $html .= '<p>Laatste betaalvrijgave: '.$e($status[$release] ?? ($release === '' ? 'Geen vrijgave' : 'Overige status')).'</p><p>G-rekeninginstructie: '.($data['g_account'] === null ? 'Geen instructie' : 'Aanwezig').'</p><details open><summary>Factuurregels en blokkades</summary><div class="table"><table><thead><tr><th>Regel</th><th>Omschrijving</th><th>Inclusief btw</th><th>Controle</th></tr></thead><tbody>';
