@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Finance/**'
+      - 'office-independent/public/office-finance-sales-new.php'
       - 'office-independent/tests/Office*Invoice*Test.php'
       - 'office-independent/tests/OfficeVatRegimeCatalogTest.php'
       - 'office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php'
@@ -40,7 +41,7 @@ jobs:
       - name: Finance syntax and unit tests
         run: |
           set -eu
-          for file in office-independent/src/Finance/OfficeOutgoingInvoiceDraft.php office-independent/src/Finance/OfficeOutgoingInvoiceRepository.php office-independent/src/Finance/OfficeVatRegimeCatalog.php office-independent/public/office-finance-sales-new.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php; do
+          for file in office-independent/src/Finance/*.php office-independent/public/office-finance*.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php
