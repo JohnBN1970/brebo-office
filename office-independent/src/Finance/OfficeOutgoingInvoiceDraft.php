@@ -4,7 +4,8 @@ namespace Brebo\Office\Finance;
 
 final class OfficeOutgoingInvoiceDraft {
   public static function validate(array $input): array {
-    $customer = trim((string)($input['customer_name'] ?? ''));
+    if (!is_string($input['customer_name'] ?? null)) throw new \InvalidArgumentException('Invalid customer name');
+    $customer = trim($input['customer_name']);
     $projectId = filter_var($input['office_project_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
     $lines = $input['lines'] ?? null;
     if ($customer === '' || strlen($customer) > 160 || !$projectId || !is_array($lines) || count($lines) < 1 || count($lines) > 100) {
@@ -13,7 +14,8 @@ final class OfficeOutgoingInvoiceDraft {
     $normalized = [];
     foreach ($lines as $line) {
       if (!is_array($line)) throw new \InvalidArgumentException('Invalid line');
-      $description = trim((string)($line['description'] ?? ''));
+      if (!is_string($line['description'] ?? null)) throw new \InvalidArgumentException('Invalid description');
+      $description = trim($line['description']);
       $quantity = $line['quantity'] ?? null;
       $price = $line['unit_price'] ?? null;
       $vat = $line['vat_regime_id'] ?? null;
