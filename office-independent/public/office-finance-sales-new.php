@@ -35,6 +35,8 @@ try {
     $input = ['customer_name'=>$_POST['customer_name'] ?? null,'office_project_id'=>$_POST['office_project_id'] ?? null,'lines'=>[['description'=>$_POST['description'] ?? null,'quantity'=>$_POST['quantity'] ?? null,'unit_price'=>$_POST['unit_price'] ?? null,'vat_regime_id'=>$_POST['vat_regime_id'] ?? null]]];
     try {
       $draftId = (new \Brebo\Office\Finance\OfficeOutgoingInvoiceRepository($db))->create($operator->operatorId, $input);
+      // Invalidate the submitted token after a successful write to reject a replay.
+      unset($_SESSION['sales_draft_csrf']);
       header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/facturen', ['direction'=>'outgoing']), true, 303);
       exit;
     } catch (\InvalidArgumentException | \DomainException $validationError) { http_response_code(422); exit('Controleer project, factuurregels en btw-regime.'); }
