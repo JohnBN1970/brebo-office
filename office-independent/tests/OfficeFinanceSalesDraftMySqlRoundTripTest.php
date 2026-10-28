@@ -18,6 +18,11 @@ $db = new PDO($dsn, getenv('OFFICE_FINANCE_INTEGRATION_USER') ?: '', getenv('OFF
 foreach (['OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED','OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED','OFFICE_VAT_REGIMES_SCHEMA_VERIFIED'] as $flag) {
   if (getenv($flag) !== 'enabled') throw new RuntimeException($flag . ' required');
 }
+// This test inserts fixed fixture IDs and must NEVER run against a persistent database.
+$database = (string)$db->query('SELECT DATABASE()')->fetchColumn();
+if ($database !== 'office_finance_ci' || getenv('GITHUB_ACTIONS') !== 'true') {
+  throw new RuntimeException('Round-trip writes allowed only in disposable GitHub Actions office_finance_ci database');
+}
 $db->beginTransaction();
 try {
   $db->exec("INSERT INTO office_operator_accounts (id,active) VALUES ('finance_ci_writer',1),('finance_ci_reader',1)");
