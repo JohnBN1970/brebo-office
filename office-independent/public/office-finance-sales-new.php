@@ -15,7 +15,11 @@ try {
   if ($operator === null) { header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302); exit; }
   $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
   if (!$access->allows()) { http_response_code(403); exit; }
-  $projects = $access->draftProjects();
+  $projects = array_values(array_filter($access->draftProjects(), static function (array $project) use ($db, $operator): bool {
+    $q = $db->prepare("SELECT 1 FROM office_project_memberships WHERE operator_id=? AND project_id=? AND permission='manage' LIMIT 1");
+    $q->execute([$operator->operatorId, $project['office_project_id']]);
+    return $q->fetchColumn() !== false;
+  }));
   $vatOptions = (new \Brebo\Office\Finance\OfficeVatRegimeCatalog($db))->activeOptions();
   $editable = getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') === 'enabled' && getenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED') === 'enabled';
   if (session_status() !== PHP_SESSION_ACTIVE) {
