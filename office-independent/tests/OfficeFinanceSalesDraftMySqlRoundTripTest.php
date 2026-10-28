@@ -21,7 +21,7 @@ foreach (['OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED','OFFICE_FINANCE_SALES_DR
 $db->beginTransaction();
 try {
   $db->exec("INSERT INTO office_operator_accounts (id,active) VALUES ('finance_ci_writer',1),('finance_ci_reader',1)");
-  $db->exec("INSERT INTO office_projects (id,title) VALUES (990001,'Finance CI Project')");
+  $db->exec("INSERT INTO office_projects (id,title) VALUES (990001,'Finance CI Project'),(990002,'Finance CI Restricted')");
   $db->exec("INSERT INTO office_module_permissions (operator_id,module,permission) VALUES ('finance_ci_writer','finance','read'),('finance_ci_reader','finance','read')");
   $db->exec("INSERT INTO office_project_memberships (operator_id,project_id,permission) VALUES ('finance_ci_writer',990001,'manage'),('finance_ci_reader',990001,'read')");
   $db->exec("INSERT INTO office_vat_regimes (code,label,rate,treatment,active,sort_order) VALUES ('CI_21','CI tax',21.0000,'normal',1,1)");
@@ -56,6 +56,21 @@ try {
     if ($expected->getMessage() !== 'Finance access required') throw $expected;
   }
   $db->exec("UPDATE office_operator_accounts SET active=1 WHERE id='finance_ci_reader'");
+  // Finance module access alone must never grant access to an unrelated project.
+  $otherProject = $input;
+  $otherProject['office_project_id'] = 990002;
+  try {
+    $repo->create('finance_ci_writer', $otherProject);
+    throw new RuntimeException('Writer created draft for unrelated project');
+  } catch (DomainException $expected) {
+    if ($expected->getMessage() !== 'Project unavailable') throw $expected;
+  }
+  try {
+    $repo->listForOperator('finance_ci_writer', 990002);
+    throw new RuntimeException('Writer read unrelated project');
+  } catch (OutOfBoundsException $expected) {
+    if ($expected->getMessage() !== 'Project unavailable') throw $expected;
+  }
   $id = $repo->create('finance_ci_writer', $input);
   if ($id < 1) throw new RuntimeException('No draft ID');
   $list = $repo->listForOperator('finance_ci_writer', 990001);
