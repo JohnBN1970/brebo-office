@@ -9,6 +9,7 @@ on:
       - 'office-independent/tests/OfficeVatRegimeCatalogTest.php'
       - 'office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php'
       - 'office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php'
+      - 'office-independent/tests/OfficeFinanceSalesDraftCsrfRegressionTest.php'
       - 'office-independent/deployment/office-finance-sales-drafts.sql'
       - 'office-independent/deployment/office-vat-regimes.sql'
       - '.github/workflows/office-finance-sales-drafts.yml'
@@ -41,12 +42,13 @@ jobs:
       - name: Finance syntax and unit tests
         run: |
           set -eu
-          for file in office-independent/src/Finance/*.php office-independent/public/office-finance*.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php; do
+          for file in office-independent/src/Finance/*.php office-independent/public/office-finance*.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php office-independent/tests/OfficeFinanceSalesDraftCsrfRegressionTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php
           php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php
           php office-independent/tests/OfficeVatRegimeCatalogTest.php
+          php office-independent/tests/OfficeFinanceSalesDraftCsrfRegressionTest.php
       - name: Prepare isolated MySQL fixture schema
         env:
           MYSQL_PWD: test-root-only
