@@ -29,10 +29,23 @@ $required = [
 ];
 foreach ($required as $table => $columns) {
   $query = $db->query('SHOW COLUMNS FROM `' . $table . '`');
-  $actual = array_column($query->fetchAll(PDO::FETCH_ASSOC), 'Field');
+  $definitions = $query->fetchAll(PDO::FETCH_ASSOC);
+  $actual = array_column($definitions, 'Field');
   $missing = array_diff($columns, $actual);
   if ($missing !== []) throw new RuntimeException($table . ' missing: ' . implode(',', $missing));
-
+  if ($table === 'office_finance_sales_drafts') {
+    $types = array_column($definitions, 'Type', 'Field');
+    if (strtolower((string)$types['lines_json']) !== 'json'
+      || !str_starts_with(strtolower((string)$types['id']), 'bigint')
+      || !str_starts_with(strtolower((string)$types['office_project_id']), 'bigint')) {
+      throw new RuntimeException('Sales draft schema column types mismatch');
+    }
+    $indexes = $db->query('SHOW INDEX FROM `office_finance_sales_drafts`')->fetchAll(PDO::FETCH_ASSOC);
+    $indexNames = array_column($indexes, 'Key_name');
+    foreach (['PRIMARY', 'idx_sales_drafts_project', 'idx_sales_drafts_operator'] as $name) {
+      if (!in_array($name, $indexNames, true)) throw new RuntimeException('Sales draft index missing: ' . $name);
+    }
+  }
 }
 require_once dirname(__DIR__) . '/src/Finance/OfficeVatRegimeCatalog.php';
 if (getenv('OFFICE_VAT_REGIMES_SCHEMA_VERIFIED') === 'enabled') {
