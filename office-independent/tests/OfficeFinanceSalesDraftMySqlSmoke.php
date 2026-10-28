@@ -24,12 +24,15 @@ $required = [
   'office_vat_regimes' => ['code','label','rate','treatment','active','sort_order'],
   'office_module_permissions' => ['operator_id','module','permission'],
   'office_project_memberships' => ['operator_id','project_id','permission'],
+  'office_operator_accounts' => ['id','active'],
+  'office_projects' => ['id','title'],
 ];
 foreach ($required as $table => $columns) {
   $query = $db->query('SHOW COLUMNS FROM `' . $table . '`');
   $actual = array_column($query->fetchAll(PDO::FETCH_ASSOC), 'Field');
   $missing = array_diff($columns, $actual);
   if ($missing !== []) throw new RuntimeException($table . ' missing: ' . implode(',', $missing));
+
 }
 require_once dirname(__DIR__) . '/src/Finance/OfficeVatRegimeCatalog.php';
 if (getenv('OFFICE_VAT_REGIMES_SCHEMA_VERIFIED') === 'enabled') {
