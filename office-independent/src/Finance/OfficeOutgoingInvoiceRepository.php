@@ -9,6 +9,11 @@ final class OfficeOutgoingInvoiceRepository {
   public function __construct(private readonly PDO $db) {}
 
   public function create(string $operatorId, array $input): int {
+    if (getenv('OFFICE_BASE_PATH') !== '/office-test'
+      || getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED') !== 'enabled') {
+      throw new \DomainException('Sales draft creation not enabled');
+    }
     $vatOptions = (new OfficeVatRegimeCatalog($this->db))->activeOptions();
     $draft = OfficeOutgoingInvoiceDraft::validate($input, array_keys($vatOptions));
     $access = new OfficeFinanceAccess($this->db, $operatorId);
