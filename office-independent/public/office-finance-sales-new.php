@@ -30,6 +30,7 @@ try {
   // Generate tokens only for GET: a replayed POST must never mint a new token.
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !is_string($_SESSION['sales_draft_csrf'] ?? null)) $_SESSION['sales_draft_csrf'] = bin2hex(random_bytes(32));
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!isset($_SESSION['sales_draft_csrf']) || !is_string($_SESSION['sales_draft_csrf'])) { http_response_code(403); exit('Ongeldige formulierherkomst.'); }
     if (!$editable) { http_response_code(503); exit('Conceptopslag niet vrijgegeven.'); }
     if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) { http_response_code(413); exit('Formulier te groot.'); }
     if (!is_string($_POST['csrf'] ?? null) || !is_string($_SESSION['sales_draft_csrf'] ?? null) || !hash_equals($_SESSION['sales_draft_csrf'], $_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierherkomst.'); }
