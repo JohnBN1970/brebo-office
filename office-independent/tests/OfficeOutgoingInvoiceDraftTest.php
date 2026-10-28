@@ -7,7 +7,7 @@ use Brebo\Office\Finance\OfficeOutgoingInvoiceDraft;
 
 function expectInvalid(array $data): void {
   try {
-    OfficeOutgoingInvoiceDraft::validate($data);
+    OfficeOutgoingInvoiceDraft::validate($data, ['standard']);
   } catch (InvalidArgumentException $e) {
     return;
   }
@@ -21,7 +21,7 @@ $valid = [
     ['description'=>'Montage', 'quantity'=>'2.000', 'unit_price'=>'50.00', 'vat_regime_id'=>'standard'],
   ],
 ];
-$draft = OfficeOutgoingInvoiceDraft::validate($valid);
+$draft = OfficeOutgoingInvoiceDraft::validate($valid, ['standard']);
 if ($draft['status'] !== 'draft' || $draft['office_project_id'] !== 7) throw new RuntimeException('Invalid normalization');
 $missingVat = $valid;
 unset($missingVat['lines'][0]['vat_regime_id']);
@@ -29,4 +29,9 @@ expectInvalid($missingVat);
 $invalidQuantity = $valid;
 $invalidQuantity['lines'][0]['quantity'] = '0';
 expectInvalid($invalidQuantity);
+$unknownVat = $valid;
+$unknownVat['lines'][0]['vat_regime_id'] = 'unknown';
+expectInvalid($unknownVat);
+try { OfficeOutgoingInvoiceDraft::validate($valid); throw new RuntimeException('Missing VAT catalog was accepted'); }
+catch (DomainException $e) { /* Expected: no silent default. */ }
 echo "Outgoing invoice draft validation OK\n";
