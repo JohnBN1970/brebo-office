@@ -115,6 +115,23 @@ try {
   }
   $readList = $repo->listForOperator('finance_ci_reader', 990001);
   if (count($readList) !== 1) throw new RuntimeException('Read-only project visibility failed');
+  // A second project must never appear in a first-project filtered register.
+  $db->exec("INSERT INTO office_project_memberships (operator_id,project_id,permission) VALUES ('finance_ci_writer',990002,'manage')");
+  $second = $input;
+  $second['office_project_id'] = 990002;
+  $second['customer_name'] = 'CI Other Project';
+  $secondId = $repo->create('finance_ci_writer', $second);
+  if ($secondId < 1 || $secondId === $id) throw new RuntimeException('Second project draft ID invalid');
+  $firstProject = $repo->listForOperator('finance_ci_writer', 990001);
+  $secondProject = $repo->listForOperator('finance_ci_writer', 990002);
+  if (count($firstProject) !== 1 || (int)$firstProject[0]['id'] !== $id
+    || count($secondProject) !== 1 || (int)$secondProject[0]['id'] !== $secondId) {
+    throw new RuntimeException('Sales draft project register isolation failed');
+  }
+  $readerList = $repo->listForOperator('finance_ci_reader');
+  if (count($readerList) !== 1 || (int)$readerList[0]['id'] !== $id) {
+    throw new RuntimeException('Reader can see draft outside authorized projects');
+  }
   echo "Finance sales draft MySQL round-trip OK\n";
 } finally {
   if ($db->inTransaction()) $db->rollBack();
