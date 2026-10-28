@@ -31,7 +31,7 @@ try {
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$editable) { http_response_code(503); exit('Conceptopslag niet vrijgegeven.'); }
     if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) { http_response_code(413); exit('Formulier te groot.'); }
-    if (!is_string($_POST['csrf'] ?? null) || !hash_equals($_SESSION['sales_draft_csrf'], $_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierherkomst.'); }
+    if (!is_string($_POST['csrf'] ?? null) || !is_string($_SESSION['sales_draft_csrf'] ?? null) || !hash_equals($_SESSION['sales_draft_csrf'], $_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierherkomst.'); }
     $input = ['customer_name'=>$_POST['customer_name'] ?? null,'office_project_id'=>$_POST['office_project_id'] ?? null,'lines'=>[['description'=>$_POST['description'] ?? null,'quantity'=>$_POST['quantity'] ?? null,'unit_price'=>$_POST['unit_price'] ?? null,'vat_regime_id'=>$_POST['vat_regime_id'] ?? null]]];
     try {
       $draftId = (new \Brebo\Office\Finance\OfficeOutgoingInvoiceRepository($db))->create($operator->operatorId, $input);
