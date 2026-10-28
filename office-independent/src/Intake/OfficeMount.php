@@ -52,6 +52,8 @@ final class OfficeMount {
       'calc-werkbank' => '/calc-werkbank',
       'projecten/detail' => '/projecten/detail',
       'finance' => '/finance',
+      'finance/facturen' => '/finance/facturen',
+      'finance/verkoop/nieuw' => '/finance/verkoop/nieuw',
       'finance/betaalcentrum' => '/finance/betaalcentrum',
       'finance/factuur' => '/finance/factuur',
       'finance/nieuw' => '/finance/nieuw',

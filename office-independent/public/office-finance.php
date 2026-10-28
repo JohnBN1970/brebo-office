@@ -49,7 +49,7 @@ try {
   }
   if (!isset($_SESSION['finance_upload_csrf'])) $_SESSION['finance_upload_csrf'] = bin2hex(random_bytes(32));
   $view = $officeFinanceView ?? 'dashboard';
-  if (!in_array($view, ['dashboard','payments','invoice','new','draft'], true)) throw new \OutOfBoundsException();
+  if (!in_array($view, ['dashboard','payments','invoice','new','draft','list'], true)) throw new \OutOfBoundsException();
   $invoiceId = null;
   if ($view === 'invoice') {
     $invoiceId = filter_var($_GET['id'] ?? '', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
@@ -316,7 +316,48 @@ try {
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
-  $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
+  if ($view === 'list') {
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceDirection.php';
+    require_once dirname(__DIR__) . '/src/Finance/OfficeIncomingInvoiceQueueAdapter.php';
+    require_once dirname(__DIR__) . '/src/Finance/OfficeInvoiceListView.php';
+    $direction = is_string($_GET['direction'] ?? null) ? $_GET['direction'] : 'all';
+    $rows = [];
+    if (empty($data['finance_unlinked_project'])) {
+      $register = (new \Brebo\Office\Finance\OfficeFinanceApplication(
+        $db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(),
+        getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''
+      ))->purchaseRegister($operator->operatorId, $projectId);
+      foreach ($register as $invoice) {
+        $rows[] = [
+          'id'=>(int)$invoice['id'],
+          'direction'=>'incoming',
+          'number'=>(string)($invoice['invoice_number'] ?? ''),
+          'relation'=>(string)($invoice['supplier_name'] ?? ''),
+          'project_id'=>$invoice['office_project_id'] ?? 0,
+          'project_label'=>(string)($invoice['office_project_title'] ?? ''),
+          'status'=>(string)($invoice['status'] ?? ''),
+          'amount_inc_vat'=>(string)($invoice['amount_inc_vat'] ?? ''),
+        ];
+      }
+    }
+    if (getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') === 'enabled' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+      foreach ((new \Brebo\Office\Finance\OfficeOutgoingInvoiceRepository($db))->listForOperator($operator->operatorId, $projectId) as $draft) {
+        $rows[] = ['id'=>0, 'direction'=>'outgoing', 'number'=>'Concept #' . $draft['id'], 'relation'=>$draft['customer_name'], 'project_id'=>$draft['office_project_id'], 'project_label'=>'', 'status'=>$draft['status'], 'amount_inc_vat'=>''];
+      }
+    }
+    $projectLabels = [];
+    foreach ((new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->draftProjects() as $project) {
+      $projectLabels[(int)$project['office_project_id']] = (string)$project['title'];
+    }
+    foreach ($rows as &$row) {
+      if ($row['direction'] === 'outgoing') $row['project_label'] = $projectLabels[(int)$row['project_id']] ?? '';
+    }
+    unset($row);
+    $html = \Brebo\Office\Finance\OfficeInvoiceListView::render($rows, $direction, $search, $projectId);
+    $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facturen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f6fa;color:#17283a;margin:0;padding:24px}main{max-width:1200px;margin:auto;background:white;padding:24px;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce4ed}form{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}input,select,button{padding:8px}nav{margin-bottom:20px}.notice{padding:12px;background:#fff0b3}</style></head><body><main><nav><a href="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('finance'), ENT_QUOTES, 'UTF-8') . '">Finance</a></nav>' . $html . '<p class="notice">Dit overzicht bevat maximaal 5.000 recentste, toegankelijke inkoopfacturen, inclusief afgesloten facturen. Uitgaande concepten worden alleen getoond wanneer de testdatabase hiervoor is vrijgegeven.</p></main></body></html>';
+  } else {
+    $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
+  }
 } catch (\DomainException $e) {
   http_response_code(403);
   exit('Geen toegang tot Finance.');

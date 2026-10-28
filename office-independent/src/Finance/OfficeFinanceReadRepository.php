@@ -56,6 +56,10 @@ final class OfficeFinanceReadRepository implements PayablesWorkQueueRepositoryIn
     $this->db->query($this->sourceSql('SELECT id FROM brebo_finance_performance_receipt WHERE 1=0'));
     return true;
   }
+  /** All authorized purchase invoices, including paid and cancelled records. */
+  public function allPurchaseInvoices(): array {
+    return $this->rows('SELECT i.id,i.invoice_number,i.supplier_name,i.project_nid,i.status,i.amount_inc_vat FROM brebo_finance_purchase_invoice i WHERE ' . $this->scope() . ' ORDER BY i.id DESC LIMIT 5000');
+  }
   public function openInvoices(): array {
     return $this->rows("SELECT i.* FROM brebo_finance_purchase_invoice i WHERE " . $this->scope() . " AND i.status NOT IN ('paid','cancelled') ORDER BY i.due_date,i.id");
   }
