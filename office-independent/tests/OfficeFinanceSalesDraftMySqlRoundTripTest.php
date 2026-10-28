@@ -94,6 +94,19 @@ try {
   } finally {
     $db->exec("UPDATE office_vat_regimes SET active=1 WHERE code='CI_21'");
   }
+  // A database write failure must roll back without leaving a partial draft.
+  $before = (int)$db->query('SELECT COUNT(*) FROM office_finance_sales_drafts')->fetchColumn();
+  $db->exec("ALTER TABLE office_finance_sales_drafts ADD CONSTRAINT chk_finance_ci_customer CHECK (customer_name <> 'CI_BLOCKED')");
+  $blocked = $input;
+  $blocked['customer_name'] = 'CI_BLOCKED';
+  try {
+    $repo->create('finance_ci_writer', $blocked);
+    throw new RuntimeException('Database constraint did not reject blocked draft');
+  } catch (PDOException $expected) {
+    if ($db->inTransaction()) throw new RuntimeException('Failed draft transaction remains open');
+  }
+  $after = (int)$db->query('SELECT COUNT(*) FROM office_finance_sales_drafts')->fetchColumn();
+  if ($before !== $after) throw new RuntimeException('Failed draft left a partial record');
   $id = $repo->create('finance_ci_writer', $input);
   if ($id < 1) throw new RuntimeException('No draft ID');
   $list = $repo->listForOperator('finance_ci_writer', 990001);
