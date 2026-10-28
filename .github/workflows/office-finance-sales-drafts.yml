@@ -7,6 +7,7 @@ on:
       - 'office-independent/tests/Office*Invoice*Test.php'
       - 'office-independent/tests/OfficeVatRegimeCatalogTest.php'
       - 'office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php'
+      - 'office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php'
       - 'office-independent/deployment/office-finance-sales-drafts.sql'
       - 'office-independent/deployment/office-vat-regimes.sql'
       - '.github/workflows/office-finance-sales-drafts.yml'
@@ -39,7 +40,7 @@ jobs:
       - name: Finance syntax and unit tests
         run: |
           set -eu
-          for file in office-independent/src/Finance/OfficeOutgoingInvoiceDraft.php office-independent/src/Finance/OfficeOutgoingInvoiceRepository.php office-independent/src/Finance/OfficeVatRegimeCatalog.php office-independent/public/office-finance-sales-new.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php; do
+          for file in office-independent/src/Finance/OfficeOutgoingInvoiceDraft.php office-independent/src/Finance/OfficeOutgoingInvoiceRepository.php office-independent/src/Finance/OfficeVatRegimeCatalog.php office-independent/public/office-finance-sales-new.php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php office-independent/tests/OfficeOutgoingInvoiceRepositoryGateTest.php office-independent/tests/OfficeVatRegimeCatalogTest.php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeOutgoingInvoiceDraftTest.php
@@ -52,6 +53,8 @@ jobs:
           mysql -h 127.0.0.1 -uroot office_finance_ci < office-independent/deployment/office-finance-sales-drafts.sql
           mysql -h 127.0.0.1 -uroot office_finance_ci < office-independent/deployment/office-vat-regimes.sql
           mysql -h 127.0.0.1 -uroot office_finance_ci <<'SQL'
+          CREATE TABLE office_operator_accounts (id VARCHAR(64) PRIMARY KEY, active TINYINT NOT NULL);
+          CREATE TABLE office_projects (id BIGINT UNSIGNED PRIMARY KEY, title VARCHAR(160) NOT NULL);
           CREATE TABLE office_module_permissions (
             operator_id VARCHAR(64) NOT NULL,
             module VARCHAR(64) NOT NULL,
@@ -71,3 +74,13 @@ jobs:
           OFFICE_FINANCE_INTEGRATION_PASSWORD: test-root-only
           OFFICE_VAT_REGIMES_SCHEMA_VERIFIED: disabled
         run: php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php
+      - name: Sales draft MySQL round-trip and ACL
+        env:
+          OFFICE_BASE_PATH: /office-test
+          OFFICE_FINANCE_INTEGRATION_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_finance_ci;charset=utf8mb4
+          OFFICE_FINANCE_INTEGRATION_USER: root
+          OFFICE_FINANCE_INTEGRATION_PASSWORD: test-root-only
+          OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED: enabled
+          OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED: enabled
+          OFFICE_VAT_REGIMES_SCHEMA_VERIFIED: enabled
+        run: php office-independent/tests/OfficeFinanceSalesDraftMySqlRoundTripTest.php
