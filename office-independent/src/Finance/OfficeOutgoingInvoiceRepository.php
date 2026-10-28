@@ -16,6 +16,9 @@ final class OfficeOutgoingInvoiceRepository {
       if ((int)$project['office_project_id'] === $draft['office_project_id']) $allowed = true;
     }
     if (!$allowed) throw new \DomainException('Project unavailable');
+    $permission = $this->db->prepare("SELECT 1 FROM office_project_memberships WHERE operator_id=? AND project_id=? AND permission='manage' LIMIT 1");
+    $permission->execute([$operatorId, $draft['office_project_id']]);
+    if ($permission->fetchColumn() === false) throw new \DomainException('Project write access required');
     $this->db->beginTransaction();
     try {
       $q = $this->db->prepare("INSERT INTO office_finance_sales_drafts (operator_id,office_project_id,customer_name,status,lines_json,created_at) VALUES (?,?,?,'draft',?,UTC_TIMESTAMP())");
