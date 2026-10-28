@@ -20,8 +20,8 @@ try {
     $q->execute([$operator->operatorId, $project['office_project_id']]);
     return $q->fetchColumn() !== false;
   }));
-  $vatOptions = (new \Brebo\Office\Finance\OfficeVatRegimeCatalog($db))->activeOptions();
-  $editable = getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') === 'enabled' && getenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED') === 'enabled';
+  $editable = getenv('OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED') === 'enabled' && getenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED') === 'enabled' && getenv('OFFICE_VAT_REGIMES_SCHEMA_VERIFIED') === 'enabled';
+  $vatOptions = $editable ? (new \Brebo\Office\Finance\OfficeVatRegimeCatalog($db))->activeOptions() : [];
   if (session_status() !== PHP_SESSION_ACTIVE) {
     session_name('brebo_finance_sales_test');
     session_set_cookie_params(['secure'=>true,'httponly'=>true,'samesite'=>'Strict','path'=>'/office-test']);
