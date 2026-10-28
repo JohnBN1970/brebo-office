@@ -12,6 +12,7 @@ final class OfficeOutgoingInvoiceDraft {
       throw new \InvalidArgumentException('Invalid invoice draft');
     }
     if ($activeVatRegimes === []) throw new \DomainException('Active VAT regimes unavailable');
+    if (count($activeVatRegimes) !== count(array_unique($activeVatRegimes))) throw new \DomainException('Duplicate VAT regime configuration');
     $normalized = [];
     foreach ($lines as $line) {
       if (!is_array($line)) throw new \InvalidArgumentException('Invalid line');
