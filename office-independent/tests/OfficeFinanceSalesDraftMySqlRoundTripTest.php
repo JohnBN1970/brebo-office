@@ -37,6 +37,25 @@ try {
   } catch (DomainException $expected) {
     if ($expected->getMessage() !== 'Project write access required') throw $expected;
   }
+  // Feature gate must reject writes even when project ACL would allow them.
+  putenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED=disabled');
+  try {
+    $repo->create('finance_ci_writer', $input);
+    throw new RuntimeException('Disabled sales draft feature accepted a write');
+  } catch (DomainException $expected) {
+    if ($expected->getMessage() !== 'Sales draft creation not enabled') throw $expected;
+  } finally {
+    putenv('OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED=enabled');
+  }
+  // An inactive operator must not gain access from retained permission rows.
+  $db->exec("UPDATE office_operator_accounts SET active=0 WHERE id='finance_ci_reader'");
+  try {
+    $repo->listForOperator('finance_ci_reader', 990001);
+    throw new RuntimeException('Inactive operator could read sales drafts');
+  } catch (DomainException $expected) {
+    if ($expected->getMessage() !== 'Finance access required') throw $expected;
+  }
+  $db->exec("UPDATE office_operator_accounts SET active=1 WHERE id='finance_ci_reader'");
   $id = $repo->create('finance_ci_writer', $input);
   if ($id < 1) throw new RuntimeException('No draft ID');
   $list = $repo->listForOperator('finance_ci_writer', 990001);
