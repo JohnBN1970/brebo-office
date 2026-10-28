@@ -27,6 +27,9 @@ final class OfficeOutgoingInvoiceRepository {
     if ($permission->fetchColumn() === false) throw new \DomainException('Project write access required');
     $this->db->beginTransaction();
     try {
+      // Recheck permissions inside the write transaction to limit access-change races.
+      $permission->execute([$operatorId, $draft['office_project_id']]);
+      if ($permission->fetchColumn() === false || !$access->allows()) throw new \DomainException('Finance write access revoked');
       $q = $this->db->prepare("INSERT INTO office_finance_sales_drafts (operator_id,office_project_id,customer_name,status,lines_json,created_at) VALUES (?,?,?,'draft',?,UTC_TIMESTAMP())");
       $q->execute([$operatorId,$draft['office_project_id'],$draft['customer_name'],json_encode($draft['lines'],JSON_THROW_ON_ERROR)]);
       $id = (int)$this->db->lastInsertId();
