@@ -71,6 +71,24 @@ try {
   } catch (OutOfBoundsException $expected) {
     if ($expected->getMessage() !== 'Project unavailable') throw $expected;
   }
+  // VAT is selected exclusively from active native Office settings.
+  $invalidVat = $input;
+  $invalidVat['lines'][0]['vat_regime_id'] = 'NOT_CONFIGURED';
+  try {
+    $repo->create('finance_ci_writer', $invalidVat);
+    throw new RuntimeException('Unconfigured VAT regime accepted');
+  } catch (InvalidArgumentException $expected) {
+    if ($expected->getMessage() !== 'Invalid invoice line') throw $expected;
+  }
+  $db->exec("UPDATE office_vat_regimes SET active=0 WHERE code='CI_21'");
+  try {
+    $repo->create('finance_ci_writer', $input);
+    throw new RuntimeException('Inactive VAT regime accepted');
+  } catch (DomainException $expected) {
+    if ($expected->getMessage() !== 'No active Office VAT regimes') throw $expected;
+  } finally {
+    $db->exec("UPDATE office_vat_regimes SET active=1 WHERE code='CI_21'");
+  }
   $id = $repo->create('finance_ci_writer', $input);
   if ($id < 1) throw new RuntimeException('No draft ID');
   $list = $repo->listForOperator('finance_ci_writer', 990001);
