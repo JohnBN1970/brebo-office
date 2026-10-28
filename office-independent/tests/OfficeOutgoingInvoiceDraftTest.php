@@ -34,4 +34,12 @@ $unknownVat['lines'][0]['vat_regime_id'] = 'unknown';
 expectInvalid($unknownVat);
 try { OfficeOutgoingInvoiceDraft::validate($valid); throw new RuntimeException('Missing VAT catalog was accepted'); }
 catch (DomainException $e) { /* Expected: no silent default. */ }
+$arrayCustomer = $valid;
+$arrayCustomer['customer_name'] = ['invalid'];
+expectInvalid($arrayCustomer);
+$arrayDescription = $valid;
+$arrayDescription['lines'][0]['description'] = ['invalid'];
+expectInvalid($arrayDescription);
+try { OfficeOutgoingInvoiceDraft::validate($valid, ['standard','standard']); throw new RuntimeException('Duplicate VAT catalog was accepted'); }
+catch (DomainException $e) { /* Expected. */ }
 echo "Outgoing invoice draft validation OK\n";
