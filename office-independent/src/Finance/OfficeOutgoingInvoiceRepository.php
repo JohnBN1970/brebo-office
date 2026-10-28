@@ -8,8 +8,8 @@ use PDO;
 final class OfficeOutgoingInvoiceRepository {
   public function __construct(private readonly PDO $db) {}
 
-  public function create(string $operatorId, array $input): int {
-    $draft = OfficeOutgoingInvoiceDraft::validate($input);
+  public function create(string $operatorId, array $input, array $activeVatRegimes = []): int {
+    $draft = OfficeOutgoingInvoiceDraft::validate($input, $activeVatRegimes);
     $access = new OfficeFinanceAccess($this->db, $operatorId);
     $allowed = false;
     foreach ($access->draftProjects() as $project) {
