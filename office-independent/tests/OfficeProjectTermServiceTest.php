@@ -5,6 +5,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Finance/OfficeFinanceAccess.php';
 require_once __DIR__ . '/../src/Project/OfficeNativeProjectAccess.php';
 require_once __DIR__ . '/../src/Project/OfficeProjectTermRepository.php';
+require_once __DIR__ . '/../src/Project/OfficeProjectChangeOrderRepository.php';
+require_once __DIR__ . '/../src/Project/OfficeProjectContractValue.php';
 require_once __DIR__ . '/../src/Project/OfficeProjectTermService.php';
 
 use Brebo\Office\Project\OfficeProjectTermService;
@@ -36,6 +38,19 @@ $db->exec("
         module TEXT,
         permission TEXT
     );
+    CREATE TABLE office_project_change_orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contract_id INTEGER NOT NULL,
+        change_number TEXT NOT NULL,
+        description TEXT NOT NULL,
+        change_type TEXT NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft',
+        approved_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(contract_id, change_number)
+    );
+
     CREATE TABLE office_project_contracts (
         id INTEGER PRIMARY KEY,
         office_project_id INTEGER NOT NULL,
@@ -165,5 +180,41 @@ expectTermDenied(
 );
 
 echo "PASS: financiële termijncontroles\n";
+
+
+// Contract 10: controleer goedgekeurde wijzigingen tegenover termijnen.
+$db->exec("
+    INSERT INTO office_project_change_orders
+        (contract_id, change_number, description, change_type, amount, status)
+    VALUES
+        (10, 'TEST-MORE', 'Goedgekeurd meerwerk', 'more', 2500.00, 'approved'),
+        (10, 'TEST-LESS', 'Goedgekeurd minderwerk', 'less', 750.00, 'approved'),
+        (10, 'TEST-DRAFT', 'Niet goedgekeurd meerwerk', 'more', 50000.00, 'draft')
+");
+
+$contractRow = $db->query(
+    "SELECT contract_amount FROM office_project_contracts WHERE id = 10"
+)->fetchColumn();
+
+$changeRows = $db->query(
+    "SELECT change_type, amount FROM office_project_change_orders
+     WHERE contract_id = 10 AND status = 'approved'"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+$value = \Brebo\Office\Project\OfficeProjectContractValue::calculate(
+    (string) $contractRow,
+    $changeRows
+);
+
+if ($value['current'] !== '101750.00') {
+    throw new RuntimeException(
+        'Termijncontrole: actuele contractwaarde onjuist'
+    );
+}
+
+echo "PASS: termijnschema actuele contractwaarde inclusief wijzigingen\n";
+
+
+
 
 echo "PASS: termijnservice autorisatie\n";

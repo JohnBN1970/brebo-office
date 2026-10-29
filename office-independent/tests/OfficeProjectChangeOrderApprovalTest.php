@@ -38,6 +38,18 @@ $db->exec("
         contract_amount DECIMAL(15,2) NOT NULL,
         status TEXT NOT NULL
     );
+    CREATE TABLE office_project_terms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        contract_id INTEGER NOT NULL,
+        term_number INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        percentage DECIMAL(7,4),
+        amount DECIMAL(15,2) NOT NULL,
+        status TEXT NOT NULL,
+        due_date TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE office_project_change_orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         contract_id INTEGER NOT NULL,
@@ -121,11 +133,28 @@ approvalDenied(
     'Goedkeuring op ander project toegestaan'
 );
 
+$db->exec(
+    "INSERT INTO office_project_terms
+     (contract_id, term_number, description, amount, status)
+     VALUES (10, 1, 'Geplande termijn', 102000.00, 'planned')"
+);
+
 $value = $service->approve('1', 12, 10, $lessId);
 
 if ($value['current'] !== '101750.00') {
     throw new RuntimeException('Minderwerk niet correct verwerkt');
 }
+
+if (($value['term_schedule_exceeded'] ?? false) !== true) {
+    throw new RuntimeException('Termijnoverschrijding niet gesignaleerd');
+}
+
+if (empty($value['term_schedule_warning'])) {
+    throw new RuntimeException('Financiële waarschuwing ontbreekt');
+}
+
+echo "PASS: termijnwaarschuwing bij minderwerk\\n";
+
 
 $excessId = $service->createDraft(
     '1', 12, 10, 'MW-003',

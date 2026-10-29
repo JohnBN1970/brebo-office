@@ -10,10 +10,12 @@ use PDO;
 final class OfficeProjectTermService
 {
     private OfficeProjectTermRepository $terms;
+    private OfficeProjectChangeOrderRepository $changes;
 
     public function __construct(private readonly PDO $db)
     {
         $this->terms = new OfficeProjectTermRepository($db);
+        $this->changes = new OfficeProjectChangeOrderRepository($db);
     }
 
     public function listForContract(
@@ -81,7 +83,12 @@ final class OfficeProjectTermService
             }
 
             $newCents = self::toCents($amount);
-            $contractCents = self::toCents((string) $row['contract_amount']);
+            $contractValue = OfficeProjectContractValue::calculate(
+                (string) $row['contract_amount'],
+                $this->changes->approvedForContract($contractId)
+            );
+
+            $contractCents = self::toCents($contractValue['current']);
 
             if ($totalCents + $newCents > $contractCents) {
                 throw new \DomainException('Contract amount exceeded');

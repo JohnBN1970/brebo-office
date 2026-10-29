@@ -146,6 +146,43 @@ final class OfficeProjectChangeOrderService
                 throw new \DomainException('Change approval conflict');
             }
 
+            $terms = $this->db->prepare(
+                'SELECT amount FROM office_project_terms
+                 WHERE contract_id = :contract_id'
+            );
+            $terms->execute([':contract_id' => $contractId]);
+
+            $plannedCents = 0;
+
+            foreach ($terms->fetchAll(PDO::FETCH_ASSOC) as $term) {
+                $amount = (string) $term['amount'];
+
+                if (!preg_match(
+                    '/^(0|[1-9][0-9]{0,12})(?:\\.[0-9]{1,2})?$/D',
+                    $amount
+                )) {
+                    throw new \DomainException('Invalid term amount');
+                }
+
+                [$euros, $cents] = array_pad(
+                    explode('.', $amount, 2), 2, '0'
+                );
+
+                $plannedCents += ((int) $euros * 100)
+                    + (int) str_pad($cents, 2, '0');
+            }
+
+            [$euros, $cents] = explode('.', $value['current']);
+            $currentCents = ((int) $euros * 100) + (int) $cents;
+
+            $value['term_schedule_exceeded'] =
+                $plannedCents > $currentCents;
+
+            $value['term_schedule_warning'] =
+                $plannedCents > $currentCents
+                    ? 'Geplande termijnen overschrijden de actuele contractwaarde'
+                    : null;
+
             $this->db->commit();
 
             return $value;
