@@ -24,6 +24,13 @@ Deze controle hoort bij PR #1463 en is **geen** toestemming voor een deploy, mig
 - Een mislukte CI-test of ontbrekende handmatige review
 - Onbedoelde verwijzing naar productiegegevens
 
+## CI-bewijs en beperkingen (29 oktober 2026)
+- PR #1463, commit `4343754`: GitHub Actions run #16 geslaagd (MySQL 8 fixture, Finance PHP-syntax, unit-, ACL-, rollback- en CSRF-broncodecontrole).
+- De CSRF-test inspecteert broncode en simuleert **geen** echte browser, cookie of sessie; browseracceptatie blijft verplicht.
+- De MySQL-fixture bevat vereenvoudigde tabellen voor gebruikers en rechten; een groene CI-run bewijst **niet** dat de bestaande Office-test database hetzelfde schema heeft.
+- PR #1463 is gestapeld op #1462; de integratiebranch bevat overgenomen formulierwijzigingen. Controleer bij review de actuele basis en voorkom dubbele of verloren wijzigingen.
+- Geen migratie, live schrijfactie, featureflagwijziging of deploy uitgevoerd.
+
 ## Nog niet afgedekt
 - Live Office-test migratie en functionele browseracceptatie
 - Formulier-CSRF en sessiegedrag in echte hostingomgeving
