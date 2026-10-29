@@ -12,6 +12,21 @@ Deze controle hoort bij PR #1463 en is **geen** toestemming voor een deploy, mig
 7. Laat de schrijvende `OfficeFinanceSalesDraftMySqlRoundTripTest.php` **uitsluitend** in de tijdelijke GitHub Actions database `office_finance_ci` draaien. Niet uitvoeren op Office-test of productie.
 8. Vraag afzonderlijk akkoord voor migraties, activeren van featureflags en daadwerkelijke functionele acceptatie in Office-test.
 
+## Uitvoering uitsluitend-lezen Office-testcontrole
+Voer dit pas uit nadat de Office-test database-identiteit onafhankelijk is bevestigd. Gebruik een **read-only** databasegebruiker, nooit de productie-DSN. Zet wachtwoorden niet in shell history, CI-logs of screenshots.
+
+```sh
+export OFFICE_BASE_PATH=/office-test
+export OFFICE_FINANCE_INTEGRATION_DSN='mysql:host=OFFICE_TEST_HOST;dbname=OFFICE_TEST_DB;charset=utf8mb4'
+export OFFICE_FINANCE_INTEGRATION_USER='OFFICE_TEST_READONLY_USER'
+# Stel OFFICE_FINANCE_INTEGRATION_PASSWORD uitsluitend via beveiligde secret-injectie in.
+php office-independent/tests/OfficeFinanceSalesDraftMySqlSmoke.php
+```
+
+De smoke test leest alleen metadata via SHOW COLUMNS/SHOW INDEX. Laat `OFFICE_VAT_REGIMES_SCHEMA_VERIFIED` uit zolang de VAT-tabel niet aantoonbaar is geverifieerd; activeer deze vlag uitsluitend in de procesomgeving van de controle als de verificatie al is afgerond. **Niet** wijzigen in de applicatieconfiguratie.
+
+Leg bij uitvoering vast: gecontroleerde omgeving, datum, aanwezige tabellen, ontbrekende kolommen/indexen, resultaat en eventuele afwijkingen. Noteer geen klantgegevens, wachtwoorden of volledige DSN. Bij ontbrekende tabellen is de uitkomst **niet gereed**, geen aanleiding voor automatische migratie.
+
 ## Featureflags (standaard uit laten)
 - `OFFICE_VAT_REGIMES_SCHEMA_VERIFIED`
 - `OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED`
