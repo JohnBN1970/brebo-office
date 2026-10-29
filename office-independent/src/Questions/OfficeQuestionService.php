@@ -116,9 +116,20 @@ final class OfficeQuestionService
                  WHERE m.question_id=q.id) AS message_count
              FROM office_questions q
              WHERE q.module=? AND q.entity_type=? AND q.entity_id=?
+               AND (
+                 CAST(q.created_by AS CHAR)=?
+                 OR EXISTS (
+                   SELECT 1 FROM office_question_recipients r
+                   WHERE r.question_id=q.id
+                     AND CAST(r.operator_id AS CHAR)=?
+                 )
+               )
              ORDER BY q.created_at DESC,q.id DESC"
         );
-        $q->execute([$module, $entityType, $entityId]);
+        $q->execute([
+            $module, $entityType, $entityId,
+            $operatorId, $operatorId
+        ]);
 
         $questions = $q->fetchAll(PDO::FETCH_ASSOC);
 
@@ -185,12 +196,23 @@ final class OfficeQuestionService
         }
 
         $q = $this->db->prepare(
-            "SELECT id FROM office_questions
-             WHERE id=? AND module=? AND entity_type=? AND entity_id=?
-               AND status='open'
+            "SELECT q.id FROM office_questions q
+             WHERE q.id=? AND q.module=? AND q.entity_type=? AND q.entity_id=?
+               AND q.status='open'
+               AND (
+                 CAST(q.created_by AS CHAR)=?
+                 OR EXISTS (
+                   SELECT 1 FROM office_question_recipients r
+                   WHERE r.question_id=q.id
+                     AND CAST(r.operator_id AS CHAR)=?
+                 )
+               )
              LIMIT 1"
         );
-        $q->execute([$questionId, $module, $entityType, $entityId]);
+        $q->execute([
+            $questionId, $module, $entityType, $entityId,
+            $operatorId, $operatorId
+        ]);
 
         if (!$q->fetchColumn()) {
             throw new DomainException('Vraag niet beschikbaar of afgesloten');

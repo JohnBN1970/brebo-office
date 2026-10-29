@@ -54,7 +54,7 @@ $checks = [
     ['manager','finance','invoice',200,'read',false],
     ['viewer','finance','invoice',100,'read',true],
     ['viewer','finance','invoice',100,'create',false],
-    ['viewer','finance','invoice',100,'reply',false],
+    ['viewer','finance','invoice',100,'reply',true],
     ['outsider','finance','invoice',100,'read',false],
     ['manager','crm','invoice',100,'read',false],
 ];

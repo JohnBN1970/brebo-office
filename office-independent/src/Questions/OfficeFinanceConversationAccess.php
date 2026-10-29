@@ -35,7 +35,13 @@ final class OfficeFinanceConversationAccess
                     return true;
                 }
 
-                if (in_array($action, ['create', 'reply'], true)) {
+                if ($action === 'reply') {
+                    // De service controleert vervolgens of de medewerker
+                    // afzender of ontvanger van deze specifieke vraag is.
+                    return true;
+                }
+
+                if ($action === 'create') {
                     return (new OfficeFinanceAccess($db, $operatorId))
                         ->allows('draft_edit');
                 }

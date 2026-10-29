@@ -34,6 +34,434 @@ final class OfficeFinanceView {
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
+    if ($view === 'dossier') {
+      $dossier = $data['registered_dossier'] ?? null;
+      if (!is_array($dossier)) {
+        throw new \OutOfBoundsException('Factuur niet beschikbaar');
+      }
+
+      $html .= '<style>
+        .finance-dossier-layout{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:16px;align-items:start}
+        .finance-dossier-layout>div{min-width:0}
+        .finance-dossier-pdf{position:sticky;top:16px}
+        .finance-dossier-pdf iframe{display:block;width:100%;height:calc(100vh - 120px);min-height:600px;border:1px solid #dce2ea;border-radius:8px;background:white}
+        .finance-dossier-details section{margin-bottom:12px}
+        .finance-dossier-details .table{overflow-x:auto}
+        @media(max-width:1000px){
+          .finance-dossier-layout{grid-template-columns:1fr}
+          .finance-dossier-pdf{position:static}
+          .finance-dossier-pdf iframe{height:65vh;min-height:400px}
+        }
+      </style>';
+      $html .= '<div class="finance-dossier-layout">';
+      $html .= '<div class="finance-dossier-pdf"><section><h2>Originele factuur</h2>';
+      if (count($dossier['documents']) === 1) {
+        $pdfUrl = $url('finance/dossier', [
+          'id' => (int)$dossier['invoice']['id'],
+          'document' => 1
+        ]);
+        $html .= '<iframe title="Originele inkoopfactuur" src="'.$e($pdfUrl).'"></iframe>';
+        $html .= '<p><a href="'.$e($pdfUrl).'" target="_blank" rel="noopener noreferrer">Open PDF in nieuw tabblad</a></p>';
+      } else {
+        $html .= '<p>Geen enkelvoudig document beschikbaar voor voorbeeldweergave.</p>';
+      }
+      $html .= '</section></div><div class="finance-dossier-details">';
+      $invoice = $dossier['invoice'];
+      $html .= '<section><h2>Inkoopfactuur '.$e($invoice['invoice_number']).'</h2>';
+      $html .= '<p class="muted">Office-test · Concept · Niet geboekt of betaalbaar.</p>';
+      if (!empty($data['can_edit_dossier'])) {
+      $html .= '<form method="post" action="'.$e($url('finance/dossier', ['id'=>(int)$invoice['id']])).'">';
+      $html .= '<input type="hidden" name="csrf" value="'.$e($data['upload_csrf'] ?? '').'">';
+      $html .= '<input type="hidden" name="action" value="save_header">';
+      foreach ([
+        'supplier_name' => 'Leverancier',
+        'invoice_number' => 'Factuurnummer',
+        'invoice_date' => 'Factuurdatum',
+        'due_date' => 'Vervaldatum'
+      ] as $field => $label) {
+        $type = in_array($field, ['invoice_date','due_date'], true) ? 'date' : 'text';
+        $required = in_array($field, ['supplier_name','invoice_number'], true) ? ' required' : '';
+        $html .= '<label for="dossier-'.$field.'">'.$e($label).'</label>';
+        $html .= '<input id="dossier-'.$field.'" name="'.$field.'" type="'.$type.'" value="'.$e($invoice[$field] ?? '').'"'.$required.'>';
+      }
+      $html .= '<p><button type="submit">Opslaan als concept</button></p>';
+      $html .= '</form>';
+      } else {
+        $html .= '<p><strong>Leverancier:</strong> '.$e($invoice['supplier_name']).'</p>';
+        $html .= '<p><strong>Factuurnummer:</strong> '.$e($invoice['invoice_number']).'</p>';
+        $html .= '<p><strong>Factuurdatum:</strong> '.self::date($invoice['invoice_date']).'</p>';
+        $html .= '<p><strong>Vervaldatum:</strong> '.self::date($invoice['due_date']).'</p>';
+      }
+      $html .= '<p><strong>Project(en):</strong> '.$e(implode(', ', $invoice['project_ids'])).'</p>';
+      $html .= '<p><strong>Exclusief btw:</strong> '.self::money($invoice['subtotal']).'</p>';
+      $html .= '<p><strong>Btw:</strong> '.self::money($invoice['vat_total']).'</p>';
+      $html .= '<p><strong>Inclusief btw:</strong> '.self::money($invoice['total']).'</p></section>';
+
+      $html .= '<section><h2>Factuurregels</h2>';
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<form method="post" action="'.$e($url('finance/dossier', ['id'=>(int)$invoice['id']])).'">';
+        $html .= '<input type="hidden" name="csrf" value="'.$e($data['upload_csrf'] ?? '').'">';
+        $html .= '<input type="hidden" name="action" value="save_lines">';
+      }
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<div class="finance-bulk-project">';
+        $html .= '<label for="finance-bulk-project">Project voor geselecteerde regels</label> ';
+        $html .= '<select id="finance-bulk-project">';
+        $html .= '<option value="">Kies een project</option>';
+        foreach (($data['editable_projects'] ?? []) as $project) {
+          $projectId = (int)$project['office_project_id'];
+          $html .= '<option value="'.$projectId.'">'.$e($project['title']).' (#'.$projectId.')</option>';
+        }
+        $html .= '</select> ';
+        $html .= '<button type="button" id="finance-bulk-all">Toepassen op alle regels</button> ';
+        $html .= '<button type="button" id="finance-bulk-apply">Toepassen op selectie</button>';
+        $html .= '</div>';
+      }
+      $html .= '<div class="table"><table>';
+      $html .= '<thead><tr>';
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<th><input type="checkbox" id="finance-select-all" aria-label="Alles selecteren"></th>';
+      }
+      $html .= '<th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Prijs</th><th>Netto</th><th>Btw %</th><th>Project</th></tr></thead><tbody>';
+      foreach ($dossier['lines'] as $line) {
+        $html .= '<tr>';
+        if (!empty($data['can_edit_dossier'])) {
+          $html .= '<td><input type="checkbox" class="finance-line-select" aria-label="Regel selecteren"></td>';
+          $prefix = 'lines['.(int)$line['id'].']';
+          foreach ([
+            'description' => ['text', $line['description']],
+            'quantity' => ['number', $line['quantity']],
+            'unit' => ['text', $line['unit'] ?? ''],
+            'unit_price' => ['number', $line['unit_price']],
+          ] as $field => $definition) {
+            [$type, $value] = $definition;
+            $step = $field === 'quantity' ? ' step="0.001" min="0"' :
+                    ($field === 'unit_price' ? ' step="0.01" min="0"' : '');
+            $html .= '<td><input aria-label="'.$e($field).'" type="'.$type.'" name="'.$e($prefix.'['.$field.']').'" value="'.$e($value).'"'.$step.' required></td>';
+          }
+          $html .= '<td>'.self::money($line['net_amount']).'</td>';
+          $html .= '<td><input aria-label="Btw-percentage" type="number" min="0" max="100" step="0.001" name="'.$e($prefix.'[vat_rate]').'" value="'.$e($line['vat_rate']).'" required></td>';
+          $html .= '<td><select aria-label="Project" name="'.$e($prefix.'[office_project_id]').'" required>';
+          foreach (($data['editable_projects'] ?? []) as $project) {
+            $projectId = (int)$project['office_project_id'];
+            $selected = $projectId === (int)$line['office_project_id'] ? ' selected' : '';
+            $html .= '<option value="'.$projectId.'"'.$selected.'>'.$e($project['title']).' (#'.$projectId.')</option>';
+          }
+          $html .= '</select></td>';
+        } else {
+          $html .= '<td>'.$e($line['description']).'</td>';
+          $html .= '<td>'.$e($line['quantity']).'</td>';
+          $html .= '<td>'.$e($line['unit']).'</td>';
+          $html .= '<td>'.self::money($line['unit_price']).'</td>';
+          $html .= '<td>'.self::money($line['net_amount']).'</td>';
+          $html .= '<td>'.$e($line['vat_rate']).'%</td>';
+          $html .= '<td>'.$e($line['office_project_id']).'</td>';
+        }
+        $html .= '</tr>';
+      }
+      $html .= '</tbody></table></div>';
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<script nonce="'.$e($data['finance_script_nonce'] ?? '').'">
+        (function () {
+          function initializeBulkProjects() {
+            const bulk = document.getElementById("finance-bulk-project");
+            const apply = document.getElementById("finance-bulk-apply");
+            const applyAll = document.getElementById("finance-bulk-all");
+            const all = document.getElementById("finance-select-all");
+            if (!bulk || !apply || !all) return;
+
+            const table = all.closest("table");
+            if (!table) return;
+            const boxes = Array.from(table.querySelectorAll(".finance-line-select"));
+
+            all.addEventListener("change", function () {
+              boxes.forEach(function (box) {
+                box.checked = all.checked;
+              });
+              all.indeterminate = false;
+            });
+
+            boxes.forEach(function (box) {
+              box.addEventListener("change", function () {
+                all.checked = boxes.length > 0 && boxes.every(function (item) {
+                  return item.checked;
+                });
+                all.indeterminate = !all.checked && boxes.some(function (item) {
+                  return item.checked;
+                });
+              });
+            });
+
+            if (applyAll) {
+              applyAll.addEventListener("click", function () {
+                if (!bulk.value) {
+                  alert("Kies eerst een project.");
+                  return;
+                }
+                boxes.forEach(function (box) {
+                  const row = box.closest("tr");
+                  if (!row) return;
+                  const project = Array.from(row.querySelectorAll("select")).find(
+                    function (element) {
+                      return element.name.endsWith("[office_project_id]");
+                    }
+                  );
+                  if (project) project.value = bulk.value;
+                });
+              });
+            }
+
+            apply.addEventListener("click", function () {
+              if (!bulk.value) {
+                alert("Kies eerst een project.");
+                return;
+              }
+
+              const selected = boxes.filter(function (box) {
+                return box.checked;
+              });
+
+              if (!selected.length) {
+                alert("Selecteer eerst minimaal een factuurregel.");
+                return;
+              }
+
+              let changed = 0;
+              selected.forEach(function (box) {
+                const row = box.closest("tr");
+                if (!row) return;
+                const project = Array.from(row.querySelectorAll("select")).find(
+                  function (element) {
+                    return element.name.endsWith("[office_project_id]");
+                  }
+                );
+                if (project) {
+                  project.value = bulk.value;
+                  changed++;
+                }
+              });
+
+              if (changed !== selected.length) {
+                alert("Niet alle projectvelden zijn gevonden.");
+              }
+            });
+          }
+
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initializeBulkProjects);
+          } else {
+            initializeBulkProjects();
+          }
+        })();
+        </script>';
+      }
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<p><button type="button" id="finance-add-line">+ Regel toevoegen</button> ';
+        $html .= '<button type="button" id="finance-remove-lines">Geselecteerde regels verwijderen</button></p>';
+        $html .= '<div id="finance-deleted-lines"></div>';
+
+        $lineActionsScript = <<<'JS'
+(function () {
+  function initializeLineActions() {
+    const add = document.getElementById("finance-add-line");
+    const remove = document.getElementById("finance-remove-lines");
+    const deleted = document.getElementById("finance-deleted-lines");
+    const all = document.getElementById("finance-select-all");
+    if (!add || !remove || !deleted || !all) return;
+
+    const table = all.closest("table");
+    const body = table && table.querySelector("tbody");
+    const bulk = document.getElementById("finance-bulk-project");
+    if (!body || !bulk) return;
+
+    let nextIndex = 0;
+
+    function cellWithInput(prefix, field, type, attrs) {
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = type;
+      input.name = prefix + "[" + field + "]";
+      input.required = true;
+      input.setAttribute("aria-label", field);
+      Object.entries(attrs || {}).forEach(function (entry) {
+        input.setAttribute(entry[0], entry[1]);
+      });
+      td.appendChild(input);
+      return td;
+    }
+
+    add.addEventListener("click", function () {
+      const prefix = "new_lines[" + nextIndex++ + "]";
+      const tr = document.createElement("tr");
+      tr.dataset.newLine = "1";
+
+      const selectCell = document.createElement("td");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "finance-line-select";
+      checkbox.setAttribute("aria-label", "Regel selecteren");
+      selectCell.appendChild(checkbox);
+      tr.appendChild(selectCell);
+
+      tr.appendChild(cellWithInput(prefix, "description", "text"));
+      tr.appendChild(cellWithInput(prefix, "quantity", "number",
+        {step: "0.001", min: "0", value: "1"}));
+      tr.appendChild(cellWithInput(prefix, "unit", "text"));
+      tr.appendChild(cellWithInput(prefix, "unit_price", "number",
+        {step: "0.01", min: "0", value: "0"}));
+
+      const net = document.createElement("td");
+      net.textContent = "Na opslaan";
+      tr.appendChild(net);
+
+      tr.appendChild(cellWithInput(prefix, "vat_rate", "number",
+        {step: "0.001", min: "0", max: "100", value: "21"}));
+
+      const projectCell = document.createElement("td");
+      const project = document.createElement("select");
+      project.name = prefix + "[office_project_id]";
+      project.required = true;
+
+      Array.from(bulk.options).forEach(function (option) {
+        if (option.value) project.appendChild(option.cloneNode(true));
+      });
+
+      if (bulk.value) project.value = bulk.value;
+      projectCell.appendChild(project);
+      tr.appendChild(projectCell);
+
+      body.appendChild(tr);
+      tr.querySelector('input[name$="[description]"]').focus();
+    });
+
+    remove.addEventListener("click", function () {
+      const selected = Array.from(
+        body.querySelectorAll(".finance-line-select:checked")
+      );
+
+      if (!selected.length) {
+        alert("Selecteer eerst een of meer regels.");
+        return;
+      }
+
+      if (!confirm("Geselecteerde regels verwijderen bij opslaan?")) return;
+
+      selected.forEach(function (checkbox) {
+        const tr = checkbox.closest("tr");
+        if (!tr) return;
+
+        if (tr.dataset.newLine === "1") {
+          tr.remove();
+          return;
+        }
+
+        const input = tr.querySelector('input[name^="lines["]');
+        const match = input && /^lines\[(\d+)\]/.exec(input.name);
+        if (!match) return;
+
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "delete_lines[" + match[1] + "]";
+        hidden.value = "1";
+        deleted.appendChild(hidden);
+        tr.remove();
+      });
+
+      all.checked = false;
+      all.indeterminate = false;
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeLineActions);
+  } else {
+    initializeLineActions();
+  }
+})();
+JS;
+
+        $html .= '<script nonce="'.$e($data['finance_script_nonce'] ?? '').'">'.$lineActionsScript.'</script>';
+      }
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<p class="muted">Totalen worden bij opslaan opnieuw berekend. De originele PDF verandert niet.</p>';
+        $html .= '<p><button type="submit">Factuurregels opslaan als concept</button></p></form>';
+      }
+      $html .= '</section>';
+
+      $html .= '<section><h2>Documenten</h2>';
+      $html .= '<p>'.count($dossier['documents']).' document(en) geregistreerd.</p>';
+      if (count($dossier['documents']) === 1) {
+        $documentUrl = $url('finance/dossier', [
+          'id' => (int)$invoice['id'],
+          'document' => 1
+        ]);
+        $html .= '<p><a href="'.$e($documentUrl).'" target="_blank" rel="noopener noreferrer">Originele factuur bekijken (PDF)</a></p>';
+      }
+      $html .= '</section>';
+
+      $html .= '<section><h2>Vragen en opmerkingen</h2>';
+      foreach (($data['invoice_questions'] ?? []) as $question) {
+        $html .= '<p><strong>'.$e($question['subject']).'</strong> · '
+          .$e($question['question_type'] === 'blocking_question'
+            ? 'Blokkerende vraag' : 'Opmerking')
+          .' · '.$e($question['status']).'</p>';
+
+        foreach (($question['messages'] ?? []) as $message) {
+          $html .= '<div class="question-message">';
+          $html .= '<p>'.$e($message['message']).'</p>';
+          $html .= '<small>'
+            .$e($message['author_name'] ?? $message['operator_id'])
+            .' · '.$e($message['created_nl'] ?? $message['created_at'])
+            .'</small>';
+          $html .= '</div>';
+        }
+
+        if (($question['status'] ?? '') === 'open') {
+          $html .= '<form method="post" action="'
+            .$e($url('finance/dossier', ['id'=>(int)$invoice['id']])).'">';
+          $html .= '<input type="hidden" name="csrf" value="'
+            .$e($data['upload_csrf'] ?? '').'">';
+          $html .= '<input type="hidden" name="action" value="reply_question">';
+          $html .= '<input type="hidden" name="question_id" value="'
+            .$e($question['id']).'">';
+          $html .= '<label>Antwoord <textarea name="message" required maxlength="10000"></textarea></label>';
+          $html .= '<button type="submit">Beantwoorden</button>';
+          $html .= '</form>';
+        }
+      }
+      if (empty($data['invoice_questions'])) {
+        $html .= '<p>Er zijn nog geen vragen of opmerkingen.</p>';
+      }
+      if (!empty($data['can_edit_dossier'])) {
+        $html .= '<form method="post" action="'
+          .$e($url('finance/dossier', ['id'=>(int)$invoice['id']])).'">';
+        $html .= '<input type="hidden" name="csrf" value="'
+          .$e($data['upload_csrf'] ?? '').'">';
+        $html .= '<input type="hidden" name="action" value="create_question">';
+        $html .= '<label>Onderwerp <input name="subject" required maxlength="255"></label>';
+        $html .= '<label>Bericht <textarea name="message" required maxlength="10000"></textarea></label>';
+        $html .= '<label>Soort <select name="question_type">'
+          .'<option value="blocking_question">Blokkerende vraag</option>'
+          .'<option value="remark">Opmerking</option></select></label>';
+        $html .= '<label>Ontvanger <select name="recipient_id" required>';
+        foreach (($data['question_recipients'] ?? []) as $recipientId) {
+          $html .= '<option value="'.$e($recipientId).'">Medewerker '
+            .$e($recipientId).'</option>';
+        }
+        $html .= '</select></label>';
+        $html .= '<button type="submit">Vraag of opmerking plaatsen</button></form>';
+      }
+      $html .= '</section>';
+
+      $html .= '<section><h2>Audittrail</h2>';
+      foreach ($dossier['events'] as $event) {
+        $html .= '<p>'.$e($event['event_type']).' · '.$e($event['operator_id']).'</p>';
+      }
+      $html .= '</section>';
+
+      $html .= '</div></div>';
+      return $html . '</main></div></body></html>';
+    }
     if ($view === 'draft') return $html . self::draft($data) . '</main></div></body></html>';
     if ($view === 'new') return $html . self::newInvoice($data) . '</main></div></body></html>';
     if ($view === 'invoice') return $html . self::invoice($data) . '</main></div></body></html>';
@@ -45,6 +473,24 @@ final class OfficeFinanceView {
     $html .= '<p class="muted">Bron: Finance-inkoopfacturen · Peildatum: '.$e(gmdate('d-m-Y H:i', $data['generated_at'])).' UTC · Bedragen inclusief btw.</p>';
     $html .= '<div class="cards"><div class="card">Open facturen<strong>'.$count.'</strong>'.self::money($amount).'</div><div class="card">Geblokkeerd<strong>'.$data['counts']['blocked'].'</strong>'.self::money($data['amounts_inc_vat']['blocked']).'</div><div class="card">Ter goedkeuring<strong>'.$data['counts']['to_approve'].'</strong>'.self::money($data['amounts_inc_vat']['to_approve']).'</div></div>';
     if ($view !== 'payments') {
+      if (isset($data['registered_drafts'])) {
+        $html .= '<section><h2>Geregistreerde conceptfacturen</h2>';
+        $html .= '<p class="muted">Office-test · Niet goedgekeurd, geboekt of betaalbaar.</p>';
+        if ($data['registered_drafts'] === []) {
+          $html .= '<p>Geen toegankelijke conceptfacturen gevonden.</p>';
+        } else {
+          $html .= '<div class="table"><table><thead><tr><th>Leverancier</th><th>Factuurnummer</th><th>Datum</th><th>Project(en)</th><th>Inclusief btw</th><th>Status</th></tr></thead><tbody>';
+          foreach ($data['registered_drafts'] as $draftRow) {
+            $projectLabels = implode(', ', array_map(
+              static fn(int $id): string => (string)$id,
+              $draftRow['project_ids']
+            ));
+            $html .= '<tr><td>'.$e($draftRow['supplier_name']).'</td><td>'.'<a href="'.$e($url('finance/dossier', ['id'=>(int)$draftRow['id']])).'">'.$e($draftRow['invoice_number']).'</a></td><td>'.self::date($draftRow['invoice_date']).'</td><td>'.$e($projectLabels).'</td><td class="amount">'.self::money($draftRow['total']).'</td><td>Concept</td></tr>';
+          }
+          $html .= '</tbody></table></div>';
+        }
+        $html .= '</section>';
+      }
       $html .= '<section><h2>Werkvoorraad</h2><p>Volg codering, matching en vrijgave vanuit het Betaalcentrum.</p><nav class="queues">';
       foreach (self::QUEUES as $key=>$label) $html .= '<a href="'.$e($url('finance/betaalcentrum',['queue'=>$key])).'">'.$e($label).' ('.$data['counts'][$key].')</a>';
       return $html . '</nav><p>Dit overzicht toont bestaande controlestatussen. Betalingen en wijzigingen zijn hier nog niet beschikbaar.</p></section></main></div></body></html>';
@@ -127,15 +573,25 @@ final class OfficeFinanceView {
       $html .= '</tbody></table></div>';
     }
     $duplicateCandidates = $draft['duplicate_candidates'] ?? [];
+    $unverifiedCandidates = $draft['unverified_duplicate_candidates'] ?? [];
     if ($duplicateCandidates !== []) {
-      $html .= '<p role="alert"><strong>Mogelijk dubbele conceptfactuur.</strong> Hetzelfde factuurnummer komt voor bij een ander privéconcept. Controleer de leverancier en het document vóór verdere verwerking.</p><ul>';
+      $html .= '<p role="alert"><strong>Mogelijk dubbele conceptfactuur.</strong> Leverancier en factuurnummer komen overeen met een ander privéconcept. Controleer het document vóór verdere verwerking.</p><ul>';
       foreach ($duplicateCandidates as $otherId) {
         $link = self::e(OfficeMount::route('finance/concept', ['id'=>$otherId]));
         $html .= '<li><a href="'.$link.'">Vergelijk concept '.self::e(substr($otherId, 0, 12)).'</a></li>';
       }
       $html .= '</ul>';
-    } else {
-      $html .= '<p>Dubbelcheck: geen overeenkomstig factuurnummer gevonden binnen je eigen privéconcepten. Geïmporteerde facturen en andere gebruikers zijn nog niet gecontroleerd.</p>';
+    }
+    if ($unverifiedCandidates !== []) {
+      $html .= '<p role="alert"><strong>Leverancier nog verifiëren.</strong> Het factuurnummer komt overeen met een ander concept, maar bij minstens één concept ontbreekt de gecontroleerde leveranciersnaam.</p><ul>';
+      foreach ($unverifiedCandidates as $otherId) {
+        $link = self::e(OfficeMount::route('finance/concept', ['id'=>$otherId]));
+        $html .= '<li><a href="'.$link.'">Controleer concept '.self::e(substr($otherId, 0, 12)).'</a></li>';
+      }
+      $html .= '</ul>';
+    }
+    if ($duplicateCandidates === [] && $unverifiedCandidates === []) {
+      $html .= '<p>Conceptcontrole: geen mogelijke dubbele factuur gevonden binnen je eigen privéconcepten. Andere gebruikers vallen buiten deze controle.</p>';
     }
     $importedCandidates = $draft['imported_duplicate_candidates'] ?? [];
     if ($importedCandidates !== []) {
@@ -154,11 +610,16 @@ final class OfficeFinanceView {
     if (($_GET['saved'] ?? '') === '1') $html .= '<p role="status">Controlegegevens opgeslagen. Nog niet goedgekeurd.</p>';
     $html .= '<h3>Factuurgegevens controleren</h3><p>Herkenningsvoorstellen zijn alvast ingevuld waar nog geen opgeslagen waarde bestaat. Vergelijk alles met de originele factuur voordat je opslaat.</p>';
     $html .= '<form method="post" action="'.$action.'" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px"><input type="hidden" name="csrf" value="'.$csrf.'">';
-    $fields = ['supplier_name'=>'Leverancier','invoice_number'=>'Factuurnummer','invoice_date'=>'Factuurdatum (JJJJ-MM-DD)','due_date'=>'Vervaldatum (JJJJ-MM-DD)','reference'=>'Referentie / project','amount_inc_vat'=>'Totaal inclusief btw','vat_amount'=>'Btw-bedrag'];
+    $fields = ['supplier_name'=>'Leverancier','invoice_number'=>'Factuurnummer','invoice_date'=>'Factuurdatum (DD-MM-JJJJ)','due_date'=>'Vervaldatum (DD-MM-JJJJ)','reference'=>'Referentie / project','amount_inc_vat'=>'Totaal inclusief btw','vat_amount'=>'Btw-bedrag'];
     foreach ($fields as $name=>$label) {
       $saved = trim((string)($review[$name] ?? ''));
       $suggested = trim((string)($proposals[$name]['value'] ?? ''));
-      $value = self::e($saved !== '' ? $saved : $suggested);
+      $displayValue = $saved !== '' ? $saved : $suggested;
+      if (in_array($name, ['invoice_date','due_date'], true)
+        && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $displayValue)) {
+        $displayValue = substr($displayValue, 8, 2) . '-' . substr($displayValue, 5, 2) . '-' . substr($displayValue, 0, 4);
+      }
+      $value = self::e($displayValue);
       $html .= '<label>'.self::e($label).'<input style="display:block;width:100%" name="'.$name.'" value="'.$value.'" maxlength="160"></label>';
     }
     $choices = $draft['project_choices'] ?? [];
