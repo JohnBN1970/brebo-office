@@ -59,6 +59,17 @@ final class OfficeQuestionService
             throw new DomainException('Een ontvanger is niet actief');
         }
 
+        // Ontvangers moeten zelf toegang hebben tot het bronobject.
+        foreach ($recipients as $recipient) {
+            $this->access->require(
+                $recipient,
+                $module,
+                $entityType,
+                $entityId,
+                'read'
+            );
+        }
+
         $this->db->beginTransaction();
 
         try {
