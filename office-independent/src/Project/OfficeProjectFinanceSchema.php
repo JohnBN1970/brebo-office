@@ -28,6 +28,19 @@ final class OfficeProjectFinanceSchema
                 UNIQUE KEY uq_project_contract_number
                     (office_project_id, contract_number),
                 KEY idx_project_contract_project (office_project_id)
+            )",
+            "CREATE TABLE office_project_terms (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                contract_id BIGINT UNSIGNED NOT NULL,
+                term_number INT UNSIGNED NOT NULL,
+                description VARCHAR(255) NOT NULL,
+                percentage DECIMAL(7,4) NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'planned',
+                due_date DATE NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_contract_term (contract_id, term_number),
+                KEY idx_project_term_contract (contract_id)
             )"
         ];
     }
