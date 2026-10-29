@@ -41,6 +41,20 @@ final class OfficeProjectFinanceSchema
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_contract_term (contract_id, term_number),
                 KEY idx_project_term_contract (contract_id)
+            )",
+            "CREATE TABLE office_project_change_orders (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                contract_id BIGINT UNSIGNED NOT NULL,
+                change_number VARCHAR(100) NOT NULL,
+                description TEXT NOT NULL,
+                change_type VARCHAR(16) NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'draft',
+                approved_at DATETIME NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_contract_change_number (contract_id, change_number),
+                KEY idx_change_order_contract (contract_id),
+                KEY idx_change_order_status (status)
             )"
         ];
     }
