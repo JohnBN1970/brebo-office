@@ -31,6 +31,13 @@ Deze controle hoort bij PR #1463 en is **geen** toestemming voor een deploy, mig
 - PR #1463 is gestapeld op #1462; de integratiebranch bevat overgenomen formulierwijzigingen. Controleer bij review de actuele basis en voorkom dubbele of verloren wijzigingen.
 - Geen migratie, live schrijfactie, featureflagwijziging of deploy uitgevoerd.
 
+## Code-review aandachtspunten (29 oktober 2026)
+- `OfficeOutgoingInvoiceRepository::create()` staat alleen toe op `/office-test` met beide conceptflags ingeschakeld; dit is geen algemene productieschrijfroutine.
+- De repository controleert Finance-leesrecht via `OfficeFinanceAccess::allows()` en daarnaast afzonderlijk `office_project_memberships.permission='manage'`. Bevestig in de functionele review dat deze combinatie het bedoelde **factuur-aanmaakrecht** vertegenwoordigt; er bestaat in dit pad geen afzonderlijk `finance.create`-recht.
+- De rechtencontrole binnen de transactie verkleint het tijdvenster bij rechtenwijzigingen, maar garandeert zonder databasevergrendeling niet dat gelijktijdige intrekking onmogelijk is.
+- De formulier-CSRF-token wordt pas na geslaagde opslag verwijderd; controleer de sessie- en herhaal-POST-afhandeling met een echte browser.
+- Het formulier neemt een vrij ingevoerde klantnaam aan; de koppeling met een formele debiteur en definitieve facturatie valt buiten deze conceptfase.
+
 ## Nog niet afgedekt
 - Live Office-test migratie en functionele browseracceptatie
 - Formulier-CSRF en sessiegedrag in echte hostingomgeving
