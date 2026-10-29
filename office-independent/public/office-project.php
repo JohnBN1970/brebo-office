@@ -446,6 +446,96 @@ $moduleHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
   . '<div id="project-financieel"><h2>Financieel</h2>'
   . '<p>Contract, termijnen, meer- en minderwerk en projectfacturen.</p>';
 
+
+// Financial dossier: explicit Finance ACL, independent of project read access.
+$financeHtml = '';
+try {
+    foreach ([
+        'OfficeProjectContractRepository.php',
+        'OfficeProjectChangeOrderRepository.php',
+        'OfficeProjectTermRepository.php',
+        'OfficeProjectContractValue.php',
+        'OfficeProjectFinanceOverview.php',
+    ] as $file) {
+        require_once dirname(__DIR__) . '/src/Project/' . $file;
+    }
+    require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
+
+    $overview = new \Brebo\Office\Project\OfficeProjectFinanceOverview($db);
+    $financeContracts = $overview->forProject(
+        (string) $operator->operatorId,
+        (int) $projectId
+    );
+
+    if ($financeContracts === []) {
+        $financeHtml = '<p>Voor dit project zijn nog geen contracten geregistreerd.</p>';
+    }
+
+    $money = static function (string $amount): string {
+        return '€ ' . number_format((float) $amount, 2, ',', '.');
+    };
+
+    foreach ($financeContracts as $entry) {
+        $contract = $entry['contract'];
+        $value = $entry['value'];
+
+        $financeHtml .= '<section class="module">'
+            . '<h3>Contract ' . $escape((string) ($contract['contract_number'] ?? $contract['id'])) . '</h3>'
+            . '<dl>'
+            . '<dt>Oorspronkelijke contractsom</dt><dd>' . $escape($money($value['original'])) . '</dd>'
+            . '<dt>Goedgekeurd meerwerk</dt><dd>' . $escape($money($value['approved_more'])) . '</dd>'
+            . '<dt>Goedgekeurd minderwerk</dt><dd>' . $escape($money($value['approved_less'])) . '</dd>'
+            . '<dt>Actuele contractwaarde</dt><dd><strong>' . $escape($money($value['current'])) . '</strong></dd>'
+            . '<dt>Geplande termijnen</dt><dd>' . $escape($money($entry['planned_terms_total'])) . '</dd>'
+            . '</dl>';
+
+        if ($entry['term_schedule_exceeded']) {
+            $financeHtml .= '<p role="alert"><strong>Let op:</strong> '
+                . 'de geplande termijnen overschrijden de actuele contractwaarde.</p>';
+        }
+
+        $financeHtml .= '<h4>Meer- en minderwerk</h4>';
+        if ($entry['changes'] === []) {
+            $financeHtml .= '<p>Geen wijzigingen geregistreerd.</p>';
+        } else {
+            $financeHtml .= '<table><thead><tr><th>Nummer</th><th>Omschrijving</th>'
+                . '<th>Soort</th><th>Bedrag</th><th>Status</th></tr></thead><tbody>';
+            foreach ($entry['changes'] as $change) {
+                $financeHtml .= '<tr><td>' . $escape((string) $change['change_number'])
+                    . '</td><td>' . $escape((string) $change['description'])
+                    . '</td><td>' . $escape((string) $change['change_type'])
+                    . '</td><td>' . $escape($money((string) $change['amount']))
+                    . '</td><td>' . $escape((string) $change['status'])
+                    . '</td></tr>';
+            }
+            $financeHtml .= '</tbody></table>';
+        }
+
+        $financeHtml .= '<h4>Termijnschema</h4>';
+        if ($entry['terms'] === []) {
+            $financeHtml .= '<p>Geen termijnen geregistreerd.</p>';
+        } else {
+            $financeHtml .= '<table><thead><tr><th>Termijn</th><th>Omschrijving</th>'
+                . '<th>Bedrag</th><th>Status</th></tr></thead><tbody>';
+            foreach ($entry['terms'] as $term) {
+                $financeHtml .= '<tr><td>' . (int) $term['term_number']
+                    . '</td><td>' . $escape((string) $term['description'])
+                    . '</td><td>' . $escape($money((string) $term['amount']))
+                    . '</td><td>' . $escape((string) $term['status'])
+                    . '</td></tr>';
+            }
+            $financeHtml .= '</tbody></table>';
+        }
+        $financeHtml .= '</section>';
+    }
+} catch (\DomainException $e) {
+    $financeHtml = '<p>Financiële gegevens zijn niet beschikbaar voor uw account.</p>';
+} catch (\PDOException $e) {
+    error_log('Office project finance overview unavailable: ' . $e->getCode());
+    $financeHtml = '<p>Het financiële overzicht is nog niet beschikbaar.</p>';
+}
+$moduleHtml .= $financeHtml;
+
 require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
 if (\Brebo\Office\Intake\OfficeNavigation::financeVisible()) {
   $moduleHtml .= '<p><a href="' . $escape(
