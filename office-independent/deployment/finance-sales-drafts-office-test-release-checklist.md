@@ -53,6 +53,24 @@ Leg bij uitvoering vast: gecontroleerde omgeving, datum, aanwezige tabellen, ont
 - De formulier-CSRF-token wordt pas na geslaagde opslag verwijderd; controleer de sessie- en herhaal-POST-afhandeling met een echte browser.
 - Het formulier neemt een vrij ingevoerde klantnaam aan; de koppeling met een formele debiteur en definitieve facturatie valt buiten deze conceptfase.
 
+## Functionele acceptatie (pas na schema-akkoord en afzonderlijke vrijgave)
+Gebruik uitsluitend een testoperator en een testproject zonder echte klantgegevens. De onderstaande controles zijn **nog niet uitgevoerd**.
+
+| Controle | Verwacht resultaat |
+| --- | --- |
+| Niet ingelogd: formulier-URL openen | Redirect naar Office-login |
+| Operator zonder Finance-toegang | HTTP 403, geen gegevens zichtbaar |
+| Finance-operator zonder projectbeheer | Geen ongeautoriseerd project beschikbaar voor conceptopslag |
+| GET formulier met ingeschakelde testflags | Nieuwe sessie krijgt CSRF-token; keuzelijsten komen uit Office |
+| POST zonder CSRF-token of met verkeerde token | HTTP 403, geen concept aangemaakt |
+| Geldige POST voor geautoriseerd testproject | Concept opgeslagen en HTTP 303 naar factuurregister |
+| Exact dezelfde POST opnieuw versturen | HTTP 403, geen tweede concept |
+| Inactief of niet-goedgekeurd btw-regime | HTTP 422, geen concept |
+| Schrijfflags uit | Geen conceptopslag; formulier toont geblokkeerde status |
+| Testproject van andere operator | Niet zichtbaar en niet schrijfbaar |
+
+Controleer concept-ID en projectkoppeling uitsluitend met geautoriseerde testdata. De status blijft `draft`; factuurnummer, verzenden en boeken zijn **niet** onderdeel van deze acceptatie. Noteer per stap resultaat, tijdstip en tester; maak geen screenshots van tokens of sessiecookies.
+
 ## Nog niet afgedekt
 - Live Office-test migratie en functionele browseracceptatie
 - Formulier-CSRF en sessiegedrag in echte hostingomgeving
