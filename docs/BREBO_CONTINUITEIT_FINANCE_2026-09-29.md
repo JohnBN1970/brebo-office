@@ -251,3 +251,40 @@ De organisatiebrede liquiditeitsprojectie gebruikt nu `ProjectReferenceGatewayIn
 Leveranciersresolutie en Moneybird-masterdata-mutaties lopen nu via `SupplierOrganizationGatewayInterface`. `MoneybirdSupplierResolver` kent geen Drupal entities meer. De tijdelijke `DrupalSupplierOrganizationGateway` bevat als enige de huidige node-opslag en bewaakt dezelfde harde regel: bestaande niet-lege BREBO-velden worden nooit stilletjes door Moneybird overschreven; alleen lege velden mogen worden verrijkt.
 
 De financiële fasepoorten gebruiken nu `FinancialPhaseGateRepositoryInterface`. `FinancialPhaseGateManager` kent geen Drupal databaseverbinding of tabellen meer; blokkades, vier-ogen-uitzonderingen en auditpersistente opslag zitten achter `DatabaseFinancialPhaseGateRepository`. Gate-policy, exception-dekking, vervaldatumcontrole, requester/approver-scheiding en fail-closed gedrag blijven inhoudelijk ongewijzigd.
+
+
+## Actueel hervatpunt — 29 oktober 2026 — Office-native factuurconcepten
+
+**Deze aanvulling is leidend voor de nieuwe zelfstandige Office-test factuurconceptketen; de oudere Moneybird/Betaalcentrum-architectuur hierboven blijft als aparte historische/functionele context behouden.**
+
+### Repository en PR's
+- Repo: `JohnBN1970/brebo-office`.
+- PR #1462 (basis `develop`): `feat/office-finance-unified-invoices-20261027`; verenigd factuurregister, inkomende wachtrij-adapter, verkoopfactuurconcept, btw-regimes uit Office-instellingen.
+- PR #1463 (gestapeld op #1462): `test/office-finance-sales-drafts-integration-20261028`; MySQL 8 CI, ACL-/rollback-/projectisolatietests, CSRF-broncodecontrole, vrijgave- en browseracceptatiematrix. PR #1463 staat open en is klaar voor review; geen geregistreerde review bevestigd.
+- Laatste bevestigde groene CI vóór deze continuïteitswijziging: **run #20** op commit `56103ab0eb669c5c0d6429ff07e08453a66a3af8`. Latere documentatiecommits moeten opnieuw op CI worden gecontroleerd.
+- Branches hebben vier commits verschil in geschiedenis; de enige betrokken basisbranch-bestandswijziging, `office-independent/public/office-finance-sales-new.php`, is op beide branches byte-identiek (blob `ee779d3871e3231853728310a901fcbe97b64195`). Geen inhoudelijk ontbrekende formulierwijziging vastgesteld.
+
+### Hostinger Office-test: daadwerkelijk bevestigd
+- Serverpad: `/home/u213420663/domains/brebobv.nl`.
+- Aanwezige mappen: `office_calc_test` en afgeschermde `office_private`.
+- Configuratie voor deze controle: `office_calc_test/config/config.php`; bevat `OFFICE_BASE_PATH`, `OFFICE_INTAKE_PDO_DSN`, `OFFICE_INTAKE_DB_USER`, `OFFICE_INTAKE_DB_PASSWORD` en bestaande Finance-sleutels. **Nooit configuratiewaarden of geheimen in chat/logs plaatsen.**
+- Gebruiker heeft via SSH een PHP-script uitgevoerd dat uitsluitend na `OFFICE_BASE_PATH === '/office-test'` via PDO en een read-only transactie `information_schema.tables` raadpleegt. De gerapporteerde uitkomst:
+  - `office_finance_sales_drafts`: **ONTBREEKT**.
+  - `office_vat_regimes`: **ONTBREEKT**.
+  - `office_module_permissions`: **AANWEZIG**.
+  - `office_project_memberships`: **AANWEZIG**.
+  - `office_operator_accounts`: **AANWEZIG**.
+  - `office_projects`: **AANWEZIG**.
+- Dit bewijst uitsluitend aanwezigheid/afwezigheid van deze zes tabellen op de gecontroleerde verbinding, niet kolomtypen, indexen, actieve btw-regimes of werkende browserflows. Er is **geen migratie uitgevoerd**, geen featureflag geactiveerd en geen test-/productiedeploy gedaan.
+
+### Directe blokkade en eerstvolgende stappen
+1. **STOP: niet activeren of schrijven.** Twee vereiste tabellen ontbreken. De groene CI gebruikt een geïsoleerde MySQL-fixture, niet de echte Hostinger-database.
+2. Bevestig via een nieuwe read-only controle de database-identiteit (zonder secrets), de vier bestaande tabellen hun kolommen/indexen en de bestaande schema-/migratiehistorie; leg back-up/herstelpad vast.
+3. Review de voorstellen `office-independent/deployment/office-finance-sales-drafts.sql` en `office-independent/deployment/office-vat-regimes.sql` op bestaande schema- en releaseconventies. **Geen automatische migratie**; vraag expliciet akkoord vóór enige DDL op Office-test.
+4. Na akkoord: gecontroleerde Office-test migratie met back-up en verificatie; vul btw-regimes alleen met expliciet goedgekeurde waarden uit Office-instellingen (geen defaults).
+5. Pas na schema-akkoord: read-only schema-smoke en daarna afzonderlijk geautoriseerde functionele browseracceptatie op `/office-test` (login, rechten, CSRF, dubbele POST, conceptopslag, btw-regime en projectisolatie). De schrijvende MySQL-roundtriptest uitsluitend in de tijdelijke CI-database uitvoeren.
+6. Houd `OFFICE_VAT_REGIMES_SCHEMA_VERIFIED`, `OFFICE_FINANCE_SALES_DRAFTS_SCHEMA_VERIFIED` en `OFFICE_FINANCE_SALES_DRAFTS_CREATE_ENABLED` uit totdat verificatie en afzonderlijke vrijgave rond zijn.
+7. Geen merge of productie-deploy zonder review, CI, acceptatie en expliciet akkoord. Geen factuurnummering, verzending of boeking in deze fase.
+
+### Werkafspraak volgende chat
+Niet opnieuw beginnen met algemene Finance-documentatie of CI-fixtures. **Begin bij de twee ontbrekende tabellen op Hostinger Office-test.** Werk één gecontroleerde stap per keer via SSH, toon nooit credentials, en rapporteer duidelijk wat alleen is voorbereid versus daadwerkelijk uitgevoerd.
