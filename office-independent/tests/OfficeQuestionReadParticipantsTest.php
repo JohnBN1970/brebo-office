@@ -7,11 +7,11 @@ require_once __DIR__ . '/../src/Questions/OfficeQuestionService.php';
 use Brebo\Office\Questions\OfficeConversationAccess;
 use Brebo\Office\Questions\OfficeQuestionService;
 
-$db = new PDO('sqlite::memory:');
+$db = new Pdo\Sqlite('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // MySQL DATE_FORMAT nabootsen voor deze SQLite-unit-test.
-$db->sqliteCreateFunction(
+$db->createFunction(
     'DATE_FORMAT',
     static function ($value, $format) {
         if ($value === null) {
