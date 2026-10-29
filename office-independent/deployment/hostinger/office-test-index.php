@@ -67,6 +67,7 @@ $routes = [
   '/office-test/finance' => 'office-finance.php',
   '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',
   '/office-test/finance/factuur' => 'office-finance-invoice.php',
+  '/office-test/finance/dossier' => 'office-finance-dossier.php',
   '/office-test/finance/nieuw' => 'office-finance-new.php',
   '/office-test/finance/concept' => 'office-finance-draft.php',
   '/office-test/inzet/dienst/nieuw' => 'office-inzet-shift-create.php',
