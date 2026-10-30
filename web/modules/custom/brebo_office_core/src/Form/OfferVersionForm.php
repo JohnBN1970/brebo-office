@@ -762,7 +762,7 @@ final class OfferVersionForm extends FormBase {
     if (is_numeric($days) && (int) $days > 0) {
       $lines[] = sprintf('Betaling binnen %d dagen na factuurdatum.', (int) $days);
     }
-    return implode("\\n", $lines);
+    return implode("\n", $lines);
   }
 
   /**
