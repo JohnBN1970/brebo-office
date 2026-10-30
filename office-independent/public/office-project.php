@@ -75,6 +75,62 @@ try {
   $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage($operator->operatorId, $projectId);
   $writeMessage = null;
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $action = $_POST['action'] ?? 'housing_type';
+
+    if ($action === 'create_project_contract') {
+      if (!\Brebo\Office\Intake\OfficeMount::isTest() || !$canManage) {
+        http_response_code(403);
+        exit('Contractbeheer niet toegestaan.');
+      }
+
+      $csrf = $_POST['csrf'] ?? null;
+      $cookie = $_COOKIE['office_project_csrf'] ?? null;
+      if (!is_string($csrf) || !is_string($cookie)
+        || strlen($csrf) !== 64 || !ctype_xdigit($csrf)
+        || !hash_equals($cookie, $csrf)) {
+        http_response_code(403);
+        exit('Ongeldige formulierbeveiliging.');
+      }
+
+      $number = $_POST['contract_number'] ?? null;
+      $client = $_POST['client_name'] ?? null;
+      $amount = $_POST['contract_amount'] ?? null;
+
+      if (!is_string($number) || !is_string($client) || !is_string($amount)) {
+        http_response_code(400);
+        exit('Ongeldige contractgegevens.');
+      }
+
+      $number = trim($number);
+      $client = trim($client);
+      $amount = trim($amount);
+
+      if ($number === '' || $client === ''
+        || strlen($number) > 100 || strlen($client) > 255
+        || !preg_match('/^(0|[1-9][0-9]{0,12})\.[0-9]{2}$/D', $amount)) {
+        http_response_code(400);
+        exit('Ongeldige contractgegevens. Gebruik bijvoorbeeld 1234.56.');
+      }
+
+      require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectContractRepository.php';
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectContractService.php';
+
+      try {
+        (new \Brebo\Office\Project\OfficeProjectContractService($db))
+          ->createDraft((string) $operator->operatorId, $projectId, $number, $client, $amount);
+      } catch (\DomainException $e) {
+        http_response_code(403);
+        exit('Geen toegang tot contractbeheer.');
+      } catch (\InvalidArgumentException $e) {
+        http_response_code(400);
+        exit('Ongeldige contractgegevens.');
+      }
+
+      header('Location: /office-test/projecten/detail?id=' . $projectId . '#project-financieel', true, 303);
+      exit;
+    }
+
     if (!$canManage || getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled') {
       http_response_code(403);
       exit('Bewerken niet toegestaan.');
@@ -466,6 +522,20 @@ try {
         (string) $operator->operatorId,
         (int) $projectId
     );
+
+    if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()) {
+        $financeHtml .= '<section class="module"><h3>Nieuw contract</h3>'
+            . '<form method="post">'
+            . '<input type="hidden" name="action" value="create_project_contract">'
+            . '<input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
+            . '<label>Contractnummer<input name="contract_number" maxlength="100" required></label>'
+            . '<label>Opdrachtgever<input name="client_name" maxlength="255" required></label>'
+            . '<label>Contractsom exclusief btw (EUR)'
+            . '<input name="contract_amount" placeholder="1234.56"'
+            . ' pattern="[0-9]+\.[0-9]{2}" required></label>'
+            . '<button type="submit">Conceptcontract aanmaken</button>'
+            . '</form></section>';
+    }
 
     if ($financeContracts === []) {
         $financeHtml = '<p>Voor dit project zijn nog geen contracten geregistreerd.</p>';
