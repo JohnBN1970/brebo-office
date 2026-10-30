@@ -261,11 +261,15 @@ final class OfferVersionForm extends FormBase {
 
     // The schedule remains the financial truth; this text is editable offer copy.
     $scheduleForText = $this->commercialInstalmentScheduleSnapshot($node);
+    // Freeze the suggested text during rebuilds; never replace an edited draft.
+    if (!$form_state->has('offer_instalment_text_default')) {
+      $form_state->set('offer_instalment_text_default', self::formatInstalmentText($scheduleForText));
+    }
     $form['texts']['instalment_text'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Betalingstermijnen (offertetekst)'),
       '#rows' => 6,
-      '#default_value' => (string) $form_value('instalment_text', self::formatInstalmentText($scheduleForText)),
+      '#default_value' => (string) $form_value('instalment_text', $form_state->get('offer_instalment_text_default')),
       '#description' => $this->t('Automatisch voorgesteld uit het projecttermijnschema. Deze tekst mag worden aangepast; percentages en facturatietermijnen wijzigen daardoor niet.'),
     ];
 
