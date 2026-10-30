@@ -259,6 +259,16 @@ final class OfferVersionForm extends FormBase {
       ];
     }
 
+    // The schedule remains the financial truth; this text is editable offer copy.
+    $scheduleForText = $this->commercialInstalmentScheduleSnapshot($node);
+    $form['texts']['instalment_text'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Betalingstermijnen (offertetekst)'),
+      '#rows' => 6,
+      '#default_value' => (string) $form_value('instalment_text', self::formatInstalmentText($scheduleForText)),
+      '#description' => $this->t('Automatisch voorgesteld uit het projecttermijnschema. Deze tekst mag worden aangepast; percentages en facturatietermijnen wijzigen daardoor niet.'),
+    ];
+
     $offer_lines = $this->loadOfferableCalculationLines();
     $form['post_structure'] = [
       '#type' => 'fieldset',
@@ -647,6 +657,7 @@ final class OfferVersionForm extends FormBase {
       'document_number' => $numberReceipt,
       'administration_identity' => $this->documentIdentity->snapshotForContextNode((int) $calculation->id()),
       'commercial_instalment_schedule' => $commercialInstalmentSchedule,
+      'commercial_instalment_text' => (string) $form_state->getValue('instalment_text'),
       'calculation_domain_snapshot' => $this->calculationCommercialSnapshot($calculation),
       'created_at' => gmdate(DATE_ATOM),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -723,6 +734,35 @@ final class OfferVersionForm extends FormBase {
   private function calculationCommercialSnapshot(NodeInterface $calculation): array {
     $version = $this->calculationVersion ?? $this->offerableCalculationVersion((int) $calculation->id());
     return $this->calculationResultService->calculate((int) $calculation->id(), $version);
+  }
+
+  /**
+   * Renders the project-owned payment schedule as an editable offer paragraph.
+   */
+  private static function formatInstalmentText(?array $snapshot): string {
+    if ($snapshot === NULL) {
+      return '';
+    }
+    $schedule = $snapshot['schedule'] ?? [];
+    $percentages = $schedule['percentages'] ?? [];
+    $labels = $schedule['labels'] ?? [];
+    if (!is_array($percentages) || !is_array($labels) || count($percentages) !== count($labels)) {
+      return '';
+    }
+    $lines = ['De aanneemsom wordt volgens onderstaande termijnen gefactureerd:'];
+    foreach ($percentages as $index => $percentage) {
+      $amount = (float) $percentage;
+      $label = trim((string) $labels[$index]);
+      if ($amount <= 0 || $label === '') {
+        return '';
+      }
+      $lines[] = sprintf('Termijn %d: %s - %s%%.', $index + 1, $label, rtrim(rtrim(number_format($amount, 2, ',', ''), '0'), ','));
+    }
+    $days = $schedule['payment_term_days'] ?? NULL;
+    if (is_numeric($days) && (int) $days > 0) {
+      $lines[] = sprintf('Betaling binnen %d dagen na factuurdatum.', (int) $days);
+    }
+    return implode("\\n", $lines);
   }
 
   /**
