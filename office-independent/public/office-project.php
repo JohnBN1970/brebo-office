@@ -538,7 +538,7 @@ try {
     }
 
     if ($financeContracts === []) {
-        $financeHtml = '<p>Voor dit project zijn nog geen contracten geregistreerd.</p>';
+        $financeHtml .= '<p>Voor dit project zijn nog geen contracten geregistreerd.</p>';
     }
 
     $money = static function (string $amount): string {
