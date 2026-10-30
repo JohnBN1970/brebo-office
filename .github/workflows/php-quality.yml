@@ -57,6 +57,9 @@ jobs:
             php -l "$file"
           done
 
+      - name: Verify offer instalment text contract
+        run: php web/modules/custom/brebo_office_core/tests/OfferInstalmentTextContractTest.php
+
       - name: Verify BREBO Mail core independence
         run: php packages/brebo-mail-core/tests/smoke.php
 
