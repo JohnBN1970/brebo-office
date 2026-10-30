@@ -750,7 +750,7 @@ final class OfferVersionForm extends FormBase {
     $schedule = $snapshot['schedule'] ?? [];
     $percentages = $schedule['percentages'] ?? [];
     $labels = $schedule['labels'] ?? [];
-    if (!is_array($percentages) || !is_array($labels) || count($percentages) !== count($labels)) {
+    if (!is_array($percentages) || $percentages === [] || !is_array($labels) || count($percentages) !== count($labels)) {
       return '';
     }
     $lines = ['De aanneemsom wordt volgens onderstaande termijnen gefactureerd:'];
