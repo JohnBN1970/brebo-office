@@ -100,6 +100,9 @@ final class OfferPreviewController extends ControllerBase {
     if ($g_on) {
       $html .= '<section><h2>G-rekening</h2><p>' . number_format($g_pct, 2, ',', '.') . '% van de ' . Html::escape(mb_strtolower($this->value($node, 'field_brebo_g_account_base'))) . ' wordt op de overeengekomen G-rekening betaald. Het rekeningnummer wordt separaat beveiligd verstrekt.</p></section>';
     }
+    $offerSnapshot = json_decode($this->value($node, 'field_brebo_offer_snapshot'), TRUE);
+    $instalmentText = is_array($offerSnapshot) ? (string) ($offerSnapshot['commercial_instalment_text'] ?? '') : '';
+    $html .= $this->section('Betalingstermijnen', $instalmentText);
     $html .= $this->section('Uitsluitingen', $this->value($node, 'field_brebo_exclusions'));
     $html .= $this->section('Voorwaarden', $this->value($node, 'field_brebo_work_terms'));
     $html .= '<footer>BREBO · versiegebonden offerte ' . Html::escape($offer_number) . ' v' . Html::escape($version) . '</footer></article>';
