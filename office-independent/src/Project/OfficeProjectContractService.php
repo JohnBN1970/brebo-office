@@ -36,7 +36,7 @@ final class OfficeProjectContractService
 
         if (!ctype_digit($operatorId)
             || !(new OfficeNativeProjectAccess($this->db))
-                ->canManage((int) $operatorId, $projectId)) {
+                ->canManage($operatorId, $projectId)) {
             throw new \DomainException('Project management access required');
         }
 
