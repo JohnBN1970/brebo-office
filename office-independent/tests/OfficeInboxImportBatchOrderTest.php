@@ -18,4 +18,20 @@ foreach ([[4,4], [5,3]] as $uids) {
         if ($expected->getMessage() !== 'IMAP batch UIDs must be strictly increasing.') throw $expected;
     }
 }
+foreach ([
+    [['filename'=>'invoice.pdf','mime'=>'application/pdf','bytes'=>'']],
+    [['filename'=>'invoice.pdf','mime'=>'application/pdf','bytes'=>str_repeat('x', 15 * 1024 * 1024 + 1)]],
+    [['filename'=>'','mime'=>'application/pdf','bytes'=>'PDF']],
+] as $attachments) {
+    $batch = ['uidvalidity'=>17, 'messages'=>[
+        ['uid'=>1, 'source'=>$source],
+        ['uid'=>2, 'source'=>$source + ['attachments'=>$attachments]]
+    ]];
+    try {
+        $importer->import(1, 'INBOX', $batch);
+        throw new RuntimeException('Invalid attachment metadata accepted.');
+    } catch (InvalidArgumentException $expected) {
+        if ($expected->getMessage() !== 'Invalid attachment metadata in batch.') throw $expected;
+    }
+}
 echo "OfficeInboxImportBatchOrderTest PASS\n";
