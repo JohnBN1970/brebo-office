@@ -7,7 +7,7 @@ namespace Brebo\Office\Offer;
 use Brebo\Office\Project\OfficeNativeProjectAccess;
 use PDO;
 
-/** Explicit authorization boundary; never trust a supplied relation/project ID. */
+/** Explicit authorization boundary; fail closed: native access currently exposes canManage only. */
 final class OfficeOfferAccess
 {
     public function __construct(private readonly PDO $db)
@@ -17,7 +17,7 @@ final class OfficeOfferAccess
     public function canReadProject(int $operatorId, int $projectId): bool
     {
         return $operatorId > 0 && $projectId > 0
-            && (new OfficeNativeProjectAccess($this->db))->canRead($operatorId, $projectId);
+            && (new OfficeNativeProjectAccess($this->db))->canManage($operatorId, $projectId);
     }
 
     public function canManageProject(int $operatorId, int $projectId): bool
