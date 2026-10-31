@@ -13,7 +13,10 @@ foreach ([
     'listForProject',
     'canManageProject',
     'canReadProject',
-    'Change-order ownership verification not implemented',
+    'requireMatchingChangeOrder',
+    'Change-order does not belong to project',
+    'Change-order type mismatch',
+    'Change-order must be a draft',
 ] as $required) {
     if (!str_contains($app . $access, $required)) {
         throw new RuntimeException('Missing offer authorization contract: ' . $required);
