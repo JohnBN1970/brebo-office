@@ -46,4 +46,19 @@ $id = $app->linkAcceptedChange(7, 5);
 if ($id < 1) {
     throw new RuntimeException('Authorized manager could not link');
 }
+
+// Exercise the complete authorization path with a textual Office identity.
+$db->exec('ALTER TABLE office_operator_accounts MODIFY id VARCHAR(128) NOT NULL');
+$db->exec('ALTER TABLE office_project_memberships MODIFY operator_id VARCHAR(128) NOT NULL');
+$db->exec('ALTER TABLE office_module_permissions MODIFY operator_id VARCHAR(128) NOT NULL');
+$db->exec("INSERT INTO office_operator_accounts VALUES ('operator-test-441', 1)");
+$db->exec("INSERT INTO office_project_memberships VALUES (10, 'operator-test-441', 'manage')");
+$db->exec("INSERT INTO office_module_permissions VALUES ('operator-test-441', 'offers', 'link_change')");
+$db->exec("INSERT INTO office_project_change_orders VALUES (32, 1, 'more', 'draft')");
+$db->exec("INSERT INTO office_offers VALUES (33, 10, 32, 'more', 'accepted')");
+$db->exec("INSERT INTO office_offer_versions VALUES (34, 33, 'accepted')");
+$db->exec("INSERT INTO office_offer_acceptances VALUES (35, 33, 34)");
+if ($app->linkAcceptedChange('operator-test-441', 35) < 1) {
+    throw new RuntimeException('Textual Office identity could not link accepted change');
+}
 echo "OfficeOfferChangeLinkAuthorizationDatabaseTest: PASS\n";
