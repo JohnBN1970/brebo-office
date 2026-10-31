@@ -8,10 +8,23 @@ if (PHP_SAPI !== 'cli') {
 }
 
 try {
-    $password = getenv('IMAP_PASS');
+    $lock = fopen('/home/u213420663/office-test-mail-config/sync.lock', 'c');
+    if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+        throw new RuntimeException('Sync lock unavailable');
+    }
 
+    $secretPath = '/home/u213420663/office-test-mail-config/zoho-app-password';
+    if (!is_file($secretPath) || is_link($secretPath) || (fileperms($secretPath) & 0077) !== 0) {
+        throw new RuntimeException('Private secret unavailable or unsafe');
+    }
+    $password = file_get_contents($secretPath);
     if (!is_string($password) || $password === '') {
         throw new RuntimeException('Zoho app-wachtwoord ontbreekt');
+    }
+
+    $limit = filter_var(getenv('OFFICE_MAIL_BATCH_LIMIT') ?: '5', FILTER_VALIDATE_INT);
+    if ($limit === false || $limit < 1 || $limit > 100) {
+        throw new RuntimeException('Batch limit must be 1..100');
     }
 
     $config = require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
@@ -79,15 +92,17 @@ try {
         new Mail\OfficeImapCursorRepository($db)
     );
 
-    $result = $sync->syncDurable(2, 5);
+    $result = $sync->syncDurable(2, $limit);
 
     echo "=== SYNCHRONISATIE ===\n";
     echo "Verwerkt: " . count($result['ids']) . "\n";
     echo "Laatste UID: " . $result['last_uid'] . "\n";
     echo "UIDVALIDITY: " . $result['uidvalidity'] . "\n";
     echo "=== GEREED ===\n";
+    error_log(gmdate(DATE_ATOM) . " OK count=" . count($result['ids']) . " uid=" . $result['last_uid'] . "\n", 3, '/home/u213420663/office-test-mail-logs/sync.log');
 
 } catch (Throwable $e) {
-    fwrite(STDERR, "STOP: " . $e->getMessage() . "\n");
+    fwrite(STDERR, "STOP: synchronisatie mislukt; controleer het beveiligde log\n");
+    error_log(gmdate(DATE_ATOM) . " FAIL " . get_class($e) . "\n", 3, '/home/u213420663/office-test-mail-logs/sync.log');
     exit(1);
 }
