@@ -42,6 +42,57 @@ final class OfficeOfferRepository
         return (int) $this->db->lastInsertId();
     }
 
+    /**
+     * Issue a specific immutable draft version. Does not approve any change order.
+     * The caller must have verified authorization for this offer.
+     */
+    public function issueVersion(int $offerId, int $versionId): void
+    {
+        if ($offerId < 1 || $versionId < 1) {
+            throw new \InvalidArgumentException('Invalid offer version');
+        }
+        $this->db->beginTransaction();
+        try {
+            $offerLock = $this->db->prepare(
+                'SELECT status FROM office_offers WHERE id = :id FOR UPDATE'
+            );
+            $offerLock->execute([':id' => $offerId]);
+            if ($offerLock->fetchColumn() !== 'draft') {
+                throw new \DomainException('Offer must be draft');
+            }
+            $versionLock = $this->db->prepare(
+                'SELECT status FROM office_offer_versions
+                 WHERE id = :version_id AND offer_id = :offer_id FOR UPDATE'
+            );
+            $versionLock->execute([':version_id' => $versionId, ':offer_id' => $offerId]);
+            if ($versionLock->fetchColumn() !== 'draft') {
+                throw new \DomainException('Version must belong to offer and be draft');
+            }
+            $markVersion = $this->db->prepare(
+                "UPDATE office_offer_versions SET status = 'issued'
+                 WHERE id = :version_id AND offer_id = :offer_id AND status = 'draft'"
+            );
+            $markVersion->execute([':version_id' => $versionId, ':offer_id' => $offerId]);
+            if ($markVersion->rowCount() !== 1) {
+                throw new \DomainException('Version issue conflict');
+            }
+            $markOffer = $this->db->prepare(
+                "UPDATE office_offers SET status = 'issued'
+                 WHERE id = :offer_id AND status = 'draft'"
+            );
+            $markOffer->execute([':offer_id' => $offerId]);
+            if ($markOffer->rowCount() !== 1) {
+                throw new \DomainException('Offer issue conflict');
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public function forProject(int $projectId): array
     {
         if ($projectId < 1) {
