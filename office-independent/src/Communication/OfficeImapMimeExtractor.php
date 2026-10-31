@@ -69,6 +69,19 @@ final class OfficeImapMimeExtractor
             $attachments[] = ['filename'=>$filename, 'mime'=>$mime, 'bytes'=>$bytes];
             return;
         }
+        if (($type === 2 && $subtype === 'delivery-status')
+            || ($type === 0 && $subtype === 'rfc822-headers')) {
+            if (strlen($bytes) < 1 || strlen($bytes) > 15 * 1024 * 1024) {
+                throw new RuntimeException('Delivery report exceeds size policy.');
+            }
+            $label = $type === 2 ? 'delivery-status' : 'original-headers';
+            $attachments[] = [
+                'filename' => $label . '-' . $uid . '-' . str_replace('.', '-', $number) . '.txt',
+                'mime' => $mime,
+                'bytes' => $bytes,
+            ];
+            return;
+        }
         if ($type === 0 && $subtype === 'calendar') {
             if (strlen($bytes) < 1 || strlen($bytes) > 15 * 1024 * 1024) throw new RuntimeException('Calendar payload exceeds size policy.');
             $attachments[] = ['filename' => 'agenda-' . $uid . '-' . str_replace('.', '-', $number) . '.ics', 'mime' => 'text/calendar', 'bytes' => $bytes];
