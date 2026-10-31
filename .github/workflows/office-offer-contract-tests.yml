@@ -1,0 +1,74 @@
+name: Office Offer Contract Tests
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Offer/**'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/public/office-role-settings.php'
+      - 'office-independent/tests/OfficeOffer*Test.php'
+      - 'office-independent/tests/OfficeRole*Test.php'
+      - '.github/workflows/office-offer-contract-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  offer-contract-tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: offer_ci_root
+          MYSQL_DATABASE: offer_ci_isolated
+          MYSQL_USER: offer_ci
+          MYSQL_PASSWORD: offer_ci_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -poffer_ci_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+          coverage: none
+          extensions: mbstring, pdo_mysql
+      - name: Lint Offer sources and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          find office-independent/src/Offer -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find office-independent/tests -maxdepth 1 -type f \( -name 'OfficeOffer*Test.php' -o -name 'OfficeRole*Test.php' \) -print0 | xargs -0 -n1 php -l
+      - name: Run standalone Offer contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in office-independent/tests/OfficeOffer*Test.php; do
+            if [[ "$test" == *DatabaseTest.php ]]; then continue; fi
+            php "$test"
+          done
+          php office-independent/tests/OfficeRoleSettingsContractTest.php
+          php office-independent/tests/OfficeRoleSettingsViewTest.php
+          php office-independent/tests/OfficeRoleSettingsControllerTest.php
+          php office-independent/tests/OfficeRoleSettingsPageTest.php
+          php office-independent/tests/OfficeRoleSettingsEndpointTest.php
+          php office-independent/tests/OfficeRoleSettingsNavigationTest.php
+          php office-independent/tests/OfficeRoleSettingsRouterContractTest.php
+      - name: Run isolated MySQL offer integration test
+        env:
+          OFFICE_OFFER_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=offer_ci_isolated;charset=utf8mb4
+          OFFICE_OFFER_TEST_USER: offer_ci
+          OFFICE_OFFER_TEST_PASSWORD: offer_ci_password
+        run: |
+          php office-independent/tests/OfficeOfferChangeLinkDatabaseTest.php
+          php office-independent/tests/OfficeOfferChangeLinkAuthorizationDatabaseTest.php
+          php office-independent/tests/OfficeOfferModulePermissionDatabaseTest.php
+          php office-independent/tests/OfficeOfferRolePermissionDatabaseTest.php
+          php office-independent/tests/OfficeRoleSettingsDatabaseTest.php
+          php office-independent/tests/OfficeRoleSettingsRoundTripDatabaseTest.php

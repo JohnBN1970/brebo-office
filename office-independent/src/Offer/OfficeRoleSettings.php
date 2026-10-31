@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Brebo\Office\Offer;
+
+use PDO;
+use DomainException;
+
+/** Central role settings write model; caller must enforce settings.manage. */
+final class OfficeRoleSettings
+{
+    private const PERMISSIONS = ['read', 'create', 'update', 'issue', 'record_acceptance', 'link_change', 'manage'];
+    // 'own' is reserved until offer ownership can be verified at query level.
+    private const SCOPES = ['none', 'assigned', 'all'];
+
+    public function __construct(private readonly PDO $db)
+    {
+    }
+
+    public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope, string $actorOperatorId = ''): void
+    {
+        // Only modules with an implemented permission contract can be configured.
+        if ($module !== 'offers') {
+            throw new DomainException('Module not yet configurable');
+        }
+        if ($actorOperatorId !== '' && (strlen($actorOperatorId) > 128 || trim($actorOperatorId) === '')) { throw new DomainException('Invalid actor ID'); }
+        if ($roleId < 1 || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)
+            || !in_array($scope, self::SCOPES, true)
+            || count(array_filter($permissions, 'is_string')) !== count($permissions)
+            || array_diff($permissions, self::PERMISSIONS)
+            || (!$enabled && ($permissions !== [] || $scope !== 'none'))
+            || ($enabled && $permissions === [])) {
+            throw new DomainException('Invalid module settings');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $lock = $this->db->prepare('SELECT id FROM office_roles WHERE id = ? AND active = 1 FOR UPDATE');
+            $lock->execute([$roleId]);
+            if ($lock->fetchColumn() === false) {
+                throw new DomainException('Active role required');
+            }
+            $oldPermissionsQuery = $this->db->prepare(
+                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
+            );
+            $oldPermissionsQuery->execute([$roleId, $module]);
+            $beforePermissions = $oldPermissionsQuery->fetchAll(PDO::FETCH_COLUMN);
+            $oldScopeQuery = $this->db->prepare(
+                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
+            );
+            $oldScopeQuery->execute([$roleId, $module]);
+            $beforeScope = $oldScopeQuery->fetchColumn();
+            $remove = $this->db->prepare('DELETE FROM office_role_permissions WHERE role_id = ? AND module = ?');
+            $remove->execute([$roleId, $module]);
+            $removeScope = $this->db->prepare('DELETE FROM office_role_scopes WHERE role_id = ? AND module = ?');
+            $removeScope->execute([$roleId, $module]);
+            if ($enabled) {
+                $insert = $this->db->prepare('INSERT INTO office_role_permissions (role_id, module, permission) VALUES (?, ?, ?)');
+                foreach (array_unique($permissions) as $permission) {
+                    $insert->execute([$roleId, $module, $permission]);
+                }
+                $insertScope = $this->db->prepare('INSERT INTO office_role_scopes (role_id, module, scope_key) VALUES (?, ?, ?)');
+                $insertScope->execute([$roleId, $module, $scope]);
+            }
+            // Changes are not silently treated as successful when a write failed.
+            $savedPermissions = $this->db->prepare(
+                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
+            );
+            $savedPermissions->execute([$roleId, $module]);
+            $actualPermissions = $savedPermissions->fetchAll(PDO::FETCH_COLUMN);
+            $expectedPermissions = $enabled ? array_values(array_unique($permissions)) : [];
+            sort($expectedPermissions);
+            $savedScope = $this->db->prepare(
+                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
+            );
+            $savedScope->execute([$roleId, $module]);
+            $actualScope = $savedScope->fetchColumn();
+            if ($actualPermissions !== $expectedPermissions
+                || ($actualScope === false ? 'none' : $actualScope) !== ($enabled ? $scope : 'none')) {
+                throw new DomainException('Role settings verification failed');
+            }
+            if ($actorOperatorId !== '') {
+                $audit = $this->db->prepare(
+                    'INSERT INTO office_role_settings_audit
+                     (actor_operator_id, role_id, module, before_json, after_json)
+                     VALUES (?, ?, ?, ?, ?)'
+                );
+                $audit->execute([
+                    $actorOperatorId, $roleId, $module,
+                    json_encode(['permissions' => $beforePermissions, 'scope' => $beforeScope === false ? 'none' : $beforeScope], JSON_THROW_ON_ERROR),
+                    json_encode(['permissions' => $actualPermissions, 'scope' => $actualScope === false ? 'none' : $actualScope], JSON_THROW_ON_ERROR),
+                ]);
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+}

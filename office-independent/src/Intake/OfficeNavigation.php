@@ -59,6 +59,30 @@ final class OfficeNavigation {
       return false;
     }
   }
+  /** Settings navigation is visible only to active operators with an explicit management grant. */
+  public static function roleSettingsVisible():bool {
+    if (getenv('OFFICE_ROLE_SETTINGS_ENABLED')!=='enabled'
+      || getenv('OFFICE_CRM_SESSION_MODE')!=='enabled') return false;
+    try {
+      foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php',
+        'WebsiteCrmOperatorSessionProviderInterface.php',
+        'WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $file) {
+        require_once __DIR__.'/'.$file;
+      }
+      $dsn=getenv('OFFICE_INTAKE_PDO_DSN');
+      if (!is_string($dsn)||$dsn==='') return false;
+      $db=new \PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
+        [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_EMULATE_PREPARES=>false]);
+      $operator=(new WebsiteOfficeCrmCookieSessionProvider(
+        new WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time()))->currentOperator();
+      if ($operator===null) return false;
+      $query=$db->prepare("SELECT 1 FROM office_module_permissions p
+        JOIN office_operator_accounts a ON a.id=p.operator_id AND a.active=1
+        WHERE p.operator_id=:id AND p.module='settings' AND p.permission='manage' LIMIT 1");
+      $query->execute([':id'=>$operator->operatorId]);
+      return $query->fetchColumn()!==false;
+    } catch (\Throwable $e) { return false; }
+  }
   public static function mainV2(string $path):string {
     // Only advertise modules whose existing test-environment gates are enabled.
     // This is presentation logic, never a substitute for per-request ACL checks.
@@ -77,12 +101,16 @@ final class OfficeNavigation {
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
       ['Kennis & kwaliteit','kennis',[]],
+      ...(self::roleSettingsVisible() ? [['Instellingen','instellingen',[
+        ['Rollen en rechten','/office-test/instellingen/rollen'],
+      ]]] : []),
     ];
     $selected='werkplek';
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
+    elseif(str_starts_with($path,'/office-test/instellingen/'))$selected='instellingen';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
     foreach($groups as [$label,$key,$links]){
       $open=$selected===$key;
