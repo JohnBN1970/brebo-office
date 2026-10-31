@@ -34,6 +34,9 @@ try {
     ] as $file) {
         require_once dirname(__DIR__) . '/src/Offer/' . $file;
     }
+    if (\Brebo\Office\Intake\OfficeMount::basePath() !== '/office-test') {
+        throw new RuntimeException('Role settings restricted to Office-test');
+    }
     $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
     if (!is_string($dsn) || $dsn === '') {
         throw new RuntimeException('Office database unavailable');
