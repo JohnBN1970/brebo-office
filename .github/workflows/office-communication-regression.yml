@@ -26,5 +26,6 @@ jobs:
           php -r 'if (!extension_loaded("pdo_sqlite")) { fwrite(STDERR, "pdo_sqlite required\n"); exit(1); }'
           php office-independent/tests/OfficeAttachmentRecordRepositoryTest.php
           php office-independent/tests/OfficeImapCursorRepositoryTest.php
-          php office-independent/tests/OfficeAttachmentVaultTest.php
+          mkdir -p "$RUNNER_TEMP/office-public-root"
+          DOCUMENT_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/tests/OfficeAttachmentVaultTest.php
           php office-independent/tests/OfficeImapReadOnlySourceTest.php
