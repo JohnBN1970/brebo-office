@@ -77,12 +77,16 @@ final class OfficeNavigation {
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
       ['Kennis & kwaliteit','kennis',[]],
+      ['Instellingen','instellingen',getenv('OFFICE_ROLE_SETTINGS_ENABLED')==='enabled'?[
+        ['Rollen en rechten','/office-test/instellingen/rollen'],
+      ]:[]],
     ];
     $selected='werkplek';
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
+    elseif(str_starts_with($path,'/office-test/instellingen/'))$selected='instellingen';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
     foreach($groups as [$label,$key,$links]){
       $open=$selected===$key;
