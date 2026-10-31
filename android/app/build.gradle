@@ -1,5 +1,5 @@
 plugins { id 'com.android.application' }
-def onsiteApiBaseUrl = providers.gradleProperty('onsiteApiBaseUrl').getOrElse('https://sboffice.brebobv.nl')
+def onsiteApiBaseUrl = providers.gradleProperty('onsiteApiBaseUrl').getOrElse('https://brebobv.nl/office-test')
 def onsiteUri = new URI(onsiteApiBaseUrl)
 if (onsiteUri.scheme != 'https' || !onsiteUri.host || onsiteUri.userInfo || onsiteUri.query || onsiteUri.fragment) {
     throw new GradleException('OnSite requires an HTTPS API base URL without credentials, query or fragment')
