@@ -1,0 +1,31 @@
+name: Office communication regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Communication/**'
+      - 'office-independent/tests/Office*Communication*Test.php'
+      - 'office-independent/tests/Office*Attachment*Test.php'
+      - 'office-independent/tests/Office*Imap*Test.php'
+      - 'office-independent/tests/Office*Inbox*Test.php'
+      - '.github/workflows/office-communication-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  communication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP availability
+        run: php -v
+      - name: Validate communication PHP syntax
+        run: |
+          find office-independent/src/Communication -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run attachment and IMAP cursor regression tests
+        run: |
+          set -eu
+          php -r 'if (!extension_loaded("pdo_sqlite")) { fwrite(STDERR, "pdo_sqlite required\n"); exit(1); }'
+          php office-independent/tests/OfficeAttachmentRecordRepositoryTest.php
+          php office-independent/tests/OfficeImapCursorRepositoryTest.php
+          php office-independent/tests/OfficeAttachmentVaultTest.php
+          php office-independent/tests/OfficeImapReadOnlySourceTest.php
+          php office-independent/tests/OfficeImapMimeExtractorTest.php
