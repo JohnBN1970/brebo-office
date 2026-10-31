@@ -42,6 +42,8 @@ if ($scopes->forOperator(21, 'offers') !== 'assigned'
     || $scopes->forOperator(21, 'finance') !== 'none') {
     throw new RuntimeException('Role scope isolation failed');
 }
+// Exercise role-derived access without the earlier fixture's explicit operator grant.
+$db->exec("DELETE FROM office_module_permissions WHERE operator_id = 21 AND module = 'offers' AND permission = 'create'");
 $moduleAccess = new \Brebo\Office\Offer\OfficeOfferModulePermission($db);
 if (!$moduleAccess->allows(21, 'create') || $moduleAccess->allows(22, 'create')) {
     throw new RuntimeException('Role module scope not enforced');
