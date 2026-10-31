@@ -39,7 +39,10 @@ final class OfficeRoleSettingsController
             || !is_string($scope) || array_filter($permissions, 'is_string') !== $permissions) {
             throw new DomainException('Invalid settings form');
         }
-        $enabled = ($post['enabled'] ?? null) === '1';
+        if (!in_array($post['enabled'] ?? null, ['0', '1'], true)) {
+            throw new DomainException('Explicit module enabled state required');
+        }
+        $enabled = $post['enabled'] === '1';
         // Disabled module ignores stale form values from collapsed controls.
         (new OfficeRoleSettings($this->db))->setModule(
             $roleId, $module, $enabled,
