@@ -39,3 +39,11 @@ De gebruiker heeft via Drupal `SHOW COLUMNS` bevestigd:
 2. Welke Office-debiteuridentiteit en factuuradres-snapshot gebruiken we voor zelfstandige facturen?
 3. Welke bestaande `source_type`-waarden, `status`-overgangen en btw-regimes zijn toegestaan? Verifieer aan bestaande services, niet aan voorbeeldwaarden.
 4. Maak voor Office-test een afzonderlijk migratiepad met rollback; wijzig sboffice niet voor testdoeleinden.
+
+## Definitief eigenaarschap Moneybird (besluit gebruiker, 2026-10-31)
+- BREBO Office is het leidende systeem voor verkoop- en inkoopfacturen, factuurnummering, debiteuren/crediteuren, betalingen, betaalcontrole, btw-specificatie, openstaande posten en financiële projectrapportage.
+- Moneybird heeft uitsluitend een afgeleide rol als koppeling voor fiscale administratie/boekhouding en aangiftevoorbereiding. Moneybird is geen bron van waarheid voor factuurnummer, project, factuurstatus of betaalstatus in Office.
+- Export naar Moneybird is een afzonderlijke, herhaalbare, idempotente integratie met mapping van Office-document-ID naar extern boekings-ID; fouten in de export mogen Office-facturen of betaalregistraties niet wijzigen.
+- Het legacy veld `moneybird_id` in `brebo_finance_sales_invoice` is verplicht en uniek. Dit schema is daarom **niet geschikt als directe Office-native factuurbron**. Ontwerp een eigen Office-native opslagmodel; laat legacy tabellen ongemoeid.
+- Betalingen: registreer bankontvangsten afzonderlijk, leg toewijzingen aan facturen vast, ondersteun deelbetalingen/overbetalingen, audit en gecontroleerde correcties. Markeer pas volledig betaald wanneer de toegewezen netto ontvangsten de vordering dekken.
+- Fiscale koppeling omvat niet automatisch de fiscale aangifte zelf; de exacte export- en aangiftegrenzen worden apart vastgesteld.
