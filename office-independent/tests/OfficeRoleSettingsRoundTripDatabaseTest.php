@@ -25,6 +25,12 @@ if ($initial['status'] !== 200 || !str_contains($initial['body'], 'name="module"
 }
 $denied = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'wrong','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
 if ($denied['status'] !== 403) throw new RuntimeException('Invalid CSRF accepted');
+$unauthorizedGet = $endpoint->handle('GET', 999, 'test-csrf', $action);
+if ($unauthorizedGet['status'] !== 403) throw new RuntimeException('Unprivileged operator viewed settings');
+$unauthorizedPost = $endpoint->handle('POST', 999, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
+if ($unauthorizedPost['status'] !== 403) throw new RuntimeException('Unprivileged operator changed settings');
+$unsupported = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'finance','enabled'=>'1','permissions'=>['manage'],'scope'=>'all']);
+if ($unsupported['status'] !== 403) throw new RuntimeException('Unsupported module was changed');
 $saved = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read','create'],'scope'=>'assigned']);
 if ($saved['status'] !== 303) throw new RuntimeException('Authorized settings save failed');
 $rendered = $endpoint->handle('GET', 441, 'test-csrf', $action);
