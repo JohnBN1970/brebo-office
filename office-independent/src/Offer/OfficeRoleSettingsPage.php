@@ -13,7 +13,7 @@ final class OfficeRoleSettingsPage
     {
     }
 
-    public function render(int $operatorId, string $action, string $csrfToken): string
+    public function render(string $operatorId, string $action, string $csrfToken): string
     {
         if ($csrfToken === '') {
             throw new \DomainException('CSRF token required');
