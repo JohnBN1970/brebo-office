@@ -35,10 +35,10 @@ final class OfficeOfferModulePermission
         $schema = $this->db->prepare(
             "SELECT COUNT(*) FROM information_schema.tables
              WHERE table_schema = DATABASE()
-               AND table_name IN ('office_roles', 'office_user_roles', 'office_role_permissions')"
+               AND table_name IN ('office_roles', 'office_user_roles', 'office_role_permissions', 'office_role_scopes')"
         );
         $schema->execute();
-        if ((int) $schema->fetchColumn() !== 3) {
+        if ((int) $schema->fetchColumn() !== 4) {
             return false;
         }
         // This class is used by standalone Office entrypoints without Composer autoloading.
