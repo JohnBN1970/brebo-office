@@ -46,6 +46,6 @@ $after = json_decode($audit['after_json'], true, 512, JSON_THROW_ON_ERROR);
 sort($after['permissions']);
 if ($before !== ['permissions' => [], 'scope' => 'none']
     || $after !== ['permissions' => ['create', 'read'], 'scope' => 'assigned']) {
-    throw new RuntimeException('Role change audit values mismatch');
+    throw new RuntimeException('Role change audit values mismatch: before=' . json_encode($before) . ' after=' . json_encode($after));
 }
 echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\\n";
