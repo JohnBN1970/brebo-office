@@ -17,6 +17,9 @@ foreach (['&lt;Projectleider&gt;', 'csrf&lt;token&gt;', 'name="enabled"', 'name=
         throw new RuntimeException('Settings form missing: ' . $expected);
     }
 }
+if (!str_contains($html, '<input type="hidden" name="enabled" value="0">')) {
+    throw new RuntimeException('Unchecked module checkbox must submit explicit disabled value');
+}
 if (str_contains($html, 'Eigen gegevens')) {
     throw new RuntimeException('Unsupported own scope is selectable');
 }
