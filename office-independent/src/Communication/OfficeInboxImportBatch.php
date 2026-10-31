@@ -53,6 +53,26 @@ final class OfficeInboxImportBatch
                 || preg_match('/^Content-Type:.*(?:name|filename)\\s*=/im', $headers))) {
                 throw new RuntimeException('MIME decoding and attachment persistence required before import.');
             }
+            if (array_key_exists('attachments', $source)) {
+                if (!is_array($source['attachments'])) {
+                    throw new InvalidArgumentException('Invalid attachment list.');
+                }
+                foreach ($source['attachments'] as $attachment) {
+                    if (!is_array($attachment)
+                        || !isset($attachment['filename'], $attachment['mime'], $attachment['bytes'])
+                        || !is_string($attachment['filename'])
+                        || !is_string($attachment['mime'])
+                        || !is_string($attachment['bytes'])
+                        || $attachment['filename'] === ''
+                        || strlen($attachment['filename']) > 255
+                        || $attachment['mime'] === ''
+                        || strlen($attachment['mime']) > 127
+                        || strlen($attachment['bytes']) < 1
+                        || strlen($attachment['bytes']) > 15 * 1024 * 1024) {
+                        throw new InvalidArgumentException('Invalid attachment metadata in batch.');
+                    }
+                }
+            }
             if (!empty($source['attachments']) && $this->attachmentImporter === null) {
                 throw new RuntimeException('Attachment importer required.');
             }
