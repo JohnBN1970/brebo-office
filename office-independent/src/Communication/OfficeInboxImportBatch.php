@@ -64,6 +64,10 @@ final class OfficeInboxImportBatch
                         || !is_string($attachment['mime'])
                         || !is_string($attachment['bytes'])
                         || $attachment['filename'] === ''
+                        || in_array($attachment['filename'], ['.', '..'], true)
+                        || str_contains($attachment['filename'], "\\0")
+                        || preg_match('/[\\x00-\\x1F\\x7F]/', $attachment['filename']) === 1
+                        || basename(str_replace('\\\\', '/', $attachment['filename'])) === ''
                         || strlen($attachment['filename']) > 255
                         || $attachment['mime'] === ''
                         || strlen($attachment['mime']) > 127
