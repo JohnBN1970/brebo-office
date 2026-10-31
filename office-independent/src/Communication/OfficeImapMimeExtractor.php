@@ -76,6 +76,11 @@ final class OfficeImapMimeExtractor
             $body = strip_tags($bytes);
             return;
         }
+        // Multipart alternatives and related inline resources must not cause
+        // a false attachment or silent import of an unsupported payload.
+        if ($disposition === 'inline' && $type === 5 && $filename === '') {
+            return; // inline image, not an invoice attachment
+        }
         // multipart/alternative may include both plain and HTML representations.
         // Do not mistake the second representation for an attachment or an error.
         if ($type === 0 && in_array($subtype, ['plain', 'html'], true) && $body !== '') {
