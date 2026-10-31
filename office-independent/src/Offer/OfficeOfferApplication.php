@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Brebo\Office\Offer;
 
 use PDO;
+use Brebo\Office\Project\OfficeProjectChangeOrderRepository;
+use Brebo\Office\Project\OfficeProjectContractRepository;
 
 /**
  * Authorized project-side offer application.
@@ -14,11 +16,15 @@ final class OfficeOfferApplication
 {
     private OfficeOfferRepository $offers;
     private OfficeOfferAccess $access;
+    private OfficeProjectContractRepository $contracts;
+    private OfficeProjectChangeOrderRepository $changes;
 
     public function __construct(PDO $db)
     {
         $this->offers = new OfficeOfferRepository($db);
         $this->access = new OfficeOfferAccess($db);
+        $this->contracts = new OfficeProjectContractRepository($db);
+        $this->changes = new OfficeProjectChangeOrderRepository($db);
     }
 
     public function createProjectDraft(int $operatorId, OfficeOfferDraft $draft): int
@@ -29,12 +35,34 @@ final class OfficeOfferApplication
         if (!$this->access->canManageProject($operatorId, $draft->projectId)) {
             throw new \DomainException('Project management access required');
         }
-        // Linking an existing change order also requires verifying its contract
-        // belongs to the selected project. Until then fail closed.
         if ($draft->isProjectChange()) {
-            throw new \DomainException('Change-order ownership verification not implemented');
+            $this->requireMatchingChangeOrder($draft);
         }
         return $this->offers->createDraft($draft);
+    }
+
+    private function requireMatchingChangeOrder(OfficeOfferDraft $draft): void
+    {
+        $projectId = $draft->projectId;
+        $changeOrderId = $draft->changeOrderId;
+        if ($projectId === null || $changeOrderId === null) {
+            throw new \DomainException('Change-order context required');
+        }
+        foreach ($this->contracts->forProject($projectId) as $contract) {
+            foreach ($this->changes->forContract((int) $contract['id']) as $change) {
+                if ((int) $change['id'] !== $changeOrderId) {
+                    continue;
+                }
+                if ($change['change_type'] !== $draft->changeType) {
+                    throw new \DomainException('Change-order type mismatch');
+                }
+                if ($change['status'] !== 'draft') {
+                    throw new \DomainException('Change-order must be a draft');
+                }
+                return;
+            }
+        }
+        throw new \DomainException('Change-order does not belong to project');
     }
 
     public function listForProject(int $operatorId, int $projectId): array
