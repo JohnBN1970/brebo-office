@@ -64,6 +64,7 @@ $routes = [
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/projecten' => 'office-projects.php',
+  '/office-test/instellingen/rollen' => 'office-role-settings.php',
   '/office-test/finance' => 'office-finance.php',
   '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',
   '/office-test/finance/factuur' => 'office-finance-invoice.php',
