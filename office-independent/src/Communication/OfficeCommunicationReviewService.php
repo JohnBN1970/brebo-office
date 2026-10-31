@@ -30,7 +30,12 @@ final class OfficeCommunicationReviewService
         if (!in_array($decision, ['approved', 'rejected'], true)) {
             throw new InvalidArgumentException('Invalid review decision.');
         }
-        $this->pdo->beginTransaction();
+        $nested = $this->pdo->inTransaction();
+        if ($nested) {
+            $this->pdo->exec('SAVEPOINT office_communication_review');
+        } else {
+            $this->pdo->beginTransaction();
+        }
         try {
             $select = $this->pdo->prepare(
                 'SELECT review_status FROM office_communication_messages WHERE id = :id FOR UPDATE'
@@ -56,10 +61,18 @@ final class OfficeCommunicationReviewService
                 ':operator_id' => trim($operatorId),
                 ':event_type' => $decision,
             ]);
-            $this->pdo->commit();
+            if ($nested) {
+                $this->pdo->exec('RELEASE SAVEPOINT office_communication_review');
+            } else {
+                $this->pdo->commit();
+            }
         } catch (Throwable $exception) {
             if ($this->pdo->inTransaction()) {
-                $this->pdo->rollBack();
+                if ($nested) {
+                    $this->pdo->exec('ROLLBACK TO SAVEPOINT office_communication_review');
+                } else {
+                    $this->pdo->rollBack();
+                }
             }
             throw $exception;
         }
