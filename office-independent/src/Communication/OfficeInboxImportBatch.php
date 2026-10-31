@@ -30,12 +30,18 @@ final class OfficeInboxImportBatch
             || !isset($batch['messages']) || !is_array($batch['messages'])) {
             throw new InvalidArgumentException('Invalid import batch.');
         }
-        // Validate the complete batch before any write.
+        // Validate the complete batch before any write. A duplicated or
+        // out-of-order UID makes cursor advancement ambiguous.
+        $previousUid = 0;
         foreach ($batch['messages'] as $item) {
             if (!is_array($item) || !isset($item['uid'], $item['source'])
                 || !is_int($item['uid']) || $item['uid'] < 1 || !is_array($item['source'])) {
                 throw new InvalidArgumentException('Invalid IMAP item.');
             }
+            if ($item['uid'] <= $previousUid) {
+                throw new InvalidArgumentException('IMAP batch UIDs must be strictly increasing.');
+            }
+            $previousUid = $item['uid'];
             $source = $item['source'];
             $headers = $source['raw_headers'] ?? null;
             if (!is_string($headers) || $headers === '') {
