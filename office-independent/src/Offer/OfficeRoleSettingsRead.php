@@ -44,8 +44,19 @@ final class OfficeRoleSettingsRead
             $module = (string) $scope['module'];
             $byRole[$role][$module]['scope'] = (string) $scope['scope_key'];
         }
+        // Show configurable modules even before a role has any grants.
+        // The role can then be enabled from an initially empty database.
+        $catalog = ['offers'];
         foreach ($roles as &$role) {
-            $role['modules'] = $byRole[(int) $role['id']] ?? [];
+            $stored = $byRole[(int) $role['id']] ?? [];
+            $role['modules'] = [];
+            foreach (array_unique(array_merge($catalog, array_keys($stored))) as $module) {
+                $role['modules'][$module] = $stored[$module] ?? [
+                    'enabled' => false,
+                    'permissions' => [],
+                    'scope' => 'none',
+                ];
+            }
         }
         unset($role);
         return $roles;
