@@ -39,6 +39,9 @@ final class OfficeAttachmentVault
         if (is_link($path)) {
             throw new RuntimeException('Unsafe attachment target.');
         }
+        if (file_exists($path) && !is_file($path)) {
+            throw new RuntimeException('Unsafe attachment target type.');
+        }
         if (!is_file($path)) {
             $temp = tempnam($directory, '.upload-');
             if ($temp === false) {
@@ -46,8 +49,12 @@ final class OfficeAttachmentVault
             }
             try {
                 chmod($temp, 0600);
-                if (file_put_contents($temp, $bytes, LOCK_EX) !== $size
-                    || !rename($temp, $path)) {
+                if (file_put_contents($temp, $bytes, LOCK_EX) !== $size) {
+                    throw new RuntimeException('Attachment persistence failed.');
+                }
+                // Avoid replacing an existing content-addressed object.
+                // A concurrent writer may have stored the same digest already.
+                if (!@link($temp, $path) && !is_file($path)) {
                     throw new RuntimeException('Attachment persistence failed.');
                 }
             } finally {
