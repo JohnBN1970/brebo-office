@@ -56,4 +56,9 @@ $db->exec("DELETE FROM office_role_scopes WHERE role_id = 1 AND module = 'offers
 if ($moduleAccess->allows(21, 'create')) {
     throw new RuntimeException('Missing role scope granted access');
 }
+// An incomplete role schema must deny access without querying the missing table.
+$db->exec('DROP TABLE office_role_scopes');
+if ($moduleAccess->allows(21, 'create')) {
+    throw new RuntimeException('Incomplete role schema granted access');
+}
 echo "OfficeOfferRolePermissionDatabaseTest: PASS\n";
