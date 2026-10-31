@@ -37,8 +37,10 @@ final class OfficeCommunicationReviewService
             $this->pdo->beginTransaction();
         }
         try {
+            $lockingSuffix = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+                ? '' : ' FOR UPDATE';
             $select = $this->pdo->prepare(
-                'SELECT review_status FROM office_communication_messages WHERE id = :id FOR UPDATE'
+                'SELECT review_status FROM office_communication_messages WHERE id = :id' . $lockingSuffix
             );
             $select->execute([':id' => $messageId]);
             $status = $select->fetchColumn();
