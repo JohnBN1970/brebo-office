@@ -24,5 +24,6 @@ WHERE table_schema = DATABASE()
   )
 ORDER BY table_name, ordinal_position;
 
--- Check existing direct settings grants only after verifying expected schema.
+-- The table inventory is informational: do not infer missing columns or auto-migrate.
+-- Check direct settings.manage grants separately after verifying existing schema.
 -- No INSERT, UPDATE, DELETE, CREATE, DROP or ALTER statements are included.
