@@ -27,9 +27,10 @@ JS;
 
   public static function landing(): string {
     return self::document('<h1>BREBO OnSite</h1><p>Office-test</p>'
-      . '<p id="activation-status">Open deze persoonlijke link op je iPhone. JavaScript is nodig om de app te openen.</p>'
+      . '<p id="activation-status">Open deze persoonlijke link op je telefoon. JavaScript is nodig om de app te openen.</p>'
       . '<p><a id="open-onsite" hidden>Open OnSite</a></p>'
-      . '<p>Deze link is eenmalig. Je hebt de Office-testversie uit TestFlight nodig.</p>'
+      . self::installButtons()
+      . '<p>Installeer eerst de testapp voor jouw toestel. Open daarna je persoonlijke activatielink opnieuw. Deze link is eenmalig.</p>'
       . '<script>' . self::script() . '</script>');
   }
 
@@ -41,21 +42,39 @@ JS;
     }
     // A URL fragment stays out of the landing request, server logs and previews.
     $link = 'https://brebobv.nl/office-test/inzet/onsite/activatie-uitgeven#activation=' . $token;
-    $text = 'BREBO OnSite: open deze persoonlijke link op je iPhone met de Office-testversie uit TestFlight: '
+    $text = 'BREBO OnSite: open deze persoonlijke link op je iPhone of Android-toestel met de BREBO OnSite-testapp: '
       . $link . "\nEenmalig te gebruiken; geldig tot " . $invitation['expires_at'] . ' UTC.';
     $whatsapp = 'https://wa.me/?text=' . rawurlencode($text);
     $h = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     return self::document('<h1>OnSite-uitnodiging</h1><p>Stuur de persoonlijke activatielink via WhatsApp naar de gecontroleerde medewerker.</p>'
       . '<p><a href="' . $h($whatsapp) . '" target="_blank" rel="noopener noreferrer">Deel via WhatsApp</a></p>'
-      . '<p><a href="' . $h($link) . '" rel="noreferrer">Open de activatielink op deze iPhone</a></p>'
+      . '<p><a href="' . $h($link) . '" rel="noreferrer">Open de activatielink op je telefoon</a></p>'
       . '<p>Geldig tot (UTC): ' . $h($invitation['expires_at']) . '</p>'
-      . '<p>Alleen voor de Office-testversie uit TestFlight. Opnieuw uitgeven maakt een eerdere ongebruikte link ongeldig.</p>');
+      . '<p>Alleen voor de BREBO OnSite-testversie. Opnieuw uitgeven maakt een eerdere ongebruikte link ongeldig.</p>');
+  }
+
+  private static function installButtons(): string {
+    $links = [
+      ['OFFICE_ONSITE_IOS_INSTALL_URL', 'iPhone / iOS', 'App installeren voor iPhone'],
+      ['OFFICE_ONSITE_ANDROID_INSTALL_URL', 'Android', 'App installeren voor Android'],
+    ];
+    $html = '<div class="install-options" aria-label="BREBO OnSite installeren">';
+    foreach ($links as [$key, $platform, $label]) {
+      $url = getenv($key);
+      if (!is_string($url) || !preg_match('~^https://[^\\s<>"]+$~iD', $url)) {
+        $html .= '<div class="install-unavailable"><strong>' . $platform . '</strong><span>Downloadlink volgt</span></div>';
+        continue;
+      }
+      $html .= '<a class="install-choice" href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        . '" rel="noopener noreferrer"><strong>' . $platform . '</strong><span>' . $label . '</span></a>';
+    }
+    return $html . '</div>';
   }
 
   private static function document(string $body): string {
     return '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       . '<meta name="referrer" content="no-referrer"><title>OnSite activeren · BREBO Office</title>'
-      . '<style>body{font:17px system-ui,sans-serif;background:#f4f6fa;color:#182638;margin:0;padding:24px}main{max-width:540px;margin:40px auto;padding:28px;background:white;border-radius:16px}a{display:inline-block;padding:14px 18px;background:#5b2c83;color:white;border-radius:9px;text-decoration:none}a[hidden]{display:none}p{line-height:1.5}</style></head><body><main>'
+      . '<style>body{font:17px system-ui,sans-serif;background:#f4f6fa;color:#182638;margin:0;padding:24px}main{max-width:540px;margin:40px auto;padding:28px;background:white;border-radius:16px}a{display:inline-block;padding:14px 18px;background:#5b2c83;color:white;border-radius:9px;text-decoration:none}a[hidden]{display:none}p{line-height:1.5}.install-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.install-choice,.install-unavailable{display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:12px;border-radius:12px;text-align:center;box-sizing:border-box}.install-choice{background:#182638;color:#fff}.install-unavailable{background:#e9edf3;color:#536171}.install-options span{font-size:12px}@media(max-width:400px){.install-options{grid-template-columns:1fr}}</style></head><body><main>'
       . $body . '</main></body></html>';
   }
 }
