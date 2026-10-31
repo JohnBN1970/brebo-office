@@ -24,3 +24,18 @@
 
 ## Activeringspoort
 Geen route voor schrijven of uitgifte activeren totdat schema, autorisaties, migratie-/rollbackplan, transactietests en Office-test-acceptatie aantoonbaar gereed zijn. Productie blijft buiten scope.
+
+## Gecontroleerde sboffice-schema-inspectie (2026-10-31)
+De gebruiker heeft via Drupal `SHOW COLUMNS` bevestigd:
+- Concept: `id`, `project_nid` (verplicht), `draft_number`, `status`, `invoice_date`, `due_date`, `description`, drie totalen (`decimal(18,4)`), `moneybird_id` (optioneel), `sales_invoice_id` (optioneel), created/changed en gebruikers.
+- Conceptregel: `draft_id`, `project_nid`, `line_number`, `source_type`, `source_id`, `description`, bedragen en `vat_code`, `vat_rate`, `vat_amount`.
+- Outbox: `draft_id`, `project_nid`, `command_type`, `status`, unieke `idempotency_key`, `payload_hash`, `payload`, pogingen, integratievelden en tijdstempels.
+- Definitieve factuur: `project_nid` verplicht, `instalment_id` en `change_order_id` optioneel, `moneybird_id` en `invoice_number` verplicht en uniek, betaalbedragen, `source_hash` en tijdstempels.
+- Geen expliciete debiteurkolom in deze vier tabellen. Geen aanname dat `project_nid=0` zelfstandig factureren autoriseert.
+- `SHOW COLUMNS` bewijst geen foreign keys, unieke samengestelde indexen, standaardwaarden of transactie-engine; inspecteer `SHOW CREATE TABLE` of `information_schema` voordat schrijflogica wordt ontworpen.
+
+### Open ontwerpbesluiten vóór schrijfcode
+1. Is Moneybird de juridische nummerings-/uitgiftebron, of moet Office zelfstandig uitgeven? De bestaande verplichte `moneybird_id` verhindert native uitgifte zonder nieuw opslagcontract.
+2. Welke Office-debiteuridentiteit en factuuradres-snapshot gebruiken we voor zelfstandige facturen?
+3. Welke bestaande `source_type`-waarden, `status`-overgangen en btw-regimes zijn toegestaan? Verifieer aan bestaande services, niet aan voorbeeldwaarden.
+4. Maak voor Office-test een afzonderlijk migratiepad met rollback; wijzig sboffice niet voor testdoeleinden.
