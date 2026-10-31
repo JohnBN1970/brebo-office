@@ -14,8 +14,8 @@ if (OfficeMount::route('instellingen/rollen') !== '/office-test/instellingen/rol
     throw new RuntimeException('Settings mount URL incorrect');
 }
 $html = OfficeNavigation::mainV2('/office-test/instellingen/rollen');
-if (!str_contains($html, 'Rollen en rechten') || !str_contains($html, 'aria-current="page"')) {
-    throw new RuntimeException('Settings navigation not active');
+if (str_contains($html, 'Rollen en rechten')) {
+    throw new RuntimeException('Settings navigation exposed without authenticated management grant');
 }
 putenv('OFFICE_ROLE_SETTINGS_ENABLED=disabled');
 if (str_contains(OfficeNavigation::mainV2('/office-test/'), 'Rollen en rechten')) {
