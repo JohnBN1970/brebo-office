@@ -31,6 +31,10 @@ $unauthorizedPost = $endpoint->handle('POST', 999, 'test-csrf', $action, ['csrf_
 if ($unauthorizedPost['status'] !== 403) throw new RuntimeException('Unprivileged operator changed settings');
 $unsupported = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'finance','enabled'=>'1','permissions'=>['manage'],'scope'=>'all']);
 if ($unsupported['status'] !== 403) throw new RuntimeException('Unsupported module was changed');
+$missingEnabled = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','permissions'=>['read'],'scope'=>'assigned']);
+if ($missingEnabled['status'] !== 403) throw new RuntimeException('Missing module enabled state accepted');
+$invalidEnabled = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'invalid','permissions'=>['read'],'scope'=>'assigned']);
+if ($invalidEnabled['status'] !== 403) throw new RuntimeException('Malformed module enabled state accepted');
 $saved = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read','create'],'scope'=>'assigned']);
 if ($saved['status'] !== 303) throw new RuntimeException('Authorized settings save failed');
 $rendered = $endpoint->handle('GET', 441, 'test-csrf', $action);
