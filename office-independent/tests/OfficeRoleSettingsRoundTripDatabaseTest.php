@@ -55,4 +55,23 @@ if ($before['scope'] !== 'none' || $before['permissions'] !== []
     || $after['scope'] !== 'assigned' || $after['permissions'] !== ['create', 'read']) {
     throw new RuntimeException('Role change audit values mismatch: before=' . json_encode($before) . ' after=' . json_encode($after));
 }
+
+// Verify the same nonnumeric Office identity can actually use the saved grant.
+require_once __DIR__ . '/../src/Offer/OfficeOfferRolePermission.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferModulePermission.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferRoleScope.php';
+$db->exec("INSERT INTO office_user_roles (operator_id, role_id) VALUES ('operator-test-441', 41)");
+$rolePermission = new Brebo\Office\Offer\OfficeOfferRolePermission($db);
+$modulePermission = new Brebo\Office\Offer\OfficeOfferModulePermission($db);
+$roleScope = new Brebo\Office\Offer\OfficeOfferRoleScope($db);
+if (!$rolePermission->allows('operator-test-441', 'create')
+    || !$modulePermission->allows('operator-test-441', 'create')
+    || $roleScope->forOperator('operator-test-441', 'offers') !== 'assigned') {
+    throw new RuntimeException('Nonnumeric Office operator role grant was not enforced');
+}
+if ($modulePermission->allows('unknown-operator', 'create')
+    || $rolePermission->allows('unknown-operator', 'create')
+    || $roleScope->forOperator('unknown-operator', 'offers') !== 'none') {
+    throw new RuntimeException('Unknown nonnumeric operator was authorized');
+}
 echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\\n";
