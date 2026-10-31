@@ -23,9 +23,9 @@ final class OfficeOfferChangeLinkApplication
         $this->links = new OfficeOfferChangeLinkRepository($db);
     }
 
-    public function linkAcceptedChange(int $operatorId, int $acceptanceId): int
+    public function linkAcceptedChange(int|string $operatorId, int $acceptanceId): int
     {
-        if ($operatorId < 1 || $acceptanceId < 1) {
+        if ((is_int($operatorId) ? $operatorId < 1 : trim($operatorId) === '') || $acceptanceId < 1) {
             throw new \InvalidArgumentException('Invalid operator or acceptance');
         }
         $query = $this->db->prepare(
