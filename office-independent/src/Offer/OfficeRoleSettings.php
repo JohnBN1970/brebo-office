@@ -29,7 +29,7 @@ final class OfficeRoleSettings
             || count(array_filter($permissions, 'is_string')) !== count($permissions)
             || array_diff($permissions, self::PERMISSIONS)
             || (!$enabled && ($permissions !== [] || $scope !== 'none'))
-            || ($enabled && ($permissions === [] || $scope === 'none'))) {
+            || ($enabled && $permissions === [])) {
             throw new DomainException('Invalid module settings');
         }
 
