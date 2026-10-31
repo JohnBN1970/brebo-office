@@ -35,6 +35,7 @@ final class OfficeCommunicationSchema
                 sender_address VARCHAR(320) NULL,
                 subject TEXT NULL,
                 body_text MEDIUMTEXT NULL,
+                body_html MEDIUMTEXT NULL,
                 received_at DATETIME NULL,
                 review_status VARCHAR(32) NOT NULL DEFAULT 'pending',
                 processing_status VARCHAR(32) NOT NULL DEFAULT 'stored',
