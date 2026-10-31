@@ -11,7 +11,8 @@ use DomainException;
 final class OfficeRoleSettings
 {
     private const PERMISSIONS = ['read', 'create', 'update', 'issue', 'record_acceptance', 'link_change', 'manage'];
-    private const SCOPES = ['none', 'own', 'assigned', 'all'];
+    // 'own' is reserved until offer ownership can be verified at query level.
+    private const SCOPES = ['none', 'assigned', 'all'];
 
     public function __construct(private readonly PDO $db)
     {
