@@ -41,6 +41,11 @@ try {
 } catch (DomainException $expected) {
 }
 try {
+    $settings->setModule(31, 'offers', true, ['read'], 'own');
+    throw new RuntimeException('Unsupported own scope was configurable');
+} catch (DomainException $expected) {
+}
+try {
     $settings->setModule(31, 'finance', true, ['manage'], 'all');
     throw new RuntimeException('Unimplemented module was configurable');
 } catch (DomainException $expected) {
