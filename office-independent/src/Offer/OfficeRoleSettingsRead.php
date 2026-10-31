@@ -51,11 +51,11 @@ final class OfficeRoleSettingsRead
             $stored = $byRole[(int) $role['id']] ?? [];
             $role['modules'] = [];
             foreach ($catalog as $module) {
-                $role['modules'][$module] = $stored[$module] ?? [
+                $role['modules'][$module] = array_merge([
                     'enabled' => false,
                     'permissions' => [],
                     'scope' => 'none',
-                ];
+                ], $stored[$module] ?? []);
             }
         }
         unset($role);
