@@ -37,6 +37,7 @@ final class OfficeOfferSchema
                 UNIQUE KEY uq_offer_version (offer_id, version_number),
                 KEY idx_offer_version_offer (offer_id)
             )",
+            "CREATE TABLE office_offer_acceptances (\n                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,\n                offer_id BIGINT UNSIGNED NOT NULL,\n                offer_version_id BIGINT UNSIGNED NOT NULL,\n                accepted_by VARCHAR(255) NOT NULL,\n                evidence_reference VARCHAR(500) NOT NULL,\n                accepted_at DATETIME NOT NULL,\n                recorded_by_operator_id BIGINT UNSIGNED NOT NULL,\n                recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,\n                UNIQUE KEY uq_offer_acceptance (offer_id),\n                UNIQUE KEY uq_offer_version_acceptance (offer_version_id)\n            )",
         ];
     }
 }
