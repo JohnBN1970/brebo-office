@@ -25,6 +25,7 @@ final class OfficeRoleSettings
         }
         if ($roleId < 1 || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)
             || !in_array($scope, self::SCOPES, true)
+            || count(array_filter($permissions, 'is_string')) !== count($permissions)
             || array_diff($permissions, self::PERMISSIONS)
             || (!$enabled && ($permissions !== [] || $scope !== 'none'))
             || ($enabled && ($permissions === [] || $scope === 'none'))) {
