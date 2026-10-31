@@ -43,6 +43,13 @@ final class OfficeOfferModulePermission
         }
         // This class is used by standalone Office entrypoints without Composer autoloading.
         require_once __DIR__ . '/OfficeOfferRolePermission.php';
-        return (new OfficeOfferRolePermission($this->db))->allows($operatorId, $permission);
+        if (!(new OfficeOfferRolePermission($this->db))->allows($operatorId, $permission)) {
+            return false;
+        }
+        // Role permissions without a configured data scope must not grant access.
+        require_once __DIR__ . '/OfficeOfferRoleScope.php';
+        return in_array((new OfficeOfferRoleScope($this->db))->forOperator($operatorId, 'offers'),
+            ['assigned', 'all'], true);
+        // 'own' is intentionally denied until ownership is enforced on offer queries.
     }
 }
