@@ -48,8 +48,8 @@ final class OfficeOfferModulePermission
         }
         // Role permissions without a configured data scope must not grant access.
         require_once __DIR__ . '/OfficeOfferRoleScope.php';
+        // 'own' is intentionally denied until ownership is enforced on offer queries.
         return in_array((new OfficeOfferRoleScope($this->db))->forOperator($operatorId, 'offers'),
             ['assigned', 'all'], true);
-        // 'own' is intentionally denied until ownership is enforced on offer queries.
     }
 }
