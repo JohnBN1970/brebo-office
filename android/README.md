@@ -14,7 +14,7 @@ Android 8.0 (API 26) of nieuwer, met Google Play-services. Doelversie: Android 1
 6. Herhaal zonder internet, herstel internet en controleer dat de wachtrij leegloopt zonder dubbele Office-events.
 7. Controleer na herstart, ingetrokken locatierechten, pauzeren en intrekking van het toestel in Office.
 
-**Deze APK gebruikt de bestaande Office-host https://sboffice.brebobv.nl.**
+**Deze test-APK gebruikt standaard https://brebobv.nl/office-test.**
 De app schrijft aanwezigheid zodra een gekoppeld testtoestel een zoneovergang waarneemt.
 De Android-implementatie wijzigt geen serverroutes, iOS-code of productie-instellingen.
 
