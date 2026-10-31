@@ -41,15 +41,20 @@ final class OfficeOfferModulePermission
         if ((int) $schema->fetchColumn() !== 4) {
             return false;
         }
-        // This class is used by standalone Office entrypoints without Composer autoloading.
-        require_once __DIR__ . '/OfficeOfferRolePermission.php';
-        if (!(new OfficeOfferRolePermission($this->db))->allows($operatorId, $permission)) {
-            return false;
-        }
-        // Role permissions without a configured data scope must not grant access.
-        require_once __DIR__ . '/OfficeOfferRoleScope.php';
-        // 'own' is intentionally denied until ownership is enforced on offer queries.
-        return in_array((new OfficeOfferRoleScope($this->db))->forOperator($operatorId, 'offers'),
-            ['assigned', 'all'], true);
+        // Permission and enforceable scope must belong to the SAME active role.
+        // Otherwise a scope from an unrelated role could elevate a permission.
+        // 'own' remains denied until ownership is enforced at query level.
+        $roleGrant = $this->db->prepare(
+            "SELECT 1 FROM office_user_roles ur
+             JOIN office_roles r ON r.id = ur.role_id AND r.active = 1
+             JOIN office_role_permissions rp ON rp.role_id = r.id
+             JOIN office_role_scopes rs ON rs.role_id = r.id AND rs.module = rp.module
+             JOIN office_operator_accounts a ON a.id = ur.operator_id AND a.active = 1
+             WHERE ur.operator_id = :operator_id AND rp.module = 'offers'
+               AND rp.permission = :permission
+               AND rs.scope_key IN ('assigned', 'all') LIMIT 1"
+        );
+        $roleGrant->execute([':operator_id' => $operatorId, ':permission' => $permission]);
+        return $roleGrant->fetchColumn() !== false;
     }
 }
