@@ -49,6 +49,16 @@ if ($count !== 1) {
     throw new RuntimeException('Unexpected link count');
 }
 
+// A textual Office identity must be stored intact, not coerced to a number.
+$db->exec("INSERT INTO office_project_change_orders VALUES (22, 1, 'more', 'draft')");
+$db->exec("INSERT INTO office_offers VALUES (23, 10, 22, 'more', 'accepted')");
+$db->exec("INSERT INTO office_offer_versions VALUES (24, 23, 'accepted')");
+$db->exec("INSERT INTO office_offer_acceptances VALUES (25, 23, 24)");
+$textLinkId = $repo->link(25, 'operator-test-441');
+$storedOperator = $db->query('SELECT linked_by_operator_id FROM office_offer_change_links WHERE id = ' . (int) $textLinkId)->fetchColumn();
+if ($storedOperator !== 'operator-test-441') {
+    throw new RuntimeException('Textual Office identity not preserved in link audit');
+}
 // Invalid ownership must fail without adding a link.
 $db->exec("INSERT INTO office_project_contracts VALUES (11, 99)");
 $db->exec("INSERT INTO office_project_change_orders VALUES (12, 11, 'more', 'draft')");
