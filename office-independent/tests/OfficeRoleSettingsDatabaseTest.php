@@ -36,6 +36,11 @@ try {
 } catch (DomainException $expected) {
 }
 try {
+    $settings->setModule(31, 'offers', true, [['read']], 'all');
+    throw new RuntimeException('Malformed permission was accepted');
+} catch (DomainException $expected) {
+}
+try {
     $settings->setModule(31, 'finance', true, ['manage'], 'all');
     throw new RuntimeException('Unimplemented module was configurable');
 } catch (DomainException $expected) {
