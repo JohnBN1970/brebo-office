@@ -59,6 +59,7 @@ jobs:
           php office-independent/tests/OfficeRoleSettingsPageTest.php
           php office-independent/tests/OfficeRoleSettingsEndpointTest.php
           php office-independent/tests/OfficeRoleSettingsNavigationTest.php
+          php office-independent/tests/OfficeRoleSettingsRouterContractTest.php
       - name: Run isolated MySQL offer integration test
         env:
           OFFICE_OFFER_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=offer_ci_isolated;charset=utf8mb4
