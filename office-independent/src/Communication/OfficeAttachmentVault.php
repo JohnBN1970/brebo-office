@@ -18,6 +18,20 @@ final class OfficeAttachmentVault
             || !is_writable($root)) {
             throw new InvalidArgumentException('Private attachment root unavailable.');
         }
+        $resolvedRoot = realpath($root);
+        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? getenv('DOCUMENT_ROOT');
+        if ($resolvedRoot === false || !is_string($documentRoot) || $documentRoot === '') {
+            throw new InvalidArgumentException('Private attachment root requires verified document root.');
+        }
+        $resolvedWebroot = realpath($documentRoot);
+        if ($resolvedWebroot === false) {
+            throw new InvalidArgumentException('Document root unavailable for vault verification.');
+        }
+        $web = rtrim($resolvedWebroot, DIRECTORY_SEPARATOR);
+        $vault = rtrim($resolvedRoot, DIRECTORY_SEPARATOR);
+        if ($vault === $web || str_starts_with($vault, $web . DIRECTORY_SEPARATOR)) {
+            throw new InvalidArgumentException('Attachment vault must be outside the public webroot.');
+        }
     }
 
     /** @return array{sha256:string,bytes:int,path:string} */
