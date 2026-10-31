@@ -71,3 +71,4 @@ jobs:
           php office-independent/tests/OfficeOfferModulePermissionDatabaseTest.php
           php office-independent/tests/OfficeOfferRolePermissionDatabaseTest.php
           php office-independent/tests/OfficeRoleSettingsDatabaseTest.php
+          php office-independent/tests/OfficeRoleSettingsRoundTripDatabaseTest.php
