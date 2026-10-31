@@ -38,7 +38,7 @@ final class OfficeRoleSettingsView
                     $html .= '<label><input type="checkbox" name="permissions[]" value="' . $permission . '"' . (in_array($permission, $selected, true) ? ' checked' : '') . '> ' . $escape($label) . '</label>';
                 }
                 $html .= '<label>Gegevensfilter <select name="scope">';
-                foreach (['none' => 'Geen toegang', 'own' => 'Eigen gegevens', 'assigned' => 'Toegewezen projecten', 'all' => 'Alle gegevens'] as $key => $label) {
+                foreach (['none' => 'Geen toegang', 'assigned' => 'Toegewezen projecten', 'all' => 'Alle gegevens'] as $key => $label) {
                     $html .= '<option value="' . $key . '"' . ($scope === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
                 }
                 $html .= '</select></label></details><button type="submit">Opslaan</button></fieldset></form>';
