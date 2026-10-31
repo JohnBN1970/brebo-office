@@ -14,15 +14,15 @@ final class OfficeOfferAccess
     {
     }
 
-    public function canReadProject(int $operatorId, int $projectId): bool
+    public function canReadProject(int|string $operatorId, int $projectId): bool
     {
-        return $operatorId > 0 && $projectId > 0
+        return (is_int($operatorId) ? $operatorId > 0 : trim($operatorId) !== '') && $projectId > 0
             && (new OfficeNativeProjectAccess($this->db))->canManage($operatorId, $projectId);
     }
 
-    public function canManageProject(int $operatorId, int $projectId): bool
+    public function canManageProject(int|string $operatorId, int $projectId): bool
     {
-        return $operatorId > 0 && $projectId > 0
+        return (is_int($operatorId) ? $operatorId > 0 : trim($operatorId) !== '') && $projectId > 0
             && (new OfficeNativeProjectAccess($this->db))->canManage($operatorId, $projectId);
     }
 }
