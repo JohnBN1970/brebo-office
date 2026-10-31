@@ -14,6 +14,9 @@ if (!$dsn || !str_contains($dsn, 'dbname=offer_ci_isolated')) {
     exit(0);
 }
 $db = new PDO($dsn, (string) getenv('OFFICE_OFFER_TEST_USER'), (string) getenv('OFFICE_OFFER_TEST_PASSWORD'), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+// The shared CI fixture uses numeric IDs; align its identity columns with Office's VARCHAR(128) contract.
+$db->exec('ALTER TABLE office_operator_accounts MODIFY id VARCHAR(128) NOT NULL');
+$db->exec('ALTER TABLE office_module_permissions MODIFY operator_id VARCHAR(128) NOT NULL');
 $db->exec("INSERT INTO office_roles (id, role_key, label, active) VALUES (41, 'roundtrip_role', 'Roundtrip role', 1)");
 $db->exec("INSERT INTO office_operator_accounts (id, active) VALUES ('operator-test-441', 1)");
 $db->exec("INSERT INTO office_module_permissions (operator_id, module, permission) VALUES ('operator-test-441', 'settings', 'manage')");
