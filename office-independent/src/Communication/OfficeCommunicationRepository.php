@@ -30,7 +30,8 @@ final class OfficeCommunicationRepository
         ?string $sender,
         ?string $subject,
         ?string $body,
-        ?string $receivedAt
+        ?string $receivedAt,
+        ?string $bodyHtml = null
     ): int {
         if ($mailboxId < 1 || $uidValidity < 1 || $imapUid < 1 || trim($folder) === '') {
             throw new InvalidArgumentException('Invalid IMAP identity.');
@@ -46,9 +47,9 @@ final class OfficeCommunicationRepository
         }
         $sql = 'INSERT INTO office_communication_messages
             (mailbox_id, folder, uidvalidity, imap_uid, source_message_id,
-             sender_address, subject, body_text, received_at)
+             sender_address, subject, body_text, body_html, received_at)
             VALUES (:mailbox, :folder, :validity, :uid, :message_id,
-                    :sender, :subject, :body, :received)';
+                    :sender, :subject, :body, :html, :received)';
         $sql .= $driver === 'mysql'
             ? ' ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
             : ' ON CONFLICT(mailbox_id, folder, uidvalidity, imap_uid) DO NOTHING';
@@ -62,6 +63,7 @@ final class OfficeCommunicationRepository
             ':sender' => $sender,
             ':subject' => $subject,
             ':body' => $body,
+            ':html' => $bodyHtml,
             ':received' => $receivedAt,
         ]);
         if ($driver === 'sqlite') {
