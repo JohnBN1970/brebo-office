@@ -17,9 +17,9 @@ final class OfficeRoleSettingsEndpoint
     {
     }
 
-    public function handle(string $method, int $operatorId, string $csrfToken, string $actionUrl, array $post = []): array
+    public function handle(string $method, string $operatorId, string $csrfToken, string $actionUrl, array $post = []): array
     {
-        if ($operatorId < 1 || $csrfToken === '') {
+        if ($operatorId === '' || strlen($operatorId) > 128 || $csrfToken === '') {
             return ['status' => 403, 'body' => 'Geen toegang'];
         }
         try {
