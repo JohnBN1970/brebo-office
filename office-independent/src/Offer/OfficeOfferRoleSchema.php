@@ -29,6 +29,12 @@ final class OfficeOfferRoleSchema
                 permission VARCHAR(32) NOT NULL,
                 PRIMARY KEY (role_id, module, permission)
             )",
+            "CREATE TABLE office_role_scopes (
+                role_id BIGINT UNSIGNED NOT NULL,
+                module VARCHAR(32) NOT NULL,
+                scope_key VARCHAR(32) NOT NULL,
+                PRIMARY KEY (role_id, module)
+            )",
         ];
     }
 }
