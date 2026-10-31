@@ -6,4 +6,5 @@ return [
   '/office-test/communicatie' => 'office-communication.php',
   '/office-test/communicatie/mailboxen' => 'office-communication-mailboxes.php',
   '/office-test/communicatie/bericht' => 'office-communication-message.php',
+  '/office-test/communicatie/bijlage' => 'office-communication-attachment.php',
 ];
