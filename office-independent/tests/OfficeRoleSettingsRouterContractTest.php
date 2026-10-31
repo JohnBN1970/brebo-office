@@ -13,6 +13,9 @@ foreach ([
     "currentOperator()",
     "OfficeRoleSettingsEndpoint",
     "office_role_settings_csrf",
+    "OfficeMount::basePath() !== '/office-test'",
+    "dbname=u213420663_office_test",
+    "Role settings requires isolated Office-test database",
 ] as $guard) {
     if (!str_contains($handler, $guard)) {
         throw new RuntimeException('Settings route guard missing: ' . $guard);
