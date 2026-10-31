@@ -22,6 +22,8 @@ foreach ([
     [['filename'=>'invoice.pdf','mime'=>'application/pdf','bytes'=>'']],
     [['filename'=>'invoice.pdf','mime'=>'application/pdf','bytes'=>str_repeat('x', 15 * 1024 * 1024 + 1)]],
     [['filename'=>'','mime'=>'application/pdf','bytes'=>'PDF']],
+    [['filename'=>'..','mime'=>'application/pdf','bytes'=>'PDF']],
+    [['filename'=>"invoice\\n.pdf",'mime'=>'application/pdf','bytes'=>'PDF']],
 ] as $attachments) {
     $batch = ['uidvalidity'=>17, 'messages'=>[
         ['uid'=>1, 'source'=>$source],
