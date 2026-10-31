@@ -12,6 +12,9 @@ if (!$dsn) {
     echo "OfficeOfferModulePermissionDatabaseTest: SKIP (no isolated test DSN)\n";
     exit(0);
 }
+if (!is_string($dsn) || !str_contains($dsn, 'dbname=offer_ci_isolated')) {
+    throw new RuntimeException('Refusing database test outside offer_ci_isolated');
+}
 $db = new PDO($dsn, (string) getenv('OFFICE_OFFER_TEST_USER'), (string) getenv('OFFICE_OFFER_TEST_PASSWORD'), [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
 ]);
