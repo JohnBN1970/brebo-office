@@ -33,7 +33,7 @@ final class OfficeRoleSettingsView
                 $html .= '<input type="hidden" name="role_id" value="' . $roleId . '">';
                 $html .= '<input type="hidden" name="module" value="' . $escape($module) . '">';
                 $html .= '<label><input type="checkbox" name="enabled" value="1"' . ($enabled ? ' checked' : '') . '> Module inschakelen</label>';
-                $html .= '<details><summary>Rechten en filters</summary>';
+                $html .= '<details' . ($enabled ? ' open' : '') . '><summary>Rechten en filters</summary>';
                 foreach (['read' => 'Bekijken', 'create' => 'Aanmaken', 'update' => 'Wijzigen', 'issue' => 'Uitbrengen', 'record_acceptance' => 'Acceptatie registreren', 'link_change' => 'Meerwerk koppelen', 'manage' => 'Beheren'] as $permission => $label) {
                     $html .= '<label><input type="checkbox" name="permissions[]" value="' . $permission . '"' . (in_array($permission, $selected, true) ? ' checked' : '') . '> ' . $escape($label) . '</label>';
                 }
