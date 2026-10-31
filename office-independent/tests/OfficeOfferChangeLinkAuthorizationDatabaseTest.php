@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Project/OfficeNativeProjectAccess.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferAccess.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferModulePermission.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferChangeLinkRepository.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferChangeLinkApplication.php';
 
@@ -25,8 +26,12 @@ $db->exec("CREATE TABLE office_project_memberships (project_id BIGINT UNSIGNED N
 $db->exec("INSERT INTO office_projects VALUES (10)");
 $db->exec("INSERT INTO office_operator_accounts VALUES (7, 1), (8, 1), (9, 0)");
 $db->exec("INSERT INTO office_project_memberships VALUES (10, 7, 'manage'), (10, 8, 'read'), (10, 9, 'manage')");
+$db->exec("CREATE TABLE office_module_permissions (operator_id BIGINT UNSIGNED NOT NULL, module VARCHAR(32) NOT NULL, permission VARCHAR(32) NOT NULL)");
+$db->exec("INSERT INTO office_module_permissions VALUES (7, 'offers', 'link_change'), (8, 'offers', 'link_change'), (9, 'offers', 'link_change')");
+$db->exec("INSERT INTO office_operator_accounts VALUES (11, 1)");
+$db->exec("INSERT INTO office_project_memberships VALUES (10, 11, 'manage')");
 $app = new OfficeOfferChangeLinkApplication($db);
-foreach ([8, 9, 100] as $operatorId) {
+foreach ([8, 9, 11, 100] as $operatorId) {
     try {
         $app->linkAcceptedChange($operatorId, 5);
         throw new RuntimeException('Unauthorized operator accepted: ' . $operatorId);
