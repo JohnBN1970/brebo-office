@@ -11,7 +11,7 @@ if (!$reflection->hasMethod('render')) {
     throw new RuntimeException('Settings page render missing');
 }
 $source = file_get_contents(__DIR__ . '/../src/Offer/OfficeRoleSettingsPage.php');
-foreach (['OfficeRoleSettingsRead', 'rolesForManager(', 'OfficeRoleSettingsView::render(', 'CSRF token required'] as $required) {
+foreach (['OfficeRoleSettingsRead', 'rolesForManager(', 'OfficeRoleSettingsView::render(', 'CSRF token required', '<!doctype html>', '</body></html>'] as $required) {
     if (!str_contains($source, $required)) {
         throw new RuntimeException('Missing settings page integration: ' . $required);
     }
