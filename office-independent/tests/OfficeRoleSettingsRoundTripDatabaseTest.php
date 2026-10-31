@@ -37,4 +37,14 @@ $rendered = $endpoint->handle('GET', 441, 'test-csrf', $action);
 if ($rendered['status'] !== 200 || !str_contains($rendered['body'], 'name="enabled" value="1" checked') || !str_contains($rendered['body'], '<option value="assigned" selected>')) {
     throw new RuntimeException('Saved settings not reflected in page');
 }
-echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\n";
+$audit = $db->query("SELECT actor_operator_id, role_id, module, before_json, after_json FROM office_role_settings_audit WHERE role_id = 41 ORDER BY id DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+if (!$audit || (int) $audit['actor_operator_id'] !== 441 || (int) $audit['role_id'] !== 41 || $audit['module'] !== 'offers') {
+    throw new RuntimeException('Role change audit actor or target missing');
+}
+$before = json_decode($audit['before_json'], true, 512, JSON_THROW_ON_ERROR);
+$after = json_decode($audit['after_json'], true, 512, JSON_THROW_ON_ERROR);
+if ($before !== ['permissions' => [], 'scope' => 'none']
+    || $after !== ['permissions' => ['create', 'read'], 'scope' => 'assigned']) {
+    throw new RuntimeException('Role change audit values mismatch');
+}
+echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\\n";
