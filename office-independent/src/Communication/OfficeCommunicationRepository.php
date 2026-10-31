@@ -130,11 +130,13 @@ final class OfficeCommunicationRepository
             throw new InvalidArgumentException('Invalid review limit.');
         }
         $stmt = $this->pdo->prepare(
-            "SELECT id, mailbox_id, sender_address, subject, received_at, review_status,
-                    processing_status, created_at
-             FROM office_communication_messages
-             WHERE review_status = 'pending'
-             ORDER BY created_at DESC, id DESC LIMIT :limit"
+            "SELECT m.id, m.mailbox_id, m.sender_address, m.subject, m.received_at, m.review_status,
+                    m.processing_status, m.created_at,
+                    (SELECT COUNT(*) FROM office_communication_attachments a
+                     WHERE a.message_id = m.id) AS attachment_count
+             FROM office_communication_messages m
+             WHERE m.review_status = 'pending'
+             ORDER BY m.created_at DESC, m.id DESC LIMIT :limit"
         );
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
