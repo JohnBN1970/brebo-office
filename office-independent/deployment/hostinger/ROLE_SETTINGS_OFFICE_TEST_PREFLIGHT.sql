@@ -24,6 +24,16 @@ WHERE table_schema = DATABASE()
   )
 ORDER BY table_name, ordinal_position;
 
+-- Existing Office identity/permission table structure (no row contents or secrets).
+SELECT table_name, column_name, column_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND table_name IN (
+    'office_operator_accounts', 'office_module_permissions',
+    'office_project_memberships'
+  )
+ORDER BY table_name, ordinal_position;
+
 -- The table inventory is informational: do not infer missing columns or auto-migrate.
 -- Check direct settings.manage grants separately after verifying existing schema.
 -- No INSERT, UPDATE, DELETE, CREATE, DROP or ALTER statements are included.
