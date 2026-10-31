@@ -21,7 +21,7 @@ final class OfficeLegacyMailIntakeBridge
         int $imapUid,
         array $legacy
     ): int {
-        foreach (['subject', 'body', 'from', 'received_at'] as $field) {
+        foreach (['subject', 'body', 'from', 'received_at', 'body_html'] as $field) {
             if (isset($legacy[$field]) && !is_string($legacy[$field])) {
                 throw new InvalidArgumentException('Invalid legacy mail field: ' . $field);
             }
@@ -44,7 +44,8 @@ final class OfficeLegacyMailIntakeBridge
             $legacy['from'] ?? null,
             $legacy['subject'] ?? null,
             $legacy['body'] ?? null,
-            $legacy['received_at'] ?? null
+            $legacy['received_at'] ?? null,
+            $legacy['body_html'] ?? null
         );
     }
 }
