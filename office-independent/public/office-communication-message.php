@@ -50,7 +50,7 @@ try {
     if (!$access->canRead((string)$operator->operatorId, (int)$message['mailbox_id'])) {
         http_response_code(403); exit('Geen toegang tot dit bericht.');
     }
-    $attachments = $db->prepare('SELECT filename, mime_type, byte_size
+    $attachments = $db->prepare('SELECT id, filename, mime_type, byte_size
         FROM office_communication_attachments WHERE message_id = :id ORDER BY id');
     $attachments->execute([':id'=>$id]);
     $files = $attachments->fetchAll(PDO::FETCH_ASSOC);
@@ -64,7 +64,7 @@ if ($files === []) echo '<p>Geen bijlagen.</p>';
 else {
     echo '<ul>';
     foreach ($files as $file) {
-        echo '<li>' . $e($file['filename']) . ' (' . $e($file['mime_type']) . ', ' . (int)$file['byte_size'] . ' bytes) — downloaden volgt</li>';
+        echo '<li><a href="/office-test/communicatie/bijlage?id=' . (int)$file['id'] . '">' . $e($file['filename']) . '</a> (' . $e($file['mime_type']) . ', ' . (int)$file['byte_size'] . ' bytes)</li>';
     }
     echo '</ul>';
 }
