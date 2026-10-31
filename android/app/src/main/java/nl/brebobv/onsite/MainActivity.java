@@ -39,7 +39,8 @@ public final class MainActivity extends Activity {
             String token=u.getQueryParameter("token");
             if(token!=null && token.matches("[A-Za-z0-9_-]{32,128}")) {
                 pendingToken=token;
-                start="1".equals(u.getQueryParameter("start"));
+                // A valid personal Office link activates immediately on Android, as on iOS.
+                start=true;
             }
         }
         i.setData(null);
