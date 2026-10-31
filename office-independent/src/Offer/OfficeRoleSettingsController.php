@@ -14,9 +14,9 @@ final class OfficeRoleSettingsController
     {
     }
 
-    public function save(int $operatorId, array $post, string $expectedCsrfToken): void
+    public function save(string $operatorId, array $post, string $expectedCsrfToken): void
     {
-        if ($operatorId < 1 || $expectedCsrfToken === ''
+        if ($operatorId === '' || strlen($operatorId) > 128 || $expectedCsrfToken === ''
             || !isset($post['csrf_token']) || !is_string($post['csrf_token'])
             || !hash_equals($expectedCsrfToken, $post['csrf_token'])) {
             throw new DomainException('Unauthorized settings request');
