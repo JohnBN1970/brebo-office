@@ -40,6 +40,17 @@ final class OfficeRoleSettings
             if ($lock->fetchColumn() === false) {
                 throw new DomainException('Active role required');
             }
+            // Record the prior effective configuration for a later audit comparison.
+            $previousPermissions = $this->db->prepare(
+                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
+            );
+            $previousPermissions->execute([$roleId, $module]);
+            $beforePermissions = $previousPermissions->fetchAll(PDO::FETCH_COLUMN);
+            $previousScope = $this->db->prepare(
+                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
+            );
+            $previousScope->execute([$roleId, $module]);
+            $beforeScope = $previousScope->fetchColumn();
             $remove = $this->db->prepare('DELETE FROM office_role_permissions WHERE role_id = ? AND module = ?');
             $remove->execute([$roleId, $module]);
             $removeScope = $this->db->prepare('DELETE FROM office_role_scopes WHERE role_id = ? AND module = ?');
@@ -51,6 +62,23 @@ final class OfficeRoleSettings
                 }
                 $insertScope = $this->db->prepare('INSERT INTO office_role_scopes (role_id, module, scope_key) VALUES (?, ?, ?)');
                 $insertScope->execute([$roleId, $module, $scope]);
+            }
+            // Changes are not silently treated as successful when a write failed.
+            $savedPermissions = $this->db->prepare(
+                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
+            );
+            $savedPermissions->execute([$roleId, $module]);
+            $actualPermissions = $savedPermissions->fetchAll(PDO::FETCH_COLUMN);
+            $expectedPermissions = $enabled ? array_values(array_unique($permissions)) : [];
+            sort($expectedPermissions);
+            $savedScope = $this->db->prepare(
+                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
+            );
+            $savedScope->execute([$roleId, $module]);
+            $actualScope = $savedScope->fetchColumn();
+            if ($actualPermissions !== $expectedPermissions
+                || ($actualScope === false ? 'none' : $actualScope) !== ($enabled ? $scope : 'none')) {
+                throw new DomainException('Role settings verification failed');
             }
             $this->db->commit();
         } catch (\Throwable $e) {
