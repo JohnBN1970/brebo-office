@@ -36,3 +36,15 @@ Stop onmiddellijk bij onverwachte Zoho-mutaties, cursorverschuiving na mislukte 
 Leg vast: commit-SHA, workflow-run IDs, testdatabase/schema-versie, mailbox-ID (geen geheimen), UIDVALIDITY, start-/eindcursor, aantallen berichten/bijlagen, SHA-256 van testbijlagen, resultaten van herhaling/foutinjectie, autorisatiecontrole, naam van acceptant en datum.
 
 **Huidige beperking:** GitHub CI bewijst niet dat de Hostinger-runtime, Zoho-account of Office-test deployment werkt. De echte mailbox- en acceptatietest is nog niet uitgevoerd.
+
+## Offline preflight (vóór verbinding met Zoho)
+
+Voer op de **Office-test server** uit, met de werkelijke absolute paden (geen secrets):
+
+```sh
+OFFICE_COMMUNICATION_VAULT_ROOT=/absoluut/prive/pad \\
+OFFICE_COMMUNICATION_PUBLIC_ROOT=/absoluut/office-test/webroot \\
+php office-independent/bin/office-communication-preflight.php
+```
+
+De controle leest alleen PHP-extensies, paden en de aanwezigheid van bron- en migratiebestanden. Bij een FAIL is de import geblokkeerd. Een PASS is **geen** bewijs van databaseconnectiviteit, Zoho-autorisatie of een geslaagde import. Leg de uitvoer vast zonder wachtwoorden.
