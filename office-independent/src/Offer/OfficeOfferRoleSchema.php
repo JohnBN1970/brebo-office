@@ -18,7 +18,7 @@ final class OfficeOfferRoleSchema
                 UNIQUE KEY uq_office_role_key (role_key)
             )",
             "CREATE TABLE office_user_roles (
-                operator_id BIGINT UNSIGNED NOT NULL,
+                operator_id VARCHAR(128) NOT NULL,
                 role_id BIGINT UNSIGNED NOT NULL,
                 PRIMARY KEY (operator_id, role_id),
                 KEY idx_office_user_roles_role (role_id)
@@ -37,7 +37,7 @@ final class OfficeOfferRoleSchema
             )",
             "CREATE TABLE office_role_settings_audit (
                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                actor_operator_id BIGINT UNSIGNED NOT NULL,
+                actor_operator_id VARCHAR(128) NOT NULL,
                 role_id BIGINT UNSIGNED NOT NULL,
                 module VARCHAR(32) NOT NULL,
                 before_json JSON NOT NULL,
