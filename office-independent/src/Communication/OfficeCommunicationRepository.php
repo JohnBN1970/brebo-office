@@ -40,12 +40,18 @@ final class OfficeCommunicationRepository
             throw new InvalidArgumentException('IMAP metadata exceeds storage limits.');
         }
 
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if (!in_array($driver, ['mysql', 'sqlite'], true)) {
+            throw new RuntimeException('Unsupported database driver.');
+        }
         $sql = 'INSERT INTO office_communication_messages
             (mailbox_id, folder, uidvalidity, imap_uid, source_message_id,
              sender_address, subject, body_text, received_at)
             VALUES (:mailbox, :folder, :validity, :uid, :message_id,
-                    :sender, :subject, :body, :received)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)';
+                    :sender, :subject, :body, :received)';
+        $sql .= $driver === 'mysql'
+            ? ' ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
+            : ' ON CONFLICT(mailbox_id, folder, uidvalidity, imap_uid) DO NOTHING';
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             ':mailbox' => $mailboxId,
@@ -58,7 +64,22 @@ final class OfficeCommunicationRepository
             ':body' => $body,
             ':received' => $receivedAt,
         ]);
-        $id = (int) $this->pdo->lastInsertId();
+        if ($driver === 'sqlite') {
+            $lookup = $this->pdo->prepare(
+                'SELECT id FROM office_communication_messages
+                 WHERE mailbox_id = :mailbox AND folder = :folder
+                   AND uidvalidity = :validity AND imap_uid = :uid'
+            );
+            $lookup->execute([
+                ':mailbox' => $mailboxId,
+                ':folder' => $folder,
+                ':validity' => $uidValidity,
+                ':uid' => $imapUid,
+            ]);
+            $id = (int) $lookup->fetchColumn();
+        } else {
+            $id = (int) $this->pdo->lastInsertId();
+        }
         if ($id < 1) {
             throw new RuntimeException('Message was not durably identified.');
         }
