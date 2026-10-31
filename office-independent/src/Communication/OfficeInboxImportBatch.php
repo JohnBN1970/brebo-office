@@ -40,9 +40,10 @@ final class OfficeInboxImportBatch
             if (!is_string($headers) || $headers === '') {
                 throw new RuntimeException('Original MIME headers required.');
             }
-            if (preg_match('/^Content-Type:\\s*multipart\\//im', $headers)
+            if (preg_match('/^Content-Type:\\s*(?:multipart\\/|message\\/|application\\/|image\\/)/im', $headers)
                 || preg_match('/^Content-Transfer-Encoding:\\s*(?:base64|quoted-printable)/im', $headers)
-                || preg_match('/^Content-Disposition:\\s*attachment/im', $headers)) {
+                || preg_match('/^Content-Disposition:\\s*attachment/im', $headers)
+                || preg_match('/^Content-Type:.*(?:name|filename)\\s*=/im', $headers)) {
                 throw new RuntimeException('MIME decoding and attachment persistence required before import.');
             }
             if (!isset($source['body']) || !is_string($source['body'])) {
