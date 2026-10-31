@@ -29,7 +29,7 @@ final class OfficeOfferApplication
         $this->changes = new OfficeProjectChangeOrderRepository($db);
     }
 
-    public function createProjectDraft(int $operatorId, OfficeOfferDraft $draft): int
+    public function createProjectDraft(int|string $operatorId, OfficeOfferDraft $draft): int
     {
         if ($draft->projectId === null) {
             throw new \InvalidArgumentException('Project draft requires a project');
@@ -68,7 +68,7 @@ final class OfficeOfferApplication
         throw new \DomainException('Change-order does not belong to project');
     }
 
-    public function listForProject(int $operatorId, int $projectId): array
+    public function listForProject(int|string $operatorId, int $projectId): array
     {
         if (!$this->modulePermissions->allows($operatorId, 'read')
             || !$this->access->canReadProject($operatorId, $projectId)) {
