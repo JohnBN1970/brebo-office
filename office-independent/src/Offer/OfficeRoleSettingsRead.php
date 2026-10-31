@@ -14,9 +14,9 @@ final class OfficeRoleSettingsRead
     {
     }
 
-    public function rolesForManager(int $operatorId): array
+    public function rolesForManager(string $operatorId): array
     {
-        if ($operatorId < 1) {
+        if ($operatorId === '' || strlen($operatorId) > 128) {
             throw new DomainException('Settings management access required');
         }
         $access = $this->db->prepare(
