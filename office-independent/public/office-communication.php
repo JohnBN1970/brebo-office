@@ -25,6 +25,7 @@ try {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
   require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationMailboxAccess.php';
+  require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationHeader.php';
   require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationInboxView.php';
   $db = new PDO(getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
     getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
