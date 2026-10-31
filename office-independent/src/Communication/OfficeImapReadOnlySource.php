@@ -18,7 +18,8 @@ final class OfficeImapReadOnlySource
         private readonly int $port,
         private readonly string $username,
         private readonly string $password,
-        private readonly string $folder = 'INBOX'
+        private readonly string $folder = 'INBOX',
+        private readonly ?OfficeImapMimeExtractor $extractor = null
     ) {
         if ($host === '' || !preg_match('/^[a-z0-9.-]+$/iD', $host)
             || $port < 1 || $port > 65535 || $username === ''
@@ -65,11 +66,14 @@ final class OfficeImapReadOnlySource
                 if (!is_string($header) || !is_string($body)) {
                     throw new RuntimeException('IMAP message unavailable.');
                 }
+                $decoded = $this->extractor?->extract($stream, $uid);
                 $source = [
                     'source_id' => isset($row->message_id) ? 'message-id:' . trim((string) $row->message_id) : '',
                     'from' => (string) ($row->from ?? ''),
                     'subject' => (string) ($row->subject ?? ''),
-                    'body' => $body,
+                    'body' => $decoded['body'] ?? $body,
+                    'attachments' => $decoded['attachments'] ?? [],
+                    'mime_decoded' => $decoded !== null,
                     'received_at' => isset($row->date) && strtotime((string) $row->date) !== false
                         ? gmdate(DATE_ATOM, strtotime((string) $row->date)) : gmdate(DATE_ATOM),
                     'raw_headers' => $header,
