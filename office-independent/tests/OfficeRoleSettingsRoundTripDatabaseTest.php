@@ -19,25 +19,25 @@ $db->exec("INSERT INTO office_operator_accounts (id, active) VALUES (441, 1)");
 $db->exec("INSERT INTO office_module_permissions (operator_id, module, permission) VALUES (441, 'settings', 'manage')");
 $endpoint = new Brebo\Office\Offer\OfficeRoleSettingsEndpoint($db);
 $action = '/office-test/instellingen/rollen';
-$initial = $endpoint->handle('GET', 441, 'test-csrf', $action);
+$initial = $endpoint->handle('GET', '441', 'test-csrf', $action);
 if ($initial['status'] !== 200 || !str_contains($initial['body'], 'name="module" value="offers"')) {
     throw new RuntimeException('Disabled Offers module missing from initial settings page');
 }
-$denied = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'wrong','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
+$denied = $endpoint->handle('POST', '441', 'test-csrf', $action, ['csrf_token'=>'wrong','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
 if ($denied['status'] !== 403) throw new RuntimeException('Invalid CSRF accepted');
-$unauthorizedGet = $endpoint->handle('GET', 999, 'test-csrf', $action);
+$unauthorizedGet = $endpoint->handle('GET', '999', 'test-csrf', $action);
 if ($unauthorizedGet['status'] !== 403) throw new RuntimeException('Unprivileged operator viewed settings');
-$unauthorizedPost = $endpoint->handle('POST', 999, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
+$unauthorizedPost = $endpoint->handle('POST', '999', 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read'],'scope'=>'assigned']);
 if ($unauthorizedPost['status'] !== 403) throw new RuntimeException('Unprivileged operator changed settings');
-$unsupported = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'finance','enabled'=>'1','permissions'=>['manage'],'scope'=>'all']);
+$unsupported = $endpoint->handle('POST', '441', 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'finance','enabled'=>'1','permissions'=>['manage'],'scope'=>'all']);
 if ($unsupported['status'] !== 403) throw new RuntimeException('Unsupported module was changed');
-$missingEnabled = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','permissions'=>['read'],'scope'=>'assigned']);
+$missingEnabled = $endpoint->handle('POST', '441', 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','permissions'=>['read'],'scope'=>'assigned']);
 if ($missingEnabled['status'] !== 403) throw new RuntimeException('Missing module enabled state accepted');
-$invalidEnabled = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'invalid','permissions'=>['read'],'scope'=>'assigned']);
+$invalidEnabled = $endpoint->handle('POST', '441', 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'invalid','permissions'=>['read'],'scope'=>'assigned']);
 if ($invalidEnabled['status'] !== 403) throw new RuntimeException('Malformed module enabled state accepted');
-$saved = $endpoint->handle('POST', 441, 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read','create'],'scope'=>'assigned']);
+$saved = $endpoint->handle('POST', '441', 'test-csrf', $action, ['csrf_token'=>'test-csrf','role_id'=>'41','module'=>'offers','enabled'=>'1','permissions'=>['read','create'],'scope'=>'assigned']);
 if ($saved['status'] !== 303) throw new RuntimeException('Authorized settings save failed');
-$rendered = $endpoint->handle('GET', 441, 'test-csrf', $action);
+$rendered = $endpoint->handle('GET', '441', 'test-csrf', $action);
 if ($rendered['status'] !== 200 || !str_contains($rendered['body'], 'name="enabled" value="1" checked') || !str_contains($rendered['body'], '<option value="assigned" selected>')) {
     throw new RuntimeException('Saved settings not reflected in page');
 }
