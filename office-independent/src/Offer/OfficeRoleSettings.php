@@ -18,12 +18,13 @@ final class OfficeRoleSettings
     {
     }
 
-    public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope, int $actorOperatorId = 0): void
+    public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope, string $actorOperatorId = ''): void
     {
         // Only modules with an implemented permission contract can be configured.
         if ($module !== 'offers') {
             throw new DomainException('Module not yet configurable');
         }
+        if ($actorOperatorId !== '' && (strlen($actorOperatorId) > 128 || trim($actorOperatorId) === '')) { throw new DomainException('Invalid actor ID'); }
         if ($roleId < 1 || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)
             || !in_array($scope, self::SCOPES, true)
             || count(array_filter($permissions, 'is_string')) !== count($permissions)
@@ -79,7 +80,7 @@ final class OfficeRoleSettings
                 || ($actualScope === false ? 'none' : $actualScope) !== ($enabled ? $scope : 'none')) {
                 throw new DomainException('Role settings verification failed');
             }
-            if ($actorOperatorId > 0) {
+            if ($actorOperatorId !== '') {
                 $audit = $this->db->prepare(
                     'INSERT INTO office_role_settings_audit
                      (actor_operator_id, role_id, module, before_json, after_json)
