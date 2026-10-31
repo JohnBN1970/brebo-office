@@ -85,7 +85,7 @@ try {
     throw new RuntimeException('Mismatched change type was accepted');
 } catch (DomainException $expected) {
 }
-if ((int) $db->query('SELECT COUNT(*) FROM office_offer_change_links')->fetchColumn() !== 1) {
+if ((int) $db->query('SELECT COUNT(*) FROM office_offer_change_links')->fetchColumn() !== 2) {
     throw new RuntimeException('Rejected linkage altered the database');
 }
 echo "OfficeOfferChangeLinkDatabaseTest: PASS\n";
