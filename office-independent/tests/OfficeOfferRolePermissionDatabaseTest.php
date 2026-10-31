@@ -56,6 +56,16 @@ $db->exec("DELETE FROM office_role_scopes WHERE role_id = 1 AND module = 'offers
 if ($moduleAccess->allows(21, 'create')) {
     throw new RuntimeException('Missing role scope granted access');
 }
+// A permission from one role must not inherit an allowed scope from another role.
+$db->exec("INSERT INTO office_roles (id, role_key, label, active) VALUES (3, 'scope_only', 'Scope only', 1)");
+$db->exec("INSERT INTO office_user_roles VALUES (21, 3)");
+$db->exec("INSERT INTO office_role_scopes VALUES (3, 'offers', 'all')");
+if ($moduleAccess->allows(21, 'create')) {
+    throw new RuntimeException('Scope from another role elevated offer permission');
+}
+$db->exec("DELETE FROM office_user_roles WHERE operator_id = 21 AND role_id = 3");
+$db->exec("DELETE FROM office_role_scopes WHERE role_id = 3");
+$db->exec("DELETE FROM office_roles WHERE id = 3");
 // An incomplete role schema must deny access without querying the missing table.
 $db->exec('DROP TABLE office_role_scopes');
 if ($moduleAccess->allows(21, 'create')) {
