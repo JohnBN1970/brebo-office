@@ -11,6 +11,21 @@ on:
 jobs:
   offer-contract-tests:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: offer_ci_root
+          MYSQL_DATABASE: offer_ci_isolated
+          MYSQL_USER: offer_ci
+          MYSQL_PASSWORD: offer_ci_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -poffer_ci_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - name: Set up PHP
@@ -31,5 +46,12 @@ jobs:
         run: |
           set -euo pipefail
           for test in office-independent/tests/OfficeOffer*Test.php; do
+            if [[ "$test" == *DatabaseTest.php ]]; then continue; fi
             php "$test"
           done
+      - name: Run isolated MySQL offer integration test
+        env:
+          OFFICE_OFFER_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=offer_ci_isolated;charset=utf8mb4
+          OFFICE_OFFER_TEST_USER: offer_ci
+          OFFICE_OFFER_TEST_PASSWORD: offer_ci_password
+        run: php office-independent/tests/OfficeOfferChangeLinkDatabaseTest.php
