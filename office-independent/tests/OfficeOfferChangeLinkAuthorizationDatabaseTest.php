@@ -17,6 +17,8 @@ if (!$dsn) {
 $db = new PDO($dsn, (string) getenv('OFFICE_OFFER_TEST_USER'), (string) getenv('OFFICE_OFFER_TEST_PASSWORD'), [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
 ]);
+// Prior integration test intentionally links acceptance 5; reset only this isolated fixture.
+$db->exec("DELETE FROM office_offer_change_links");
 $db->exec("CREATE TABLE office_projects (id BIGINT UNSIGNED PRIMARY KEY)");
 $db->exec("CREATE TABLE office_operator_accounts (id BIGINT UNSIGNED PRIMARY KEY, active TINYINT NOT NULL)");
 $db->exec("CREATE TABLE office_project_memberships (project_id BIGINT UNSIGNED NOT NULL, operator_id BIGINT UNSIGNED NOT NULL, permission VARCHAR(24) NOT NULL)");
