@@ -11,6 +11,15 @@ Status: **NIET UITGEROLD**. Dit document autoriseert geen databasewijziging.
 5. Controleer of er al een actieve operator is met de expliciete directe grant `settings.manage`. **Niet automatisch toekennen**.
 6. Controleer de actuele PR-CI: alle workflows moeten groen zijn. Review de testdekking voor rolrechten, CSRF, projectautorisatie en gegevensfilters.
 
+## Veiligheidsgrenzen
+
+- De route en de navigatie blijven achter `OFFICE_ROLE_SETTINGS_ENABLED=enabled` en bestaande Office-sessieautorisatie.
+- De route weigert mounts buiten `/office-test` en databases anders dan `u213420663_office_test`.
+- Geen rol wordt automatisch aangemaakt of toegewezen; `settings.manage` wordt niet automatisch verstrekt.
+- De vijf nieuwe tabellen zijn een afzonderlijke migratie. Niet aanmaken via een HTTP-verzoek.
+- Voer vooraf `SHOW CREATE TABLE` en rijaantallen uit voor eventueel reeds bestaande tabellen; bij verschillen stoppen.
+- Na succesvolle acceptatie blijft productie apart geblokkeerd; deze PR geeft geen toestemming voor productierollout.
+
 ## Migratie — pas na expliciete goedkeuring
 
 - Maak uitsluitend de vijf nieuwe tabellen aan met de statements uit `src/Offer/OfficeOfferRoleSchema.php`; nooit via een webrequest.
