@@ -10,6 +10,7 @@ use Brebo\Office\Intake\OfficeNavigation;
 
 putenv('OFFICE_BASE_PATH=/office-test');
 putenv('OFFICE_ROLE_SETTINGS_ENABLED=enabled');
+putenv('OFFICE_CRM_SESSION_MODE=enabled');
 if (OfficeMount::route('instellingen/rollen') !== '/office-test/instellingen/rollen') {
     throw new RuntimeException('Settings mount URL incorrect');
 }
