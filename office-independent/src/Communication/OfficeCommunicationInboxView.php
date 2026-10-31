@@ -25,8 +25,8 @@ final class OfficeCommunicationInboxView
         }
         foreach ($messages as $message) {
             $html .= '<tr><td>' . $e($message['received_at'] ?? '') . '</td>'
-                . '<td>' . $e($message['sender_address'] ?? '') . '</td>'
-                . '<td><a href="/office-test/communicatie/bericht?id=' . (int)($message['id'] ?? 0) . '">' . $e($message['subject'] ?? '') . '</a></td>'
+                . '<td>' . $e(OfficeCommunicationHeader::decode($message['sender_address'] ?? '')) . '</td>'
+                . '<td><a href="/office-test/communicatie/bericht?id=' . (int)($message['id'] ?? 0) . '">' . $e(OfficeCommunicationHeader::decode($message['subject'] ?? '')) . '</a></td>'
                 . '<td>' . $e((int) ($message['attachment_count'] ?? 0)) . '</td>'
                 . '<td>' . $e($message['processing_status'] ?? '') . '</td></tr>';
         }
