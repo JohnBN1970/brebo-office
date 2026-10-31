@@ -5,6 +5,7 @@ on:
     paths:
       - 'office-independent/src/Finance/OfficeSalesInvoice*.php'
       - 'office-independent/public/office-finance-sales.php'
+      - 'office-independent/bin/office-sales-invoice-preflight.php'
       - 'office-independent/tests/OfficeSalesInvoice*.php'
       - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -34,6 +35,8 @@ jobs:
           for file in office-independent/src/Finance/OfficeSalesInvoice*.php office-independent/public/office-finance-sales.php office-independent/tests/OfficeSalesInvoice*.php office-independent/src/Intake/OfficeNavigation.php office-independent/deployment/hostinger/office-test-index.php; do
             php -l "$file"
           done
+      - name: CLI preflight syntax
+        run: php -l office-independent/bin/office-sales-invoice-preflight.php
       - name: Sales invoice preflight syntax
         run: php -l office-independent/src/Finance/OfficeSalesInvoicePreflight.php
       - name: Sales invoice contract tests
