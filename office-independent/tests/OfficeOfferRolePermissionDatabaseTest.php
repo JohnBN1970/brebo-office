@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Offer/OfficeOfferRoleSchema.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferRolePermission.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferRoleScope.php';
 
 use Brebo\Office\Offer\OfficeOfferRoleSchema;
 use Brebo\Office\Offer\OfficeOfferRolePermission;
+use Brebo\Office\Offer\OfficeOfferRoleScope;
 
 $dsn = getenv('OFFICE_OFFER_TEST_DSN');
 if (!$dsn) {
@@ -30,5 +32,13 @@ foreach ([[21, 'issue'], [22, 'create'], [23, 'create'], [100, 'create']] as [$i
     if ($roles->allows($id, $permission)) {
         throw new RuntimeException('Unauthorized role grant accepted');
     }
+}
+$db->exec("INSERT INTO office_role_scopes VALUES (1, 'offers', 'assigned'), (2, 'offers', 'all')");
+$scopes = new OfficeOfferRoleScope($db);
+if ($scopes->forOperator(21, 'offers') !== 'assigned'
+    || $scopes->forOperator(22, 'offers') !== 'none'
+    || $scopes->forOperator(23, 'offers') !== 'none'
+    || $scopes->forOperator(21, 'finance') !== 'none') {
+    throw new RuntimeException('Role scope isolation failed');
 }
 echo "OfficeOfferRolePermissionDatabaseTest: PASS\n";
