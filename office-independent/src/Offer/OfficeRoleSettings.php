@@ -19,6 +19,10 @@ final class OfficeRoleSettings
 
     public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope): void
     {
+        // Only modules with an implemented permission contract can be configured.
+        if ($module !== 'offers') {
+            throw new DomainException('Module not yet configurable');
+        }
         if ($roleId < 1 || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)
             || !in_array($scope, self::SCOPES, true)
             || array_diff($permissions, self::PERMISSIONS)
