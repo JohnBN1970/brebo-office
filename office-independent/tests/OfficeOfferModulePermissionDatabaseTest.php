@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../src/Offer/OfficeOfferRolePermission.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferModulePermission.php';
 
 use Brebo\Office\Offer\OfficeOfferModulePermission;
