@@ -13,9 +13,9 @@ final class OfficeOfferModulePermission
     {
     }
 
-    public function allows(int $operatorId, string $permission): bool
+    public function allows(int|string $operatorId, string $permission): bool
     {
-        if ($operatorId < 1 || !in_array($permission, [
+        if ((is_int($operatorId) ? $operatorId < 1 : trim($operatorId) === '') || !in_array($permission, [
             'read', 'create', 'update', 'issue', 'record_acceptance', 'link_change', 'manage',
         ], true)) {
             return false;
