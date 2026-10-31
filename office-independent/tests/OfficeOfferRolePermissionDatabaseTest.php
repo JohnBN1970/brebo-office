@@ -61,4 +61,6 @@ $db->exec('DROP TABLE office_role_scopes');
 if ($moduleAccess->allows(21, 'create')) {
     throw new RuntimeException('Incomplete role schema granted access');
 }
+// Restore isolated schema for subsequent role settings integration tests.
+$db->exec(OfficeOfferRoleSchema::statements()[3]);
 echo "OfficeOfferRolePermissionDatabaseTest: PASS\n";
