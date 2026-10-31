@@ -32,3 +32,24 @@ jobs:
           php office-independent/tests/OfficeImapMimeExtractorTest.php
           php office-independent/tests/OfficeAttachmentImportServiceTest.php
           php office-independent/tests/OfficeInboxImportBatchOrderTest.php
+      - name: Verify offline preflight fails closed without configured paths
+        run: |
+          set -eu
+          php -l office-independent/bin/office-communication-preflight.php
+          if env -u OFFICE_COMMUNICATION_VAULT_ROOT -u OFFICE_COMMUNICATION_PUBLIC_ROOT php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight.txt" 2>&1; then
+            echo "Preflight incorrectly passed without private/public root configuration"
+            exit 1
+          fi
+          grep -q 'FAIL Private vault configured' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'FAIL Public root configured' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'FAIL Vault isolated from public root' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'OFFLINE PREFLIGHT BLOCKED' "$RUNNER_TEMP/office-preflight.txt"
+      - name: Verify preflight rejects vault inside public webroot
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/office-public-root/private-vault"
+          if OFFICE_COMMUNICATION_VAULT_ROOT="$RUNNER_TEMP/office-public-root/private-vault" OFFICE_COMMUNICATION_PUBLIC_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight-unsafe.txt" 2>&1; then
+            echo "Preflight incorrectly accepted a publicly accessible vault"
+            exit 1
+          fi
+          grep -q 'FAIL Vault isolated from public root' "$RUNNER_TEMP/office-preflight-unsafe.txt"
