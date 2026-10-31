@@ -41,6 +41,9 @@ try {
     if (!is_string($dsn) || $dsn === '') {
         throw new RuntimeException('Office database unavailable');
     }
+    if (!str_starts_with($dsn, 'mysql:') || !preg_match('/(?:^|;)dbname=u213420663_office_test(?:;|$)/D', substr($dsn, 6))) {
+        throw new RuntimeException('Role settings requires isolated Office-test database');
+    }
     $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_EMULATE_PREPARES => false,
