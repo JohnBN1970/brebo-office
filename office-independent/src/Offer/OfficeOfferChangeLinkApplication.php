@@ -13,11 +13,13 @@ use PDO;
 final class OfficeOfferChangeLinkApplication
 {
     private OfficeOfferAccess $access;
+    private OfficeOfferModulePermission $modulePermissions;
     private OfficeOfferChangeLinkRepository $links;
 
     public function __construct(private readonly PDO $db)
     {
         $this->access = new OfficeOfferAccess($db);
+        $this->modulePermissions = new OfficeOfferModulePermission($db);
         $this->links = new OfficeOfferChangeLinkRepository($db);
     }
 
@@ -34,7 +36,8 @@ final class OfficeOfferChangeLinkApplication
         );
         $query->execute([':acceptance_id' => $acceptanceId]);
         $projectId = $query->fetchColumn();
-        if ($projectId === false || $projectId === null
+        if (!$this->modulePermissions->allows($operatorId, 'link_change')
+            || $projectId === false || $projectId === null
             || !$this->access->canManageProject($operatorId, (int) $projectId)) {
             throw new \DomainException('Project management access required');
         }
