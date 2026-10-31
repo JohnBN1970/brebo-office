@@ -38,3 +38,4 @@ jobs:
         run: |
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeSalesInvoiceSourceMapTest.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeSalesInvoiceDraftViewTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeSalesInvoiceDraftListTest.php
