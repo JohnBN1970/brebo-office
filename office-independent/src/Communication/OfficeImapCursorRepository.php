@@ -36,6 +36,12 @@ final class OfficeImapCursorRepository
             if ($current !== null && ($current['uidvalidity'] !== $uidValidity || $lastUid < $current['last_uid'])) {
                 throw new RuntimeException('IMAP cursor rollback or UIDVALIDITY change requires review.');
             }
+            // No new UIDs: retain the durable position without issuing an UPDATE.
+            // In particular, an empty poll must not be treated as a cursor advance.
+            if ($current !== null && $lastUid === $current['last_uid']) {
+                $this->pdo->commit();
+                return;
+            }
             if ($current === null) {
                 $stmt = $this->pdo->prepare('INSERT INTO office_communication_cursors (mailbox_id, folder, uidvalidity, last_uid) VALUES (:id,:folder,:validity,:uid)');
             } else {
