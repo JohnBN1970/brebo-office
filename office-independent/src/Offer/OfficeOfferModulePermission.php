@@ -28,6 +28,19 @@ final class OfficeOfferModulePermission
                AND p.permission = :permission AND a.active = 1 LIMIT 1"
         );
         $query->execute([':operator_id' => $operatorId, ':permission' => $permission]);
-        return $query->fetchColumn() !== false;
+        if ($query->fetchColumn() !== false) {
+            return true;
+        }
+        // Role grants are optional until the central roles migration is installed.
+        $schema = $this->db->prepare(
+            "SELECT COUNT(*) FROM information_schema.tables
+             WHERE table_schema = DATABASE()
+               AND table_name IN ('office_roles', 'office_user_roles', 'office_role_permissions')"
+        );
+        $schema->execute();
+        if ((int) $schema->fetchColumn() !== 3) {
+            return false;
+        }
+        return (new OfficeOfferRolePermission($this->db))->allows($operatorId, $permission);
     }
 }
