@@ -51,7 +51,12 @@ try {
         exit('Geen toegang');
     }
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start(['use_strict_mode' => 1, 'cookie_httponly' => 1, 'cookie_secure' => 1]);
+        session_name('brebo_role_settings_test');
+        session_set_cookie_params([
+            'secure' => true, 'httponly' => true, 'samesite' => 'Strict',
+            'path' => \Brebo\Office\Intake\OfficeMount::basePath(),
+        ]);
+        session_start(['use_strict_mode' => 1]);
     }
     if (!isset($_SESSION['office_role_settings_csrf'])) {
         $_SESSION['office_role_settings_csrf'] = bin2hex(random_bytes(32));
