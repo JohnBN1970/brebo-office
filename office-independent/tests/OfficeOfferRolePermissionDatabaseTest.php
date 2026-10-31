@@ -42,7 +42,7 @@ if ($scopes->forOperator(21, 'offers') !== 'assigned'
     || $scopes->forOperator(21, 'finance') !== 'none') {
     throw new RuntimeException('Role scope isolation failed');
 }
-$moduleAccess = new \\Brebo\\Office\\Offer\\OfficeOfferModulePermission($db);
+$moduleAccess = new \Brebo\Office\Offer\OfficeOfferModulePermission($db);
 if (!$moduleAccess->allows(21, 'create') || $moduleAccess->allows(22, 'create')) {
     throw new RuntimeException('Role module scope not enforced');
 }
