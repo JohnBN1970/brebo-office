@@ -22,6 +22,8 @@ if ($cursors->get(1) !== $initial) throw new RuntimeException('Initial cursor no
 $cursors->advance(1, 'INBOX', 10, 9, $initial);
 $latest = ['uidvalidity'=>10, 'last_uid'=>9];
 if ($cursors->get(1) !== $latest) throw new RuntimeException('Cursor not advanced.');
+$cursors->advance(1, 'INBOX', 10, 9, $latest);
+if ($cursors->get(1) !== $latest) throw new RuntimeException('Empty poll changed cursor.');
 foreach ([
     [10, 8, $latest],
     [11, 10, $latest],
