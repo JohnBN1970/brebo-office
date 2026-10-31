@@ -29,3 +29,4 @@ jobs:
           mkdir -p "$RUNNER_TEMP/office-public-root"
           DOCUMENT_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/tests/OfficeAttachmentVaultTest.php
           php office-independent/tests/OfficeImapReadOnlySourceTest.php
+          php office-independent/tests/OfficeImapMimeExtractorTest.php
