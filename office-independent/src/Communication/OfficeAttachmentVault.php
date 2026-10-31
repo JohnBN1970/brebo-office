@@ -66,9 +66,33 @@ final class OfficeAttachmentVault
                 if (file_put_contents($temp, $bytes, LOCK_EX) !== $size) {
                     throw new RuntimeException('Attachment persistence failed.');
                 }
-                // Avoid replacing an existing content-addressed object.
-                // A concurrent writer may have stored the same digest already.
-                if (!@link($temp, $path) && !is_file($path)) {
+                // Shared hosting may disable link(). Publish without overwriting
+                // an existing content-addressed object.
+                $target = @fopen($path, 'xb');
+                if ($target !== false) {
+                    try {
+                        chmod($path, 0600);
+                        $source = fopen($temp, 'rb');
+                        if ($source === false) {
+                            throw new RuntimeException('Temporary attachment unreadable.');
+                        }
+                        try {
+                            if (stream_copy_to_stream($source, $target) !== $size) {
+                                throw new RuntimeException('Attachment persistence failed.');
+                            }
+                        } finally {
+                            fclose($source);
+                        }
+                        if (!fflush($target)) {
+                            throw new RuntimeException('Attachment flush failed.');
+                        }
+                    } catch (\Throwable $e) {
+                        fclose($target);
+                        @unlink($path);
+                        throw $e;
+                    }
+                    fclose($target);
+                } elseif (!is_file($path)) {
                     throw new RuntimeException('Attachment persistence failed.');
                 }
             } finally {
