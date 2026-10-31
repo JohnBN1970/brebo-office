@@ -29,6 +29,9 @@ final class OfficeRoleSettingsPage
             . 'label{display:block;margin:.7rem 0}button{padding:.65rem 1.2rem;cursor:pointer}'
             . 'details{margin:1rem 0}select{margin-left:.6rem}</style></head><body>'
             . '<main class="office-settings">';
+        if ($roles === []) {
+            $html .= '<section><h1>Rollen en rechten</h1><p>Er zijn nog geen actieve rollen ingericht. Er is niets gewijzigd.</p></section>';
+        }
         foreach ($roles as $role) {
             $html .= OfficeRoleSettingsView::render(
                 [['id' => $role['id'], 'label' => $role['label']]],
