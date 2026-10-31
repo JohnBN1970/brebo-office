@@ -12,7 +12,7 @@ use RuntimeException;
  */
 final class OfficeImapMimeExtractor
 {
-    /** @return array{body:string,attachments:list<array{filename:string,mime:string,bytes:string}>} */
+    /** @return array{body:string,html:?string,attachments:list<array{filename:string,mime:string,bytes:string}>} */
     public function extract(mixed $stream, int $uid): array
     {
         $structure = imap_fetchstructure($stream, $uid, FT_UID);
@@ -21,18 +21,19 @@ final class OfficeImapMimeExtractor
         }
         $attachments = [];
         $body = '';
-        $this->walk($stream, $uid, $structure, '', $body, $attachments);
-        return ['body' => $body, 'attachments' => $attachments];
+        $html = null;
+        $this->walk($stream, $uid, $structure, '', $body, $html, $attachments);
+        return ['body' => $body !== '' ? $body : ($html !== null ? html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8') : ''), 'html' => $html, 'attachments' => $attachments];
     }
 
     /** @param list<array{filename:string,mime:string,bytes:string}> $attachments */
-    private function walk(mixed $stream, int $uid, object $part, string $number, string &$body, array &$attachments): void
+    private function walk(mixed $stream, int $uid, object $part, string $number, string &$body, ?string &$html, array &$attachments): void
     {
         if (isset($part->parts) && is_array($part->parts) && $part->parts !== []) {
             foreach ($part->parts as $index => $child) {
                 if (!is_object($child)) throw new RuntimeException('Invalid MIME part.');
                 $childNumber = ($number === '' ? '' : $number . '.') . ($index + 1);
-                $this->walk($stream, $uid, $child, $childNumber, $body, $attachments);
+                $this->walk($stream, $uid, $child, $childNumber, $body, $html, $attachments);
             }
             return;
         }
@@ -68,12 +69,17 @@ final class OfficeImapMimeExtractor
             $attachments[] = ['filename'=>$filename, 'mime'=>$mime, 'bytes'=>$bytes];
             return;
         }
-        if ($type === 0 && $subtype === 'plain' && $body === '') {
-            $body = $bytes;
+        if ($type === 0 && $subtype === 'calendar') {
+            if (strlen($bytes) < 1 || strlen($bytes) > 15 * 1024 * 1024) throw new RuntimeException('Calendar payload exceeds size policy.');
+            $attachments[] = ['filename' => 'agenda-' . $uid . '-' . str_replace('.', '-', $number) . '.ics', 'mime' => 'text/calendar', 'bytes' => $bytes];
             return;
         }
-        if ($type === 0 && $subtype === 'html' && $body === '') {
-            $body = strip_tags($bytes);
+        if ($type === 0 && $subtype === 'html') {
+            if ($html === null) $html = $bytes;
+            return;
+        }
+        if ($type === 0 && $subtype === 'plain' && $body === '') {
+            $body = $bytes;
             return;
         }
         // Multipart alternatives and related inline resources must not cause
