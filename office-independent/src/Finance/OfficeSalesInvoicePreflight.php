@@ -15,8 +15,10 @@ final class OfficeSalesInvoicePreflight
     /** @return array<string,mixed> */
     public static function inspect(PDO $officeDb, PDO $salesDb): array
     {
-        $required = OfficeSalesInvoiceSourceMap::releaseTables();
-        $required[] = OfficeSalesInvoiceSourceMap::ISSUED;
+        $required = array_values(array_unique(array_merge(
+            OfficeSalesInvoiceSourceMap::releaseTables(),
+            [OfficeSalesInvoiceSourceMap::ISSUED]
+        )));
 
         $tables = [];
         foreach ($required as $table) {
@@ -48,7 +50,11 @@ final class OfficeSalesInvoicePreflight
         return [
             'source_tables' => $tables,
             'office_tables' => $office,
-            'source_ready' => !in_array(false, $tables, true),
+            'draft_read_ready' => $tables[OfficeSalesInvoiceSourceMap::DRAFT]
+                && $tables[OfficeSalesInvoiceSourceMap::DRAFT_LINE],
+            'release_schema_ready' => !in_array(false, $tables, true),
+            'source_ready' => $tables[OfficeSalesInvoiceSourceMap::DRAFT]
+                && $tables[OfficeSalesInvoiceSourceMap::DRAFT_LINE],
             'office_ready' => !in_array(false, $office, true),
             'sales_read_flag' => getenv('OFFICE_FINANCE_SALES_READ_ENABLED') === 'enabled',
             'read_only_expected' => true,
