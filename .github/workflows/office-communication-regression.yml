@@ -53,3 +53,14 @@ jobs:
             exit 1
           fi
           grep -q 'FAIL Vault isolated from public root' "$RUNNER_TEMP/office-preflight-unsafe.txt"
+      - name: Verify preflight accepts isolated private vault when runtime dependencies exist
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/office-private-vault" "$RUNNER_TEMP/office-public-root"
+          if php -r 'exit(extension_loaded("imap") && extension_loaded("pdo_mysql") && extension_loaded("mbstring") ? 0 : 1);'; then
+            OFFICE_COMMUNICATION_VAULT_ROOT="$RUNNER_TEMP/office-private-vault" OFFICE_COMMUNICATION_PUBLIC_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight-safe.txt"
+            grep -q 'PASS Vault isolated from public root' "$RUNNER_TEMP/office-preflight-safe.txt"
+            grep -q 'OFFLINE PREFLIGHT PASS' "$RUNNER_TEMP/office-preflight-safe.txt"
+          else
+            echo "PASS-path skipped: runner lacks production PHP extensions; Hostinger must prove full preflight."
+          fi
