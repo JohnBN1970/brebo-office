@@ -24,7 +24,7 @@ try {
   foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $file) {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
-  require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationAccess.php';
+  require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationMailboxAccess.php';
   require_once dirname(__DIR__) . '/src/Communication/OfficeCommunicationInboxView.php';
   $db = new PDO(getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
     getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
@@ -38,12 +38,19 @@ try {
   if ($operator === null) {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302); exit;
   }
-  $access = new \Brebo\Office\Communication\OfficeCommunicationAccess($db, $operator->operatorId);
-  if (!$access->allows('read') && !$access->allows('review')) {
-    http_response_code(403); exit('Geen toegang tot Communicatie.');
+  $access = new \Brebo\Office\Communication\OfficeCommunicationMailboxAccess($db);
+  if (!$access->canRead((string)$operator->operatorId, 2)) {
+    http_response_code(403); exit('Geen toegang tot deze mailbox.');
   }
-  $q = $db->query("SELECT received_at, sender_address, subject, processing_status
-    FROM office_communication_messages ORDER BY id DESC LIMIT 100");
+  $q = $db->prepare("SELECT m.id, m.mailbox_id, m.received_at, m.sender_address,
+      m.subject, m.processing_status,
+      (SELECT COUNT(*) FROM office_communication_attachments a
+       WHERE a.message_id = m.id) AS attachment_count
+    FROM office_communication_messages m
+    WHERE m.mailbox_id = :mailbox
+    ORDER BY m.id DESC LIMIT 100");
+  $q->bindValue(':mailbox', 2, PDO::PARAM_INT);
+  $q->execute();
   $messages = $q->fetchAll(PDO::FETCH_ASSOC);
   $html = \Brebo\Office\Communication\OfficeCommunicationInboxView::render($messages);
 } catch (Throwable $e) {
