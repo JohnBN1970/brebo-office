@@ -41,6 +41,8 @@ final class OfficeOfferModulePermission
         if ((int) $schema->fetchColumn() !== 3) {
             return false;
         }
+        // This class is used by standalone Office entrypoints without Composer autoloading.
+        require_once __DIR__ . '/OfficeOfferRolePermission.php';
         return (new OfficeOfferRolePermission($this->db))->allows($operatorId, $permission);
     }
 }
