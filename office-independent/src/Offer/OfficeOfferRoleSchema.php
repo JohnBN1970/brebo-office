@@ -29,6 +29,17 @@ final class OfficeOfferRoleSchema
                 permission VARCHAR(32) NOT NULL,
                 PRIMARY KEY (role_id, module, permission)
             )",
+            "CREATE TABLE office_role_settings_audit (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                actor_operator_id BIGINT UNSIGNED NOT NULL,
+                role_id BIGINT UNSIGNED NOT NULL,
+                module VARCHAR(32) NOT NULL,
+                before_json JSON NOT NULL,
+                after_json JSON NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_role_settings_audit_role (role_id, created_at),
+                KEY idx_role_settings_audit_actor (actor_operator_id, created_at)
+            )",
             "CREATE TABLE office_role_scopes (
                 role_id BIGINT UNSIGNED NOT NULL,
                 module VARCHAR(32) NOT NULL,
