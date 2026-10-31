@@ -19,14 +19,15 @@ final class OfficeCommunicationInboxView
         $html = '<section class="office-communication-inbox"><h1>Communicatie</h1>'
             . '<p>Inkomende berichten ter beoordeling. Verzenden is uitgeschakeld.</p>'
             . '<table><thead><tr><th>Ontvangen</th><th>Afzender</th>'
-            . '<th>Onderwerp</th><th>Verwerking</th></tr></thead><tbody>';
+            . '<th>Onderwerp</th><th>Bijlagen</th><th>Verwerking</th></tr></thead><tbody>';
         if ($messages === []) {
-            $html .= '<tr><td colspan="4">Er staan geen berichten klaar voor beoordeling.</td></tr>';
+            $html .= '<tr><td colspan="5">Er staan geen berichten klaar voor beoordeling.</td></tr>';
         }
         foreach ($messages as $message) {
             $html .= '<tr><td>' . $e($message['received_at'] ?? '') . '</td>'
                 . '<td>' . $e($message['sender_address'] ?? '') . '</td>'
                 . '<td>' . $e($message['subject'] ?? '') . '</td>'
+                . '<td>' . $e((int) ($message['attachment_count'] ?? 0)) . '</td>'
                 . '<td>' . $e($message['processing_status'] ?? '') . '</td></tr>';
         }
         return $html . '</tbody></table></section>';
