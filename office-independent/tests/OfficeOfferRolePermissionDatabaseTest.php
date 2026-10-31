@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Offer/OfficeOfferRoleSchema.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferRolePermission.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferRoleScope.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferModulePermission.php';
 
 use Brebo\Office\Offer\OfficeOfferRoleSchema;
 use Brebo\Office\Offer\OfficeOfferRolePermission;
@@ -40,5 +41,17 @@ if ($scopes->forOperator(21, 'offers') !== 'assigned'
     || $scopes->forOperator(23, 'offers') !== 'none'
     || $scopes->forOperator(21, 'finance') !== 'none') {
     throw new RuntimeException('Role scope isolation failed');
+}
+$moduleAccess = new \\Brebo\\Office\\Offer\\OfficeOfferModulePermission($db);
+if (!$moduleAccess->allows(21, 'create') || $moduleAccess->allows(22, 'create')) {
+    throw new RuntimeException('Role module scope not enforced');
+}
+$db->exec("UPDATE office_role_scopes SET scope_key = 'own' WHERE role_id = 1 AND module = 'offers'");
+if ($moduleAccess->allows(21, 'create')) {
+    throw new RuntimeException('Unsupported own scope granted access');
+}
+$db->exec("DELETE FROM office_role_scopes WHERE role_id = 1 AND module = 'offers'");
+if ($moduleAccess->allows(21, 'create')) {
+    throw new RuntimeException('Missing role scope granted access');
 }
 echo "OfficeOfferRolePermissionDatabaseTest: PASS\n";
