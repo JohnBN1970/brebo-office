@@ -16,9 +16,9 @@ final class OfficeOfferChangeLinkRepository
     {
     }
 
-    public function link(int $acceptanceId, int $operatorId): int
+    public function link(int $acceptanceId, int|string $operatorId): int
     {
-        if ($acceptanceId < 1 || $operatorId < 1) {
+        if ($acceptanceId < 1 || (is_int($operatorId) ? $operatorId < 1 : trim($operatorId) === '')) {
             throw new \InvalidArgumentException('Invalid acceptance or operator');
         }
         $this->db->beginTransaction();
