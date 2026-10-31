@@ -74,6 +74,7 @@ final class OfficeNavigation {
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+        ...(getenv('OFFICE_FINANCE_SALES_READ_ENABLED')==='enabled' ? [['Verkoopfacturen','/office-test/finance/verkoopfacturen']] : []),
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
       ['Kennis & kwaliteit','kennis',[]],
