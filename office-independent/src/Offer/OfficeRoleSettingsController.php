@@ -44,7 +44,8 @@ final class OfficeRoleSettingsController
         (new OfficeRoleSettings($this->db))->setModule(
             $roleId, $module, $enabled,
             $enabled ? $permissions : [],
-            $enabled ? $scope : 'none'
+            $enabled ? $scope : 'none',
+            $operatorId
         );
     }
 }
