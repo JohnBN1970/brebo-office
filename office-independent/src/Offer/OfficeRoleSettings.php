@@ -18,7 +18,7 @@ final class OfficeRoleSettings
     {
     }
 
-    public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope): void
+    public function setModule(int $roleId, string $module, bool $enabled, array $permissions, string $scope, int $actorOperatorId = 0): void
     {
         // Only modules with an implemented permission contract can be configured.
         if ($module !== 'offers') {
@@ -40,6 +40,16 @@ final class OfficeRoleSettings
             if ($lock->fetchColumn() === false) {
                 throw new DomainException('Active role required');
             }
+            $oldPermissionsQuery = $this->db->prepare(
+                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
+            );
+            $oldPermissionsQuery->execute([$roleId, $module]);
+            $beforePermissions = $oldPermissionsQuery->fetchAll(PDO::FETCH_COLUMN);
+            $oldScopeQuery = $this->db->prepare(
+                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
+            );
+            $oldScopeQuery->execute([$roleId, $module]);
+            $beforeScope = $oldScopeQuery->fetchColumn();
             $remove = $this->db->prepare('DELETE FROM office_role_permissions WHERE role_id = ? AND module = ?');
             $remove->execute([$roleId, $module]);
             $removeScope = $this->db->prepare('DELETE FROM office_role_scopes WHERE role_id = ? AND module = ?');
@@ -68,6 +78,18 @@ final class OfficeRoleSettings
             if ($actualPermissions !== $expectedPermissions
                 || ($actualScope === false ? 'none' : $actualScope) !== ($enabled ? $scope : 'none')) {
                 throw new DomainException('Role settings verification failed');
+            }
+            if ($actorOperatorId > 0) {
+                $audit = $this->db->prepare(
+                    'INSERT INTO office_role_settings_audit
+                     (actor_operator_id, role_id, module, before_json, after_json)
+                     VALUES (?, ?, ?, ?, ?)'
+                );
+                $audit->execute([
+                    $actorOperatorId, $roleId, $module,
+                    json_encode(['permissions' => $beforePermissions, 'scope' => $beforeScope === false ? 'none' : $beforeScope], JSON_THROW_ON_ERROR),
+                    json_encode(['permissions' => $actualPermissions, 'scope' => $actualScope === false ? 'none' : $actualScope], JSON_THROW_ON_ERROR),
+                ]);
             }
             $this->db->commit();
         } catch (\Throwable $e) {
