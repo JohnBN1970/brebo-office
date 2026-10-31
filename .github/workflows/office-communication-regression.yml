@@ -1,0 +1,66 @@
+name: Office communication regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Communication/**'
+      - 'office-independent/tests/Office*Communication*Test.php'
+      - 'office-independent/tests/Office*Attachment*Test.php'
+      - 'office-independent/tests/Office*Imap*Test.php'
+      - 'office-independent/tests/Office*Inbox*Test.php'
+      - '.github/workflows/office-communication-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  communication:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP availability
+        run: php -v
+      - name: Validate communication PHP syntax
+        run: |
+          find office-independent/src/Communication -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run attachment and IMAP cursor regression tests
+        run: |
+          set -eu
+          php -r 'if (!extension_loaded("pdo_sqlite")) { fwrite(STDERR, "pdo_sqlite required\n"); exit(1); }'
+          php office-independent/tests/OfficeAttachmentRecordRepositoryTest.php
+          php office-independent/tests/OfficeImapCursorRepositoryTest.php
+          mkdir -p "$RUNNER_TEMP/office-public-root"
+          DOCUMENT_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/tests/OfficeAttachmentVaultTest.php
+          php office-independent/tests/OfficeImapReadOnlySourceTest.php
+          php office-independent/tests/OfficeImapMimeExtractorTest.php
+          php office-independent/tests/OfficeAttachmentImportServiceTest.php
+          php office-independent/tests/OfficeInboxImportBatchOrderTest.php
+      - name: Verify offline preflight fails closed without configured paths
+        run: |
+          set -eu
+          php -l office-independent/bin/office-communication-preflight.php
+          if env -u OFFICE_COMMUNICATION_VAULT_ROOT -u OFFICE_COMMUNICATION_PUBLIC_ROOT php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight.txt" 2>&1; then
+            echo "Preflight incorrectly passed without private/public root configuration"
+            exit 1
+          fi
+          grep -q 'FAIL Private vault configured' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'FAIL Public root configured' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'FAIL Vault isolated from public root' "$RUNNER_TEMP/office-preflight.txt"
+          grep -q 'OFFLINE PREFLIGHT BLOCKED' "$RUNNER_TEMP/office-preflight.txt"
+      - name: Verify preflight rejects vault inside public webroot
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/office-public-root/private-vault"
+          if OFFICE_COMMUNICATION_VAULT_ROOT="$RUNNER_TEMP/office-public-root/private-vault" OFFICE_COMMUNICATION_PUBLIC_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight-unsafe.txt" 2>&1; then
+            echo "Preflight incorrectly accepted a publicly accessible vault"
+            exit 1
+          fi
+          grep -q 'FAIL Vault isolated from public root' "$RUNNER_TEMP/office-preflight-unsafe.txt"
+      - name: Verify preflight accepts isolated private vault when runtime dependencies exist
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/office-private-vault" "$RUNNER_TEMP/office-public-root"
+          if php -r 'exit(extension_loaded("imap") && extension_loaded("pdo_mysql") && extension_loaded("mbstring") ? 0 : 1);'; then
+            OFFICE_COMMUNICATION_VAULT_ROOT="$RUNNER_TEMP/office-private-vault" OFFICE_COMMUNICATION_PUBLIC_ROOT="$RUNNER_TEMP/office-public-root" php office-independent/bin/office-communication-preflight.php > "$RUNNER_TEMP/office-preflight-safe.txt"
+            grep -q 'PASS Vault isolated from public root' "$RUNNER_TEMP/office-preflight-safe.txt"
+            grep -q 'OFFLINE PREFLIGHT PASS' "$RUNNER_TEMP/office-preflight-safe.txt"
+          else
+            echo "PASS-path skipped: runner lacks production PHP extensions; Hostinger must prove full preflight."
+          fi
