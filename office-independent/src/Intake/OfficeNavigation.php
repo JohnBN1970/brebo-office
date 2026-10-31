@@ -77,9 +77,9 @@ final class OfficeNavigation {
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
       ['Kennis & kwaliteit','kennis',[]],
-      ['Instellingen','instellingen',getenv('OFFICE_ROLE_SETTINGS_ENABLED')==='enabled'?[
+      ...(getenv('OFFICE_ROLE_SETTINGS_ENABLED')==='enabled' ? [['Instellingen','instellingen',[
         ['Rollen en rechten','/office-test/instellingen/rollen'],
-      ]:[]],
+      ]]] : []),
     ];
     $selected='werkplek';
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
