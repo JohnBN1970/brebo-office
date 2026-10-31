@@ -58,3 +58,4 @@ jobs:
           php office-independent/tests/OfficeOfferChangeLinkDatabaseTest.php
           php office-independent/tests/OfficeOfferChangeLinkAuthorizationDatabaseTest.php
           php office-independent/tests/OfficeOfferModulePermissionDatabaseTest.php
+          php office-independent/tests/OfficeOfferRolePermissionDatabaseTest.php
