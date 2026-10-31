@@ -9,7 +9,7 @@ Status: **NIET UITGEROLD**. Dit document autoriseert geen databasewijziging.
 3. Controleer in `information_schema.tables` of `office_roles`, `office_user_roles`, `office_role_permissions`, `office_role_scopes` en `office_role_settings_audit` ontbreken of al bestaan. **Bij bestaande tabellen: stop; inspecteer eerst de schema's en inhoud.**
 4. Controleer de bestaande `office_operator_accounts`, `office_module_permissions` en `office_project_memberships`; wijzig deze niet tijdens de migratie.
 5. Controleer of er al een actieve operator is met de expliciete directe grant `settings.manage`. **Niet automatisch toekennen**.
-6. Voer de read-only queries uit `ROLE_SETTINGS_OFFICE_TEST_PREFLIGHT.sql` uit op een afzonderlijk geverifieerde Office-testverbinding. Bij `STOP_WRONG_DATABASE`: onmiddellijk stoppen. Bewaar de resultaten in het acceptatiedossier.\n7. Controleer de actuele PR-CI: alle workflows moeten groen zijn. Review de testdekking voor rolrechten, CSRF, projectautorisatie en gegevensfilters.
+6. Voer de read-only queries uit `ROLE_SETTINGS_OFFICE_TEST_PREFLIGHT.sql` uit op een afzonderlijk geverifieerde Office-testverbinding. Bij `STOP_WRONG_DATABASE`: onmiddellijk stoppen. Bewaar de resultaten in het acceptatiedossier. De preflight toont ook kolomdefinities van de bestaande Office-identiteits-, module- en projectrechten-tabellen, zonder persoonsgegevens uit te lezen.\n7. Controleer de actuele PR-CI: alle workflows moeten groen zijn. Review de testdekking voor rolrechten, CSRF, projectautorisatie en gegevensfilters.
 
 ## Veiligheidsgrenzen
 
