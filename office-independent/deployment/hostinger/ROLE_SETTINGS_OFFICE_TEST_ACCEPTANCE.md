@@ -1,5 +1,27 @@
 # Office-test — Rollen en rechten: migratie- en acceptatiecontrole
 
+## Werkelijke acceptatiestand — 31 oktober 2026
+
+**Gedeeltelijk live en bevestigd op Office-test; niet op productie.** De oorspronkelijke instructies hieronder zijn een historische preflight en mogen niet worden gelezen als de actuele uitvoeringsstatus.
+
+Bevestigd door de Office-test-beheerder via SSH, MariaDB en browser:
+- Back-up vóór migratie: `/home/u213420663/office-test-backups/roles-before-id-migration-20261031.sql`.
+- `office_user_roles.operator_id` en `office_role_settings_audit.actor_operator_id` zijn `VARCHAR(128) NOT NULL`; bestaande roltoewijzing en auditregels bleven behouden.
+- Zeven relevante PHP-bestanden voor de rolleninterface zijn in de actieve private Office-test-release geïnstalleerd, met geslaagde `php -l` en bestandsvergelijking.
+- `/office-test/instellingen/rollen` rendert voor de bevoegde beheerder.
+- Voor rol `1`, module `offers`, is `office_role_scopes.scope_key = 'all'`.
+- Auditregel `id=3`, actor `1`, 2026-10-31 14:48:17: scope `none` → `all`; zeven bestaande permissies ongewijzigd.
+- Vijf GitHub Actions-workflows waren groen op commit `36102e9f0226aad8f5c2c9251286389162fa858b` vóór deze documentupdate.
+
+**Nog niet bewezen / niet afvinken:**
+- Negatieve HTTP-acceptatie op de live Office-test-runtime (niet-ingelogd, onbevoegd, CSRF, ongeldige payload).
+- Effectieve server-side autorisatie van iedere offerteactie in combinatie met projectlidmaatschap; scope `all` mag projectrechten niet omzeilen.
+- De vier offertedomeintabellen en volledige offerte-acceptatieketen zijn niet met live databasebewijs geaccepteerd.
+- Centrale rollen voor andere modules, individuele overrides en `own`-scope zijn niet aangesloten.
+- Geen bewijs van een volledige productie-uitrol; productie ongemoeid laten.
+
+## Oorspronkelijke preflight en acceptatie-instructies (historisch)
+
 Status: **NIET UITGEROLD**. Dit document autoriseert geen databasewijziging.
 
 ## Vooraf controleren (alleen lezen)
