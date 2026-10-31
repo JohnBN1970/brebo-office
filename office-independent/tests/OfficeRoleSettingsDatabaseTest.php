@@ -36,6 +36,11 @@ try {
     throw new RuntimeException('Invalid permission was accepted');
 } catch (DomainException $expected) {
 }
+try {
+    $settings->setModule(31, 'finance', true, ['manage'], 'all');
+    throw new RuntimeException('Unimplemented module was configurable');
+} catch (DomainException $expected) {
+}
 $settings->setModule(31, 'offers', false, [], 'none');
 $count = (int) $db->query("SELECT COUNT(*) FROM office_role_permissions WHERE role_id = 31")->fetchColumn();
 if ($count !== 0) {
