@@ -4,7 +4,7 @@ Status: **NIET UITGEROLD**. Dit document autoriseert geen databasewijziging.
 
 ## Vooraf controleren (alleen lezen)
 
-1. Bevestig dat de actieve mount **/office-test** is, dat de database de afzonderlijke Office-testdatabase is en dat productie-DSN's nergens gebruikt worden.
+1. Bevestig dat de actieve mount **/office-test** is, dat de database `u213420663_office_test` is en dat productie-DSN's nergens gebruikt worden.
 2. Leg actieve release, Git-commit, routerpad en configuratie vast. Bewaar een herstelbare databaseback-up.
 3. Controleer in `information_schema.tables` of `office_roles`, `office_user_roles`, `office_role_permissions`, `office_role_scopes` en `office_role_settings_audit` ontbreken of al bestaan. **Bij bestaande tabellen: stop; inspecteer eerst de schema's en inhoud.**
 4. Controleer de bestaande `office_operator_accounts`, `office_module_permissions` en `office_project_memberships`; wijzig deze niet tijdens de migratie.
@@ -36,7 +36,8 @@ Status: **NIET UITGEROLD**. Dit document autoriseert geen databasewijziging.
 4. POST zonder geldige CSRF-token: geweigerd, geen databasewijziging.
 5. Offertes-rechten inschakelen, opslaan, teruglezen en uitschakelen: database en scherm consistent.
 6. Onbekende module, ongeldige rol, ongeldige scope en misvormde rechtenlijst: geweigerd.
-7. Controleer dat iedere geautoriseerde wijziging een auditregel met beheerder, rol, module en voor-/na-waarden oplevert; bij ontbrekende auditregistratie mag de rechtenwijziging niet worden opgeslagen.\n8. Bestaande directe gebruikersrechten, projectlidmaatschappen, CRM, Inzet, Finance en productie blijven ongewijzigd.
+7. Controleer dat iedere geautoriseerde wijziging een auditregel met beheerder, rol, module en voor-/na-waarden oplevert; bij ontbrekende auditregistratie mag de rechtenwijziging niet worden opgeslagen.
+8. Bestaande directe gebruikersrechten, projectlidmaatschappen, CRM, Inzet, Finance en productie blijven ongewijzigd.
 9. Rolrecht zonder gegevensfilter en scope `own` geven **geen** nieuwe toegang. Scope `assigned`/`all` is nog steeds onderworpen aan bestaande projectautorisatie.
 10. Controleer dat geen generiek CRM-offerte-endpoint of ongeautoriseerde offerteactie beschikbaar is.
 
