@@ -10,12 +10,15 @@ final class OfficeInboxSyncService
         private readonly OfficeInboxImportBatch $importer
     ) {}
 
-    public function sync(int $mailboxId, int $afterUid, int $limit = 25): array
+    public function sync(int $mailboxId, int $afterUid, int $limit = 25, ?int $expectedUidValidity = null): array
     {
         if ($mailboxId < 1 || $afterUid < 0 || $limit < 1 || $limit > 100) {
             throw new \InvalidArgumentException('Invalid sync request.');
         }
         $batch = $this->source->fetchAfter($afterUid, $limit);
+        if ($expectedUidValidity !== null && $expectedUidValidity !== $batch['uidvalidity']) {
+            throw new \RuntimeException('IMAP UIDVALIDITY changed; cursor reset requires explicit review.');
+        }
         $ids = $this->importer->import($mailboxId, 'INBOX', $batch);
         $lastUid = $afterUid;
         foreach ($batch['messages'] as $message) {
