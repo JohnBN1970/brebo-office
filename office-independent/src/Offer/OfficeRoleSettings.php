@@ -40,17 +40,6 @@ final class OfficeRoleSettings
             if ($lock->fetchColumn() === false) {
                 throw new DomainException('Active role required');
             }
-            // Record the prior effective configuration for a later audit comparison.
-            $previousPermissions = $this->db->prepare(
-                'SELECT permission FROM office_role_permissions WHERE role_id = ? AND module = ? ORDER BY permission'
-            );
-            $previousPermissions->execute([$roleId, $module]);
-            $beforePermissions = $previousPermissions->fetchAll(PDO::FETCH_COLUMN);
-            $previousScope = $this->db->prepare(
-                'SELECT scope_key FROM office_role_scopes WHERE role_id = ? AND module = ?'
-            );
-            $previousScope->execute([$roleId, $module]);
-            $beforeScope = $previousScope->fetchColumn();
             $remove = $this->db->prepare('DELETE FROM office_role_permissions WHERE role_id = ? AND module = ?');
             $remove->execute([$roleId, $module]);
             $removeScope = $this->db->prepare('DELETE FROM office_role_scopes WHERE role_id = ? AND module = ?');
