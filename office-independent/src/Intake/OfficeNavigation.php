@@ -71,8 +71,8 @@ final class OfficeNavigation {
       }
       $dsn=getenv('OFFICE_INTAKE_PDO_DSN');
       if (!is_string($dsn)||$dsn==='') return false;
-      $db=new \\PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
-        [\\PDO::ATTR_ERRMODE=>\\PDO::ERRMODE_EXCEPTION,\\PDO::ATTR_EMULATE_PREPARES=>false]);
+      $db=new \PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
+        [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_EMULATE_PREPARES=>false]);
       $operator=(new WebsiteOfficeCrmCookieSessionProvider(
         new WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time()))->currentOperator();
       if ($operator===null) return false;
@@ -81,7 +81,7 @@ final class OfficeNavigation {
         WHERE p.operator_id=:id AND p.module='settings' AND p.permission='manage' LIMIT 1");
       $query->execute([':id'=>$operator->operatorId]);
       return $query->fetchColumn()!==false;
-    } catch (\\Throwable $e) { return false; }
+    } catch (\Throwable $e) { return false; }
   }
   public static function mainV2(string $path):string {
     // Only advertise modules whose existing test-environment gates are enabled.
