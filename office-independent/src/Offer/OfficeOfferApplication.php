@@ -16,6 +16,7 @@ final class OfficeOfferApplication
 {
     private OfficeOfferRepository $offers;
     private OfficeOfferAccess $access;
+    private OfficeOfferModulePermission $modulePermissions;
     private OfficeProjectContractRepository $contracts;
     private OfficeProjectChangeOrderRepository $changes;
 
@@ -23,6 +24,7 @@ final class OfficeOfferApplication
     {
         $this->offers = new OfficeOfferRepository($db);
         $this->access = new OfficeOfferAccess($db);
+        $this->modulePermissions = new OfficeOfferModulePermission($db);
         $this->contracts = new OfficeProjectContractRepository($db);
         $this->changes = new OfficeProjectChangeOrderRepository($db);
     }
@@ -32,7 +34,8 @@ final class OfficeOfferApplication
         if ($draft->projectId === null) {
             throw new \InvalidArgumentException('Project draft requires a project');
         }
-        if (!$this->access->canManageProject($operatorId, $draft->projectId)) {
+        if (!$this->modulePermissions->allows($operatorId, 'create')
+            || !$this->access->canManageProject($operatorId, $draft->projectId)) {
             throw new \DomainException('Project management access required');
         }
         if ($draft->isProjectChange()) {
@@ -67,7 +70,8 @@ final class OfficeOfferApplication
 
     public function listForProject(int $operatorId, int $projectId): array
     {
-        if (!$this->access->canReadProject($operatorId, $projectId)) {
+        if (!$this->modulePermissions->allows($operatorId, 'read')
+            || !$this->access->canReadProject($operatorId, $projectId)) {
             throw new \DomainException('Project access required');
         }
         return $this->offers->forProject($projectId);
