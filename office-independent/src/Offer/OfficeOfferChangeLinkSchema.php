@@ -16,7 +16,7 @@ final class OfficeOfferChangeLinkSchema
                 offer_id BIGINT UNSIGNED NOT NULL,
                 change_order_id BIGINT UNSIGNED NOT NULL,
                 office_project_id BIGINT UNSIGNED NOT NULL,
-                linked_by_operator_id BIGINT UNSIGNED NOT NULL,
+                linked_by_operator_id VARCHAR(128) NOT NULL,
                 linked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY uq_offer_link_acceptance (acceptance_id),
                 UNIQUE KEY uq_offer_link_offer (offer_id),
