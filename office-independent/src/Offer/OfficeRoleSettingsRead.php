@@ -50,7 +50,7 @@ final class OfficeRoleSettingsRead
         foreach ($roles as &$role) {
             $stored = $byRole[(int) $role['id']] ?? [];
             $role['modules'] = [];
-            foreach (array_unique(array_merge($catalog, array_keys($stored))) as $module) {
+            foreach ($catalog as $module) {
                 $role['modules'][$module] = $stored[$module] ?? [
                     'enabled' => false,
                     'permissions' => [],
