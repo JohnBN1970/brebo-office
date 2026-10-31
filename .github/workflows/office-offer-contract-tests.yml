@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Offer/**'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/public/office-role-settings.php'
       - 'office-independent/tests/OfficeOffer*Test.php'
       - 'office-independent/tests/OfficeRole*Test.php'
       - '.github/workflows/office-offer-contract-tests.yml'
@@ -55,6 +58,7 @@ jobs:
           php office-independent/tests/OfficeRoleSettingsControllerTest.php
           php office-independent/tests/OfficeRoleSettingsPageTest.php
           php office-independent/tests/OfficeRoleSettingsEndpointTest.php
+          php office-independent/tests/OfficeRoleSettingsNavigationTest.php
       - name: Run isolated MySQL offer integration test
         env:
           OFFICE_OFFER_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=offer_ci_isolated;charset=utf8mb4
