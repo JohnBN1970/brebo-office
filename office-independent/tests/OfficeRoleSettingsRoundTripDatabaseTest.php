@@ -74,4 +74,18 @@ if ($modulePermission->allows('unknown-operator', 'create')
     || $roleScope->forOperator('unknown-operator', 'offers') !== 'none') {
     throw new RuntimeException('Unknown nonnumeric operator was authorized');
 }
+
+// Project ACL remains a separate, mandatory gate for nonnumeric identities.
+require_once __DIR__ . '/../src/Project/OfficeNativeProjectAccess.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferAccess.php';
+$db->exec('ALTER TABLE office_project_memberships MODIFY operator_id VARCHAR(128) NOT NULL');
+$db->exec("INSERT INTO office_projects (id) VALUES (441)");
+$db->exec("INSERT INTO office_project_memberships (project_id, operator_id, permission) VALUES (441, 'operator-test-441', 'manage')");
+$projectAccess = new Brebo\Office\Offer\OfficeOfferAccess($db);
+if (!$projectAccess->canManageProject('operator-test-441', 441)
+    || !$projectAccess->canReadProject('operator-test-441', 441)
+    || $projectAccess->canManageProject('operator-test-441', 10)
+    || $projectAccess->canManageProject('unknown-operator', 441)) {
+    throw new RuntimeException('String identity project ACL or cross-project isolation failed');
+}
 echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\\n";
