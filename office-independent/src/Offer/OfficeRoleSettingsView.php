@@ -32,6 +32,7 @@ final class OfficeRoleSettingsView
                 $html .= '<input type="hidden" name="csrf_token" value="' . $escape($csrfToken) . '">';
                 $html .= '<input type="hidden" name="role_id" value="' . $roleId . '">';
                 $html .= '<input type="hidden" name="module" value="' . $escape($module) . '">';
+                $html .= '<input type="hidden" name="enabled" value="0">';
                 $html .= '<label><input type="checkbox" name="enabled" value="1"' . ($enabled ? ' checked' : '') . '> Module inschakelen</label>';
                 $html .= '<details' . ($enabled ? ' open' : '') . '><summary>Rechten en filters</summary>';
                 foreach (['read' => 'Bekijken', 'create' => 'Aanmaken', 'update' => 'Wijzigen', 'issue' => 'Uitbrengen', 'record_acceptance' => 'Acceptatie registreren', 'link_change' => 'Meerwerk koppelen', 'manage' => 'Beheren'] as $permission => $label) {
