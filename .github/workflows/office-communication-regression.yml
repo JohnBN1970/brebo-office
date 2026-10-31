@@ -31,3 +31,4 @@ jobs:
           php office-independent/tests/OfficeImapReadOnlySourceTest.php
           php office-independent/tests/OfficeImapMimeExtractorTest.php
           php office-independent/tests/OfficeAttachmentImportServiceTest.php
+          php office-independent/tests/OfficeInboxImportBatchOrderTest.php
