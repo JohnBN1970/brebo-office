@@ -13,9 +13,9 @@ final class OfficeOfferRoleScope
     {
     }
 
-    public function forOperator(int $operatorId, string $module): string
+    public function forOperator(int|string $operatorId, string $module): string
     {
-        if ($operatorId < 1 || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)) {
+        if ((is_int($operatorId) ? $operatorId < 1 : trim($operatorId) === '') || !preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)) {
             return 'none';
         }
         $query = $this->db->prepare(
