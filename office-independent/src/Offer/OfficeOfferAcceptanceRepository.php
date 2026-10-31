@@ -18,17 +18,22 @@ final class OfficeOfferAcceptanceRepository
     {
     }
 
+    private static function validOperatorId(int|string $id): bool
+    {
+        return is_int($id) ? $id > 0 : trim($id) !== '' && strlen($id) <= 128;
+    }
+
     public function record(
         int $offerId,
         int $versionId,
         string $acceptedBy,
         string $evidenceReference,
         DateTimeImmutable $acceptedAt,
-        int $operatorId
+        int|string $operatorId
     ): int {
         $acceptedBy = trim($acceptedBy);
         $evidenceReference = trim($evidenceReference);
-        if ($offerId < 1 || $versionId < 1 || $operatorId < 1
+        if ($offerId < 1 || $versionId < 1 || !self::validOperatorId($operatorId)
             || $acceptedBy === '' || mb_strlen($acceptedBy) > 255
             || $evidenceReference === '' || mb_strlen($evidenceReference) > 500) {
             throw new \InvalidArgumentException('Invalid acceptance evidence');
