@@ -45,4 +45,34 @@ $count = (int) $db->query('SELECT COUNT(*) FROM office_offer_change_links')->fet
 if ($count !== 1) {
     throw new RuntimeException('Unexpected link count');
 }
+
+// Invalid ownership must fail without adding a link.
+$db->exec("INSERT INTO office_project_contracts VALUES (11, 99)");
+$db->exec("INSERT INTO office_project_change_orders VALUES (12, 11, 'more', 'draft')");
+$db->exec("INSERT INTO office_offers VALUES (13, 10, 12, 'more', 'accepted')");
+$db->exec("INSERT INTO office_offer_versions VALUES (14, 13, 'accepted')");
+$db->exec("INSERT INTO office_offer_acceptances VALUES (15, 13, 14)");
+try {
+    $repo->link(15, 7);
+    throw new RuntimeException('Mismatched project was accepted');
+} catch (DomainException $expected) {
+}
+// Non-draft change orders must not be linked.
+$db->exec("UPDATE office_project_contracts SET office_project_id = 10 WHERE id = 11");
+$db->exec("UPDATE office_project_change_orders SET status = 'approved' WHERE id = 12");
+try {
+    $repo->link(15, 7);
+    throw new RuntimeException('Approved change order was accepted');
+} catch (DomainException $expected) {
+}
+// Change type must match the accepted offer.
+$db->exec("UPDATE office_project_change_orders SET status = 'draft', change_type = 'less' WHERE id = 12");
+try {
+    $repo->link(15, 7);
+    throw new RuntimeException('Mismatched change type was accepted');
+} catch (DomainException $expected) {
+}
+if ((int) $db->query('SELECT COUNT(*) FROM office_offer_change_links')->fetchColumn() !== 1) {
+    throw new RuntimeException('Rejected linkage altered the database');
+}
 echo "OfficeOfferChangeLinkDatabaseTest: PASS\n";
