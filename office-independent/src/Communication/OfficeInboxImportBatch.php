@@ -16,7 +16,8 @@ final class OfficeInboxImportBatch
 {
     public function __construct(
         private readonly OfficeLegacyMailIntakeBridge $bridge,
-        private readonly OfficeCommunicationRepository $repository
+        private readonly OfficeCommunicationRepository $repository,
+        private readonly ?OfficeAttachmentImportService $attachmentImporter = null
     ) {}
 
     /**
@@ -40,11 +41,14 @@ final class OfficeInboxImportBatch
             if (!is_string($headers) || $headers === '') {
                 throw new RuntimeException('Original MIME headers required.');
             }
-            if (preg_match('/^Content-Type:\\s*(?:multipart\\/|message\\/|application\\/|image\\/)/im', $headers)
+            if (empty($source['mime_decoded']) && (preg_match('/^Content-Type:\\s*(?:multipart\\/|message\\/|application\\/|image\\/)/im', $headers)
                 || preg_match('/^Content-Transfer-Encoding:\\s*(?:base64|quoted-printable)/im', $headers)
                 || preg_match('/^Content-Disposition:\\s*attachment/im', $headers)
-                || preg_match('/^Content-Type:.*(?:name|filename)\\s*=/im', $headers)) {
+                || preg_match('/^Content-Type:.*(?:name|filename)\\s*=/im', $headers))) {
                 throw new RuntimeException('MIME decoding and attachment persistence required before import.');
+            }
+            if (!empty($source['attachments']) && $this->attachmentImporter === null) {
+                throw new RuntimeException('Attachment importer required.');
             }
             if (!isset($source['body']) || !is_string($source['body'])) {
                 throw new InvalidArgumentException('Missing message body.');
@@ -54,10 +58,14 @@ final class OfficeInboxImportBatch
         foreach ($batch['messages'] as $item) {
             $source = $item['source'];
             unset($source['raw_headers']);
-            $ids[] = $this->bridge->import(
+            $messageId = $this->bridge->import(
                 $this->repository, $mailboxId, $folder,
                 $batch['uidvalidity'], $item['uid'], $source
             );
+            if (!empty($source['attachments'])) {
+                $this->attachmentImporter->import($messageId, $source['attachments']);
+            }
+            $ids[] = $messageId;
         }
         return $ids;
     }
