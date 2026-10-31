@@ -12,7 +12,7 @@ $html = OfficeRoleSettingsView::render(
     '/office-test/instellingen/rollen',
     'csrf<token>'
 );
-foreach (['&lt;Projectleider&gt;', 'csrf&lt;token&gt;', 'name="enabled"', 'name="permissions[]"', 'name="scope"', 'Toegewezen projecten', 'name="role_id"', 'name="module"', '<details open>'] as $expected) {
+foreach (['&lt;Projectleider&gt;', 'csrf&lt;token&gt;', 'name="enabled"', 'name="permissions[]"', 'name="scope"', 'Toegewezen projecten', 'Alle geautoriseerde projecten', 'bestaande Office-projectrechten', 'name="role_id"', 'name="module"', '<details open>'] as $expected) {
     if (!str_contains($html, $expected)) {
         throw new RuntimeException('Settings form missing: ' . $expected);
     }
