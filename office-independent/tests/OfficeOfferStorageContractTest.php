@@ -11,10 +11,12 @@ use Brebo\Office\Offer\OfficeOfferDraft;
 use Brebo\Office\Offer\OfficeOfferRepository;
 
 $statements = OfficeOfferSchema::statements();
-if (count($statements) !== 2
+if (count($statements) !== 3
     || !str_contains($statements[0], 'office_project_id BIGINT UNSIGNED NULL')
     || !str_contains($statements[0], 'calculation_id BIGINT UNSIGNED NULL')
-    || !str_contains($statements[1], 'UNIQUE KEY uq_offer_version')) {
+    || !str_contains($statements[1], 'UNIQUE KEY uq_offer_version')
+    || !str_contains($statements[2], 'office_offer_acceptances')
+    || !str_contains($statements[2], 'UNIQUE KEY uq_offer_acceptance')) {
     throw new RuntimeException('Offer storage schema contract invalid');
 }
 $repo = file_get_contents(__DIR__ . '/../src/Offer/OfficeOfferRepository.php');
