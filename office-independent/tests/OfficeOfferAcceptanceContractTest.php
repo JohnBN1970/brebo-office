@@ -9,13 +9,16 @@ use Brebo\Office\Offer\OfficeOfferSchema;
 use Brebo\Office\Offer\OfficeOfferAcceptanceRepository;
 
 $schema = implode("\n", OfficeOfferSchema::statements());
+if (!str_contains($schema, 'recorded_by_operator_id VARCHAR(128) NOT NULL')) {
+    throw new RuntimeException('Acceptance operator identity must support string IDs');
+}
 foreach (['office_offer_acceptances', 'UNIQUE KEY uq_offer_acceptance', 'evidence_reference', 'recorded_by_operator_id'] as $required) {
     if (!str_contains($schema, $required)) {
         throw new RuntimeException('Missing acceptance schema: ' . $required);
     }
 }
 $method = new ReflectionMethod(OfficeOfferAcceptanceRepository::class, 'record');
-if ($method->getNumberOfRequiredParameters() !== 6) {
+if ($method->getNumberOfRequiredParameters() !== 6 || (string) $method->getParameters()[5]->getType() !== 'string|int' && (string) $method->getParameters()[5]->getType() !== 'int|string') {
     throw new RuntimeException('Acceptance evidence signature mismatch');
 }
 $source = file_get_contents(__DIR__ . '/../src/Offer/OfficeOfferAcceptanceRepository.php');
