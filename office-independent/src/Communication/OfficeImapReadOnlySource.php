@@ -72,6 +72,7 @@ final class OfficeImapReadOnlySource
                     'from' => (string) ($row->from ?? ''),
                     'subject' => (string) ($row->subject ?? ''),
                     'body' => $decoded['body'] ?? $body,
+                    'body_html' => $decoded['html'] ?? null,
                     'attachments' => $decoded['attachments'] ?? [],
                     'mime_decoded' => $decoded !== null,
                     'received_at' => isset($row->date) && strtotime((string) $row->date) !== false
