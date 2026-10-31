@@ -17,6 +17,9 @@ foreach (['&lt;Projectleider&gt;', 'csrf&lt;token&gt;', 'name="enabled"', 'name=
         throw new RuntimeException('Settings form missing: ' . $expected);
     }
 }
+if (str_contains($html, 'Eigen gegevens')) {
+    throw new RuntimeException('Unsupported own scope is selectable');
+}
 if (str_contains($html, '<Projectleider>') || str_contains($html, 'csrf<token>')) {
     throw new RuntimeException('Unescaped user content');
 }
