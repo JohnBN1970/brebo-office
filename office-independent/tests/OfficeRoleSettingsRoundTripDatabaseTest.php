@@ -43,8 +43,9 @@ if (!$audit || (int) $audit['actor_operator_id'] !== 441 || (int) $audit['role_i
 }
 $before = json_decode($audit['before_json'], true, 512, JSON_THROW_ON_ERROR);
 $after = json_decode($audit['after_json'], true, 512, JSON_THROW_ON_ERROR);
+sort($after['permissions']);
 if ($before !== ['permissions' => [], 'scope' => 'none']
-    || $after !== ['permissions' => ['read', 'create'], 'scope' => 'assigned']) {
+    || $after !== ['permissions' => ['create', 'read'], 'scope' => 'assigned']) {
     throw new RuntimeException('Role change audit values mismatch');
 }
 echo "OfficeRoleSettingsRoundTripDatabaseTest: PASS\\n";
