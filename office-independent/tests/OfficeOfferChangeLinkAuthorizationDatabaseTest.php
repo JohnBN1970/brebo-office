@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Project/OfficeNativeProjectAccess.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferAccess.php';
+require_once __DIR__ . '/../src/Offer/OfficeOfferRolePermission.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferModulePermission.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferChangeLinkRepository.php';
 require_once __DIR__ . '/../src/Offer/OfficeOfferChangeLinkApplication.php';
