@@ -13,8 +13,7 @@ if (!$dsn) {
     echo "OfficeRoleSettingsDatabaseTest: SKIP (no isolated test DSN)\n";
     exit(0);
 }
-if (parse_url(str_replace('mysql:', 'mysql://', $dsn), PHP_URL_HOST) === null
-    && !str_contains($dsn, 'dbname=offer_ci_isolated')) {
+if (!str_contains($dsn, 'dbname=offer_ci_isolated')) {
     throw new RuntimeException('Only isolated CI database is supported');
 }
 $db = new PDO($dsn, (string) getenv('OFFICE_OFFER_TEST_USER'), (string) getenv('OFFICE_OFFER_TEST_PASSWORD'), [
