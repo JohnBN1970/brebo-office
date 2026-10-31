@@ -1,0 +1,35 @@
+name: Office Offer Contract Tests
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Offer/**'
+      - 'office-independent/tests/OfficeOffer*Test.php'
+      - '.github/workflows/office-offer-contract-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  offer-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+          coverage: none
+          extensions: mbstring, pdo_mysql
+      - name: Lint Offer sources and tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          find office-independent/src/Offer -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find office-independent/tests -maxdepth 1 -type f -name 'OfficeOffer*Test.php' -print0 | xargs -0 -n1 php -l
+      - name: Run standalone Offer contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in office-independent/tests/OfficeOffer*Test.php; do
+            php "$test"
+          done
