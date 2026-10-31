@@ -76,6 +76,11 @@ final class OfficeImapMimeExtractor
             $body = strip_tags($bytes);
             return;
         }
+        // multipart/alternative may include both plain and HTML representations.
+        // Do not mistake the second representation for an attachment or an error.
+        if ($type === 0 && in_array($subtype, ['plain', 'html'], true) && $body !== '') {
+            return;
+        }
         throw new RuntimeException('Unsupported MIME part requires review.');
     }
 }
