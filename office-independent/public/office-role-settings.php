@@ -70,7 +70,7 @@ try {
     $action = \Brebo\Office\Intake\OfficeMount::basePath() . '/instellingen/rollen';
     $response = (new \Brebo\Office\Offer\OfficeRoleSettingsEndpoint($db))->handle(
         (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'),
-        (int) $operator->operatorId,
+        (string) $operator->operatorId,
         (string) $_SESSION['office_role_settings_csrf'],
         $action,
         $_POST
