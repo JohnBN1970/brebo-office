@@ -30,8 +30,8 @@ final class OfficeRoleSettingsRead
             throw new DomainException('Settings management access required');
         }
         $roles = $this->db->query('SELECT id, label FROM office_roles WHERE active = 1 ORDER BY label')->fetchAll(PDO::FETCH_ASSOC);
-        $permissions = $this->db->query('SELECT role_id, module, permission FROM office_role_permissions')->fetchAll(PDO::FETCH_ASSOC);
-        $scopes = $this->db->query('SELECT role_id, module, scope_key FROM office_role_scopes')->fetchAll(PDO::FETCH_ASSOC);
+        $permissions = $this->db->query("SELECT role_id, module, permission FROM office_role_permissions WHERE module = 'offers'")->fetchAll(PDO::FETCH_ASSOC);
+        $scopes = $this->db->query("SELECT role_id, module, scope_key FROM office_role_scopes WHERE module = 'offers'")->fetchAll(PDO::FETCH_ASSOC);
         $byRole = [];
         foreach ($permissions as $grant) {
             $role = (int) $grant['role_id'];
