@@ -19,7 +19,7 @@ final class OfficeAttachmentVault
             throw new InvalidArgumentException('Private attachment root unavailable.');
         }
         $resolvedRoot = realpath($root);
-        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? getenv('DOCUMENT_ROOT');
+        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?: getenv('DOCUMENT_ROOT');
         if ($resolvedRoot === false || !is_string($documentRoot) || $documentRoot === '') {
             throw new InvalidArgumentException('Private attachment root requires verified document root.');
         }
