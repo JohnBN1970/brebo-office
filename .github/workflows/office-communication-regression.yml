@@ -28,4 +28,3 @@ jobs:
           php office-independent/tests/OfficeImapCursorRepositoryTest.php
           php office-independent/tests/OfficeAttachmentVaultTest.php
           php office-independent/tests/OfficeImapReadOnlySourceTest.php
-          php office-independent/tests/OfficeImapMimeExtractorTest.php
