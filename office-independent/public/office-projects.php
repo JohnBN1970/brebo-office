@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -284,7 +284,7 @@ if ($inzetView) {
           echo '<option value="' . $escape($filterStatus) . '"' . (($_GET['status'] ?? '') === $filterStatus ? ' selected' : '') . '>' . $escape($filterText) . '</option>';
         }
         echo '</select></label><button type="submit" style="padding:9px 16px">Filter rapport</button></form>';
-        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download gefilterd urenrapport (CSV)</a> · <button type="button" onclick="window.print()" style="padding:8px 12px">Rapport afdrukken / opslaan als PDF</button></p>';
+        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download gefilterd urenrapport (CSV)</a> · Afdrukken / PDF: Ctrl+P</p>';
         require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReport.php';
         $reportFilters = [];
         foreach (['project_id','person_id'] as $filterKey) {
