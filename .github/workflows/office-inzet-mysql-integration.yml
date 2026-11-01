@@ -61,12 +61,15 @@ jobs:
         run: |
           php -l office-independent/src/Inzet/OnSiteHoursReview.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewRepository.php
+          php -l office-independent/src/Inzet/OnSiteHoursReviewRequest.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewReport.php
           php -l office-independent/src/Inzet/OnSiteHoursReportCsv.php
           php -l office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
+          php -l office-independent/tests/OnSiteHoursReviewRequestTest.php
           php -l office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
           php -l office-independent/tests/OnSiteHoursReportCsvTest.php
           php office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
+          php office-independent/tests/OnSiteHoursReviewRequestTest.php
           php office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
           php office-independent/tests/OnSiteHoursReportCsvTest.php
       - name: Personnel route and security regression tests
