@@ -5,6 +5,7 @@ on:
     paths:
       - 'office-independent/src/Inzet/OfficePersonnelDetailsSchema.php'
       - 'office-independent/src/Inzet/OfficePersonnelDetailsRepository.php'
+      - 'office-independent/src/Inzet/OfficePersonnelDetailsAction.php'
       - 'office-independent/tests/OfficePersonnelDetailsContractTest.php'
       - '.github/workflows/office-personnel-details.yml'
   workflow_dispatch:
@@ -21,6 +22,7 @@ jobs:
         run: |
           php -l office-independent/src/Inzet/OfficePersonnelDetailsSchema.php
           php -l office-independent/src/Inzet/OfficePersonnelDetailsRepository.php
+          php -l office-independent/src/Inzet/OfficePersonnelDetailsAction.php
           php -l office-independent/tests/OfficePersonnelDetailsContractTest.php
       - name: Personnel details storage contract
         run: php office-independent/tests/OfficePersonnelDetailsContractTest.php
