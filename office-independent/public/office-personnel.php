@@ -7,8 +7,8 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -49,6 +49,44 @@ try {
   }
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
   require_once dirname(__DIR__) . '/src/Inzet/OfficePersonnelProfileForm.php';
+  $detailsEnabled = getenv('OFFICE_TEST_PERSONNEL_DETAILS_SCHEMA_VERIFIED') === 'enabled';
+  if ($detailsEnabled) {
+    foreach (['OfficePersonnelDetailsRepository.php','OfficePersonnelDetailsAction.php',
+      'OfficePersonnelDetailsReadForm.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
+      require_once dirname(__DIR__) . '/src/Inzet/' . $file;
+    }
+  }
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!$detailsEnabled || getenv('OFFICE_BASE_PATH') !== '/office-test') {
+      http_response_code(503);
+      exit('Dossieropslag niet beschikbaar.');
+    }
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedHost = getenv('OFFICE_PUBLIC_HOST');
+    if (!is_string($origin) || !is_string($allowedHost) || !hash_equals('https://' . $allowedHost, $origin)) {
+      http_response_code(403);
+      exit('Ongeldige herkomst.');
+    }
+    $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+    if (!is_string($secret) || strlen($secret) < 32) {
+      http_response_code(503);
+      exit('Beveiligingsconfiguratie ontbreekt.');
+    }
+    try {
+      $action = new \\Brebo\\Office\\Inzet\\OfficePersonnelDetailsAction(
+        new \\Brebo\\Office\\Inzet\\OfficePersonnelDetailsRepository($db));
+      if (!$action->update($_POST, $operator->operatorId, $operator->sessionId, $secret)) {
+        http_response_code(403);
+        exit('Geen wijzigingsrechten.');
+      }
+      $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+      exit;
+    } catch (InvalidArgumentException|DomainException $exception) {
+      http_response_code(422);
+      exit('Ongeldige dossierwijziging.');
+    }
+  }
   $statement = $db->prepare("SELECT DISTINCT p.id, p.title FROM office_projects p
     INNER JOIN office_project_memberships m ON m.project_id = p.id
     INNER JOIN office_operator_accounts a ON a.id = m.operator_id
@@ -68,6 +106,7 @@ try {
       if ($id > 0) {
         if (!isset($people[$id])) $people[$id] = $person + ['projects' => []];
         $people[$id]['projects'][] = (string)$project['title'];
+        if (!isset($people[$id]['project_id'])) $people[$id]['project_id'] = (int)$project['id'];
       }
     }
   }
