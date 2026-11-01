@@ -55,13 +55,13 @@ final class OfficePersonnelHourlyRates {
 
   public static function form(int $personId, int $projectId, string $csrf, array $rates): string {
     $e = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    return '<section><h3>Financieel · inkooptarief</h3><p>Inkooptarief per medewerker, exclusief btw. Verkooptarief wordt bepaald door rol en calculatie.</p>'
+    return '<section><h3>Financieel</h3><p>Uurtarief per medewerker, exclusief btw. Het verkooptarief komt uit de rol en calculatie.</p>'
       . '<form method="post" action="/office-test/personeel/medewerkers">'
       . '<input type="hidden" name="personnel_action" value="save_hourly_rates">'
       . '<input type="hidden" name="person_id" value="' . $personId . '">'
       . '<input type="hidden" name="project_id" value="' . $projectId . '">'
       . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
-      . '<label>Inkooptarief (€ / uur) <input name="purchase_rate" inputmode="decimal" placeholder="0,00" value="' . $e($rates['purchase_rate'] ?? '') . '"></label> '
-      . '<button type="submit">Tarieven opslaan</button></form></section>';
+      . '<label>Tarief (€ / uur) <input name="purchase_rate" inputmode="decimal" placeholder="0,00" value="' . $e($rates['purchase_rate'] ?? '') . '"></label> '
+      . '<button type="submit">Tarief opslaan</button></form></section>';
   }
 }
