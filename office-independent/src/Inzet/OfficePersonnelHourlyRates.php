@@ -13,7 +13,6 @@ final class OfficePersonnelHourlyRates {
     return "CREATE TABLE IF NOT EXISTS office_inzet_personnel_hourly_rates (
       person_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
       purchase_rate DECIMAL(12,2) NULL,
-      sales_rate DECIMAL(12,2) NULL,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_inzet_personnel_hourly_rates_person FOREIGN KEY (person_id) REFERENCES office_inzet_people(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
@@ -32,12 +31,12 @@ final class OfficePersonnelHourlyRates {
 
   public function find(string $operatorId, int $projectId, int $personId): ?array {
     if (!$this->allowed($operatorId,$projectId,$personId)) return null;
-    $query = $this->db->prepare('SELECT purchase_rate,sales_rate FROM office_inzet_personnel_hourly_rates WHERE person_id=?');
+    $query = $this->db->prepare('SELECT purchase_rate FROM office_inzet_personnel_hourly_rates WHERE person_id=?');
     $query->execute([$personId]);
-    return $query->fetch(PDO::FETCH_ASSOC) ?: ['purchase_rate'=>null,'sales_rate'=>null];
+    return $query->fetch(PDO::FETCH_ASSOC) ?: ['purchase_rate'=>null];
   }
 
-  public function save(string $operatorId, int $projectId, int $personId, mixed $purchase, mixed $sales): bool {
+  public function save(string $operatorId, int $projectId, int $personId, mixed $purchase): bool {
     if (!$this->allowed($operatorId,$projectId,$personId)) return false;
     $parse = static function (mixed $raw): ?string {
       if (!is_string($raw)) throw new \InvalidArgumentException('Invalid rate');
@@ -48,23 +47,21 @@ final class OfficePersonnelHourlyRates {
       return number_format((float)$raw, 2, '.', '');
     };
     $purchaseRate = $parse($purchase);
-    $salesRate = $parse($sales);
-    $query = $this->db->prepare('INSERT INTO office_inzet_personnel_hourly_rates (person_id,purchase_rate,sales_rate) VALUES (?,?,?)
+    $query = $this->db->prepare('INSERT INTO office_inzet_personnel_hourly_rates (person_id,purchase_rate) VALUES (?,?)
       ON DUPLICATE KEY UPDATE purchase_rate=VALUES(purchase_rate),sales_rate=VALUES(sales_rate)');
-    $query->execute([$personId,$purchaseRate,$salesRate]);
+    $query->execute([$personId,$purchaseRate]);
     return true;
   }
 
   public static function form(int $personId, int $projectId, string $csrf, array $rates): string {
     $e = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    return '<section><h3>Financieel · uurtarieven</h3><p>Standaardtarieven per medewerker, exclusief btw.</p>'
+    return '<section><h3>Financieel · inkooptarief</h3><p>Inkooptarief per medewerker, exclusief btw. Verkooptarief wordt bepaald door rol en calculatie.</p>'
       . '<form method="post" action="/office-test/personeel/medewerkers">'
       . '<input type="hidden" name="personnel_action" value="save_hourly_rates">'
       . '<input type="hidden" name="person_id" value="' . $personId . '">'
       . '<input type="hidden" name="project_id" value="' . $projectId . '">'
       . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
       . '<label>Inkooptarief (€ / uur) <input name="purchase_rate" inputmode="decimal" placeholder="0,00" value="' . $e($rates['purchase_rate'] ?? '') . '"></label> '
-      . '<label>Verkooptarief (€ / uur) <input name="sales_rate" inputmode="decimal" placeholder="0,00" value="' . $e($rates['sales_rate'] ?? '') . '"></label> '
       . '<button type="submit">Tarieven opslaan</button></form></section>';
   }
 }
