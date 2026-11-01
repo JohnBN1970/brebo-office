@@ -47,7 +47,7 @@ try {
     exit;
   }
   $statement = $db->prepare(
-    "SELECT b.id, b.building_name, b.street_address, b.postal_code, b.city,
+    "SELECT b.id, b.name AS building_name, b.address_line AS street_address, b.postal_code, b.city,
             COUNT(DISTINCT pb.project_id) AS project_count,
             COUNT(DISTINCT CASE WHEN z.active = 1 THEN z.id END) AS active_zone_count
        FROM office_buildings b
@@ -55,10 +55,10 @@ try {
        INNER JOIN office_project_memberships m ON m.project_id = pb.project_id
        INNER JOIN office_operator_accounts a ON a.id = m.operator_id AND a.active = 1
        LEFT JOIN office_building_zones z ON z.building_id = b.id
-      WHERE b.active = 1 AND m.operator_id = ?
+      WHERE m.operator_id = ?
         AND m.permission IN ('read','manage')
-      GROUP BY b.id, b.building_name, b.street_address, b.postal_code, b.city
-      ORDER BY b.building_name, b.id LIMIT 200"
+      GROUP BY b.id, b.name, b.address_line, b.postal_code, b.city
+      ORDER BY b.name, b.id LIMIT 200"
   );
   $statement->execute([$operator->operatorId]);
   $buildings = $statement->fetchAll(PDO::FETCH_ASSOC);
