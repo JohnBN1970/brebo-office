@@ -180,8 +180,34 @@ if ($inzetView) {
 
   // INZET_TABS_V2 - tabinhoud.
   if ($activeInzetTab === 'controle') {
-    echo '<section><h2>Urencontrole</h2>'
-      . '<p>Urencontrole, afwijkingen en goedkeuringen zijn nog niet beschikbaar.</p></section>';
+    echo '<section><h2>Urencontrole · OnSite</h2><p>Voorlopige aanwezigheid; geen goedgekeurde uren.</p>';
+    try {
+      require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
+      require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
+      require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
+      $overview = new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db);
+      foreach ($projects as $project) {
+        $result = $overview->forProject($operator->operatorId, (int)$project['id']);
+        echo '<details><summary>' . $escape((string)$project['title']) . '</summary>';
+        if (!$result['available']) {
+          echo '<p>OnSite-klokgebeurtenissen nog niet aangesloten.</p>';
+        } else {
+          echo '<p>Sessies: ' . count($result['sessions']) . ' · Afwijkingen: ' . count($result['exceptions']) . '</p>';
+          echo '<table><thead><tr><th>Medewerker-ID</th><th>Start</th><th>Einde</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
+          foreach ($result['sessions'] as $session) {
+            echo '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at']) . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>' . number_format((int)$session['duration_seconds'] / 3600, 2, ',', '.') . '</td><td>Ter controle</td></tr>';
+          }
+          echo '</tbody></table>';
+          foreach ($result['exceptions'] as $exception) {
+            echo '<p>Afwijking: ' . $escape((string)$exception['reason']) . ' · medewerker ' . (int)$exception['person_id'] . '</p>';
+          }
+        }
+        echo '</details>';
+      }
+    } catch (Throwable $error) {
+      echo '<p>Urenoverzicht tijdelijk niet beschikbaar.</p>';
+    }
+    echo '</section>';
   }
 
   if ($activeInzetTab === 'medewerkers'
