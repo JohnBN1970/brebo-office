@@ -52,7 +52,7 @@ try {
   $detailsEnabled = getenv('OFFICE_TEST_PERSONNEL_DETAILS_SCHEMA_VERIFIED') === 'enabled';
   if ($detailsEnabled) {
     foreach (['OfficePersonnelDetailsRepository.php','OfficePersonnelDetailsAction.php',
-      'OfficePersonnelDetailsReadForm.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
+      'OfficePersonnelDetailsReadForm.php','OfficePersonnelStatusAction.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
       require_once dirname(__DIR__) . '/src/Inzet/' . $file;
     }
   }
@@ -73,6 +73,14 @@ try {
       exit('Beveiligingsconfiguratie ontbreekt.');
     }
     try {
+      $statusAction = $_POST['personnel_action'] ?? null;
+      if ($statusAction === 'archive' || $statusAction === 'reactivate') {
+        $changed = (new \Brebo\Office\Inzet\OfficePersonnelStatusAction($db))->apply($_POST, $operator->operatorId, $operator->sessionId, $secret);
+        if (!$changed) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
+        $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+        exit;
+      }
       $action = new \Brebo\Office\Inzet\OfficePersonnelDetailsAction(
         new \Brebo\Office\Inzet\OfficePersonnelDetailsRepository($db));
       if (!$action->update($_POST, $operator->operatorId, $operator->sessionId, $secret)) {
@@ -136,6 +144,13 @@ if (is_int($selected) && isset($people[$selected])) {
         $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
         if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
         echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+        echo '<form method="post" action="/office-test/personeel/medewerkers" style="display:flex;gap:12px;align-items:center;margin:16px 0">'
+          . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
+          . '<input type="hidden" name="person_id" value="' . $selected . '">'
+          . '<input type="hidden" name="project_id" value="' . $projectId . '">'
+          . '<button type="submit" name="personnel_action" value="' . ((int)$people[$selected]['active'] === 1 ? 'archive' : 'reactivate') . '">'
+          . ((int)$people[$selected]['active'] === 1 ? 'Archiveren' : 'Heractiveren') . '</button>'
+          . '<small>Archiveren bewaart de medewerker en bestaande registraties.</small></form>';
       }
     } catch (Throwable $exception) {
       echo '<p>Medewerkersgegevens tijdelijk niet beschikbaar.</p>';
