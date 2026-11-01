@@ -1,0 +1,26 @@
+name: Office personnel details
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficePersonnelDetailsSchema.php'
+      - 'office-independent/src/Inzet/OfficePersonnelDetailsRepository.php'
+      - 'office-independent/tests/OfficePersonnelDetailsContractTest.php'
+      - '.github/workflows/office-personnel-details.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  personnel-details:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Inzet/OfficePersonnelDetailsSchema.php
+          php -l office-independent/src/Inzet/OfficePersonnelDetailsRepository.php
+          php -l office-independent/tests/OfficePersonnelDetailsContractTest.php
+      - name: Personnel details storage contract
+        run: php office-independent/tests/OfficePersonnelDetailsContractTest.php
