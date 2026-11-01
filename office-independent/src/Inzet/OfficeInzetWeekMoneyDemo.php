@@ -67,9 +67,10 @@ final class OfficeInzetWeekMoneyDemo {
         $out.='<td style="background:#f4f6fa;border-radius:8px;text-align:center;padding:10px">'.$escape($money($cost)).'</td>';
       }
       $out.='<td>'.$escape($money($data['cost'])).'</td></tr>';
-      $detail='<table style="width:100%"><thead><tr><th>Project</th><th>Inkoop</th><th>Contracturen</th><th>Verkoop/uur</th><th>Contract arbeid</th><th>Besteed arbeid</th><th>Resterend</th></tr></thead><tbody>';
+      $detail='<p>Contracturen en verkoopuurtarief zijn op rolniveau vastgelegd. Projecttoedeling is in deze demo nog niet vastgelegd.</p><table style="width:100%"><thead><tr><th>Project</th><th>Besteed arbeid</th><th>Geregistreerde uren</th></tr></thead><tbody>';
       foreach ($projects[$person]??[] as $project=>$values) {
-        $detail.='<tr><td>'.$escape((string)($projectNames[$project]??('Project #'.$project))).'</td><td>'.$escape(number_format($contractRoles[$person]['hours']/max(1,count($projects[$person])),1,',','.').' u').'</td><td>'.$escape($money($contractRoles[$person]['sales_rate'])).'</td><td>'.$escape($money($contractRoles[$person]['hours']*$contractRoles[$person]['sales_rate']/max(1,count($projects[$person])))).'</td><td>'.$escape($money($values['cost'])).'</td><td>'.$escape($money($contractRoles[$person]['hours']*$contractRoles[$person]['sales_rate']/max(1,count($projects[$person]))-$values['cost'])).'</td></tr>';
+        $projectHours=$purchase[$person]>0?$values['cost']/$purchase[$person]:0;
+        $detail.='<tr><td>'.$escape((string)($projectNames[$project]??('Project #'.$project))).'</td><td>'.$escape($money($values['cost'])).'</td><td>'.$escape(number_format($projectHours,2,',','.').' u').'</td></tr>';
       }
       $out.='<tr><td colspan="9"><details><summary>Projecten van medewerker #'.(int)$person.' · contractrol '.$escape($contractRoles[$person]['role']).'</summary>'.$detail.'</tbody></table></details></td></tr>';
     }
