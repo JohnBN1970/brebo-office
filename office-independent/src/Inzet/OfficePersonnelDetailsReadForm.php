@@ -21,7 +21,7 @@ final class OfficePersonnelDetailsReadForm {
     $country = (string)($details['phone_country'] ?? 'NL');
     $phone = (string)($details['phone_e164'] ?? '');
     $html = '<section aria-label="Medewerkersgegevens bewerken"><h3>Medewerkersgegevens</h3>'
-      . '<form method="post" action="/office-test/personeel/medewerkers/opslaan">'
+      . '<form method="post" action="/office-test/personeel/medewerkers">'
       . '<input type="hidden" name="person_id" value="' . $personId . '">'
       . '<input type="hidden" name="project_id" value="' . $projectId . '">'
       . '<input type="hidden" name="csrf_token" value="' . $e($csrfToken) . '">'
