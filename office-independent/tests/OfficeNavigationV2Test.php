@@ -11,12 +11,13 @@ foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouw
 if(substr_count($nav,'<details ')!==7){fwrite(STDERR,"Expected six collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
-if(str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Unimplemented building route linked".PHP_EOL);exit(1);}
+if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
+if(!str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'aria-current="page"')){fwrite(STDERR,"Buildings navigation not selected".PHP_EOL);exit(1);}
 if (!str_contains($nav, 'Medewerkers') || !str_contains($nav, 'Inzet en planning')) { fwrite(STDERR, "Personnel links missing\n"); exit(1); }
 foreach (['/office-test/personeel/medewerkers','tab=planning','tab=onsite','tab=controle'] as $tab) { if (!str_contains($nav, $tab)) { fwrite(STDERR, "Missing personnel tab: $tab\n"); exit(1); } }
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=disabled');
 $unavailable=OfficeNavigation::mainV2('/office-test/projecten');
-if(str_contains($unavailable,'href="/office-test/projecten"')||str_contains($unavailable,'view=inzet')){fwrite(STDERR,"Disabled projects must not be linked".PHP_EOL);exit(1);}
+if(str_contains($unavailable,'href="/office-test/projecten"')||str_contains($unavailable,'view=inzet')||str_contains($unavailable,'href="/office-test/gebouwen"')){fwrite(STDERR,"Disabled projects must not be linked".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_CRM_ENABLED=disabled');
 if(str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'),'href="/office-test/crm/aanvragen"')){fwrite(STDERR,"Disabled CRM must not be linked".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_NAV_V2_ENABLED=enabled');
