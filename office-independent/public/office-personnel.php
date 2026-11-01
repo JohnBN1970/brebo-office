@@ -56,6 +56,8 @@ try {
       require_once dirname(__DIR__) . '/src/Inzet/' . $file;
     }
   }
+  $ratesEnabled = $detailsEnabled && getenv('OFFICE_TEST_PERSONNEL_RATES_SCHEMA_VERIFIED') === 'enabled' && getenv('OFFICE_TEST_PERSONNEL_RATES_ACCESS_ENABLED') === 'enabled';
+  if ($ratesEnabled) require_once dirname(__DIR__) . '/src/Inzet/OfficePersonnelHourlyRates.php';
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$detailsEnabled || getenv('OFFICE_BASE_PATH') !== '/office-test') {
       http_response_code(503);
@@ -74,6 +76,20 @@ try {
     }
     try {
       $statusAction = $_POST['personnel_action'] ?? null;
+      if ($statusAction === 'save_hourly_rates') {
+        if (!$ratesEnabled) { http_response_code(403); exit('Financiele tarieven niet beschikbaar.'); }
+        if (!\Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::verify($_POST['csrf_token'] ?? null, $operator->sessionId, $secret)) {
+          http_response_code(403); exit('Ongeldige bevestiging.');
+        }
+        $personId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $projectId = filter_var($_POST['project_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        if (!is_int($personId) || !is_int($projectId)) throw new InvalidArgumentException('Invalid employee');
+        if (!(new \Brebo\Office\Inzet\OfficePersonnelHourlyRates($db))->save(
+          $operator->operatorId, $projectId, $personId, $_POST['purchase_rate'] ?? null
+        )) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
+        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $personId . '&saved=1', true, 303);
+        exit;
+      }
       if ($statusAction === 'create') {
         $createdId = (new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db))->create($_POST, $operator->operatorId, $operator->sessionId, $secret);
         if ($createdId === null) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
@@ -168,6 +184,11 @@ if (!$creating && is_int($selected) && isset($people[$selected])) {
         if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
         echo '<section><h2>Medewerkersdossier · ' . $e($people[$selected]['display_name']) . '</h2><p>Personeelsnummer: ' . $e($people[$selected]['personnel_number'] ?? 'Niet opgegeven') . ' · ' . ((int)$people[$selected]['active'] === 1 ? 'Actief' : 'Gearchiveerd') . '</p><p>Projecten: ' . $e(implode(', ', $people[$selected]['projects'])) . '</p></section>';
         echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+        if ($ratesEnabled) {
+          $rateRepo = new \Brebo\Office\Inzet\OfficePersonnelHourlyRates($db);
+          $rates = $rateRepo->find($operator->operatorId, $projectId, $selected);
+          if (is_array($rates)) echo \Brebo\Office\Inzet\OfficePersonnelHourlyRates::form($selected, $projectId, $csrf, $rates);
+        }
 
         // Reuse Office-native OnSite routes; all POST actions recheck manager rights.
         if (getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') === 'enabled'
