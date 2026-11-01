@@ -293,7 +293,7 @@ if ($inzetView) {
         foreach (['status','from','to','reviewer'] as $filterKey) {
           if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && $_GET[$filterKey] !== '') $reportFilters[$filterKey] = $_GET[$filterKey];
         }
-        $hoursReport = (new \\Brebo\\Office\\Inzet\\OnSiteHoursReviewReport($db))->filter($allProjectSessions, $reportFilters);
+        $hoursReport = (new \Brebo\Office\Inzet\OnSiteHoursReviewReport($db))->filter($allProjectSessions, $reportFilters);
         echo '<h3>Rapport · uren en beoordelingen</h3><p>Oorspronkelijk: ' . number_format($hoursReport['total_original_seconds']/3600, 2, ',', '.') . ' uur · Geaccepteerd: ' . number_format($hoursReport['total_reviewed_seconds']/3600, 2, ',', '.') . ' uur</p>';
         echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th></tr></thead><tbody>';
         foreach ($hoursReport['rows'] as $reportRow) {
