@@ -41,6 +41,7 @@ final class OnSiteHoursReviewRepository {
 
     // Never trust a session supplied by a browser: rebuild it from OnSite inbox.
     require_once __DIR__ . '/OnSitePresenceIntervalProjector.php';
+    require_once __DIR__ . '/OnSiteHoursReview.php';
     $stmt = $this->db->prepare(
       'SELECT event_id, person_id, project_id, zone_id, event_kind, occurred_at_utc
        FROM office_onsite_event_inbox WHERE project_id = :project_id
