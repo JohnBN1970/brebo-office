@@ -126,5 +126,20 @@ if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
 if (is_int($selected) && isset($people[$selected])) {
   echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
+  if ($detailsEnabled) {
+    try {
+      $projectId = (int)$people[$selected]['project_id'];
+      $detailsRepo = new \Brebo\Office\Inzet\OfficePersonnelDetailsRepository($db);
+      $details = $detailsRepo->find($operator->operatorId, $projectId, $selected);
+      $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+      if (is_array($details) && is_string($secret) && strlen($secret) >= 32) {
+        $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
+        if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
+        echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+      }
+    } catch (Throwable $exception) {
+      echo '<p>Medewerkersgegevens tijdelijk niet beschikbaar.</p>';
+    }
+  }
 }
 echo '</main></body></html>';
