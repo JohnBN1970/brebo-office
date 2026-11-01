@@ -168,6 +168,48 @@ if (!$creating && is_int($selected) && isset($people[$selected])) {
         if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
         echo '<section><h2>Medewerkersdossier · ' . $e($people[$selected]['display_name']) . '</h2><p>Personeelsnummer: ' . $e($people[$selected]['personnel_number'] ?? 'Niet opgegeven') . ' · ' . ((int)$people[$selected]['active'] === 1 ? 'Actief' : 'Gearchiveerd') . '</p><p>Projecten: ' . $e(implode(', ', $people[$selected]['projects'])) . '</p></section>';
         echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+
+        // Reuse Office-native OnSite routes; all POST actions recheck manager rights.
+        if (getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') === 'enabled'
+          && getenv('OFFICE_CRM_SESSION_MODE') === 'enabled') {
+          try {
+            require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceManagementRepository.php';
+            $deviceRepo = new \Brebo\Office\Inzet\OnSiteOfficeDeviceManagementRepository($db);
+            $deviceList = $deviceRepo->listDeviceCredentialsForManager($operator->operatorId, $projectId);
+            $mine = array_values(array_filter($deviceList, static fn(array $row): bool => (int)$row['person_id'] === $selected));
+            echo '<section id="medewerker-onsite"><h2>OnSite · ' . $e($people[$selected]['display_name']) . '</h2>';
+            echo '<p>Actieve apparaten: ' . count($mine) . '</p>';
+            $onsiteSecret = getenv('OFFICE_TEST_ONSITE_INVITATION_CSRF_SECRET');
+            if (is_string($onsiteSecret) && strlen($onsiteSecret) >= 32) {
+              require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationCsrf.php';
+              $onsiteCsrf = \Brebo\Office\Inzet\OnSiteOfficeInvitationCsrf::token($operator->sessionId, $onsiteSecret);
+              if (getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') === 'enabled') {
+                echo '<h3>Activatie</h3><form method="post" action="/office-test/inzet/onsite/activatie-uitgeven">'
+                  . '<input type="hidden" name="csrf_token" value="' . $e($onsiteCsrf) . '">'
+                  . '<input type="hidden" name="project_id" value="' . $projectId . '">'
+                  . '<input type="hidden" name="person_id" value="' . $selected . '">'
+                  . '<label><input type="checkbox" name="confirmation" value="ISSUE" required> Identiteit gecontroleerd</label> '
+                  . '<button type="submit">Activatielink via WhatsApp maken</button></form>';
+              }
+              if (getenv('OFFICE_TEST_ONSITE_DEVICE_REVOKE_ENABLED') === 'enabled') {
+                foreach ($mine as $device) {
+                  echo '<form method="post" action="/office-test/inzet/onsite/apparaat-intrekken">'
+                    . '<input type="hidden" name="csrf_token" value="' . $e($onsiteCsrf) . '">'
+                    . '<input type="hidden" name="project_id" value="' . $projectId . '">'
+                    . '<input type="hidden" name="person_id" value="' . $selected . '">'
+                    . '<input type="hidden" name="token_hash" value="' . $e($device['token_hash']) . '">'
+                    . '<span>Apparaat ' . $e(substr((string)$device['token_hash'], 0, 8)) . '</span> '
+                    . '<label><input type="checkbox" name="confirmation" value="REVOKE" required> Intrekking bevestigen</label> '
+                    . '<button type="submit">Apparaat intrekken</button></form>';
+                }
+              }
+            }
+            echo '<p><a href="/office-test/projecten?view=inzet&amp;tab=onsite">Algemeen OnSite-beheer</a></p></section>';
+          } catch (Throwable $onsiteError) {
+            echo '<section><h2>OnSite</h2><p>Apparaatgegevens tijdelijk niet beschikbaar.</p></section>';
+          }
+        }
+
         echo '<form method="post" action="/office-test/personeel/medewerkers" style="display:flex;gap:12px;align-items:center;margin:16px 0">'
           . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
           . '<input type="hidden" name="person_id" value="' . $selected . '">'
