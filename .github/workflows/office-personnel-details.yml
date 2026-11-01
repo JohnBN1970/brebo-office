@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/Inzet/OfficePersonnelDetailsSchema.php'
       - 'office-independent/src/Inzet/OfficePersonnelDetailsRepository.php'
       - 'office-independent/src/Inzet/OfficePersonnelDetailsAction.php'
+      - 'office-independent/src/Inzet/OfficePersonnelDetailsReadForm.php'
       - 'office-independent/public/office-personnel-details-save.php'
       - 'office-independent/tests/OfficePersonnelDetailsContractTest.php'
       - 'office-independent/tests/OfficePersonnelDetailsActionTest.php'
@@ -25,6 +26,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficePersonnelDetailsSchema.php
           php -l office-independent/src/Inzet/OfficePersonnelDetailsRepository.php
           php -l office-independent/src/Inzet/OfficePersonnelDetailsAction.php
+          php -l office-independent/src/Inzet/OfficePersonnelDetailsReadForm.php
           php -l office-independent/public/office-personnel-details-save.php
           php -l office-independent/tests/OfficePersonnelDetailsContractTest.php
           php -l office-independent/tests/OfficePersonnelDetailsActionTest.php
