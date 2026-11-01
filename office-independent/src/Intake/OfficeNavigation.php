@@ -73,7 +73,7 @@ final class OfficeNavigation {
       ['Relaties & kansen','relaties',$crmAvailable?[['Aanvragen','/office-test/crm/aanvragen']]:[]],
       ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten']]:[]],
       ['Personeel','personeel',$projectsAvailable?[
-        ['Medewerkers','/office-test/projecten?view=inzet&tab=medewerkers'],
+        ['Medewerkers','/office-test/personeel/medewerkers'],
         ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
         ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
         ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
