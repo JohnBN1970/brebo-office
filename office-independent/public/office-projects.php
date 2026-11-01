@@ -186,6 +186,17 @@ if ($inzetView) {
       require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
       require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
       $overview = new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db);
+      require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekCalendar.php';
+      $weekInput = (string)($_GET['week'] ?? '');
+      $weekStart = new DateTimeImmutable('monday this week');
+      if (preg_match('/^([0-9]{4})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D', $weekInput, $match)) {
+        $candidate = (new DateTimeImmutable())->setISODate((int)$match[1], (int)$match[2], 1)->setTime(0, 0);
+        if ($candidate->format('o-\\WW') === $weekInput) $weekStart = $candidate;
+      }
+      $weekStart = $weekStart->setTime(0, 0);
+      $weekKey = $weekStart->format('o-\\WW');
+      $weekUrl = static fn(DateTimeImmutable $day): string => $base . '/projecten?' . http_build_query(['view'=>'inzet','tab'=>'controle','week'=>$day->format('o-\\WW')]);
+      echo '<nav style="display:flex;gap:16px;align-items:center;margin:12px 0"><a href="' . $escape($weekUrl($weekStart->modify('-7 days'))) . '">← Vorige week</a><strong>Week ' . $escape($weekStart->format('W / o')) . '</strong><a href="' . $escape($weekUrl($weekStart->modify('+7 days'))) . '">Volgende week →</a></nav>';
       foreach ($projects as $project) {
         $result = $overview->forProject($operator->operatorId, (int)$project['id']);
         echo '<details><summary>' . $escape((string)$project['title']) . '</summary>';
@@ -193,6 +204,7 @@ if ($inzetView) {
           echo '<p>OnSite-klokgebeurtenissen nog niet aangesloten.</p>';
         } else {
           echo '<p>Sessies: ' . count($result['sessions']) . ' · Afwijkingen: ' . count($result['exceptions']) . '</p>';
+          echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($result['sessions'], $weekStart, $escape);
           echo '<table><thead><tr><th>Medewerker-ID</th><th>Start</th><th>Einde</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
           foreach ($result['sessions'] as $session) {
             echo '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at']) . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>' . number_format((int)$session['duration_seconds'] / 3600, 2, ',', '.') . '</td><td>Ter controle</td></tr>';
