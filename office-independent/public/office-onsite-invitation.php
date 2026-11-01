@@ -57,7 +57,7 @@ try {
   $invitation = $action->issue($operator->operatorId, $projectId, $personId);
   require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeActivationPage.php';
   header('Content-Type: text/html; charset=utf-8');
-  echo \\Brebo\\Office\\Inzet\\OnSiteOfficeActivationPage::issued($invitation);
+  echo \Brebo\Office\Inzet\OnSiteOfficeActivationPage::issued($invitation);
 } catch (RuntimeException $error) {
   http_response_code(403); exit('Activatie niet toegestaan of niet beschikbaar.');
 } catch (Throwable $error) {
