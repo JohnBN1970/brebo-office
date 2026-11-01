@@ -33,6 +33,7 @@ on:
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/public/office-onsite-hours-review.php'
+      - 'office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - '.github/workflows/office-inzet-mysql-integration.yml'
   workflow_dispatch:
@@ -68,10 +69,12 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteHoursReportCsv.php
           php -l office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
           php -l office-independent/tests/OnSiteHoursReviewRequestTest.php
+          php -l office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php
           php -l office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
           php -l office-independent/tests/OnSiteHoursReportCsvTest.php
           php office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
           php office-independent/tests/OnSiteHoursReviewRequestTest.php
+          php office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php
           php office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
           php office-independent/tests/OnSiteHoursReportCsvTest.php
       - name: Personnel route and security regression tests
