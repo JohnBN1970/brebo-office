@@ -289,7 +289,11 @@ if ($inzetView) {
         require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReport.php';
         $reportFilters = [];
         foreach (['project_id','person_id'] as $filterKey) {
-          if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && ctype_digit($_GET[$filterKey]) && (int)$_GET[$filterKey] > 0) $reportFilters[$filterKey] = (int)$_GET[$filterKey];
+          if (isset($_GET[$filterKey]) && $_GET[$filterKey] !== '') {
+            $id = filter_var($_GET[$filterKey], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+            if (!is_int($id)) throw new InvalidArgumentException('Ongeldig rapportfilter.');
+            $reportFilters[$filterKey] = $id;
+          }
         }
         foreach (['status','from','to','reviewer'] as $filterKey) {
           if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && $_GET[$filterKey] !== '') $reportFilters[$filterKey] = $_GET[$filterKey];
@@ -310,7 +314,7 @@ if ($inzetView) {
         echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th><th>Actie</th></tr></thead><tbody>';
         foreach ($hoursReport['rows'] as $reportRow) {
           echo '<tr><td>' . $escape($projectNames[(int)$reportRow['project_id']] ?? (string)$reportRow['project_id']) . '</td><td>' . $escape($reportRow['person_id']) . '</td><td>' . $escape($reportRow['started_at']) . '</td><td>' . number_format((int)$reportRow['original_seconds']/3600,2,',','.') . '</td><td>' . number_format((int)$reportRow['accepted_seconds']/3600,2,',','.') . '</td><td>' . $escape($reportRow['review_status']) . '</td><td>' . $escape($reportRow['reviewer_operator_id'] ?? '') . '</td><td>';
-          $mayReview = $reviewCsrfToken !== null && $reviewAccess !== null
+          $mayReview = !$demoMode && $reviewCsrfToken !== null && $reviewAccess !== null
             && $reviewAccess->canManage((int)$operator->operatorId, (int)$reportRow['project_id'])
             && $reportRow['review_status'] === 'pending'
             && isset($reportRow['in_event_id'], $reportRow['out_event_id']);
