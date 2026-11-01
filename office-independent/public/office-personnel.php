@@ -76,7 +76,7 @@ $selected = filter_input(INPUT_GET, 'person_id', FILTER_VALIDATE_INT, ['options'
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medewerkers · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1150px;margin:32px auto;padding:0 20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px;margin:16px 0}a{color:#175a91}.person{display:block;padding:14px;border:1px solid #dbe1e8;border-radius:8px;margin:8px 0;text-decoration:none}.person:hover{background:#f1f5f9}small{color:#64748b}</style></head><body><main><h1>Personeel · Medewerkers</h1><p>Centraal medewerkersoverzicht. Alleen medewerkers uit projecten die je mag beheren.</p><section><h2>Medewerkers</h2>';
 foreach ($people as $person) {
-  echo '<a class="person" href="/office-test/personeel/medewerkers?person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e($person['personnel_number'] ?: 'Geen personeelsnummer') . '<br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
+  echo '<a class="person" href="/office-test/personeel/medewerkers?person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e(($person['personnel_number'] ?? '') ?: 'Geen personeelsnummer') . '<br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
 }
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
