@@ -245,6 +245,8 @@ if ($inzetView) {
             if (($_GET['profile_saved'] ?? '') === '1') {
               echo '<p role="status">Personeelsnummer opgeslagen.</p>';
             }
+            require_once dirname(__DIR__) . '/src/Inzet/OfficePersonnelProfileForm.php';
+            echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($requestedPersonId, (string)$person['display_name']);
             echo \Brebo\Office\Inzet\OfficeInzetPersonnelNumberForm::render(
               $requestedProjectId, $requestedPersonId, (string)$person['display_name'],
               (string)($person['personnel_number'] ?? ''), $profileToken, $base
