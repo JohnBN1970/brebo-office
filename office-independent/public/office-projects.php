@@ -272,7 +272,34 @@ if ($inzetView) {
         foreach (['project_id','person_id','status','from','to','reviewer'] as $filterName) {
           if (isset($_GET[$filterName]) && is_string($_GET[$filterName])) $exportArgs[$filterName] = $_GET[$filterName];
         }
-        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download urenrapport (CSV)</a> · Afdrukken: Ctrl+P</p>';
+        echo '<form method="get" action="' . $escape($base . '/projecten') . '" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:16px 0">';
+        echo '<input type="hidden" name="view" value="inzet"><input type="hidden" name="tab" value="controle">';
+        foreach (['project_id'=>'Project-ID','person_id'=>'Medewerker-ID','from'=>'Vanaf','to'=>'Tot en met','reviewer'=>'Beoordelaar'] as $filterKey=>$filterLabel) {
+          $type = in_array($filterKey, ['from','to'], true) ? 'date' : (in_array($filterKey, ['project_id','person_id'], true) ? 'number' : 'text');
+          $value = isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) ? $_GET[$filterKey] : '';
+          echo '<label>' . $escape($filterLabel) . ' <input name="' . $escape($filterKey) . '" type="' . $type . '" value="' . $escape($value) . '"' . ($type === 'number' ? ' min="1"' : '') . ' style="display:block;padding:8px;max-width:180px"></label>';
+        }
+        echo '<label>Status <select name="status" style="display:block;padding:8px">';
+        foreach ([''=>'Alle','pending'=>'Ter controle','approved'=>'Geaccepteerd','rejected'=>'Afgewezen'] as $filterStatus=>$filterText) {
+          echo '<option value="' . $escape($filterStatus) . '"' . (($_GET['status'] ?? '') === $filterStatus ? ' selected' : '') . '>' . $escape($filterText) . '</option>';
+        }
+        echo '</select></label><button type="submit" style="padding:9px 16px">Filter rapport</button></form>';
+        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download gefilterd urenrapport (CSV)</a> · Afdrukken: Ctrl+P</p>';
+        require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReport.php';
+        $reportFilters = [];
+        foreach (['project_id','person_id'] as $filterKey) {
+          if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && ctype_digit($_GET[$filterKey]) && (int)$_GET[$filterKey] > 0) $reportFilters[$filterKey] = (int)$_GET[$filterKey];
+        }
+        foreach (['status','from','to','reviewer'] as $filterKey) {
+          if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && $_GET[$filterKey] !== '') $reportFilters[$filterKey] = $_GET[$filterKey];
+        }
+        $hoursReport = (new \\Brebo\\Office\\Inzet\\OnSiteHoursReviewReport($db))->filter($allProjectSessions, $reportFilters);
+        echo '<h3>Rapport · uren en beoordelingen</h3><p>Oorspronkelijk: ' . number_format($hoursReport['total_original_seconds']/3600, 2, ',', '.') . ' uur · Geaccepteerd: ' . number_format($hoursReport['total_reviewed_seconds']/3600, 2, ',', '.') . ' uur</p>';
+        echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th></tr></thead><tbody>';
+        foreach ($hoursReport['rows'] as $reportRow) {
+          echo '<tr><td>' . $escape($projectNames[(int)$reportRow['project_id']] ?? (string)$reportRow['project_id']) . '</td><td>' . $escape($reportRow['person_id']) . '</td><td>' . $escape($reportRow['started_at']) . '</td><td>' . number_format((int)$reportRow['original_seconds']/3600,2,',','.') . '</td><td>' . number_format((int)$reportRow['accepted_seconds']/3600,2,',','.') . '</td><td>' . $escape($reportRow['review_status']) . '</td><td>' . $escape($reportRow['reviewer_operator_id'] ?? '') . '</td></tr>';
+        }
+        echo '</tbody></table>';
       }
       echo '<nav aria-label="Weekweergave" style="display:flex;gap:8px;margin:14px 0">';
       foreach (['hours'=>'Uren','money'=>'Geld (€)'] as $mode=>$label) {
