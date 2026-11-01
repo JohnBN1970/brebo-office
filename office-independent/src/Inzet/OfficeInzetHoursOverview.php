@@ -46,7 +46,10 @@ final class OfficeInzetHoursOverview {
           'approval_status' => 'pending',
         ];
       }
-      $exceptions = $projection['exceptions'];
+      $exceptions = [];
+      foreach ($projection['exceptions'] as $exception) {
+        $exceptions[] = $exception + ['project_id' => $projectId, 'person_id' => 0];
+      }
       foreach ($projection['active'] as $active) {
         $exceptions[] = [
           'reason' => 'open_session',
