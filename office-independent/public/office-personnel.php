@@ -85,7 +85,7 @@ try {
         $projectId = filter_var($_POST['project_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
         if (!is_int($personId) || !is_int($projectId)) throw new InvalidArgumentException('Invalid employee');
         if (!(new \Brebo\Office\Inzet\OfficePersonnelHourlyRates($db))->save(
-          $operator->operatorId, $projectId, $personId, $_POST['purchase_rate'] ?? null, $_POST['sales_rate'] ?? null
+          $operator->operatorId, $projectId, $personId, $_POST['purchase_rate'] ?? null
         )) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
         header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $personId . '&saved=1', true, 303);
         exit;
