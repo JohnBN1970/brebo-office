@@ -365,8 +365,12 @@ if ($inzetView) {
           echo '<p>Sessies: ' . count($result['sessions']) . ' · Afwijkingen: ' . count($result['exceptions']) . '</p>';
           echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($result['sessions'], $weekStart, $escape);
           echo '<table><thead><tr><th>Medewerker-ID</th><th>Start</th><th>Einde</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
-          foreach ($result['sessions'] as $session) {
-            echo '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at']) . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>' . number_format((int)$session['duration_seconds'] / 3600, 2, ',', '.') . '</td><td>Ter controle</td></tr>';
+          $projectReviewRows = $demoMode ? [] : (new \Brebo\Office\Inzet\OnSiteHoursReviewReport($db))->filter($result['sessions'])['rows'];
+          foreach ($demoMode ? $result['sessions'] : $projectReviewRows as $session) {
+            $sessionStatus = $demoMode ? 'Demonstratie' : match ((string)($session['review_status'] ?? 'pending')) {
+              'approved' => 'Geaccepteerd', 'rejected' => 'Afgewezen', default => 'Ter controle'
+            };
+            echo '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at']) . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>' . number_format((int)$session['duration_seconds'] / 3600, 2, ',', '.') . '</td><td>' . $escape($sessionStatus) . '</td></tr>';
           }
           echo '</tbody></table>';
           foreach ($result['exceptions'] as $exception) {
