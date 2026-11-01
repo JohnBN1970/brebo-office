@@ -47,13 +47,16 @@ final class OfficePersonnelProfileForm {
       . '<p style="margin:0 0 20px;color:#64748b">Conceptweergave. Opslaan en OnSite-activatie zijn nog niet beschikbaar vanuit dit formulier.</p>'
       . '<fieldset disabled style="border:0;margin:0;padding:0;min-width:0">'
       . '<section style="margin-bottom:24px"><h4 style="margin:0 0 14px">Contactgegevens</h4>'
-      . '<div><p style="font-weight:600;margin:0 0 10px">Landcode telefoon</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px">';
+      . '<style>.phone-flag{display:none}.phone-code-picker:has(select option[value="NL"]:checked) .phone-flag-NL,.phone-code-picker:has(select option[value="BE"]:checked) .phone-flag-BE,.phone-code-picker:has(select option[value="DE"]:checked) .phone-flag-DE,.phone-code-picker:has(select option[value="PL"]:checked) .phone-flag-PL,.phone-code-picker:has(select option[value="RO"]:checked) .phone-flag-RO,.phone-code-picker:has(select option[value="TR"]:checked) .phone-flag-TR{display:inline-flex}.phone-code-picker{display:flex;align-items:center;gap:10px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;padding:0 10px}.phone-code-picker select{border:0;background:transparent;min-width:0;flex:1;padding:10px 0;font:inherit;color:#475569}.phone-code-picker select:focus{outline:2px solid #175a91;outline-offset:2px}</style>'
+      . '<div style="' . $grid . '"><label style="' . $field . '">Landcode telefoon<span class="phone-code-picker">';
     foreach ($countries as $code => [$name, $dial]) {
-      $html .= '<label style="display:flex;align-items:center;gap:8px;border:1px solid #cbd5e1;border-radius:7px;padding:8px;background:#f8fafc">'
-        . '<input type="radio" name="phone_country" value="' . $e($code) . '"' . ($code === 'NL' ? ' checked' : '') . '>'
-        . $flag($code) . '<span>' . $e($name . ' (' . $dial . ')') . '</span></label>';
+      $html .= '<span class="phone-flag phone-flag-' . $e($code) . '">' . $flag($code) . '</span>';
     }
-    $html .= '</div></div><div style="' . $grid . ';margin-top:14px"><label style="' . $field . '">Telefoonnummer<input name="phone_number" type="tel" autocomplete="tel" placeholder="06 12345678" style="' . $control . '"></label></div></section>'
+    $html .= '<select name="phone_country" aria-label="Landcode telefoon">';
+    foreach ($countries as $code => [$name, $dial]) {
+      $html .= '<option value="' . $e($code) . '"' . ($code === 'NL' ? ' selected' : '') . '>' . $e($name . ' (' . $dial . ')') . '</option>';
+    }
+    $html .= '</select></span></label><label style="' . $field . '">Telefoonnummer<input name="phone_number" type="tel" autocomplete="tel" placeholder="06 12345678" style="' . $control . '"></label></div></section>'
       . '<section style="margin-bottom:24px"><h4 style="margin:0 0 14px">Nationaliteit en taal</h4><div style="' . $grid . '">'
       . '<label style="' . $field . '">Nationaliteit<select name="nationality" style="' . $control . '"><option value="">Kies nationaliteit</option>';
     foreach ($countries as $code => [$name, $dial]) {
