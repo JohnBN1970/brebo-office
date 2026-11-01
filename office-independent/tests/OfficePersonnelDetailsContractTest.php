@@ -8,7 +8,7 @@ if (!is_string($schema) || !is_string($repository)) throw new RuntimeException('
 foreach (['office_inzet_personnel_details','office_inzet_personnel_skills','REFERENCES office_inzet_people(id)','UNIQUE KEY uniq_inzet_personnel_phone'] as $token) {
   if (!str_contains($schema, $token)) throw new RuntimeException('Missing schema contract: ' . $token);
 }
-foreach (["m.permission = 'manage'","a.active = 1","beginTransaction()","rollBack()","function find(","function save(","ON DUPLICATE KEY UPDATE"] as $token) {
+foreach (["m.permission = 'manage'","a.active = 1","beginTransaction()","rollBack()","function find(","function save(","WHERE person_id=?"] as $token) {
   if (!str_contains($repository, $token)) throw new RuntimeException('Missing repository contract: ' . $token);
 }
 if (str_contains($repository, 'CREATE TABLE') || str_contains($repository, 'ALTER TABLE')) throw new RuntimeException('Repository must not run DDL');
