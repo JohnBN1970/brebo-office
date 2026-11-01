@@ -40,6 +40,7 @@ final class OfficeInzetWeekCalendar {
       ['Actieve projecten', (string)$data['projects'], 'Met geregistreerde uren'],
       ['Gemiddeld per medewerker', $people ? number_format($hours / $people, 2, ',', '.') . ' u' : '—', 'Over actieve medewerkers'],
       ['40-uursreferentie', $reference ? number_format($hours / $reference * 100, 1, ',', '.') . '%' : '—', 'Geen geverifieerde planning'],
+      ['Totale afwijking', $reference ? (($hours - $reference >= 0 ? '+' : '') . number_format($hours - $reference, 2, ',', '.') . ' u') : '—', 'Verschil met 40 uur per actieve medewerker'],
     ];
     $out = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:16px 0">';
     foreach ($values as [$label,$value,$note]) {
