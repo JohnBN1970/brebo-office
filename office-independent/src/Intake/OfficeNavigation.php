@@ -9,6 +9,7 @@ final class OfficeNavigation {
     'bedrijf'=>['Bedrijfsoverzicht','/'],
     'crm'=>['CRM','/crm/bedrijven'],
     'projecten'=>['Projecten','/projecten'],
+    'personeel'=>['Personeel','/projecten?view=inzet'],
     'calculatie-offertes'=>['Calculatie & Offertes','/calculatie-offertes'],
     'finance'=>['Finance','/finance'],
     'informatie'=>['Informatie','/informatie'],
@@ -18,7 +19,8 @@ final class OfficeNavigation {
   public static function current(string $path):string {
     if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
     foreach(['crm','calculatie-offertes','finance','informatie']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
-    if(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))return 'projecten';
+    if(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel'))return 'personeel';
+    if(str_starts_with($path,'/office-test/projecten'))return 'projecten';
     return 'bedrijf';
   }
   public static function main(string $current):string {
@@ -69,7 +71,11 @@ final class OfficeNavigation {
     $groups=[
       ['Mijn werkplek','werkplek',[['Startpagina','/office-test/']]],
       ['Relaties & kansen','relaties',$crmAvailable?[['Aanvragen','/office-test/crm/aanvragen']]:[]],
-      ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten'],['Inzet','/office-test/projecten?view=inzet']]:[]],
+      ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten']]:[]],
+      ['Personeel','personeel',$projectsAvailable?[
+        ['Medewerkers en projectteams','/office-test/projecten?view=inzet'],
+        ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
+      ]:[]],
       ['Gebouwen','gebouwen',[]],
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
@@ -80,7 +86,8 @@ final class OfficeNavigation {
     ];
     $selected='werkplek';
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
-    elseif(str_starts_with($path,'/office-test/projecten')||str_starts_with($path,'/office-test/inzet/'))$selected='projecten';
+    elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
+    elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
