@@ -27,14 +27,10 @@ final class OnSiteHoursReview {
     }
     $reason = is_string($reason) ? trim($reason) : '';
     if ($decision === 'reject') {
-      if ($reason === '') throw new \InvalidArgumentException('Reden verplicht bij afkeuren.');
-      return ['status'=>'rejected','reviewed_seconds'=>0,'reason'=>$reason];
+      return ['status'=>'rejected','reviewed_seconds'=>0,'reason'=>$reason !== '' ? $reason : null];
     }
     if ($correctedSeconds !== null && ($correctedSeconds < 0 || $correctedSeconds > 86400)) {
       throw new \InvalidArgumentException('Ongeldige correctie in seconden.');
-    }
-    if ($correctedSeconds !== null && $correctedSeconds !== $duration && $reason === '') {
-      throw new \InvalidArgumentException('Reden verplicht bij urencorrectie.');
     }
     return ['status'=>'approved','reviewed_seconds'=>$correctedSeconds ?? $duration,'reason'=>$reason !== '' ? $reason : null];
   }
