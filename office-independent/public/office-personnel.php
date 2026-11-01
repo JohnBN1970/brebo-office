@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-// Dedicated read-only personnel entrypoint; project-level ACL is retained.
+// Project-scoped personnel administration; Office session and ACL are enforced.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -49,6 +49,58 @@ try {
   }
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
   require_once dirname(__DIR__) . '/src/Inzet/OfficePersonnelProfileForm.php';
+  $detailsEnabled = getenv('OFFICE_TEST_PERSONNEL_DETAILS_SCHEMA_VERIFIED') === 'enabled';
+  if ($detailsEnabled) {
+    foreach (['OfficePersonnelDetailsRepository.php','OfficePersonnelDetailsAction.php',
+      'OfficePersonnelDetailsReadForm.php','OfficePersonnelCreateAction.php','OfficePersonnelStatusAction.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
+      require_once dirname(__DIR__) . '/src/Inzet/' . $file;
+    }
+  }
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!$detailsEnabled || getenv('OFFICE_BASE_PATH') !== '/office-test') {
+      http_response_code(503);
+      exit('Dossieropslag niet beschikbaar.');
+    }
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $allowedHost = getenv('OFFICE_PUBLIC_HOST');
+    if (!is_string($origin) || !is_string($allowedHost) || !hash_equals('https://' . $allowedHost, $origin)) {
+      http_response_code(403);
+      exit('Ongeldige herkomst.');
+    }
+    $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+    if (!is_string($secret) || strlen($secret) < 32) {
+      http_response_code(503);
+      exit('Beveiligingsconfiguratie ontbreekt.');
+    }
+    try {
+      $statusAction = $_POST['personnel_action'] ?? null;
+      if ($statusAction === 'create') {
+        $createdId = (new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db))->create($_POST, $operator->operatorId, $operator->sessionId, $secret);
+        if ($createdId === null) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
+        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $createdId . '&saved=1', true, 303);
+        exit;
+      }
+      if ($statusAction === 'archive' || $statusAction === 'reactivate') {
+        $changed = (new \Brebo\Office\Inzet\OfficePersonnelStatusAction($db))->apply($_POST, $operator->operatorId, $operator->sessionId, $secret);
+        if (!$changed) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
+        $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+        exit;
+      }
+      $action = new \Brebo\Office\Inzet\OfficePersonnelDetailsAction(
+        new \Brebo\Office\Inzet\OfficePersonnelDetailsRepository($db));
+      if (!$action->update($_POST, $operator->operatorId, $operator->sessionId, $secret)) {
+        http_response_code(403);
+        exit('Geen wijzigingsrechten.');
+      }
+      $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+      exit;
+    } catch (InvalidArgumentException|DomainException $exception) {
+      http_response_code(422);
+      exit('Ongeldige dossierwijziging.');
+    }
+  }
   $statement = $db->prepare("SELECT DISTINCT p.id, p.title FROM office_projects p
     INNER JOIN office_project_memberships m ON m.project_id = p.id
     INNER JOIN office_operator_accounts a ON a.id = m.operator_id
@@ -68,6 +120,7 @@ try {
       if ($id > 0) {
         if (!isset($people[$id])) $people[$id] = $person + ['projects' => []];
         $people[$id]['projects'][] = (string)$project['title'];
+        if (!isset($people[$id]['project_id'])) $people[$id]['project_id'] = (int)$project['id'];
       }
     }
   }
@@ -78,14 +131,50 @@ try {
 $e = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $selected = filter_input(INPUT_GET, 'person_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medewerkers · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1150px;margin:32px auto;padding:0 20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px;margin:16px 0}a{color:#175a91}.person{display:block;padding:14px;border:1px solid #dbe1e8;border-radius:8px;margin:8px 0;text-decoration:none}.person:hover{background:#f1f5f9}small{color:#64748b}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.page-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.page-actions button{font:inherit;padding:9px 13px;border:1px solid #aab9c9;border-radius:7px;background:#fff;color:#34465a}.page-actions button:disabled{opacity:.55;cursor:not-allowed}.page-actions .primary{background:#175a91;color:#fff;border-color:#175a91}</style></head><body><main><div class="page-head"><div><h1>Personeel · Medewerkers</h1><p>Centraal medewerkersoverzicht. Alleen medewerkers uit projecten die je mag beheren.</p></div><nav class="page-actions" aria-label="Medewerkeracties"><button class="primary" type="button" disabled title="Nieuwe medewerker: opslag nog niet aangesloten">Nieuw</button><button type="button" disabled title="Bewerken: opslag nog niet aangesloten">Bewerken</button><button type="button" disabled title="Archiveren: nog niet aangesloten">Archiveren</button><button type="button" disabled title="Verwijderen: nog niet aangesloten">Verwijderen</button></nav></div><section><h2>Medewerkers</h2>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medewerkers · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1150px;margin:32px auto;padding:0 20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px;margin:16px 0}a{color:#175a91}.person{display:block;padding:14px;border:1px solid #dbe1e8;border-radius:8px;margin:8px 0;text-decoration:none}.person:hover{background:#f1f5f9}small{color:#64748b}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.page-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.page-actions button{font:inherit;padding:9px 13px;border:1px solid #aab9c9;border-radius:7px;background:#fff;color:#34465a}.page-actions button:disabled{opacity:.55;cursor:not-allowed}.page-actions .primary{background:#175a91;color:#fff;border-color:#175a91}</style></head><body><main><div class="page-head"><div><h1>Personeel · Medewerkers</h1><p>Centraal medewerkersoverzicht. Alleen medewerkers uit projecten die je mag beheren.</p></div><nav class="page-actions" aria-label="Medewerkeracties"><a href="#nieuwe-medewerker">Nieuwe medewerker</a></nav></div><section><h2>Medewerkers</h2>';
 echo '<form method="get" action="/office-test/personeel/medewerkers"><label for="status">Status </label><select id="status" name="status"><option value="active"' . ($status === 'active' ? ' selected' : '') . '>Actief</option><option value="inactive"' . ($status === 'inactive' ? ' selected' : '') . '>Inactief</option><option value="all"' . ($status === 'all' ? ' selected' : '') . '>Alle</option></select> <button type="submit">Filteren</button></form>';
 foreach ($people as $person) {
   echo '<a class="person" href="/office-test/personeel/medewerkers?status=' . $e($status) . '&amp;person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e(($person['personnel_number'] ?? '') ?: 'Geen personeelsnummer') . ' · <strong>' . ((int)$person['active'] === 1 ? 'Actief' : 'Inactief') . '</strong><br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
 }
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
+if ($detailsEnabled && $projects !== []) {
+  $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+  if (is_string($secret) && strlen($secret) >= 32) {
+    $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
+    echo '<section id="nieuwe-medewerker"><h2>Nieuwe medewerker</h2><form method="post" action="/office-test/personeel/medewerkers">'
+      . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
+      . '<input type="hidden" name="personnel_action" value="create">'
+      . '<label>Naam <input name="display_name" required maxlength="200"></label> '
+      . '<label>Personeelsnummer <input name="personnel_number" maxlength="64"></label> '
+      . '<label>Project <select name="project_id" required>';
+    foreach ($projects as $project) echo '<option value="' . (int)$project['id'] . '">' . $e($project['title']) . '</option>';
+    echo '</select></label> <button type="submit">Medewerker aanmaken</button></form></section>';
+  }
+}
 if (is_int($selected) && isset($people[$selected])) {
   echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
+  if ($detailsEnabled) {
+    try {
+      $projectId = (int)$people[$selected]['project_id'];
+      $detailsRepo = new \Brebo\Office\Inzet\OfficePersonnelDetailsRepository($db);
+      $details = $detailsRepo->find($operator->operatorId, $projectId, $selected);
+      $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+      if (is_array($details) && is_string($secret) && strlen($secret) >= 32) {
+        $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
+        if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
+        echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+        echo '<form method="post" action="/office-test/personeel/medewerkers" style="display:flex;gap:12px;align-items:center;margin:16px 0">'
+          . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
+          . '<input type="hidden" name="person_id" value="' . $selected . '">'
+          . '<input type="hidden" name="project_id" value="' . $projectId . '">'
+          . '<button type="submit" name="personnel_action" value="' . ((int)$people[$selected]['active'] === 1 ? 'archive' : 'reactivate') . '">'
+          . ((int)$people[$selected]['active'] === 1 ? 'Archiveren' : 'Heractiveren') . '</button>'
+          . '<small>Archiveren bewaart de medewerker en bestaande registraties.</small></form>';
+      }
+    } catch (Throwable $exception) {
+      echo '<p>Medewerkersgegevens tijdelijk niet beschikbaar.</p>';
+    }
+  }
 }
 echo '</main></body></html>';
