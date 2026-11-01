@@ -12,6 +12,11 @@ use PDO;
 final class OnSiteHoursReviewReport {
   public function __construct(private readonly PDO $db) {}
 
+  private static function validDate(string $value): bool {
+    $parts = explode('-', $value);
+    return count($parts) === 3 && checkdate((int)$parts[1], (int)$parts[2], (int)$parts[0]);
+  }
+
   /**
    * @param list<array<string,mixed>> $sessions Authorized OnSite sessions from the project overview.
    * @param array{project_id?:int,person_id?:int,status?:string,from?:string,to?:string,reviewer?:string} $filters
@@ -23,10 +28,11 @@ final class OnSiteHoursReviewReport {
       throw new \InvalidArgumentException('Ongeldig statusfilter.');
     }
     foreach (['from','to'] as $dateKey) {
-      if (isset($filters[$dateKey]) && !preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string)$filters[$dateKey])) {
+      if (isset($filters[$dateKey]) && (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', (string)$filters[$dateKey]) || !self::validDate((string)$filters[$dateKey]))) {
         throw new \InvalidArgumentException('Ongeldig datumfilter.');
       }
     }
+    if (isset($filters['from'], $filters['to']) && $filters['from'] > $filters['to']) throw new \InvalidArgumentException('Begindatum ligt na einddatum.');
     $keys = [];
     foreach ($sessions as $session) {
       if (!isset($session['in_event_id'], $session['out_event_id'])) continue;
