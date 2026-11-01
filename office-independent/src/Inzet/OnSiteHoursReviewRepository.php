@@ -86,6 +86,17 @@ final class OnSiteHoursReviewRepository {
         if (!hash_equals((string)$prior['request_fingerprint'], $fingerprint)) {
           throw new \DomainException('Verzoekcode is al voor een andere beoordeling gebruikt.');
         }
+        // A retry must still refer to the same original OnSite evidence.
+        // Never return another review merely because its request key matches.
+        $sameEvidence = $this->db->prepare(
+          'SELECT 1 FROM office_onsite_hours_reviews
+           WHERE request_key = ? AND person_id = ? AND project_id = ?
+             AND in_event_id = ? AND out_event_id = ? LIMIT 1'
+        );
+        $sameEvidence->execute([$requestKey, $personId, (string)$projectId, $inId, $outId]);
+        if ($sameEvidence->fetchColumn() === false) {
+          throw new \DomainException('Verzoekcode hoort bij een andere OnSite-sessie.');
+        }
         $this->db->commit();
         return [
           'status' => (string)$prior['approval_status'],
