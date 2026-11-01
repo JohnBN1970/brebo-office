@@ -81,6 +81,6 @@ foreach ($people as $person) {
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
 if (is_int($selected) && isset($people[$selected])) {
-  echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''));
+  echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
 }
 echo '</main></body></html>';
