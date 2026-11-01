@@ -226,7 +226,7 @@ if ($inzetView) {
 
   // INZET_TABS_V2 - tabinhoud.
   if ($activeInzetTab === 'controle') {
-    echo '<section><h2>Urencontrole · OnSite</h2><p>Voorlopige aanwezigheid; geen goedgekeurde uren.</p>';
+    echo '<section><h2>Urencontrole · OnSite</h2><p>Oorspronkelijke aanwezigheidsregistraties blijven ongewijzigd. Alleen expliciet geaccepteerde uren tellen mee als goedgekeurd.</p>';
     try {
       require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
       require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
