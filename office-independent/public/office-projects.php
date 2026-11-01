@@ -197,6 +197,24 @@ if ($inzetView) {
       $weekKey = $weekStart->format('o-\\WW');
       $weekUrl = static fn(DateTimeImmutable $day): string => $base . '/projecten?' . http_build_query(['view'=>'inzet','tab'=>'controle','week'=>$day->format('o-\\WW')]);
       echo '<nav style="display:flex;gap:16px;align-items:center;margin:12px 0"><a href="' . $escape($weekUrl($weekStart->modify('-7 days'))) . '">← Vorige week</a><strong>Week ' . $escape($weekStart->format('W / o')) . '</strong><a href="' . $escape($weekUrl($weekStart->modify('+7 days'))) . '">Volgende week →</a></nav>';
+      $allProjectSessions = [];
+      $projectCalendarRows = [];
+      foreach ($projects as $project) {
+        $projectId = (int)$project['id'];
+        $projectResult = $overview->forProject($operator->operatorId, $projectId);
+        if (!$projectResult['available']) continue;
+        $projectCalendarRows[$projectId] = ['title'=>(string)$project['title'], 'sessions'=>$projectResult['sessions']];
+        foreach ($projectResult['sessions'] as $session) $allProjectSessions[] = $session;
+      }
+      echo '<h3>Medewerkers · alle toegankelijke projecten</h3>';
+      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape);
+      echo '<h3>Projecten · dezelfde week</h3>';
+      foreach ($projectCalendarRows as $projectId => $calendarProject) {
+        echo '<details><summary>' . $escape($calendarProject['title']) . '</summary>';
+        echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($calendarProject['sessions'], $weekStart, $escape);
+        echo '</details>';
+      }
+      echo '<h3>Details en afwijkingen per project</h3>';
       foreach ($projects as $project) {
         $result = $overview->forProject($operator->operatorId, (int)$project['id']);
         echo '<details><summary>' . $escape((string)$project['title']) . '</summary>';
