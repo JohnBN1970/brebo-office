@@ -7,6 +7,8 @@ namespace Brebo\Office\Inzet;
 use Brebo\Office\Project\OfficeNativeProjectAccess;
 use PDO;
 
+require_once dirname(__DIR__) . '/Project/OfficeNativeProjectAccess.php';
+
 /**
  * Persist a first review of a completed OnSite interval.
  * Raw events remain immutable. No invoice or payroll booking occurs here.
