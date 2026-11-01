@@ -55,12 +55,9 @@ try {
     $db, new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db)
   );
   $invitation = $action->issue($operator->operatorId, $projectId, $personId);
+  require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeActivationPage.php';
   header('Content-Type: text/html; charset=utf-8');
-  $h = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-  echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>OnSite-activatie · BREBO Office</title>';
-  echo '<body><h1>Eenmalige OnSite-activatie</h1><p>Deel deze code uitsluitend met de gecontroleerde medewerker.</p>';
-  echo '<p><code>' . $h($invitation['activation_token']) . '</code></p><p>Geldig tot (UTC): '
-    . $h($invitation['expires_at']) . '</p></body></html>';
+  echo \\Brebo\\Office\\Inzet\\OnSiteOfficeActivationPage::issued($invitation);
 } catch (RuntimeException $error) {
   http_response_code(403); exit('Activatie niet toegestaan of niet beschikbaar.');
 } catch (Throwable $error) {
