@@ -77,13 +77,13 @@ final class OnSiteHoursReviewReport {
       if (isset($filters['reviewer']) && (string)($review['reviewer_operator_id'] ?? '') !== $filters['reviewer']) continue;
       $original = (int)($session['duration_seconds'] ?? 0);
       $accepted = $rowStatus === 'approved' ? (int)$review['reviewed_seconds'] : 0;
-      $rows[] = $session + [
+      $rows[] = array_merge($session, [
         'review_status'=>$rowStatus, 'original_seconds'=>$original,
         'accepted_seconds'=>$accepted, 'difference_seconds'=>$rowStatus === 'approved' ? $accepted-$original : null,
         'reviewer_operator_id'=>$review['reviewer_operator_id'] ?? null,
         'reviewed_at'=>$review['reviewed_at'] ?? null,
         'review_reason'=>$review['reason'] ?? null,
-      ];
+      ]);
       $originalTotal += $original;
       $reviewedTotal += $accepted;
     }
