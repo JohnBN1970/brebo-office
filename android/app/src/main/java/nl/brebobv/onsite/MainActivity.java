@@ -179,7 +179,7 @@ public final class MainActivity extends Activity {
                     SyncWorker.schedule(this);
                     }
                 }
-            }catch(Exception e){error=e instanceof Api.Failure?"Activatie niet gelukt. Controleer of je persoonlijke link nog geldig is.":"Geen verbinding met Office. Probeer opnieuw.";}
+            }catch(Exception e){error=e instanceof Api.Failure?"Activatie door Office geweigerd (HTTP "+((Api.Failure)e).status+"). "+(((Api.Failure)e).status==401?"De link is verlopen of al gebruikt. Vraag een nieuwe persoonlijke link aan.":((Api.Failure)e).status==403?"Controleer de Office-testtoegang.":((Api.Failure)e).status==503?"De activatieservice is tijdelijk niet beschikbaar.":"Probeer later opnieuw of meld deze foutcode."):"Geen verbinding met Office of fout bij het verwerken van de activatie. Probeer opnieuw.";}
             String message=error;
             runOnUiThread(()->{busy=false;render();if(message!=null)message(message);});
         });
