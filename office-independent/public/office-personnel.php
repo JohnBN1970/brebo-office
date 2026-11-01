@@ -174,7 +174,7 @@ if (!$creating && is_int($selected) && isset($people[$selected])) {
           && getenv('OFFICE_CRM_SESSION_MODE') === 'enabled') {
           try {
             require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceManagementRepository.php';
-            $deviceRepo = new \\Brebo\\Office\\Inzet\\OnSiteOfficeDeviceManagementRepository($db);
+            $deviceRepo = new \Brebo\Office\Inzet\OnSiteOfficeDeviceManagementRepository($db);
             $deviceList = $deviceRepo->listDeviceCredentialsForManager($operator->operatorId, $projectId);
             $mine = array_values(array_filter($deviceList, static fn(array $row): bool => (int)$row['person_id'] === $selected));
             echo '<section id="medewerker-onsite"><h2>OnSite · ' . $e($people[$selected]['display_name']) . '</h2>';
@@ -182,7 +182,7 @@ if (!$creating && is_int($selected) && isset($people[$selected])) {
             $onsiteSecret = getenv('OFFICE_TEST_ONSITE_INVITATION_CSRF_SECRET');
             if (is_string($onsiteSecret) && strlen($onsiteSecret) >= 32) {
               require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationCsrf.php';
-              $onsiteCsrf = \\Brebo\\Office\\Inzet\\OnSiteOfficeInvitationCsrf::token($operator->sessionId, $onsiteSecret);
+              $onsiteCsrf = \Brebo\Office\Inzet\OnSiteOfficeInvitationCsrf::token($operator->sessionId, $onsiteSecret);
               if (getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') === 'enabled') {
                 echo '<h3>Activatie</h3><form method="post" action="/office-test/inzet/onsite/activatie-uitgeven">'
                   . '<input type="hidden" name="csrf_token" value="' . $e($onsiteCsrf) . '">'
