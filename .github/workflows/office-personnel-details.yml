@@ -7,6 +7,7 @@ on:
       - 'office-independent/src/Inzet/OfficePersonnelDetailsRepository.php'
       - 'office-independent/src/Inzet/OfficePersonnelDetailsAction.php'
       - 'office-independent/src/Inzet/OfficePersonnelStatusAction.php'
+      - 'office-independent/src/Inzet/OfficePersonnelCreateAction.php'
       - 'office-independent/src/Inzet/OfficePersonnelDetailsReadForm.php'
       - 'office-independent/public/office-personnel-details-save.php'
       - 'office-independent/public/office-personnel.php'
@@ -32,6 +33,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficePersonnelDetailsRepository.php
           php -l office-independent/src/Inzet/OfficePersonnelDetailsAction.php
           php -l office-independent/src/Inzet/OfficePersonnelStatusAction.php
+          php -l office-independent/src/Inzet/OfficePersonnelCreateAction.php
           php -l office-independent/src/Inzet/OfficePersonnelDetailsReadForm.php
           php -l office-independent/public/office-personnel-details-save.php
           php -l office-independent/public/office-personnel.php
