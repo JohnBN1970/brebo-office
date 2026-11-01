@@ -38,6 +38,13 @@ final class OfficeInzetHoursOverview {
     // A project-only event stream cannot reliably pair sessions when a worker
     // changes projects. Keep these projections explicitly provisional.
     $projected = (new OnSitePresenceProjector())->project($events);
-    return ['available'=>true,'sessions'=>$projected['sessions'],'exceptions'=>$projected['exceptions']];
+    // The projector needs cross-project events to pair transitions correctly.
+    // Never return another project's sessions or exceptions to this viewer.
+    $scoped = static function (array $rows) use ($projectId): array {
+      return array_values(array_filter($rows, static function (array $row) use ($projectId): bool {
+        return isset($row['project_id']) && (int)$row['project_id'] === $projectId;
+      }));
+    };
+    return ['available'=>true,'sessions'=>$scoped($projected['sessions']),'exceptions'=>$scoped($projected['exceptions'])];
   }
 }
