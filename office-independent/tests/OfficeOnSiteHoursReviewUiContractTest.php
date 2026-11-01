@@ -8,6 +8,8 @@ $screen = file_get_contents($root . '/public/office-projects.php');
 foreach ([
   [$router, "'/office-test/inzet/onsite/uren-beoordelen' => 'office-onsite-hours-review.php'"],
   [$endpoint, "REQUEST_METHOD"],
+  [$endpoint, "CONTENT_LENGTH"],
+  [$endpoint, "413"],
   [$endpoint, "OfficeInzetSessionCsrf::verify"],
   [$endpoint, "OnSiteHoursReviewRequest::parse"],
   [$endpoint, "OnSiteHoursReviewRepository"],
