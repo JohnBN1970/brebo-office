@@ -52,6 +52,7 @@ final class OfficePersonnelDetailsRepository {
       $dial = substr($countries[$country], 1);
       if (str_starts_with($digits, '00')) $digits = substr($digits, 2);
       if (str_starts_with($digits, $dial)) $digits = substr($digits, strlen($dial));
+      elseif (str_starts_with($phone, '+') || str_starts_with($phone, '00')) throw new \InvalidArgumentException('Phone country does not match country code');
       $digits = ltrim($digits, '0');
       if (!preg_match('/^[0-9]{6,12}$/D', $digits)) throw new \InvalidArgumentException('Invalid international phone number');
       $e164 = $countries[$country] . $digits;
