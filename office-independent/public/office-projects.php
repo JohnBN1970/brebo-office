@@ -67,6 +67,52 @@ try {
   http_response_code(503);
   exit('Projectoverzicht tijdelijk niet beschikbaar.');
 }
+// Download only rows from projects the authenticated operator may read.
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && ($_GET['view'] ?? '') === 'inzet'
+  && ($_GET['tab'] ?? '') === 'controle'
+  && ($_GET['export'] ?? '') === 'csv') {
+  try {
+    require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReport.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReportCsv.php';
+    $overview = new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db);
+    $sessions = [];
+    foreach ($projects as $project) {
+      $result = $overview->forProject($operator->operatorId, (int)$project['id']);
+      if ($result['available']) foreach ($result['sessions'] as $session) $sessions[] = $session;
+    }
+    $filters = [];
+    foreach (['project_id', 'person_id'] as $key) {
+      if (isset($_GET[$key]) && $_GET[$key] !== '') {
+        $id = filter_var($_GET[$key], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        if (!is_int($id)) throw new InvalidArgumentException('Ongeldig rapportfilter.');
+        $filters[$key] = $id;
+      }
+    }
+    foreach (['status','from','to','reviewer'] as $key) {
+      if (isset($_GET[$key]) && $_GET[$key] !== '') {
+        if (!is_string($_GET[$key])) throw new InvalidArgumentException('Ongeldig rapportfilter.');
+        $filters[$key] = $_GET[$key];
+      }
+    }
+    $report = (new \Brebo\Office\Inzet\OnSiteHoursReviewReport($db))->filter($sessions, $filters);
+    $csv = \Brebo\Office\Inzet\OnSiteHoursReportCsv::render($report['rows']);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="brebo-urenrapport.csv"');
+    header('X-Content-Type-Options: nosniff');
+    echo $csv;
+    exit;
+  } catch (InvalidArgumentException $exception) {
+    http_response_code(400);
+    exit('Ongeldig rapportfilter.');
+  } catch (Throwable $exception) {
+    http_response_code(503);
+    exit('Urenexport tijdelijk niet beschikbaar.');
+  }
+}
 $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $base = \Brebo\Office\Intake\OfficeMount::basePath();
 $inzetView = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['view'] ?? '') === 'inzet';
@@ -108,7 +154,7 @@ html,body {
     max-width:100%;
   }
 }
-</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
+@media print{.office-sidebar,.office-tabs,nav,.office-nav-group{display:none!important}.office-shell{display:block!important}main{margin:0!important;padding:0!important}section{border:0!important;box-shadow:none!important}details{display:block!important}table{font-size:10pt}tr{break-inside:avoid}}\n</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . (!$inzetView ? '<details class="office-kpi-panel" open><summary>KPI’s en kritieke punten</summary><p>Toegankelijke projecten</p><strong>' . count($projects) . '</strong><p>Overige KPI’s nog niet beschikbaar zonder geverifieerde bron.</p></details>' : '') . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   // Dashboard wordt na de tabselectie weergegeven.
@@ -221,6 +267,13 @@ if ($inzetView) {
       $switchBase = $base . '/projecten?';
       $switchArgs = ['view'=>'inzet','tab'=>'controle','week'=>$weekKey];
       if ($demoMode) $switchArgs['demo'] = '1';
+      if (!$demoMode) {
+        $exportArgs = ['view'=>'inzet','tab'=>'controle','export'=>'csv'];
+        foreach (['project_id','person_id','status','from','to','reviewer'] as $filterName) {
+          if (isset($_GET[$filterName]) && is_string($_GET[$filterName])) $exportArgs[$filterName] = $_GET[$filterName];
+        }
+        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download urenrapport (CSV)</a> · Afdrukken: Ctrl+P</p>';
+      }
       echo '<nav aria-label="Weekweergave" style="display:flex;gap:8px;margin:14px 0">';
       foreach (['hours'=>'Uren','money'=>'Geld (€)'] as $mode=>$label) {
         $selectedMode = ($mode === 'money' && $moneyDemo) || ($mode === 'hours' && !$moneyDemo);
