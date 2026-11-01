@@ -75,10 +75,15 @@ final class OfficePersonnelDetailsRepository {
     $skills = array_values(array_unique($skills));
     $this->db->beginTransaction();
     try {
-      $q = $this->db->prepare('INSERT INTO office_inzet_personnel_details (person_id,phone_country,phone_e164,nationality,preferred_language,vca_expiry)
-        VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE phone_country=VALUES(phone_country),phone_e164=VALUES(phone_e164),
-        nationality=VALUES(nationality),preferred_language=VALUES(preferred_language),vca_expiry=VALUES(vca_expiry)');
-      $q->execute([$personId,$country,$e164,$nationality ?: null,$language,$expiry ?: null]);
+      $exists = $this->db->prepare('SELECT person_id FROM office_inzet_personnel_details WHERE person_id = ? FOR UPDATE');
+      $exists->execute([$personId]);
+      if ($exists->fetchColumn() !== false) {
+        $q = $this->db->prepare('UPDATE office_inzet_personnel_details SET phone_country=?,phone_e164=?,nationality=?,preferred_language=?,vca_expiry=? WHERE person_id=?');
+        $q->execute([$country,$e164,$nationality ?: null,$language,$expiry ?: null,$personId]);
+      } else {
+        $q = $this->db->prepare('INSERT INTO office_inzet_personnel_details (person_id,phone_country,phone_e164,nationality,preferred_language,vca_expiry) VALUES (?,?,?,?,?,?)');
+        $q->execute([$personId,$country,$e164,$nationality ?: null,$language,$expiry ?: null]);
+      }
       $delete = $this->db->prepare('DELETE FROM office_inzet_personnel_skills WHERE person_id = ?');
       $delete->execute([$personId]);
       $insert = $this->db->prepare('INSERT INTO office_inzet_personnel_skills (person_id,skill_code) VALUES (?,?)');
