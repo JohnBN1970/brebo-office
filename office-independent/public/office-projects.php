@@ -295,9 +295,42 @@ if ($inzetView) {
         }
         $hoursReport = (new \Brebo\Office\Inzet\OnSiteHoursReviewReport($db))->filter($allProjectSessions, $reportFilters);
         echo '<div class="office-hours-report-print"><h3>BREBO Office · Rapport uren en beoordelingen</h3><p>Afdrukdatum: ' . $escape(gmdate('d-m-Y H:i')) . ' UTC · Filters: ' . $escape(http_build_query($reportFilters)) . '</p><p>Oorspronkelijk: ' . number_format($hoursReport['total_original_seconds']/3600, 2, ',', '.') . ' uur · Geaccepteerd: ' . number_format($hoursReport['total_reviewed_seconds']/3600, 2, ',', '.') . ' uur</p>';
-        echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th></tr></thead><tbody>';
+        $reviewWriteEnabled = getenv('OFFICE_TEST_ONSITE_HOURS_REVIEW_ENABLED') === 'enabled';
+        $reviewCsrfToken = null;
+        $reviewAccess = null;
+        if ($reviewWriteEnabled) {
+          require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
+          $reviewSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+          if (is_string($reviewSecret) && strlen($reviewSecret) >= 32) {
+            $reviewCsrfToken = \Brebo\Office\Inzet\OfficeInzetSessionCsrf::token($operator->sessionId, $reviewSecret);
+            $reviewAccess = new \Brebo\Office\Project\OfficeNativeProjectAccess($db);
+          }
+        }
+        echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th><th>Actie</th></tr></thead><tbody>';
         foreach ($hoursReport['rows'] as $reportRow) {
-          echo '<tr><td>' . $escape($projectNames[(int)$reportRow['project_id']] ?? (string)$reportRow['project_id']) . '</td><td>' . $escape($reportRow['person_id']) . '</td><td>' . $escape($reportRow['started_at']) . '</td><td>' . number_format((int)$reportRow['original_seconds']/3600,2,',','.') . '</td><td>' . number_format((int)$reportRow['accepted_seconds']/3600,2,',','.') . '</td><td>' . $escape($reportRow['review_status']) . '</td><td>' . $escape($reportRow['reviewer_operator_id'] ?? '') . '</td></tr>';
+          echo '<tr><td>' . $escape($projectNames[(int)$reportRow['project_id']] ?? (string)$reportRow['project_id']) . '</td><td>' . $escape($reportRow['person_id']) . '</td><td>' . $escape($reportRow['started_at']) . '</td><td>' . number_format((int)$reportRow['original_seconds']/3600,2,',','.') . '</td><td>' . number_format((int)$reportRow['accepted_seconds']/3600,2,',','.') . '</td><td>' . $escape($reportRow['review_status']) . '</td><td>' . $escape($reportRow['reviewer_operator_id'] ?? '') . '</td><td>';
+          $mayReview = $reviewCsrfToken !== null && $reviewAccess !== null
+            && $reviewAccess->canManage((int)$operator->operatorId, (int)$reportRow['project_id'])
+            && $reportRow['review_status'] === 'pending'
+            && isset($reportRow['in_event_id'], $reportRow['out_event_id'])
+            && (int)$reportRow['original_seconds'] <= 86400;
+          if ($mayReview) {
+            echo '<form method="post" action="' . $escape($base . '/inzet/onsite/uren-beoordelen') . '" style="display:flex;gap:5px;flex-wrap:wrap">';
+            foreach (['project_id','person_id','in_event_id','out_event_id'] as $field) {
+              echo '<input type="hidden" name="' . $field . '" value="' . $escape($reportRow[$field]) . '">';
+            }
+            echo '<input type="hidden" name="csrf_token" value="' . $escape($reviewCsrfToken) . '">';
+            echo '<input type="hidden" name="request_key" value="' . bin2hex(random_bytes(32)) . '">';
+            echo '<label>Correctie (seconden) <input name="corrected_seconds" type="number" min="0" max="86400" placeholder="Ongewijzigd" style="width:110px"></label>';
+            echo '<label>Toelichting <input name="reason" maxlength="2000" style="width:140px"></label>';
+            echo '<button name="decision" value="approve" type="submit">Goedkeuren</button>';
+            echo '<button name="decision" value="reject" type="submit">Afwijzen</button></form>';
+          } elseif ((int)$reportRow['original_seconds'] > 86400 && $reportRow['review_status'] === 'pending') {
+            echo 'Handmatige controle vereist';
+          } else {
+            echo '—';
+          }
+          echo '</td></tr>';
         }
         echo '</tbody></table></div>';
       }
