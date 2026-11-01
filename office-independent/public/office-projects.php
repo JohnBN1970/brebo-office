@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; script-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -284,7 +284,7 @@ if ($inzetView) {
           echo '<option value="' . $escape($filterStatus) . '"' . (($_GET['status'] ?? '') === $filterStatus ? ' selected' : '') . '>' . $escape($filterText) . '</option>';
         }
         echo '</select></label><button type="submit" style="padding:9px 16px">Filter rapport</button></form>';
-        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download gefilterd urenrapport (CSV)</a> · Afdrukken: Ctrl+P</p>';
+        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query($exportArgs)) . '">Download gefilterd urenrapport (CSV)</a> · <button type="button" onclick="window.print()" style="padding:8px 12px">Rapport afdrukken / opslaan als PDF</button></p>';
         require_once dirname(__DIR__) . '/src/Inzet/OnSiteHoursReviewReport.php';
         $reportFilters = [];
         foreach (['project_id','person_id'] as $filterKey) {
@@ -294,12 +294,12 @@ if ($inzetView) {
           if (isset($_GET[$filterKey]) && is_string($_GET[$filterKey]) && $_GET[$filterKey] !== '') $reportFilters[$filterKey] = $_GET[$filterKey];
         }
         $hoursReport = (new \Brebo\Office\Inzet\OnSiteHoursReviewReport($db))->filter($allProjectSessions, $reportFilters);
-        echo '<h3>Rapport · uren en beoordelingen</h3><p>Oorspronkelijk: ' . number_format($hoursReport['total_original_seconds']/3600, 2, ',', '.') . ' uur · Geaccepteerd: ' . number_format($hoursReport['total_reviewed_seconds']/3600, 2, ',', '.') . ' uur</p>';
+        echo '<div class="office-hours-report-print"><h3>BREBO Office · Rapport uren en beoordelingen</h3><p>Afdrukdatum: ' . $escape(gmdate('d-m-Y H:i')) . ' UTC · Filters: ' . $escape(http_build_query($reportFilters)) . '</p><p>Oorspronkelijk: ' . number_format($hoursReport['total_original_seconds']/3600, 2, ',', '.') . ' uur · Geaccepteerd: ' . number_format($hoursReport['total_reviewed_seconds']/3600, 2, ',', '.') . ' uur</p>';
         echo '<table><thead><tr><th>Project</th><th>Medewerker</th><th>Datum</th><th>Oorspronkelijk</th><th>Geaccepteerd</th><th>Status</th><th>Beoordeeld door</th></tr></thead><tbody>';
         foreach ($hoursReport['rows'] as $reportRow) {
           echo '<tr><td>' . $escape($projectNames[(int)$reportRow['project_id']] ?? (string)$reportRow['project_id']) . '</td><td>' . $escape($reportRow['person_id']) . '</td><td>' . $escape($reportRow['started_at']) . '</td><td>' . number_format((int)$reportRow['original_seconds']/3600,2,',','.') . '</td><td>' . number_format((int)$reportRow['accepted_seconds']/3600,2,',','.') . '</td><td>' . $escape($reportRow['review_status']) . '</td><td>' . $escape($reportRow['reviewer_operator_id'] ?? '') . '</td></tr>';
         }
-        echo '</tbody></table>';
+        echo '</tbody></table></div>';
       }
       echo '<nav aria-label="Weekweergave" style="display:flex;gap:8px;margin:14px 0">';
       foreach (['hours'=>'Uren','money'=>'Geld (€)'] as $mode=>$label) {
