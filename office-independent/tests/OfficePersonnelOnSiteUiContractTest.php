@@ -13,6 +13,7 @@ foreach ([
   'session CSRF' => str_contains($page, 'OnSiteOfficeInvitationCsrf::token'),
   'activation route' => str_contains($page, '/office-test/inzet/onsite/activatie-uitgeven'),
   'revocation route' => str_contains($page, '/office-test/inzet/onsite/apparaat-intrekken'),
+  'WhatsApp link presentation' => str_contains($issue, 'OnSiteOfficeActivationPage::issued'),
   'issue server validation' => str_contains($issue, 'OnSiteOfficeInvitationCsrf::verify'),
   'revoke server validation' => str_contains($revoke, 'OnSiteOfficeInvitationCsrf::verify'),
 ] as $label => $valid) {
