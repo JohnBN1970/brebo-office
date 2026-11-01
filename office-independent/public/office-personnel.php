@@ -73,8 +73,8 @@ try {
       exit('Beveiligingsconfiguratie ontbreekt.');
     }
     try {
-      $action = new \\Brebo\\Office\\Inzet\\OfficePersonnelDetailsAction(
-        new \\Brebo\\Office\\Inzet\\OfficePersonnelDetailsRepository($db));
+      $action = new \Brebo\Office\Inzet\OfficePersonnelDetailsAction(
+        new \Brebo\Office\Inzet\OfficePersonnelDetailsRepository($db));
       if (!$action->update($_POST, $operator->operatorId, $operator->sessionId, $secret)) {
         http_response_code(403);
         exit('Geen wijzigingsrechten.');
