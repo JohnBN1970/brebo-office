@@ -52,7 +52,7 @@ try {
   $detailsEnabled = getenv('OFFICE_TEST_PERSONNEL_DETAILS_SCHEMA_VERIFIED') === 'enabled';
   if ($detailsEnabled) {
     foreach (['OfficePersonnelDetailsRepository.php','OfficePersonnelDetailsAction.php',
-      'OfficePersonnelDetailsReadForm.php','OfficePersonnelStatusAction.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
+      'OfficePersonnelDetailsReadForm.php','OfficePersonnelCreateAction.php','OfficePersonnelStatusAction.php','OfficeInzetPersonnelProfileCsrf.php'] as $file) {
       require_once dirname(__DIR__) . '/src/Inzet/' . $file;
     }
   }
@@ -74,6 +74,12 @@ try {
     }
     try {
       $statusAction = $_POST['personnel_action'] ?? null;
+      if ($statusAction === 'create') {
+        $createdId = (new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db))->create($_POST, $operator->operatorId, $operator->sessionId, $secret);
+        if ($createdId === null) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
+        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $createdId . '&saved=1', true, 303);
+        exit;
+      }
       if ($statusAction === 'archive' || $statusAction === 'reactivate') {
         $changed = (new \Brebo\Office\Inzet\OfficePersonnelStatusAction($db))->apply($_POST, $operator->operatorId, $operator->sessionId, $secret);
         if (!$changed) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
@@ -132,6 +138,20 @@ foreach ($people as $person) {
 }
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
+if ($detailsEnabled && $projects !== []) {
+  $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+  if (is_string($secret) && strlen($secret) >= 32) {
+    $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
+    echo '<section id="nieuwe-medewerker"><h2>Nieuwe medewerker</h2><form method="post" action="/office-test/personeel/medewerkers">'
+      . '<input type="hidden" name="csrf_token" value="' . $e($csrf) . '">'
+      . '<input type="hidden" name="personnel_action" value="create">'
+      . '<label>Naam <input name="display_name" required maxlength="200"></label> '
+      . '<label>Personeelsnummer <input name="personnel_number" maxlength="64"></label> '
+      . '<label>Project <select name="project_id" required>';
+    foreach ($projects as $project) echo '<option value="' . (int)$project['id'] . '">' . $e($project['title']) . '</option>';
+    echo '</select></label> <button type="submit">Medewerker aanmaken</button></form></section>';
+  }
+}
 if (is_int($selected) && isset($people[$selected])) {
   echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
   if ($detailsEnabled) {
