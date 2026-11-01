@@ -28,7 +28,7 @@ final class OnSiteHoursReview {
     // A long geofence interval may reflect a forgotten checkout.
     // Never accept it as-is; a manager must explicitly enter corrected time
     // and document why, or reject it.
-    if ($duration > 86400 && ($decision !== 'approve' || $correctedSeconds === null || trim((string)$reason) === '')) {
+    if ($duration > 86400 && $decision === 'approve' && ($correctedSeconds === null || trim((string)$reason) === '')) {
       throw new \DomainException('Lange sessie: expliciete correctie met toelichting vereist.');
     }
     $reason = is_string($reason) ? trim($reason) : '';
