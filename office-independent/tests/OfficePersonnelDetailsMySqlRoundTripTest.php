@@ -7,7 +7,8 @@ if (!is_string($dsn) || !str_starts_with($dsn, 'mysql:') || !str_contains($dsn, 
 $db = new PDO($dsn, (string)getenv('OFFICE_INZET_TEST_USER'), (string)getenv('OFFICE_INZET_TEST_PASSWORD'),
   [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES=>false]);
 foreach (['OfficeInzetSchema.php','OfficePersonnelDetailsSchema.php','OfficePersonnelDetailsRepository.php',
-  'OfficeInzetPersonnelProfileCsrf.php','OfficePersonnelDetailsAction.php'] as $file) {
+  'OfficeInzetPersonnelProfileCsrf.php','OfficePersonnelDetailsAction.php',
+  'OfficePersonnelCreateAction.php','OfficePersonnelStatusAction.php'] as $file) {
   require_once dirname(__DIR__) . '/src/Inzet/' . $file;
 }
 $db->exec('CREATE TABLE office_projects (id BIGINT UNSIGNED PRIMARY KEY) ENGINE=InnoDB');
@@ -55,4 +56,23 @@ if ($repo->find('manager',17,102)['phone_e164'] !== null) throw new RuntimeExcep
 $post['phone_number'] = '0470998877';
 if (!$action->update($post,'manager',$session,$secret)) throw new RuntimeException('Inactive employee update failed');
 if (!is_array($repo->find('manager',17,102))) throw new RuntimeException('Inactive employee not readable');
+
+$create = new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db);
+$status = new \Brebo\Office\Inzet\OfficePersonnelStatusAction($db);
+$new = ['csrf_token'=>$post['csrf_token'],'project_id'=>'17','display_name'=>'Nieuwe collega','personnel_number'=>'TEST-NEW-01'];
+if ($create->create($new,'intruder',$session,$secret) !== null) throw new RuntimeException('Unauthorized creation succeeded');
+$created = $create->create($new,'manager',$session,$secret);
+if (!is_int($created) || $created < 1) throw new RuntimeException('Personnel creation failed');
+$q = $db->prepare('SELECT p.active FROM office_inzet_people p JOIN office_inzet_project_team t ON t.person_id=p.id WHERE p.id=? AND t.project_id=17');
+$q->execute([$created]);
+if ((int)$q->fetchColumn() !== 1) throw new RuntimeException('Created person not assigned to project');
+$change = ['csrf_token'=>$post['csrf_token'],'project_id'=>'17','person_id'=>(string)$created,'personnel_action'=>'archive'];
+if ($status->apply($change,'intruder',$session,$secret)) throw new RuntimeException('Unauthorized archive succeeded');
+if (!$status->apply($change,'manager',$session,$secret)) throw new RuntimeException('Archive failed');
+$q->execute([$created]);
+if ((int)$q->fetchColumn() !== 0) throw new RuntimeException('Archive did not set inactive');
+$change['personnel_action'] = 'reactivate';
+if (!$status->apply($change,'manager',$session,$secret)) throw new RuntimeException('Reactivate failed');
+$q->execute([$created]);
+if ((int)$q->fetchColumn() !== 1) throw new RuntimeException('Reactivate did not restore active');
 echo "Personnel details MySQL round trip OK\n";
