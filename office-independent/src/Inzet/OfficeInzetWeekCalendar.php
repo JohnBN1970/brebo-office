@@ -43,7 +43,7 @@ final class OfficeInzetWeekCalendar {
     $out .= '<th>Totaal</th></tr></thead><tbody>';
     foreach ($byPerson as $person => $values) {
       $total = array_sum($values);
-      $out .= '<tr><th style="text-align:left"><details><summary style="cursor:pointer">Medewerker #' . $person . '</summary><span style="font-size:11px">Projecten hieronder</span></details></th>';
+      $out .= '<tr><th style="text-align:left">Medewerker #' . $person . '</th>';
       foreach ($days as $key => $date) {
         $seconds = $values[$key] ?? 0;
         $reference = (int)$date->format('N') <= 5 ? 8 * 3600 : 0;
@@ -68,7 +68,7 @@ final class OfficeInzetWeekCalendar {
           }
           $projectRows .= '<td>' . number_format(array_sum($projectDays) / 3600, 2, ',', '.') . ' u</td></tr>';
         }
-        $out .= '<tr><td colspan="9"><details><summary style="cursor:pointer">Projectverdeling medewerker #' . $person . '</summary><table style="width:100%;table-layout:fixed"><tbody>' . $projectRows . '</tbody></table></details></td></tr>';
+        $out .= '<tr><td colspan="9"><details><summary style="cursor:pointer">▸ Projecten van medewerker #' . $person . '</summary><table style="width:100%;table-layout:fixed"><tbody>' . $projectRows . '</tbody></table></details></td></tr>';
       }
     }
     if ($byPerson === []) $out .= '<tr><td colspan="9">Geen afgeronde OnSite-sessies in deze week.</td></tr>';
