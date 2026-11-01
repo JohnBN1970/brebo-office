@@ -189,7 +189,7 @@ if (!$creating && is_int($selected) && isset($people[$selected])) {
                   . '<input type="hidden" name="project_id" value="' . $projectId . '">'
                   . '<input type="hidden" name="person_id" value="' . $selected . '">'
                   . '<label><input type="checkbox" name="confirmation" value="ISSUE" required> Identiteit gecontroleerd</label> '
-                  . '<button type="submit">OnSite-activatie uitgeven</button></form>';
+                  . '<button type="submit">Activatielink via WhatsApp maken</button></form>';
               }
               if (getenv('OFFICE_TEST_ONSITE_DEVICE_REVOKE_ENABLED') === 'enabled') {
                 foreach ($mine as $device) {
