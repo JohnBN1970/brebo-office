@@ -62,6 +62,10 @@ jobs:
       - name: Hours review and report export regression
         run: |
           php -l office-independent/public/office-onsite-hours-review.php
+          php -l office-independent/src/Project/OfficeNativeProjectAccess.php
+          php -l office-independent/src/Inzet/OfficeInzetHoursOverview.php
+          php -l office-independent/tests/OfficeInzetHoursAccessContractTest.php
+          php office-independent/tests/OfficeInzetHoursAccessContractTest.php
           php -l office-independent/src/Inzet/OnSiteHoursReview.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewRepository.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewRequest.php
