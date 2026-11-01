@@ -19,7 +19,7 @@ foreach ([
   [$screen, "value=\"approve\""],
   [$screen, "value=\"reject\""],
   [$screen, "canManage("],
-  [$screen, "!$demoMode && $reviewCsrfToken"],
+  [$screen, '!$demoMode && $reviewCsrfToken'],
   [$screen, "Ongeldig rapportfilter."],
   [$screen, ".office-hours-report-print form{display:none!important}"],
 ] as [$haystack, $needle]) {
