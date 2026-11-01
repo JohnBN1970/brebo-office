@@ -313,8 +313,7 @@ if ($inzetView) {
           $mayReview = $reviewCsrfToken !== null && $reviewAccess !== null
             && $reviewAccess->canManage((int)$operator->operatorId, (int)$reportRow['project_id'])
             && $reportRow['review_status'] === 'pending'
-            && isset($reportRow['in_event_id'], $reportRow['out_event_id'])
-            ;
+            && isset($reportRow['in_event_id'], $reportRow['out_event_id']);
           if ($mayReview) {
             echo '<form method="post" action="' . $escape($base . '/inzet/onsite/uren-beoordelen') . '" style="display:flex;gap:5px;flex-wrap:wrap">';
             foreach (['project_id','person_id','in_event_id','out_event_id'] as $field) {
