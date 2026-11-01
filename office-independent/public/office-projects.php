@@ -217,6 +217,7 @@ if ($inzetView) {
       }
       $projectNames = [];
       foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
+      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::renderKpis($allProjectSessions, $weekStart);
       echo '<h3>Medewerkers · weekoverzicht</h3>';
       echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape, $projectNames);
       echo '<p>Open de projectverdeling onder een medewerker voor de uitsplitsing per werkdag.</p>';
