@@ -13,6 +13,9 @@ foreach (['Medewerkersdossier', 'phone_country', 'phone_number', 'nationality', 
 if (str_contains($html, '<Medewerker>') || !str_contains($html, '&lt;Medewerker&gt;')) {
   throw new RuntimeException('Employee name must be escaped');
 }
+if (!str_contains($html, '<select name="phone_country"') || str_contains($html, 'type="radio" name="phone_country"') || !str_contains($html, 'phone-code-picker:has(')) {
+  throw new RuntimeException('Phone country must be a compact dropdown with synchronized flag');
+}
 if (str_contains($html, '<form') || str_contains($html, 'type="submit"')) {
   throw new RuntimeException('Unverified personnel profile must remain non-writing');
 }
