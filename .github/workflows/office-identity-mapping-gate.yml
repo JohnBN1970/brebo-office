@@ -39,6 +39,8 @@ on:
       - 'office-independent/src/Inzet/OfficeInzetShiftCsrf.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftPostHandler.php'
       - 'office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php'
+      - 'office-independent/public/office-personnel.php'
+      - 'office-independent/tests/OfficePersonnelStatusFilterContractTest.php'
       - 'office-independent/src/Intake/OfficeMount.php'
       - 'office-independent/src/Inzet/OfficeInzetDashboard.php'
       - 'office-independent/src/Intake/WebsiteCrmOperatorContext.php'
@@ -106,6 +108,8 @@ jobs:
           php -l office-independent/src/Inzet/OfficeInzetShiftCsrf.php
           php -l office-independent/src/Inzet/OfficeInzetShiftPostHandler.php
           php -l office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php
+          php -l office-independent/public/office-personnel.php
+          php -l office-independent/tests/OfficePersonnelStatusFilterContractTest.php
           php -l office-independent/src/Intake/OfficeMount.php
           php -l office-independent/src/Inzet/OfficeInzetDashboard.php
           php -l office-independent/src/Intake/WebsiteCrmOperatorContext.php
@@ -140,3 +144,4 @@ jobs:
           php office-independent/tests/OfficeInzetShiftFormTest.php
           php office-independent/tests/OfficeInzetHttpWiringTest.php
           php office-independent/tests/OfficeInzetBrowserJourneyTest.php
+          php office-independent/tests/OfficePersonnelStatusFilterContractTest.php
