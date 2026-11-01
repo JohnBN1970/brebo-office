@@ -10,9 +10,13 @@ final class OnSiteOfficeActivationPage {
 const token = new URLSearchParams(window.location.hash.slice(1)).get('activation');
 const button = document.getElementById('open-onsite');
 const status = document.getElementById('activation-status');
+const downloadToken = document.getElementById('android-download-token');
+const downloadButton = document.getElementById('android-download-button');
 if (token && /^[A-Za-z0-9_-]{43}$/.test(token)) {
   button.href = 'brebo-onsite://activate?token=' + encodeURIComponent(token);
   button.hidden = false;
+  downloadToken.value = token;
+  downloadButton.disabled = false;
   status.textContent = 'Open de Office-testversie van OnSite om dit toestel te koppelen.';
 } else {
   status.textContent = 'De activatielink ontbreekt of is ongeldig. Vraag een nieuwe uitnodiging aan.';
@@ -22,7 +26,7 @@ JS;
 
   public static function landingCsp(): string {
     $hash = base64_encode(hash('sha256', self::script(), true));
-    return "default-src 'none'; script-src 'sha256-$hash'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+    return "default-src 'none'; script-src 'sha256-$hash'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
   }
 
   public static function landing(): string {
@@ -30,6 +34,7 @@ JS;
       . '<p id="activation-status">Open deze persoonlijke link op je telefoon. JavaScript is nodig om de app te openen.</p>'
       . '<p><a id="open-onsite" hidden>Open OnSite</a></p>'
       . self::installButtons()
+      . '<form method="post" action="/office-test/inzet/onsite/android/download"><input id="android-download-token" type="hidden" name="activation_token" value=""><button id="android-download-button" type="submit" disabled>Android-testapp veilig downloaden</button></form>'
       . '<p>Installeer eerst de testapp voor jouw toestel. Open daarna je persoonlijke activatielink opnieuw. Deze link is eenmalig.</p>'
       . '<script>' . self::script() . '</script>');
   }
@@ -56,7 +61,6 @@ JS;
   private static function installButtons(): string {
     $links = [
       ['OFFICE_ONSITE_IOS_INSTALL_URL', 'iPhone / iOS', 'App installeren voor iPhone'],
-      ['OFFICE_ONSITE_ANDROID_INSTALL_URL', 'Android', 'App installeren voor Android'],
     ];
     $html = '<div class="install-options" aria-label="BREBO OnSite installeren">';
     foreach ($links as [$key, $platform, $label]) {
@@ -74,7 +78,7 @@ JS;
   private static function document(string $body): string {
     return '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       . '<meta name="referrer" content="no-referrer"><title>OnSite activeren · BREBO Office</title>'
-      . '<style>body{font:17px system-ui,sans-serif;background:#f4f6fa;color:#182638;margin:0;padding:24px}main{max-width:540px;margin:40px auto;padding:28px;background:white;border-radius:16px}a{display:inline-block;padding:14px 18px;background:#5b2c83;color:white;border-radius:9px;text-decoration:none}a[hidden]{display:none}p{line-height:1.5}.install-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.install-choice,.install-unavailable{display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:12px;border-radius:12px;text-align:center;box-sizing:border-box}.install-choice{background:#182638;color:#fff}.install-unavailable{background:#e9edf3;color:#536171}.install-options span{font-size:12px}@media(max-width:400px){.install-options{grid-template-columns:1fr}}</style></head><body><main>'
+      . '<style>body{font:17px system-ui,sans-serif;background:#f4f6fa;color:#182638;margin:0;padding:24px}main{max-width:540px;margin:40px auto;padding:28px;background:white;border-radius:16px}a{display:inline-block;padding:14px 18px;background:#5b2c83;color:white;border-radius:9px;text-decoration:none}a[hidden]{display:none}p{line-height:1.5}.install-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.install-choice,.install-unavailable{display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:70px;padding:12px;border-radius:12px;text-align:center;box-sizing:border-box}.install-choice{background:#182638;color:#fff}.install-unavailable{background:#e9edf3;color:#536171}.install-options span{font-size:12px}button{padding:14px 18px;background:#182638;color:#fff;border:0;border-radius:9px;font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}@media(max-width:400px){.install-options{grid-template-columns:1fr}}</style></head><body><main>'
       . $body . '</main></body></html>';
   }
 }
