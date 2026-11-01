@@ -45,6 +45,14 @@ if ($repo->find('intruder',17,101) !== null || $action->update($post,'intruder',
   throw new RuntimeException('Unauthorized personnel access succeeded');
 }
 $post['person_id'] = '102';
+try {
+  $action->update($post,'manager',$session,$secret);
+  throw new RuntimeException('Duplicate phone was accepted');
+} catch (PDOException $expected) {
+  if ($expected->getCode() !== '23000') throw $expected;
+}
+if ($repo->find('manager',17,102)['phone_e164'] !== null) throw new RuntimeException('Duplicate phone modified other employee');
+$post['phone_number'] = '0470998877';
 if (!$action->update($post,'manager',$session,$secret)) throw new RuntimeException('Inactive employee update failed');
 if (!is_array($repo->find('manager',17,102))) throw new RuntimeException('Inactive employee not readable');
 echo "Personnel details MySQL round trip OK\n";
