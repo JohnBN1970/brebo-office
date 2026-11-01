@@ -227,6 +227,7 @@ if ($inzetView) {
   // INZET_TABS_V2 - tabinhoud.
   if ($activeInzetTab === 'controle') {
     echo '<section><h2>Urencontrole · OnSite</h2><p>Oorspronkelijke aanwezigheidsregistraties blijven ongewijzigd. Alleen expliciet geaccepteerde uren tellen mee als goedgekeurd.</p>';
+    if (($_GET['review_saved'] ?? '') === '1') echo '<p role="status" style="padding:10px;border:1px solid #a7d6ad;background:#f1fbf2">Beoordeling opgeslagen. Het rapport toont de actuele status.</p>';
     try {
       require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
       require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
