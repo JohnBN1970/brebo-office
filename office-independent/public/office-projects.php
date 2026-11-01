@@ -206,6 +206,15 @@ if ($inzetView) {
         $projectCalendarRows[$projectId] = ['title'=>(string)$project['title'], 'sessions'=>$projectResult['sessions']];
         foreach ($projectResult['sessions'] as $session) $allProjectSessions[] = $session;
       }
+      $demoMode = \Brebo\Office\Intake\OfficeMount::isTest() && (string)($_GET['demo'] ?? '') === '1';
+      if ($demoMode) {
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekDemo.php';
+        $demoSessions = \Brebo\Office\Inzet\OfficeInzetWeekDemo::sessions($weekStart, array_keys($projectCalendarRows));
+        $allProjectSessions = $demoSessions;
+        echo '<p style="padding:10px;background:#fff3cf;border:1px solid #d59b25;border-radius:8px"><strong>DEMONSTRATIEGEGEVENS</strong> — fictieve medewerkers #900001–#900003. Geen echte OnSite-uren of goedkeuringen.</p>';
+      } else {
+        echo '<p><a href="' . $escape($base . '/projecten?' . http_build_query(['view'=>'inzet','tab'=>'controle','week'=>$weekKey,'demo'=>'1'])) . '">Toon testvoorbeelden</a></p>';
+      }
       $projectNames = [];
       foreach ($projectCalendarRows as $projectId => $calendarProject) $projectNames[$projectId] = $calendarProject['title'];
       echo '<h3>Medewerkers · weekoverzicht</h3>';
