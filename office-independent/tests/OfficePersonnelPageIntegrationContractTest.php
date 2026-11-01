@@ -7,7 +7,7 @@ foreach ([
   'OfficePersonnelDetailsAction(', 'OfficePersonnelDetailsRepository($db)',
   'OfficePersonnelDetailsReadForm::render(', 'OfficeInzetPersonnelProfileCsrf::token(',
   "OFFICE_TEST_PERSONNEL_DETAILS_SCHEMA_VERIFIED",
-  '(\$_SERVER[\'REQUEST_METHOD\'] ?? \'\') === \'POST\'',
+  '($_SERVER[\'REQUEST_METHOD\'] ?? \'\') === \'POST\'',
 ] as $expected) {
   if (!str_contains($page, $expected)) throw new RuntimeException('Personnel integration missing: ' . $expected);
 }
