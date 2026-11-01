@@ -22,8 +22,14 @@ final class OnSiteHoursReview {
       throw new \DomainException('Alleen volledige, nog niet beoordeelde sessies kunnen worden beoordeeld.');
     }
     $duration = $session['duration_seconds'] ?? null;
-    if (!is_int($duration) || $duration < 0 || $duration > 86400) {
-      throw new \DomainException('Sessieduur ontbreekt of vereist handmatige controle.');
+    if (!is_int($duration) || $duration < 0) {
+      throw new \DomainException('Sessieduur ontbreekt of is ongeldig.');
+    }
+    // A long geofence interval may reflect a forgotten checkout.
+    // Never accept it as-is; a manager must explicitly enter corrected time
+    // and document why, or reject it.
+    if ($duration > 86400 && $decision === 'approve' && ($correctedSeconds === null || trim((string)$reason) === '')) {
+      throw new \DomainException('Lange sessie: expliciete correctie met toelichting vereist.');
     }
     $reason = is_string($reason) ? trim($reason) : '';
     if ($decision === 'reject') {
