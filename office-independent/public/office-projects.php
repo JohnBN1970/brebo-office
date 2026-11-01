@@ -217,10 +217,30 @@ if ($inzetView) {
       }
       $projectNames = [];
       foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
-      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::renderKpis($allProjectSessions, $weekStart);
-      echo '<h3>Medewerkers · weekoverzicht</h3>';
-      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape, $projectNames);
-      echo '<p>Open de projectverdeling onder een medewerker voor de uitsplitsing per werkdag.</p>';
+      $moneyDemo = $demoMode && (string)($_GET['mode'] ?? 'hours') === 'money';
+      $switchBase = $base . '/projecten?';
+      $switchArgs = ['view'=>'inzet','tab'=>'controle','week'=>$weekKey];
+      if ($demoMode) $switchArgs['demo'] = '1';
+      echo '<nav aria-label="Weekweergave" style="display:flex;gap:8px;margin:14px 0">';
+      foreach (['hours'=>'Uren','money'=>'Geld (€)'] as $mode=>$label) {
+        $selectedMode = ($mode === 'money' && $moneyDemo) || ($mode === 'hours' && !$moneyDemo);
+        $url = $switchBase . http_build_query($switchArgs + ['mode'=>$mode]);
+        if ($mode === 'money' && !$demoMode) {
+          echo '<span style="padding:9px 16px;border:1px solid #cbd5e1;border-radius:8px;color:#64748b" title="Financiële koppeling nog niet beschikbaar">Geld (€) · binnenkort</span>';
+        } else {
+          echo '<a href="' . $escape($url) . '" style="padding:9px 16px;border:1px solid #175a91;border-radius:8px;text-decoration:none;' . ($selectedMode ? 'background:#175a91;color:#fff' : 'color:#175a91') . '">' . $escape($label) . '</a>';
+        }
+      }
+      echo '</nav>';
+      if ($moneyDemo) {
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekMoneyDemo.php';
+        echo \Brebo\Office\Inzet\OfficeInzetWeekMoneyDemo::render($allProjectSessions, $weekStart, $escape, $projectNames);
+      } else {
+        echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::renderKpis($allProjectSessions, $weekStart);
+        echo '<h3>Medewerkers · weekoverzicht</h3>';
+        echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape, $projectNames);
+        echo '<p>Open de projectverdeling onder een medewerker voor de uitsplitsing per werkdag.</p>';
+      }
       echo '<h3>Details en afwijkingen per project</h3>';
       foreach ($projects as $project) {
         $result = $overview->forProject($operator->operatorId, (int)$project['id']);
