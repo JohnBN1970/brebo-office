@@ -314,7 +314,7 @@ if ($inzetView) {
             && $reviewAccess->canManage((int)$operator->operatorId, (int)$reportRow['project_id'])
             && $reportRow['review_status'] === 'pending'
             && isset($reportRow['in_event_id'], $reportRow['out_event_id'])
-            && (int)$reportRow['original_seconds'] <= 86400;
+            ;
           if ($mayReview) {
             echo '<form method="post" action="' . $escape($base . '/inzet/onsite/uren-beoordelen') . '" style="display:flex;gap:5px;flex-wrap:wrap">';
             foreach (['project_id','person_id','in_event_id','out_event_id'] as $field) {
@@ -324,6 +324,7 @@ if ($inzetView) {
             echo '<input type="hidden" name="request_key" value="' . bin2hex(random_bytes(32)) . '">';
             echo '<label>Correctie (seconden) <input name="corrected_seconds" type="number" min="0" max="86400" placeholder="Ongewijzigd" style="width:110px"></label>';
             echo '<label>Toelichting <input name="reason" maxlength="2000" style="width:140px"></label>';
+            if ((int)$reportRow['original_seconds'] > 86400) echo '<strong>Lange sessie: vul correctie en toelichting in voor goedkeuring.</strong>';
             echo '<button name="decision" value="approve" type="submit">Goedkeuren</button>';
             echo '<button name="decision" value="reject" type="submit">Afwijzen</button></form>';
           } elseif ((int)$reportRow['original_seconds'] > 86400 && $reportRow['review_status'] === 'pending') {
