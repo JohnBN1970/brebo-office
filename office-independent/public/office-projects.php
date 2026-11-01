@@ -206,16 +206,11 @@ if ($inzetView) {
         $projectCalendarRows[$projectId] = ['title'=>(string)$project['title'], 'sessions'=>$projectResult['sessions']];
         foreach ($projectResult['sessions'] as $session) $allProjectSessions[] = $session;
       }
-      echo '<details open><summary style="font-weight:700;cursor:pointer;padding:10px">Medewerkers · weekoverzicht</summary>';
-      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape);
-      echo '</details>';
-      echo '<details><summary style="font-weight:700;cursor:pointer;padding:10px">Projecten · weekoverzicht</summary>';
-      foreach ($projectCalendarRows as $projectId => $calendarProject) {
-        echo '<details><summary style="cursor:pointer;padding:8px">' . $escape($calendarProject['title']) . '</summary>';
-        echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($calendarProject['sessions'], $weekStart, $escape);
-        echo '</details>';
-      }
-      echo '</details>';
+      $projectNames = [];
+      foreach ($projectCalendarRows as $projectId => $calendarProject) $projectNames[$projectId] = $calendarProject['title'];
+      echo '<h3>Medewerkers · weekoverzicht</h3>';
+      echo \Brebo\Office\Inzet\OfficeInzetWeekCalendar::render($allProjectSessions, $weekStart, $escape, $projectNames);
+      echo '<p>Open de projectverdeling onder een medewerker voor de uitsplitsing per werkdag.</p>';
       echo '<h3>Details en afwijkingen per project</h3>';
       foreach ($projects as $project) {
         $result = $overview->forProject($operator->operatorId, (int)$project['id']);
