@@ -32,6 +32,7 @@ on:
       - 'office-independent/public/office-onsite-project-map.php'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
+      - 'office-independent/public/office-onsite-hours-review.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - '.github/workflows/office-inzet-mysql-integration.yml'
   workflow_dispatch:
@@ -59,6 +60,7 @@ jobs:
         run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
       - name: Hours review and report export regression
         run: |
+          php -l office-independent/public/office-onsite-hours-review.php
           php -l office-independent/src/Inzet/OnSiteHoursReview.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewRepository.php
           php -l office-independent/src/Inzet/OnSiteHoursReviewRequest.php
