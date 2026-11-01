@@ -19,7 +19,7 @@ final class OfficeInzetManageablePeopleRepository {
     if ($operatorId === '' || strlen($operatorId) > 128) {
       throw new \InvalidArgumentException('Verified operator required');
     }
-    $statement = $this->db->prepare("SELECT DISTINCT p.id, p.display_name, p.personnel_number
+    $statement = $this->db->prepare("SELECT DISTINCT p.id, p.display_name, p.personnel_number, p.active
       FROM office_inzet_people p
       INNER JOIN office_inzet_project_team t ON t.person_id = p.id
       INNER JOIN office_project_memberships m ON m.project_id = t.project_id
