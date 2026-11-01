@@ -11,6 +11,12 @@ if (!\Brebo\Office\Intake\OfficeMount::isTest()
   || getenv('OFFICE_TEST_ONSITE_HOURS_REVIEW_ENABLED') !== 'enabled') {
   http_response_code(503); exit('Urenbeoordeling niet beschikbaar.');
 }
+// Refuse oversized form bodies before session/database work.
+$contentLength = $_SERVER['CONTENT_LENGTH'] ?? '0';
+if (!is_scalar($contentLength) || !preg_match('/^[0-9]{1,12}$/D', (string)$contentLength)
+  || (int)$contentLength > 8192) {
+  http_response_code(413); exit('Beoordelingsverzoek te groot.');
+}
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
   header('Allow: POST'); http_response_code(405); exit('Alleen POST toegestaan.');
 }
