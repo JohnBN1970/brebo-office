@@ -12,6 +12,7 @@ on:
       - 'office-independent/tests/OfficePersonnelDetailsContractTest.php'
       - 'office-independent/tests/OfficePersonnelDetailsActionTest.php'
       - 'office-independent/tests/OfficePersonnelDetailsReadFormTest.php'
+      - 'office-independent/tests/OfficePersonnelPageIntegrationContractTest.php'
       - '.github/workflows/office-personnel-details.yml'
   workflow_dispatch:
 
@@ -34,8 +35,10 @@ jobs:
           php -l office-independent/tests/OfficePersonnelDetailsContractTest.php
           php -l office-independent/tests/OfficePersonnelDetailsActionTest.php
           php -l office-independent/tests/OfficePersonnelDetailsReadFormTest.php
+          php -l office-independent/tests/OfficePersonnelPageIntegrationContractTest.php
       - name: Personnel details storage contract
         run: |
           php office-independent/tests/OfficePersonnelDetailsContractTest.php
           php office-independent/tests/OfficePersonnelDetailsActionTest.php
           php office-independent/tests/OfficePersonnelDetailsReadFormTest.php
+          php office-independent/tests/OfficePersonnelPageIntegrationContractTest.php
