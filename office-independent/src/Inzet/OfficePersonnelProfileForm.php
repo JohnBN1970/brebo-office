@@ -9,7 +9,7 @@ namespace Brebo\Office\Inzet;
  * No POST route, account creation or OnSite activation is exposed.
  */
 final class OfficePersonnelProfileForm {
-  public static function render(int $personId, string $displayName, ?string $personnelNumber = null): string {
+  public static function render(int $personId, string $displayName, ?string $personnelNumber = null, ?bool $active = null): string {
     if ($personId < 1 || trim($displayName) === '') {
       throw new \InvalidArgumentException('Verified employee required');
     }
@@ -44,8 +44,10 @@ final class OfficePersonnelProfileForm {
     $html = '<section aria-label="Medewerkersdossier" style="border:1px solid #dbe1e8;border-radius:12px;padding:clamp(16px,3vw,28px);margin:18px 0;background:#fff">'
       . '<h3 style="margin:0 0 8px">Medewerkersdossier · ' . $e($displayName) . '</h3>'
       . '<p style="margin:0 0 8px;color:#475569">Personeelsnummer: <strong>' . $e($personnelNumber ?: 'Niet toegewezen') . '</strong></p>'
+      . '<p style="margin:0 0 12px;color:#475569">Status: <strong>' . ($active === true ? 'Actief' : ($active === false ? 'Inactief' : 'Nog niet bevestigd')) . '</strong></p>'
       . '<p style="margin:0 0 20px;color:#64748b">Conceptweergave. Opslaan en OnSite-activatie zijn nog niet beschikbaar vanuit dit formulier.</p>'
       . '<fieldset disabled style="border:0;margin:0;padding:0;min-width:0">'
+      . '<section style="margin-bottom:24px"><h4 style="margin:0 0 14px">Dienstverband</h4><label style="display:flex;align-items:center;gap:10px"><input type="checkbox" name="active" value="1"' . ($active === true ? ' checked' : '') . '> Actief</label></section>'
       . '<section style="margin-bottom:24px"><h4 style="margin:0 0 14px">Contactgegevens</h4>'
       . '<style>.phone-flag{display:none}.phone-code-picker:has(select option[value="NL"]:checked) .phone-flag-NL,.phone-code-picker:has(select option[value="BE"]:checked) .phone-flag-BE,.phone-code-picker:has(select option[value="DE"]:checked) .phone-flag-DE,.phone-code-picker:has(select option[value="PL"]:checked) .phone-flag-PL,.phone-code-picker:has(select option[value="RO"]:checked) .phone-flag-RO,.phone-code-picker:has(select option[value="TR"]:checked) .phone-flag-TR{display:inline-flex}.phone-code-picker{display:flex;align-items:center;gap:10px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;padding:0 10px}.phone-code-picker select{border:0;background:transparent;min-width:0;flex:1;padding:10px 0;font:inherit;color:#475569}.phone-code-picker select:focus{outline:2px solid #175a91;outline-offset:2px}</style>'
       . '<div style="' . $grid . '"><label style="' . $field . '">Landcode telefoon<span class="phone-code-picker">';
