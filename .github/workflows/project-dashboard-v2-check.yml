@@ -4,6 +4,9 @@ on:
     paths:
       - 'office-independent/public/office-project.php'
       - '.github/workflows/project-dashboard-v2-check.yml'
+      - '.github/workflows/project-dashboard-office-test-deploy.yml'
+      - 'office-independent/deployment/hostinger/merge-project-dashboard-v2.py'
+      - 'office-independent/tests/test_project_dashboard_merger.py'
   workflow_dispatch:
 jobs:
   dashboard:
@@ -18,3 +21,7 @@ jobs:
       - name: Demo isolation contract
         run: |
           php -r '$s=file_get_contents("office-independent/public/office-project.php"); foreach (["OfficeMount::isTest()","\$_GET[\x27demo\x27]","DEMO — fictieve gegevens","Terug naar echte gegevens","\$isDashboardDemo ? \$demoDashboardHtml : \$dashboardHtml"] as $n) { if (strpos($s,$n)===false) {fwrite(STDERR,"Missing demo guard: ".$n.PHP_EOL); exit(1);} }'
+      - name: Office-test dashboard merger acceptance
+        run: |
+          python3 -m py_compile office-independent/deployment/hostinger/merge-project-dashboard-v2.py
+          python3 office-independent/tests/test_project_dashboard_merger.py
