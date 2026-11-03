@@ -1,0 +1,73 @@
+name: Office inspection test database backup
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type OFFICE-TEST to back up isolated test database'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  backup:
+    if: ${{ inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Back up isolated Office-test database
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          php -r '
+            $c=require $argv[1];
+            if (!is_array($c)) exit(2);
+            foreach (["OFFICE_BASE_PATH","OFFICE_INTAKE_PDO_DSN","OFFICE_INTAKE_DB_USER","OFFICE_INTAKE_DB_PASSWORD"] as $k) if (!isset($c[$k]) || !is_string($c[$k])) exit(2);
+            if ($c["OFFICE_BASE_PATH"]!=="/office-test" || !in_array($c["OFFICE_INTAKE_PDO_DSN"],["mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4","mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4"],true)) exit(2);
+          ' "$config"
+          command -v mysqldump >/dev/null
+          dir="$base/backups/inspection"
+          mkdir -p "$dir"
+          chmod 700 "$dir"
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          target="$dir/office-test-before-inspection-$stamp.sql.gz"
+          test ! -e "$target"
+          tmp="$(mktemp "$dir/.inspection-backup.XXXXXXXX")"
+          trap 'rm -f "$tmp"' EXIT
+          # Credentials are passed via a temporary protected defaults file, never command-line arguments or logs.
+          defaults="$(mktemp "$dir/.mysql-client.XXXXXXXX")"
+          trap 'rm -f "$tmp" "$defaults"' EXIT
+          php -r '
+            $c=require $argv[1];
+            $esc=static fn($v)=>str_replace(["\\","\"","\n","\r"],["\\\\","\\\"","",""],$v);
+            echo "[client]\nuser=\"".$esc($c["OFFICE_INTAKE_DB_USER"])."\"\npassword=\"".$esc($c["OFFICE_INTAKE_DB_PASSWORD"])."\"\n";
+          ' "$config" > "$defaults"
+          chmod 600 "$defaults"
+          mysqldump --defaults-extra-file="$defaults" --single-transaction --quick --no-tablespaces --databases u213420663_office_test | gzip -c > "$tmp"
+          gzip -t "$tmp"
+          test "$(wc -c < "$tmp")" -gt 100
+          mv "$tmp" "$target"
+          chmod 600 "$target"
+          rm -f "$defaults"
+          trap - EXIT
+          echo 'PASS OFFICE_TEST_BACKUP_CREATED'
+          echo "BACKUP_FILE=${target##*/}"
+          REMOTE
