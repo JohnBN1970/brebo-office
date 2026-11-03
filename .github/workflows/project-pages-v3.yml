@@ -1,0 +1,21 @@
+name: Project pages V3 foundation
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeProjectPageStructure.php'
+      - 'office-independent/src/Project/OfficeProjectPortfolioView.php'
+      - 'office-independent/tests/OfficeProjectPagesV3Test.php'
+      - '.github/workflows/project-pages-v3.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint and portfolio acceptance
+        run: |
+          php -l office-independent/src/Project/OfficeProjectPageStructure.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioView.php
+          php -l office-independent/tests/OfficeProjectPagesV3Test.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectPagesV3Test.php
