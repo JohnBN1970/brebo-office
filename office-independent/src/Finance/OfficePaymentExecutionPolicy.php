@@ -24,8 +24,11 @@ final class OfficePaymentExecutionPolicy {
     if (!in_array($next, self::TRANSITIONS[$current] ?? [], true)) {
       throw new \DomainException('Invalid payment state transition');
     }
-    if ($next === 'approved' && ($requesterId < 1 || $actorId < 1 || $requesterId === $actorId)) {
-      throw new \DomainException('Independent payment approver required');
+    if ($next === 'approved') {
+      if (!isset($evidence['mandate']) || !is_array($evidence['mandate']) || !isset($evidence['total_amount']) || !is_string($evidence['total_amount'])) {
+        throw new \DomainException('Payment mandate and total required');
+      }
+      OfficePaymentMandatePolicy::authorize($evidence['mandate'], $actorId, $requesterId, $actorId, $evidence['total_amount']);
     }
     if ($next === 'submitted' && (!isset($evidence['idempotency_key']) || !is_string($evidence['idempotency_key']) || trim($evidence['idempotency_key']) === '')) {
       throw new \DomainException('Payment submission idempotency key required');
