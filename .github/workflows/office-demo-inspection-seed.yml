@@ -1,0 +1,53 @@
+name: Office-test demo inspection seed
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEMO-PREFLIGHT for read-only preview or DEMO-APPLY for database writes
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  seed:
+    if: ${{ inputs.confirmation == 'DEMO-PREFLIGHT' || inputs.confirmation == 'DEMO-APPLY' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - name: Syntax and scope checks
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Demo/OfficeDemoProcessChain.php
+          php -l office-independent/src/Demo/OfficeDemoInspectionSeeder.php
+          php -l office-independent/deployment/hostinger/seed-office-demo-inspection.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeDemoProcessChainTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_demo
+          chmod 600 ~/.ssh/id_demo
+      - name: Run isolated Office-test demo preparation
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_demo"
+          ssh $ssh_opts -p "$PORT" "$remote" 'mkdir -p "$HOME/domains/brebobv.nl/office_calc_test/demo-seed-stage/src/Demo"'
+          scp $ssh_opts -P "$PORT" office-independent/src/Demo/OfficeDemoProcessChain.php office-independent/src/Demo/OfficeDemoInspectionSeeder.php "$remote:domains/brebobv.nl/office_calc_test/demo-seed-stage/src/Demo/"
+          scp $ssh_opts -P "$PORT" office-independent/deployment/hostinger/seed-office-demo-inspection.php "$remote:domains/brebobv.nl/office_calc_test/demo-seed-stage/seed-office-demo-inspection.php"
+          if [ "$CONFIRM" = "DEMO-APPLY" ]; then
+            mode="--apply"
+          else
+            mode="--dry-run"
+          fi
+          ssh $ssh_opts -p "$PORT" "$remote" "cd \$HOME/domains/brebobv.nl/office_calc_test/demo-seed-stage && OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php seed-office-demo-inspection.php '$mode'"
