@@ -1,0 +1,33 @@
+name: Finance SEPA contract tests
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/**'
+      - 'office-independent/tests/Office*Payment*Test.php'
+      - 'office-independent/tests/Office*Sepa*Test.php'
+      - 'office-independent/tests/OfficeBankSubmissionIntentTest.php'
+      - '.github/workflows/finance-sepa-contract-tests.yml'
+  workflow_dispatch:
+jobs:
+  finance-sepa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP runtime
+        run: php -v
+      - name: Lint Finance sources
+        run: |
+          find office-independent/src/Finance -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Lint and run SEPA contract tests
+        run: |
+          set -eu
+          for test in \
+            office-independent/tests/OfficePaymentSubmissionIdentityTest.php \
+            office-independent/tests/OfficeSepaArtifactCipherTest.php \
+            office-independent/tests/OfficeSepaArtifactRepositoryTest.php \
+            office-independent/tests/OfficeBankSubmissionIntentTest.php \
+            office-independent/tests/OfficePaymentBatchSubmissionGuardTest.php
+          do
+            php -l "$test"
+            php "$test"
+          done
