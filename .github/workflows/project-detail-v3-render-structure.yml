@@ -1,0 +1,64 @@
+name: Office-test V3 active renderer structure
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-detail-v3-render-structure.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to inspect active renderer
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate workflow availability
+        run: echo "Read-only structure inspection available"
+  inspect:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Print safe PHP variable and output structure (no literal source)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          target="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private/public/office-project.php"
+          test -f "$target"
+          php -l "$target"
+          python3 - "$target" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          lines = Path(sys.argv[1]).read_text().splitlines()
+          print("=== ACTIVE CONTROLLER STRUCTURE: LAST 170 LINES ===")
+          for i in range(max(0,len(lines)-170),len(lines)):
+              line=lines[i]
+              vars_=list(dict.fromkeys(re.findall(r'\$[a-zA-Z_][a-zA-Z0-9_]*',line)))
+              tags=list(dict.fromkeys(re.findall(r'<(?:h[1-6]|section|nav|main|form|table|article|aside|div)\b',line)))
+              funcs=list(dict.fromkeys(re.findall(r'(?<![a-zA-Z_])(?:echo|require_once|header|exit|return|if|foreach|try|catch)\b',line)))
+              if vars_ or tags or funcs or '<!doctype' in line:
+                  print(f"{i+1}: vars={','.join(vars_[:35])} tags={','.join(tags[:12])} controls={','.join(funcs[:10])} chars={len(line)}")
+          print("=== FINAL OUTPUT STRUCTURE ===")
+          for i,line in enumerate(lines):
+              if '<!doctype html>' in line:
+                  print("doctype_line",i+1,"total_lines",len(lines),"remaining_lines",len(lines)-i-1)
+          PY
+          REMOTE
