@@ -1,0 +1,46 @@
+name: Office demo inspection-to-calc preflight
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/audit-office-demo-calc-bridge.php'
+      - '.github/workflows/office-demo-calc-bridge-preflight.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-DEMO-CALC for read-only Office-test discovery
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/deployment/hostinger/audit-office-demo-calc-bridge.php
+  inventory:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-DEMO-CALC' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_demo
+          chmod 600 ~/.ssh/id_demo
+      - name: Inspect Office-test database (read only)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_demo -P "$PORT" office-independent/deployment/hostinger/audit-office-demo-calc-bridge.php "$remote:domains/brebobv.nl/office_calc_test/audit-office-demo-calc-bridge.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_demo -p "$PORT" "$remote" 'OFFICE_TEST_CONFIG_PATH="$HOME/domains/brebobv.nl/office_calc_test/config/config.php" php "$HOME/domains/brebobv.nl/office_calc_test/audit-office-demo-calc-bridge.php"'
