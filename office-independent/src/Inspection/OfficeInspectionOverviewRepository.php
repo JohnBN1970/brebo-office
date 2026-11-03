@@ -31,6 +31,32 @@ final class OfficeInspectionOverviewRepository {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  public function forOperator(string $operatorId, ?string $projectId = null): array {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $operatorId)
+      || ($projectId !== null && !preg_match('/^[1-9][0-9]{0,18}$/D', $projectId))) {
+      throw new InvalidArgumentException('invalid_inspection_identity');
+    }
+    $sql = "SELECT i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,
+                   b.name AS building_name,COUNT(DISTINCT f.id) AS finding_count
+            FROM office_inspections i
+            INNER JOIN office_buildings b ON b.id=i.building_id
+            INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id
+            INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
+            INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+            LEFT JOIN office_inspection_findings f ON f.inspection_id=i.id
+            WHERE m.operator_id=? AND m.permission IN ('read','manage')";
+    $args=[$operatorId];
+    if ($projectId !== null) {
+      $sql .= " AND i.project_id=?";
+      $args[]=$projectId;
+    }
+    $sql .= " GROUP BY i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,b.name
+              ORDER BY i.inspection_date DESC,i.id DESC LIMIT 100";
+    $stmt=$this->db->prepare($sql);
+    $stmt->execute($args);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   public function detail(string $inspectionId,string $operatorId): ?array {
     foreach ([$inspectionId,$operatorId] as $id) {
       if (!preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new InvalidArgumentException('invalid_inspection_identity');
