@@ -1,0 +1,36 @@
+name: Office-test demo schema inventory
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    if: ${{ inputs.confirmation == 'AUDIT-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate schema audit
+        run: php -l office-independent/deployment/hostinger/audit-office-demo-schema.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Run read-only Office-test inventory
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/deployment/hostinger/audit-office-demo-schema.php "$USER@$HOST:/tmp/audit-office-demo-schema.php"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'OFFICE_TEST_CONFIG_PATH="$HOME/domains/brebobv.nl/office_calc_test/config/config.php" php /tmp/audit-office-demo-schema.php'
