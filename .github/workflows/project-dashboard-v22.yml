@@ -1,0 +1,83 @@
+name: Project dashboard V2.2 acceptance and Office-test deployment
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/refine-project-dashboard-v22.py'
+      - '.github/workflows/project-dashboard-v22.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type OFFICE-TEST to deploy'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-dashboard
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: V2.2 regression acceptance
+        run: |
+          python3 -m py_compile office-independent/deployment/hostinger/refine-project-dashboard-v22.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,tempfile,sys
+          script='office-independent/deployment/hostinger/refine-project-dashboard-v22.py'
+          with tempfile.TemporaryDirectory() as d:
+              a=Path(d)/'a.php';b=Path(d)/'b.php'
+              a.write_text('<?php\n// BREBO_DASHBOARD_V2_MERGE\n// BREBO_DASHBOARD_V21_LAYOUT\n$dashboardCss = \'\';\n$dashboardVisibility = \'<style>\';\n$actions=["create_project_contract","create_project_term","create_project_change"];')
+              subprocess.run([sys.executable,script,str(a),str(b)],check=True)
+              subprocess.run(['php','-l',str(b)],check=True)
+              assert 'BREBO_DASHBOARD_V22_CLEAN' in b.read_text()
+              assert all(x in b.read_text() for x in ['create_project_contract','create_project_term','create_project_change'])
+              assert subprocess.run([sys.executable,script,str(b),str(a)],capture_output=True).returncode != 0
+          PY
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare secure SSH
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Stage guarded V2.2 patch
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -P "$DEPLOY_PORT" office-independent/deployment/hostinger/refine-project-dashboard-v22.py "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-dashboard-v22.py"
+      - name: Deploy only to isolated Office-test
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$base/config/config.php")"
+          case "$root" in "$base"/release-*/private) ;; *) exit 20;; esac
+          file="$root/public/office-project.php"
+          test -f "$file" && test ! -L "$file"
+          grep -Fq BREBO_DASHBOARD_V21_LAYOUT "$file"
+          if grep -Fq BREBO_DASHBOARD_V22_CLEAN "$file"; then echo "ALREADY_V22=1"; exit 0; fi
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do grep -Fq "$marker" "$file"; done
+          backup="$file.backup-dashboard-v22-$(date +%Y%m%d%H%M%S)"
+          cp -p "$file" "$backup"
+          candidate="$(mktemp "$root/public/.office-project-v22.XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          python3 /tmp/brebo-dashboard-v22.py "$file" "$candidate"
+          php -l "$candidate"
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do grep -Fq "$marker" "$candidate"; done
+          chmod --reference="$file" "$candidate"
+          mv "$candidate" "$file"
+          if ! php -l "$file" >/dev/null; then cp -p "$backup" "$file"; exit 21; fi
+          echo "OFFICE_TEST_DASHBOARD_V22_DEPLOYED=1"
+          REMOTE
