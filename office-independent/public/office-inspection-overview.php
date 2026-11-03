@@ -46,6 +46,8 @@ try {
   $findingCsrf=$canWrite ? hash_hmac('sha256','inspection-finding:'.$operator->sessionId,$secret) : '';
   $buildingId=$_GET['building_id'] ?? '';
   $inspectionId=$_GET['inspection_id'] ?? '';
+  $projectId=$_GET['project_id'] ?? null;
+  if ($projectId !== null && (!is_string($projectId) || !preg_match('/^[1-9][0-9]{0,18}$/D',$projectId))) throw new InvalidArgumentException('invalid_project_id');
   $repo=new \Brebo\Office\Inspection\OfficeInspectionOverviewRepository($db);
   $inspection=null;
   $inspections=[];
@@ -67,6 +69,8 @@ try {
   }
   if (is_string($buildingId) && $buildingId !== '') {
     $inspections=$repo->forBuilding($buildingId,(string)$operator->operatorId);
+  } elseif ($inspection === null) {
+    $inspections=$repo->forOperator((string)$operator->operatorId,$projectId);
   }
 } catch (InvalidArgumentException $error) {
   http_response_code(400); exit('Ongeldige selectie.');
