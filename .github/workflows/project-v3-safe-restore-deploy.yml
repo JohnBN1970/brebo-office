@@ -1,5 +1,9 @@
 name: Restore projectdetail V3 after inspection deployment
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-v3-safe-restore-deploy.yml'
+      - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
     inputs:
       confirmation:
