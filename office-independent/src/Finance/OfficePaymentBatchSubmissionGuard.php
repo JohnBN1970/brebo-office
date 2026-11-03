@@ -10,7 +10,7 @@ namespace Brebo\Office\Finance;
  * idempotency reservation before invoking the bank, and handle unknown outcomes.
  */
 final class OfficePaymentBatchSubmissionGuard {
-  public static function authorize(array $sealedPayload, int $operatorId, callable $canSubmit, callable $isRecipientUnchanged, array $mandate): array {
+  public static function authorize(array $sealedPayload, int $operatorId, callable $canSubmit, callable $isRecipientUnchanged, array $mandate, string $pain001Xml): array {
     if ($operatorId < 1 || $canSubmit($operatorId) !== true) {
       throw new \DomainException('Payment submission permission required');
     }
@@ -25,7 +25,7 @@ final class OfficePaymentBatchSubmissionGuard {
       || !isset($batch['id'], $batch['created_by'], $batch['released_by'])
       || (int)$batch['created_by'] < 1 || (int)$batch['released_by'] < 1
       || !in_array(($batch['controller_verdict'] ?? ''), ['green', 'orange'], true)) {
-      throw new \DomainException('Sealed and independently released batch required');
+      throw new \DomainException('Sealed and released batch required');
     }
     OfficePaymentMandatePolicy::authorize(
       $mandate,
@@ -52,10 +52,6 @@ final class OfficePaymentBatchSubmissionGuard {
       if ($identity === '' || isset($ids[$identity])) throw new \DomainException('Duplicate or missing payment identity');
       $ids[$identity] = true;
     }
-    return [
-      'batch_id' => (int)$batch['id'],
-      'payload_sha256' => $hash,
-      'idempotency_key' => hash('sha256', 'brebo-office-bank-v1:' . (int)$batch['id'] . ':' . $hash),
-    ];
+    return OfficePaymentSubmissionIdentity::fromXml((int)$batch['id'], $hash, $pain001Xml);
   }
 }
