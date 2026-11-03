@@ -1,0 +1,68 @@
+name: Project dashboard V2 - Office-test safe deploy
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha256:
+        description: 'SHA256 of active office-project.php, verified out of band'
+        required: true
+        default: 'd15b26c13248cf5d80ed9b3e6f5b48e15f3f20dccc5e6c5ebedcc78965c2a85d'
+      confirm_test_only:
+        description: 'Type OFFICE-TEST to authorize isolated deployment'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-dashboard
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate source and SSH configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-project.php
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            test -n "${!name}" || { echo "::error::Missing $name"; exit 1; }
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "${{ inputs.expected_sha256 }}" =~ ^[0-9a-f]{64}$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Validate active release and preserve server-only contract handlers
+        shell: bash
+        env:
+          EXPECTED_HASH: ${{ inputs.expected_sha256 }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "EXPECTED_HASH=$EXPECTED_HASH bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$base/config/config.php")"
+          case "$root" in "$base"/release-*/private) ;; *) echo "::error::Not an isolated Office-test release"; exit 10;; esac
+          file="$root/public/office-project.php"
+          test -f "$file" && test ! -L "$file"
+          actual="$(sha256sum "$file" | cut -d' ' -f1)"
+          test "$actual" = "$EXPECTED_HASH" || { echo "::error::Server changed; refusing deployment"; exit 11; }
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            grep -Fq "$marker" "$file" || { echo "::error::Missing server contract marker: $marker"; exit 12; }
+          done
+          php -l "$file"
+          echo "ACTIVE_RELEASE=$root"
+          echo "ACTIVE_SHA256=$actual"
+          echo "CONTRACT_HANDLERS_PRESERVED=1"
+          echo "DEPLOYMENT_BLOCKED_PENDING_SAFE_MERGE=1"
+          echo "No server files were modified. Server has additional POST handlers; deploy requires a merged, reviewed server-based file."
+          REMOTE
