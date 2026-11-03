@@ -52,7 +52,6 @@ jobs:
           set -euo pipefail
           mkdir -p deploy-payload/public deploy-payload/src/Inspection deploy-payload/src/Intake
           cp office-independent/src/Intake/OfficeNavigation.php deploy-payload/src/Intake/
-          cp office-independent/public/office-project.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection-create.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection-overview.php deploy-payload/public/
@@ -73,7 +72,7 @@ jobs:
           tmp="$(mktemp -d "$stage/integration.XXXXXXXX")"
           trap 'rm -rf "$tmp"' EXIT
           tar -xzf "$stage/inspection-integration.tar.gz" -C "$tmp"
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
             test -f "$active/$path" && test -f "$tmp/$path"
             php -l "$tmp/$path" >/dev/null
           done
@@ -89,15 +88,16 @@ jobs:
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
           backup="$stage/integration-backup-$stamp"
           mkdir -p "$backup"
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
             mkdir -p "$backup/$(dirname "$path")"
             cp -p "$active/$path" "$backup/$path"
           done
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
             install -m 644 "$tmp/$path" "$active/$path"
             php -l "$active/$path" >/dev/null
             echo "PASS FILE $path"
           done
           echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
+          echo "PROJECT_CONTROLLER_PRESERVED"
           echo "BACKUP_NAME=${backup##*/}"
           REMOTE
