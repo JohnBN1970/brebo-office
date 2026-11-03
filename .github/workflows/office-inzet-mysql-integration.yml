@@ -32,6 +32,8 @@ on:
       - 'office-independent/public/office-onsite-project-map.php'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
+      - 'office-independent/public/office-onsite-hours-review.php'
+      - 'office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - '.github/workflows/office-inzet-mysql-integration.yml'
   workflow_dispatch:
@@ -57,6 +59,30 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax
         run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Hours review and report export regression
+        run: |
+          php -l office-independent/public/office-onsite-hours-review.php
+          php -l office-independent/src/Project/OfficeNativeProjectAccess.php
+          php -l office-independent/src/Inzet/OfficeInzetHoursOverview.php
+          php -l office-independent/tests/OfficeInzetHoursAccessContractTest.php
+          php office-independent/tests/OfficeInzetHoursAccessContractTest.php
+          php -l office-independent/src/Inzet/OnSiteHoursReview.php
+          php -l office-independent/src/Inzet/OnSiteHoursReviewRepository.php
+          php -l office-independent/src/Inzet/OnSiteHoursReviewRequest.php
+          php -l office-independent/src/Inzet/OnSiteHoursReviewReport.php
+          php -l office-independent/src/Inzet/OnSiteHoursReportCsv.php
+          php -l office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
+          php -l office-independent/tests/OnSiteHoursReviewRequestTest.php
+          php -l office-independent/tests/OnSiteHoursReviewLongSessionTest.php
+          php -l office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php
+          php -l office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
+          php -l office-independent/tests/OnSiteHoursReportCsvTest.php
+          php office-independent/tests/OnSiteHoursReviewOptionalReasonTest.php
+          php office-independent/tests/OnSiteHoursReviewRequestTest.php
+          php office-independent/tests/OnSiteHoursReviewLongSessionTest.php
+          php office-independent/tests/OfficeOnSiteHoursReviewUiContractTest.php
+          php office-independent/tests/OnSiteHoursReviewReportFiltersTest.php
+          php office-independent/tests/OnSiteHoursReportCsvTest.php
       - name: Personnel route and security regression tests
         run: |
           for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do

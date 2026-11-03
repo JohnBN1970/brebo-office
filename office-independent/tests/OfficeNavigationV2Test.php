@@ -5,12 +5,13 @@ use Brebo\Office\Intake\OfficeNavigation;
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=enabled');
 putenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED=enabled');
 $nav=OfficeNavigation::mainV2('/office-test/projecten');
-foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
+foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Rapporten','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
   if(!str_contains($nav,$name)){fwrite(STDERR,"Missing group: ".$name.PHP_EOL);exit(1);}
 }
-if(substr_count($nav,'<details ')!==7){fwrite(STDERR,"Expected six collapsible groups".PHP_EOL);exit(1);}
+if(substr_count($nav,'<details ')!==8){fwrite(STDERR,"Expected eight collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
+if(!str_contains($nav,'href="/office-test/projecten?view=inzet&amp;tab=controle"')){fwrite(STDERR,"Reports hours link missing".PHP_EOL);exit(1);}
 if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
 if(!str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'aria-current="page"')){fwrite(STDERR,"Buildings navigation not selected".PHP_EOL);exit(1);}
 if (!str_contains($nav, 'Medewerkers') || !str_contains($nav, 'Inzet en planning')) { fwrite(STDERR, "Personnel links missing\n"); exit(1); }

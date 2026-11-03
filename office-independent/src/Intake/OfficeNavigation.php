@@ -79,6 +79,9 @@ final class OfficeNavigation {
         ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
       ]:[]],
       ['Gebouwen','gebouwen',$projectsAvailable?[[ 'Gebouwenoverzicht','/office-test/gebouwen' ]]:[]],
+      ['Rapporten','rapporten',$projectsAvailable?[
+        ['Uren & Inzet','/office-test/projecten?view=inzet&tab=controle'],
+      ]:[]],
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],

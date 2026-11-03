@@ -15,7 +15,7 @@ final class OfficeInzetHoursOverview {
   public function __construct(private readonly PDO $db) {}
 
   /** @return array{available:bool,sessions:list<array<string,mixed>>,exceptions:list<array<string,mixed>>} */
-  public function forProject(string $operatorId, int $projectId): array {
+  public function forProject(int $operatorId, int $projectId): array {
     if (!(new OfficeNativeProjectAccess($this->db))->canRead($operatorId, $projectId)) {
       throw new \DomainException('Geen toegang tot projectinzet.');
     }

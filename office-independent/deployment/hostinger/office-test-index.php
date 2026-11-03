@@ -77,6 +77,7 @@ $routes = [
   '/office-test/inzet/dienst/annuleren' => 'office-inzet-shift-cancel.php',
   '/office-test/inzet/dienst/verplaatsen' => 'office-inzet-shift-reschedule.php',
   '/office-test/inzet/onsite/aanwezigheid' => 'office-onsite-presence-review.php',
+  '/office-test/inzet/onsite/uren-beoordelen' => 'office-onsite-hours-review.php',
   '/office-test/inzet/zone/bijwerken' => 'office-onsite-zone-update.php',
   '/office-test/inzet/medewerker/personeelsnummer' => 'office-inzet-personnel-number.php',
   '/office-test/inzet/onsite/activatie-uitgeven' => 'office-onsite-invitation.php',
