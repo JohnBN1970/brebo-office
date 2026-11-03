@@ -43,6 +43,9 @@ try {
   }
   $existing=0;
   $missing=0;
+  if ($apply && getenv('OFFICE_INSPECTION_SCHEMA_BACKUP_CONFIRMED') !== 'YES') {
+    throw new RuntimeException('backup_confirmation_required');
+  }
   foreach ($statements as $table=>$sql) {
     $stmt=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
     $stmt->execute([$table]);
@@ -59,7 +62,7 @@ try {
     $db->exec($sql);
     echo "CREATED $table\n";
   }
-  if ($apply && $missing > 0) {
+  if ($apply) {
     $required=[
       'office_inspections'=>['id','building_id','project_id','status'],
       'office_inspection_findings'=>['id','inspection_id','code','status'],
