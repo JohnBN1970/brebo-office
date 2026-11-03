@@ -46,4 +46,24 @@ try { $repo->claimForDispatch(14, $second['payload_sha256'], $second['idempotenc
 catch (DomainException $expected) {}
 $repo->recordUnknown(14);
 if ($db->query('SELECT status FROM office_bank_submission_intents WHERE batch_id = 14')->fetchColumn() !== 'unknown') throw new RuntimeException('Unknown outcome not persisted');
+// A provider timeout must be persisted as unknown and never retried.
+$db->exec("INSERT INTO office_bank_submission_intents (batch_id, idempotency_key, payload_sha256, status, requested_by) VALUES (15, '" . str_repeat('c',64) . "', '" . hash('sha256', $xml) . "', 'reserved', 7)");
+$timeout = $prepared;
+$timeout['batch_id'] = 15;
+$timeout['idempotency_key'] = str_repeat('c',64);
+$attempts = 0;
+$timedOut = static function(array $request) use (&$attempts): array {
+  $attempts++;
+  throw new RuntimeException('Simulated provider timeout');
+};
+try { Dispatch::send($timeout, $db, $repo, $timedOut); throw new RuntimeException('Timeout swallowed'); }
+catch (RuntimeException $expected) {
+  if (!str_contains($expected->getMessage(), 'do not retry')) throw $expected;
+}
+if ($attempts !== 1 || $db->query('SELECT status FROM office_bank_submission_intents WHERE batch_id = 15')->fetchColumn() !== 'unknown') {
+  throw new RuntimeException('Timeout outcome was not secured');
+}
+try { Dispatch::send($timeout, $db, $repo, $timedOut); throw new RuntimeException('Unknown payment retried'); }
+catch (DomainException $expected) {}
+if ($attempts !== 1) throw new RuntimeException('Bank timeout retried');
 echo "OfficePaymentSubmissionDispatchTest OK\n";
