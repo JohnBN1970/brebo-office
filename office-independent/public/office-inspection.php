@@ -58,6 +58,14 @@ try {
   );
   $stmt->execute([$operator->operatorId]);
   $buildings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $projectFilter = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+  if (isset($_GET['project_id']) && !is_int($projectFilter)) {
+    http_response_code(400);
+    exit('Ongeldig projectnummer.');
+  }
+  if (is_int($projectFilter)) {
+    $buildings = array_values(array_filter($buildings, static fn($b) => (int)$b['project_id'] === $projectFilter));
+  }
   $secret=getenv('OFFICE_TEST_INSPECTION_CSRF_SECRET');
   $canCreate=getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' && is_string($secret) && strlen($secret)>=32;
   $csrfToken=$canCreate ? hash_hmac('sha256','inspection-create:'.$operator->sessionId,$secret) : '';
