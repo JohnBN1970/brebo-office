@@ -454,6 +454,7 @@ $financialSectionHtml = '<div id="project-financieel"><h2>Financieel</h2>'
 
 // Financial dossier: explicit Finance ACL, independent of project read access.
 $financeHtml = '';
+$financeContracts = null;
 try {
     foreach ([
         'OfficeProjectContractRepository.php',
@@ -547,7 +548,24 @@ $metric = static function (string $label, string $value, string $description = '
   return '<article class="project-metric"><span>' . $escape($label) . '</span><strong>' . $escape($value) . '</strong>'
     . ($description !== '' ? '<small>' . $escape($description) . '</small>' : '') . '</article>';
 };
+$financeMetric = $metric('Actuele opdrachtsom', '—', 'Financiële toegang of contractgegevens ontbreken');
+if (is_array($financeContracts) && $financeContracts !== []) {
+  $totalContractCents = 0;
+  foreach ($financeContracts as $financeEntry) {
+    $currentValue = (string) ($financeEntry['value']['current'] ?? '');
+    if (!preg_match('/^(0|[1-9][0-9]{0,12})(?:\\.[0-9]{1,2})?$/D', $currentValue)) {
+      $totalContractCents = -1;
+      break;
+    }
+    [$euros, $cents] = array_pad(explode('.', $currentValue, 2), 2, '0');
+    $totalContractCents += ((int) $euros * 100) + (int) str_pad($cents, 2, '0');
+  }
+  if ($totalContractCents >= 0) {
+    $financeMetric = $metric('Actuele opdrachtsom', '€ ' . number_format($totalContractCents / 100, 2, ',', '.'), 'Geautoriseerde contracten inclusief goedgekeurde wijzigingen');
+  }
+}
 $overviewMetrics = '<div class="project-metrics">'
+  . $financeMetric
   . $metric('Gebouwen', (string) count($buildings), 'Gekoppeld aan dit project')
   . $metric('Woningen projectdoel', $dwellingTarget === null ? '—' : (string) $dwellingTarget, 'Vastgelegd projectdoel')
   . $metric('Woningen ingedeeld', $allocatedDwellings === null ? '—' : (string) $allocatedDwellings, 'Toegewezen aan woningtypen')
@@ -572,7 +590,7 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
   . '<p class="project-muted">Bron: gekoppelde gebouwen en woningtypen.</p></article>'
   . '<article class="project-panel"><h3>Aandachtspunten</h3>' . $attentionHtml . '</article>'
   . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3><p class="project-muted">CRM is de bron. De geautoriseerde koppeling naar dit overzicht moet nog worden aangesloten.</p></article>'
-  . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">Financiële waarden worden pas getoond na bron- en autorisatiecontrole. Bekijk het tabblad Financieel.</p></article>'
+  . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Financieel.</p></article>'
   . '<article class="project-panel"><h3>Planning & uitvoering</h3><p class="project-muted">Start, oplevering, mijlpalen en uitvoeringsvoortgang: nog niet gekoppeld.</p></article>'
   . '<article class="project-panel"><h3>Projectomschrijving</h3><p class="project-muted">De oorspronkelijke scope volgt uit CRM; de overeengekomen scope uit de geaccepteerde overeenkomst.</p></article></div></div>';
 
