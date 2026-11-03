@@ -1,0 +1,112 @@
+name: Activate Office-test inspection routes
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ACTIVATE-INSPECTION-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  activate:
+    if: ${{ inputs.confirmation == 'ACTIVATE-INSPECTION-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Verify schema and activate inspection in Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          htaccess="$HOME/domains/brebobv.nl/public_html/office-test/.htaccess"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$config" && test -f "$htaccess" && test -f "$router"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo 'FAIL RELEASE_SCOPE'; exit 2;; esac
+          test -f "$active/src/Inspection/OfficeInspectionSchema.php"
+          for f in office-inspection.php office-inspection-create.php office-inspection-overview.php office-inspection-finding-save.php; do
+            test -f "$active/public/$f"
+            php -l "$active/public/$f" >/dev/null
+          done
+          php -l "$router" >/dev/null
+          for url in /office-test/inspectie /office-test/inspectie/aanmaken /office-test/inspecties /office-test/inspectie/bevinding-opslaan; do
+            grep -Fq "'$url'" "$router" || { echo "FAIL ROUTE $url"; exit 3; }
+          done
+          CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          $c=require getenv("CONFIG_PATH");
+          if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") {fwrite(STDERR,"FAIL BASE_PATH\n");exit(2);}
+          $dsn=$c["OFFICE_INTAKE_PDO_DSN"]??"";
+          if (!preg_match("~^mysql:host=(localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test(?:;|$)~",$dsn)) {fwrite(STDERR,"FAIL DB_SCOPE\n");exit(3);}
+          $db=new PDO($dsn,$c["OFFICE_INTAKE_DB_USER"]??"",$c["OFFICE_INTAKE_DB_PASSWORD"]??"",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          foreach(["office_inspections","office_inspection_findings","office_inspection_evidence","office_inspection_report_configs","office_inspection_report_findings"] as $table) {
+            $q=$db->query("SHOW TABLES LIKE ".$db->quote($table));
+            if (!$q->fetchColumn()) {fwrite(STDERR,"FAIL TABLE ".$table."\n");exit(4);}
+          }
+          echo "PASS FIVE_INSPECTION_TABLES\n";
+          PHP
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup="$base/inspection-deploy-stage/activate-backup-$stamp"
+          mkdir -p "$backup"
+          cp -p "$config" "$backup/config.php"
+          cp -p "$htaccess" "$backup/htaccess"
+          CONFIG_PATH="$config" HTACCESS_PATH="$htaccess" python3 - <<'PY'
+          import os, re, secrets, subprocess
+          from pathlib import Path
+          p=Path(os.environ["CONFIG_PATH"])
+          s=p.read_text()
+          assert s.lstrip().startswith("<?php"), "unexpected config"
+          keys=["OFFICE_TEST_INSPECTION_UI_ENABLED","OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED","OFFICE_TEST_INSPECTION_CSRF_SECRET"]
+          for k in keys:
+            assert not re.search(r"['\"]"+re.escape(k)+r"['\"]\s*=>",s), f"key already exists: {k}"
+          assert re.search(r"(?m)^\s*return\s*\[",s), "config not simple return array"
+          assert re.search(r"(?m)^\s*\];\s*$",s), "config array end not found"
+          settings="    'OFFICE_TEST_INSPECTION_UI_ENABLED' => 'enabled',\n    'OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED' => 'enabled',\n    'OFFICE_TEST_INSPECTION_CSRF_SECRET' => '"+secrets.token_hex(32)+"',\n"
+          s,count=re.subn(r"(?m)^(\s*\];\s*)$",lambda m:settings+m.group(1),s,count=1)
+          assert count==1
+          temp=p.with_name(p.name+".inspection-new")
+          temp.write_text(s)
+          temp.chmod(0o600)
+          subprocess.run(["php","-l",str(temp)],check=True,stdout=subprocess.DEVNULL)
+          h=Path(os.environ["HTACCESS_PATH"])
+          t=h.read_text()
+          assert "RewriteEngine On" in t, "rewrite engine missing"
+          assert not re.search(r"(?m)^\s*RewriteRule\s+\^\(\?:?inspectie",t), "inspection rewrite exists"
+          assert not re.search(r"(?m)^\s*RewriteRule\s+\^inspectie",t), "inspection rewrite exists"
+          marker="RewriteEngine On"
+          assert t.count(marker)==1, "unexpected htaccess"
+          lines="\n# BREBO Inspectie Office-test routes\nRewriteRule ^(?:inspectie(?:/(?:aanmaken|bevinding-opslaan))?|inspecties)/?$ index.php [END,QSA]\n"
+          new=t.replace(marker,marker+lines,1)
+          htemp=h.with_name(h.name+".inspection-new")
+          htemp.write_text(new)
+          htemp.chmod(0o600)
+          assert new.count("RewriteRule ^(?:inspectie")==1
+          # Keep old config until rewrite file is installed, then atomically install config.
+          os.replace(htemp,h)
+          os.replace(temp,p)
+          print("PASS ROUTES_AND_FLAGS_WRITTEN")
+          PY
+          CONFIG_PATH="$config" php -r '
+            $c=require getenv("CONFIG_PATH");
+            foreach(["OFFICE_TEST_INSPECTION_UI_ENABLED","OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED"] as $key) {
+              if (($c[$key]??"")!=="enabled") {exit(2);}
+            }
+            if (strlen((string)($c["OFFICE_TEST_INSPECTION_CSRF_SECRET"]??""))<32) {exit(3);}
+            echo "PASS INSPECTION_FLAGS_AND_CSRF\n";
+          '
+          echo "PASS INSPECTION_TEST_ACTIVATED"
+          echo "BACKUP_NAME=${backup##*/}"
+          REMOTE
