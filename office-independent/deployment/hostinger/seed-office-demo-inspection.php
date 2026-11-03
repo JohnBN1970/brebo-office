@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/../../src/Demo/OfficeDemoProcessChain.php';
-require_once __DIR__.'/../../src/Demo/OfficeDemoInspectionSeeder.php';
+$root = is_file(__DIR__.'/src/Demo/OfficeDemoProcessChain.php') ? __DIR__ : dirname(__DIR__, 2);
+require_once $root.'/src/Demo/OfficeDemoProcessChain.php';
+require_once $root.'/src/Demo/OfficeDemoInspectionSeeder.php';
 
 use Brebo\Office\Demo\OfficeDemoProcessChain;
 use Brebo\Office\Demo\OfficeDemoInspectionSeeder;
