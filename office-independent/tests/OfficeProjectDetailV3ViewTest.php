@@ -1,0 +1,22 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../src/Project/OfficeProjectPageStructure.php';
+require_once __DIR__ . '/../src/Project/OfficeProjectDetailV3View.php';
+use Brebo\Office\Project\OfficeProjectDetailV3View as V;
+$html=V::render('/office-test',1,'TEST - Renovatie 232 woningen','TEST-2026-001','preparation',1,'overzicht');
+assert(str_contains($html,'Projectdetailpagina'));
+assert(str_contains($html,'Projectdashboard'));
+assert(str_contains($html,'Voorbereiding'));
+assert(str_contains($html,'Projectendashboard'));
+assert(str_contains($html,'/office-test/projecten/detail?id=1&amp;tab=gebouwen'));
+assert(!str_contains($html,'GOTIK'));
+assert(!str_contains($html,'Projectsturing volgens GOTIK'));
+assert(substr_count($html,'aria-current="page"')===1);
+assert(substr_count($html,'<article>')===4);
+$finance='<form method="post"><input name="action" value="create_project_term"></form>';
+$financial=V::render('/office-test',1,'Titel','X','active',0,'financieel',['financieel'=>$finance]);
+assert(str_contains($financial,$finance));
+assert(!str_contains($financial,'Projectdashboard</h2>'));
+$escaped=V::render('/office-test',2,'<script>bad()</script>','X','draft',0,'overzicht');
+assert(!str_contains($escaped,'<script>'));
+echo "PROJECT_DETAIL_V3_VIEW_OK\n";
