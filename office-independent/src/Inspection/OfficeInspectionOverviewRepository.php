@@ -18,7 +18,7 @@ final class OfficeInspectionOverviewRepository {
       "SELECT i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,
               COUNT(DISTINCT f.id) AS finding_count
        FROM office_inspections i
-       INNER JOIN office_buildings b ON b.id=i.building_id AND b.active=1
+       INNER JOIN office_buildings b ON b.id=i.building_id
        INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id
        INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
@@ -37,9 +37,9 @@ final class OfficeInspectionOverviewRepository {
     }
     $stmt=$this->db->prepare(
       "SELECT i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,
-              b.building_name,b.street_address,b.city
+              b.name AS building_name,b.address_line AS street_address,b.city
        FROM office_inspections i
-       INNER JOIN office_buildings b ON b.id=i.building_id AND b.active=1
+       INNER JOIN office_buildings b ON b.id=i.building_id
        INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id
        INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
