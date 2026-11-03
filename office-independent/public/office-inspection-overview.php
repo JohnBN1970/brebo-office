@@ -77,6 +77,16 @@ try {
 } catch (Throwable $error) {
   http_response_code(503); exit('Inspectieoverzicht tijdelijk niet beschikbaar.');
 }
+$reportMode=($_GET['view'] ?? '')==='report';
+if ($reportMode && $inspection === null) { http_response_code(404); exit('Rapport niet gevonden.'); }
+if ($reportMode) {
+  $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+  header('Content-Type: text/html; charset=utf-8');
+  $reportFindings=array_values(array_filter($findings,static fn(array $f):bool=>
+    !isset($selections[$f['id']]) || (int)$selections[$f['id']]===1));
+  require dirname(__DIR__).'/src/Inspection/OfficeInspectionReportPrintView.php';
+  exit;
+}
 $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 ?>
