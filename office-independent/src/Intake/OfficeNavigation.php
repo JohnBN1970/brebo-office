@@ -163,7 +163,10 @@ final class OfficeNavigation {
     $scope=$project===null?'':self::scope($project,$current);
     $root=in_array($path,['/office-test','/office-test/'],true);
     if($root && getenv('OFFICE_TEST_NAV_V2_ENABLED')!=='enabled')$html=str_replace(['Mijn werkplek','Goedemorgen, welkom in Office'],['Bedrijfsoverzicht','Bedrijfsoverzicht'],$html);
-    $steering=$path==='/office-test/projecten/detail'?self::steering($project):'';
+    // V3 owns project context and tabs; do not inject legacy GOTIK or scope.
+    $isV3Detail=$path==='/office-test/projecten/detail' && str_contains($html,'class="office-project-detail-v3"');
+    if($isV3Detail)$scope='';
+    $steering=$path==='/office-test/projecten/detail' && !$isV3Detail?self::steering($project):'';
     if($root){
       $links='<details class="office-steering-links"><summary>Onderdelen per GOTIK</summary>'.self::steering(null).'</details>';
       if(str_contains($html,'<!--office-overview-navigation-->'))$html=str_replace('<!--office-overview-navigation-->',$links,$html);

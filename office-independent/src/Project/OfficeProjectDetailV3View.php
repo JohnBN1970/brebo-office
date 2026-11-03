@@ -34,7 +34,7 @@ final class OfficeProjectDetailV3View
                 . ($tab === $key ? ' aria-current="page"' : '') . '>' . $e($label) . '</a>';
         }
         $html .= '</nav><main class="project-v3-content">';
-        if ($tab === 'overzicht') {
+        if ($tab === 'overzicht' && !isset($sections['overzicht'])) {
             $html .= '<section aria-label="Projectdashboard"><h2>Projectdashboard</h2>'
                 . '<div class="project-v3-kpis">'
                 . '<article><small>Gebouwen</small><strong>' . max(0, $buildingCount) . '</strong><p>Gekoppeld aan dit project</p></article>'
