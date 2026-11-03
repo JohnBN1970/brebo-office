@@ -47,14 +47,14 @@ try {
     exit;
   }
   $stmt = $db->prepare(
-    "SELECT DISTINCT b.id,b.building_name,b.street_address,b.city,pb.project_id
+    "SELECT DISTINCT b.id,b.name AS building_name,b.address_line AS street_address,b.city,pb.project_id
      FROM office_buildings b
      INNER JOIN office_project_buildings pb ON pb.building_id=b.id
      INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
      INNER JOIN office_operator_accounts a ON a.id=m.operator_id
-     WHERE b.active=1 AND a.active=1 AND m.operator_id=?
+     WHERE a.active=1 AND m.operator_id=?
        AND m.permission='manage'
-     ORDER BY b.building_name LIMIT 100"
+     ORDER BY b.name LIMIT 100"
   );
   $stmt->execute([$operator->operatorId]);
   $buildings = $stmt->fetchAll(PDO::FETCH_ASSOC);
