@@ -41,6 +41,9 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'),true,302);
     exit;
   }
+  $secret=getenv('OFFICE_TEST_INSPECTION_CSRF_SECRET');
+  $canWrite=is_string($secret) && strlen($secret)>=32;
+  $findingCsrf=$canWrite ? hash_hmac('sha256','inspection-finding:'.$operator->sessionId,$secret) : '';
   $buildingId=$_GET['building_id'] ?? '';
   $inspectionId=$_GET['inspection_id'] ?? '';
   $repo=new \Brebo\Office\Inspection\OfficeInspectionOverviewRepository($db);
@@ -73,7 +76,7 @@ header('Content-Type: text/html; charset=utf-8');
 *{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#1b2c3c;font:15px system-ui,sans-serif}
 main{max-width:1050px;margin:36px auto;padding:0 20px}section{background:white;border:1px solid #dce3eb;border-radius:12px;padding:24px;margin:18px 0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;border-bottom:1px solid #e5eaf0;padding:12px}a{color:#1c5f8d}
-dt{font-weight:700;margin-top:12px}dd{margin:5px 0 12px;white-space:pre-wrap}.muted{color:#65758a}
+label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;padding:10px;border:1px solid #c8d3df;border-radius:7px;font:inherit}input[type=checkbox]{width:auto}button{background:#1d587c;color:white;border:0;border-radius:8px;padding:12px 18px;margin-top:15px;cursor:pointer}dt{font-weight:700;margin-top:12px}dd{margin:5px 0 12px;white-space:pre-wrap}.muted{color:#65758a}
 @media(max-width:650px){table{display:block;overflow-x:auto}}
 </style></head><body><main>
 <h1>Gebouwinspecties</h1><p class="muted">Beveiligd inspectieoverzicht, uitsluitend voor toegankelijke projecten.</p>
@@ -89,8 +92,27 @@ dt{font-weight:700;margin-top:12px}dd{margin:5px 0 12px;white-space:pre-wrap}.mu
 <dl><?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader',
 'technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
 <dt><?= $e($label) ?></dt><dd><?= $e($finding[$key] ?? '') ?></dd>
-<?php endforeach; ?></dl></article>
+<?php endforeach; ?></dl><p class="muted">In rapport: <?= !isset($selections[$finding['id']]) || (int)$selections[$finding['id']] === 1 ? 'Ja' : 'Nee' ?></p></article>
 <?php endforeach; ?></section>
+<?php if ($inspection['status'] === 'draft' && $canWrite): ?>
+<section><h3>Nieuwe bevinding vastleggen</h3>
+<p class="muted">Opslaan wordt actief zodra de beveiligde bevindingroute in Office-test is aangesloten.</p>
+<form method="post" action="/office-test/inspectie/bevinding-opslaan">
+<input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
+<input type="hidden" name="csrf_token" value="<?= $e($findingCsrf) ?>">
+<label for="finding-code">Bevindingcode</label><input id="finding-code" name="code" maxlength="30" pattern="[A-Z][A-Z0-9-]*" required placeholder="B01">
+<label for="finding-floor">Verdieping</label><input id="finding-floor" name="floor_label" maxlength="120">
+<label for="finding-room">Ruimte</label><input id="finding-room" name="room_label" maxlength="120">
+<label for="finding-part">Bouwdeel</label><input id="finding-part" name="building_part" maxlength="160">
+<?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader',
+'technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
+<label for="new-<?= $e($key) ?>"><?= $e($label) ?></label>
+<textarea id="new-<?= $e($key) ?>" name="<?= $e($key) ?>" rows="3" <?= $key === 'observation' ? 'required' : '' ?>></textarea>
+<?php endforeach; ?>
+<label><input type="checkbox" name="include_in_report" value="1" checked> Opnemen in rapport</label>
+<button type="submit">Bevinding opslaan</button>
+</form></section>
+<?php endif; ?>
 <?php endif; ?>
 <?php if ($buildingId !== ''): ?>
 <section><h2>Inspecties bij gebouw <?= $e($buildingId) ?></h2>
