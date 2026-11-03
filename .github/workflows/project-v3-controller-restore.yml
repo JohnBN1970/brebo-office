@@ -1,0 +1,115 @@
+name: Restore Office-test V3 controller after inspection integration
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-v3-controller-restore.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RESTORE-V3-TEST to restore the preserved V3 controller
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate V3 presentation and navigation
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
+  restore:
+    needs: verify
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'RESTORE-V3-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Restore and verify active project controller, preserve inspections
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            office-independent/src/Intake/OfficeNavigation.php \
+            office-independent/src/Project/OfficeProjectDetailV3View.php \
+            "$USER@$HOST:/tmp/"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          stage="$root/office_calc_test/inspection-deploy-stage"
+          config="$root/office_calc_test/config/config.php"
+          router="$root/public_html/office-test/index.php"
+          target="$base/public/office-project.php"
+          original="$stage/integration-backup-20261103T105144Z/public/office-project.php"
+          test -f "$config" && test -f "$router" && test -f "$target" && test -f "$original" || { echo "REQUIRED_PATH_MISSING"; exit 20; }
+          active="$(php -r '$c=require $argv[1];echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          test "$active" = "$base" || { echo "ACTIVE_RELEASE_MISMATCH"; exit 21; }
+          grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router" || { echo "ROUTER_MISMATCH"; exit 22; }
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View breboV23Render create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            grep -Fq "$marker" "$original" || { echo "BACKUP_MARKER_MISSING: $marker"; exit 23; }
+          done
+          php -l "$original"
+          # Protect against overwriting an unexpected active controller revision.
+          expected="16f1015151318b0e0506156398701d2fce8937cc1f464dbb80dc6e128c3f394c"
+          current="$(sha256sum "$target" | awk '{print $1}')"
+          if test "$current" != "$expected"; then
+            if grep -Fq BREBO_PROJECT_DETAIL_V3_MOUNT "$target"; then
+              echo "ACTIVE_V3_ALREADY_PRESENT; skipping controller restore"
+            else
+              echo "UNEXPECTED_ACTIVE_CONTROLLER_SHA: $current"
+              exit 24
+            fi
+          else
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$target" "$target.backup-before-v3-restore-$stamp"
+            candidate="$(mktemp "$(dirname "$target")/.project-restore-XXXXXXXX.php")"
+            trap 'rm -f "$candidate"' EXIT
+            cp -p "$original" "$candidate"
+            php -l "$candidate"
+            chmod --reference="$target" "$candidate"
+            mv "$candidate" "$target"
+            php -l "$target"
+            echo "V3_CONTROLLER_RESTORED"
+          fi
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT create_project_contract create_project_term create_project_change; do
+            grep -Fq "$marker" "$target" || { echo "POST_RESTORE_MARKER_MISSING: $marker"; exit 25; }
+          done
+          # Only update presentation classes. Do not modify inspection routes, files, data or flags.
+          for spec in "Intake/OfficeNavigation" "Project/OfficeProjectDetailV3View"; do
+            name="${spec##*/}"
+            dest="$base/src/$spec.php"
+            test -f "$dest" || { echo "CLASS_MISSING: $name"; exit 26; }
+            temp="$(mktemp "$(dirname "$dest")/.ui-restore-XXXXXXXX.php")"
+            cp -p "/tmp/$name.php" "$temp"
+            php -l "$temp"
+            if cmp -s "$temp" "$dest"; then
+              rm -f "$temp"
+              echo "UNCHANGED: $name"
+              continue
+            fi
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            cp -p "$dest" "$dest.backup-v3-restore-$stamp"
+            chmod --reference="$dest" "$temp"
+            mv "$temp" "$dest"
+            php -l "$dest"
+            echo "UPDATED: $name"
+          done
+          echo "PROJECT_DETAIL_V3_RESTORED_WITH_UI_CLEANUP"
+          REMOTE
