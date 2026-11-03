@@ -59,7 +59,7 @@ final class OfficeBankSubmissionRepository {
     $statement = $this->pdo->prepare(
       "UPDATE office_bank_submission_intents
        SET status = 'submitted_for_authorization', bank_reference = :reference, changed_at = UTC_TIMESTAMP()
-       WHERE batch_id = :batch_id AND status = 'reserved'"
+       WHERE batch_id = :batch_id AND status = 'dispatching'"
     );
     $statement->execute(['reference' => trim($bankReference), 'batch_id' => $batchId]);
     if ($statement->rowCount() !== 1) throw new \DomainException('Payment submission outcome cannot be recorded');
@@ -70,7 +70,7 @@ final class OfficeBankSubmissionRepository {
     $statement = $this->pdo->prepare(
       "UPDATE office_bank_submission_intents
        SET status = 'unknown', changed_at = UTC_TIMESTAMP()
-       WHERE batch_id = :batch_id AND status = 'reserved'"
+       WHERE batch_id = :batch_id AND status = 'dispatching'"
     );
     $statement->execute(['batch_id' => $batchId]);
     if ($statement->rowCount() !== 1) throw new \DomainException('Unknown outcome cannot be recorded');
