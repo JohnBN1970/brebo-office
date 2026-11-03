@@ -1,0 +1,53 @@
+name: Diagnose Office-test inspection 503
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read-only inspection dependency checks
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          $c=require getenv("CONFIG_PATH");
+          foreach($c as $k=>$v) if(is_string($k)&&is_string($v)) putenv($k."=".$v);
+          $base=$c["OFFICE_PRIVATE_ROOT"]??"";
+          if(!is_string($base)||!str_contains($base,"/office_calc_test/release-")||!str_ends_with($base,"/private")) exit(2);
+          echo "PASS TEST_RELEASE_SCOPE\n";
+          foreach(["OfficeMount.php","WebsiteCrmOperatorContext.php","WebsiteCrmOperatorSessionProviderInterface.php","WebsiteOfficeCrmSessionRepository.php","WebsiteOfficeCrmCookieSessionProvider.php"] as $f){
+            $p=$base."/src/Intake/".$f;
+            echo (is_file($p)?"PRESENT ":"MISSING ")."Intake/".$f."\n";
+          }
+          foreach(["office_buildings","office_project_buildings","office_project_memberships","office_operator_accounts"] as $table){
+            $db=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            $q=$db->query("SHOW COLUMNS FROM ".$table);
+            $names=$q->fetchAll(PDO::FETCH_COLUMN);
+            echo "COLUMNS ".$table." ".implode(",",$names)."\n";
+          }
+          $db=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          try {
+            $stmt=$db->prepare("SELECT DISTINCT b.id,b.building_name,b.street_address,b.city,pb.project_id FROM office_buildings b INNER JOIN office_project_buildings pb ON pb.building_id=b.id INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id WHERE b.active=1 AND a.active=1 AND m.operator_id=? AND m.permission='manage' ORDER BY b.building_name LIMIT 100");
+            $stmt->execute([0]);
+            echo "PASS INSPECTION_BUILDING_QUERY\n";
+          } catch(Throwable $e) {
+            echo "FAIL INSPECTION_BUILDING_QUERY ".get_class($e)." SQLSTATE=".($e instanceof PDOException?$e->getCode():"n/a")."\n";
+          }
+          echo "PASS READ_ONLY_INSPECTION_DIAGNOSIS\n";
+          PHP
+          REMOTE
