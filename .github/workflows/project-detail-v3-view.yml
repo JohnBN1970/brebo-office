@@ -1,0 +1,19 @@
+name: Project detail V3 view
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/tests/OfficeProjectDetailV3ViewTest.php'
+      - '.github/workflows/project-detail-v3-view.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint and detail page contract
+        run: |
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l office-independent/tests/OfficeProjectDetailV3ViewTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
