@@ -21,7 +21,12 @@ final class OfficeInspectionReportConfigurationRepository {
       'ON DUPLICATE KEY UPDATE report_type=VALUES(report_type), sections_json=VALUES(sections_json), notes=VALUES(notes), updated_by=VALUES(updated_by)'
     );
     $stmt->execute([$config['report_type'],json_encode($config['sections'],JSON_THROW_ON_ERROR),$config['notes'],$operatorId,$inspectionId,'draft']);
-    if ($stmt->rowCount() === 0) throw new InvalidArgumentException('inspection_not_editable');
+    // MySQL may report zero affected rows for an identical, valid upsert.
+    if ($stmt->rowCount() === 0) {
+      $check=$this->db->prepare('SELECT 1 FROM office_inspections WHERE id=? AND status=?');
+      $check->execute([$inspectionId,'draft']);
+      if ($check->fetchColumn() === false) throw new InvalidArgumentException('inspection_not_editable');
+    }
     return $config;
   }
 
