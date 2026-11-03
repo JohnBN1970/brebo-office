@@ -41,19 +41,40 @@ try {
       $statements[$m[1]]=$sql;
     }
   }
+  $existing=0;
+  $missing=0;
   foreach ($statements as $table=>$sql) {
     $stmt=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
     $stmt->execute([$table]);
     if ((int)$stmt->fetchColumn()!==0) {
+      $existing++;
       echo "EXISTS $table (no changes)\n";
       continue;
     }
+    $missing++;
     if (!$apply) {
       echo "PENDING $table\n";
       continue;
     }
     $db->exec($sql);
     echo "CREATED $table\n";
+  }
+  if ($apply && $missing > 0) {
+    $required=[
+      'office_inspections'=>['id','building_id','project_id','status'],
+      'office_inspection_findings'=>['id','inspection_id','code','status'],
+      'office_inspection_evidence'=>['id','finding_id','storage_key'],
+      'office_inspection_report_configs'=>['inspection_id','report_type','sections_json'],
+      'office_inspection_report_findings'=>['inspection_id','finding_id','include_in_report'],
+    ];
+    foreach ($required as $table=>$columns) {
+      $check=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+      $check->execute([$table]);
+      $actual=$check->fetchAll(PDO::FETCH_COLUMN);
+      foreach ($columns as $column) {
+        if (!in_array($column,$actual,true)) throw new RuntimeException('schema_incomplete: '.$table.'.'.$column);
+      }
+    }
   }
   echo $apply ? "DONE: schema installation attempted; run read-only preflight before enabling flags\n" : "DRY RUN: no database changes; use --apply only after backup and approval\n";
 } catch (Throwable $e) {
