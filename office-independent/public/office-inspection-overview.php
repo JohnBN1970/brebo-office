@@ -150,5 +150,13 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <td><?= $e($row['status']) ?></td><td><?= $e($row['finding_count']) ?></td></tr>
 <?php endforeach; ?>
 </tbody></table><?php if (!$inspections): ?><p class="muted">Geen toegankelijke inspecties gevonden.</p><?php endif; ?></section>
-<?php else: ?><section><p>Open dit overzicht vanuit een gebouw met <code>building_id</code> of een bestaande inspectie met <code>inspection_id</code>.</p></section><?php endif; ?>
+<?php else: ?><section><h2><?= $projectId !== null ? 'Projectinspecties' : 'Alle toegankelijke inspecties' ?></h2>
+<p><a href="/office-test/inspectie<?= $projectId !== null ? '?project_id='.$e($projectId) : '' ?>">Nieuwe inspectie</a></p>
+<table><thead><tr><th>Datum</th><th>Inspectie</th><th>Gebouw</th><th>Status</th><th>Bevindingen</th></tr></thead><tbody>
+<?php foreach ($inspections as $row): ?><tr>
+<td><?= $e($row['inspection_date']) ?></td>
+<td><a href="/office-test/inspecties?inspection_id=<?= $e($row['id']) ?>"><?= $e($row['title']) ?></a></td>
+<td><?= $e($row['building_name']) ?></td><td><?= $e($row['status']) ?></td><td><?= $e($row['finding_count']) ?></td>
+</tr><?php endforeach; ?></tbody></table>
+<?php if (!$inspections): ?><p class="muted">Geen toegankelijke inspecties gevonden.</p><?php endif; ?></section><?php endif; ?>
 </main></body></html>
