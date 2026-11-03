@@ -20,7 +20,7 @@ $prepared = ['batch_id'=>13, 'pain001_xml'=>$xml,
 $calls = 0;
 $submit = static function(array $request) use (&$calls): array {
   $calls++;
-  return ['bank_reference'=>'reference-13'];
+  return ['provider'=>'abnamro', 'state'=>'submitted_for_authorization', 'bank_reference'=>'reference-13'];
 };
 try { Dispatch::send($prepared, $db, $repo, $submit); throw new RuntimeException('Unreserved payment sent'); }
 catch (DomainException $expected) {}
