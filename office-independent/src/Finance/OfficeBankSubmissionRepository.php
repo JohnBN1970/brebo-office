@@ -32,6 +32,17 @@ final class OfficeBankSubmissionRepository {
     return $intent;
   }
 
+  public function findReserved(int $batchId): ?array {
+    if ($batchId < 1) throw new \DomainException('Invalid batch');
+    $stmt = $this->pdo->prepare(
+      "SELECT idempotency_key, payload_sha256 FROM office_bank_submission_intents
+       WHERE batch_id = :batch_id AND status = 'reserved'"
+    );
+    $stmt->execute(['batch_id' => $batchId]);
+    $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+    return is_array($row) ? $row : null;
+  }
+
   public function recordAccepted(int $batchId, string $bankReference): void {
     if ($batchId < 1 || trim($bankReference) === '') throw new \DomainException('Invalid bank reference');
     $statement = $this->pdo->prepare(
