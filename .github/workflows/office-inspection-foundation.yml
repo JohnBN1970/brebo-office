@@ -1,0 +1,48 @@
+name: Office inspection foundation
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inspection/**'
+      - 'office-independent/public/office-inspection*.php'
+      - 'office-independent/tests/OfficeInspection*.php'
+      - 'office-independent/deployment/hostinger/office-inspection*.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - '.github/workflows/office-inspection-foundation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspection-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP version and extensions
+        run: |
+          php -v
+          php -m
+      - name: Lint all inspection PHP files and Office-test router
+        run: |
+          set -eu
+          find office-independent/src/Inspection office-independent/tests office-independent/public office-independent/deployment/hostinger -maxdepth 1 -type f -name 'OfficeInspection*.php' -o -false > /dev/null
+          for f in office-independent/src/Inspection/*.php office-independent/tests/OfficeInspection*.php office-independent/public/office-inspection*.php office-independent/deployment/hostinger/office-inspection*.php office-independent/deployment/hostinger/office-test-index.php; do
+            php -l "$f"
+          done
+      - name: Run inspection validation and authorization contracts
+        run: |
+          set -eu
+          php office-independent/tests/OfficeInspectionReportConfigurationTest.php
+          php office-independent/tests/OfficeInspectionCreateActionContractTest.php
+          php office-independent/tests/OfficeInspectionFindingActionContractTest.php
+      - name: Verify inspection routes and form contracts
+        run: |
+          set -eu
+          grep -F "'/office-test/inspectie' => 'office-inspection.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F "'/office-test/inspectie/aanmaken' => 'office-inspection-create.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F "'/office-test/inspecties' => 'office-inspection-overview.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F "'/office-test/inspectie/bevinding-opslaan' => 'office-inspection-finding-save.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F 'name="building_project"' office-independent/public/office-inspection.php
+          grep -F 'name="csrf_token"' office-independent/public/office-inspection.php
+          grep -F 'name="csrf_token"' office-independent/public/office-inspection-overview.php
