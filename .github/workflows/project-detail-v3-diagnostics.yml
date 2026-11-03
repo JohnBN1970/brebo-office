@@ -1,0 +1,80 @@
+name: Office-test project detail V3 compatibility diagnostics
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-detail-v3-diagnostics.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to inspect the active project page
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate local transformer
+        run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/mount-project-detail-v3.py
+  diagnose:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active server controller without changing it
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          target="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private/public/office-project.php"
+          test -f "$target"
+          php -l "$target"
+          python3 - "$target" <<'PY'
+          from pathlib import Path
+          import sys
+          text = Path(sys.argv[1]).read_text()
+          markers = [
+              "OfficeNativeProjectAccess",
+              "office_project_buildings",
+              "$financialSectionHtml",
+              "$buildingHtml",
+              "$workbenchHtml",
+              "$executionHtml",
+              "$projectId",
+              "$activeTab",
+              "create_project_contract",
+              "create_project_term",
+              "create_project_change",
+              "OfficeProjectFinanceOverview",
+              "echo '<!doctype html><html lang=\"nl\"><head>",
+          ]
+          print("=== REQUIRED MARKER PRESENCE (NO SOURCE CONTENT) ===")
+          for marker in markers:
+              print(("PRESENT " if marker in text else "MISSING ") + marker)
+          print("=== FILE STRUCTURE ===")
+          print("Lines:", text.count("\n") + 1)
+          print("HTML document starts:", text.count("<!doctype html>"))
+          print("V3 mount present:", "BREBO_PROJECT_DETAIL_V3_MOUNT" in text)
+          print("=== RENDER REFERENCE LINE NUMBERS ===")
+          for i, line in enumerate(text.splitlines(), 1):
+              if any(s in line for s in ("<!doctype html>", "$financialSectionHtml", "$buildingHtml", "$workbenchHtml", "$executionHtml", "create_project_contract", "create_project_term", "create_project_change")):
+                  print(i, ":", ",".join(s for s in ("doctype", "financialSectionHtml", "buildingHtml", "workbenchHtml", "executionHtml", "create_project_contract", "create_project_term", "create_project_change") if s in line))
+          PY
+          REMOTE
