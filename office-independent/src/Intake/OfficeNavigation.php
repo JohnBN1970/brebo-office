@@ -78,7 +78,13 @@ final class OfficeNavigation {
         ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
         ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
       ]:[]],
-      ['Gebouwen','gebouwen',$projectsAvailable?[[ 'Gebouwenoverzicht','/office-test/gebouwen' ]]:[]],
+      ['Gebouwen','gebouwen',$projectsAvailable?array_merge(
+        [['Gebouwenoverzicht','/office-test/gebouwen']],
+        (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled'
+          && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled')
+          ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']]
+          : []
+      ):[]],
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
@@ -90,7 +96,7 @@ final class OfficeNavigation {
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
-    elseif(str_starts_with($path,'/office-test/gebouwen'))$selected='gebouwen';
+    elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
