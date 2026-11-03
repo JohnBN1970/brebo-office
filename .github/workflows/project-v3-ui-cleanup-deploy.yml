@@ -1,0 +1,78 @@
+name: Projectdetail V3 UI cleanup Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to update V3 UI classes
+        required: true
+  pull_request:
+    paths:
+      - '.github/workflows/project-v3-ui-cleanup-deploy.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate UI classes and tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Safely update active Office-test V3 UI classes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            office-independent/src/Intake/OfficeNavigation.php \
+            office-independent/src/Project/OfficeProjectDetailV3View.php \
+            "$USER@$HOST:/tmp/"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          controller="$base/public/office-project.php"
+          test -f "$controller" && grep -Fq BREBO_PROJECT_DETAIL_V3_MOUNT "$controller" || { echo "V3_CONTROLLER_NOT_INSTALLED"; exit 20; }
+          test -f "$base/src/Intake/OfficeNavigation.php" || { echo "NAVIGATION_CLASS_MISSING"; exit 21; }
+          test -f "$base/src/Project/OfficeProjectDetailV3View.php" || { echo "V3_VIEW_CLASS_MISSING"; exit 22; }
+          stamp="$(date +%Y%m%d%H%M%S)"
+          for spec in "Intake/OfficeNavigation" "Project/OfficeProjectDetailV3View"; do
+            name="${spec##*/}"
+            target="$base/src/$spec.php"
+            candidate="$(mktemp "$(dirname "$target")/.v3-ui-XXXXXXXX.php")"
+            cp -p "/tmp/$name.php" "$candidate"
+            php -l "$candidate"
+            if cmp -s "$candidate" "$target"; then
+              rm -f "$candidate"
+              echo "UNCHANGED: $name"
+              continue
+            fi
+            cp -p "$target" "$target.backup-v3-ui-$stamp"
+            chmod --reference="$target" "$candidate"
+            mv "$candidate" "$target"
+            php -l "$target" || { cp -p "$target.backup-v3-ui-$stamp" "$target"; exit 23; }
+            echo "UPDATED: $name"
+          done
+          php -l "$controller"
+          echo PROJECT_V3_UI_CLEANUP_DEPLOYED
+          REMOTE
