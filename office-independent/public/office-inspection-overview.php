@@ -77,6 +77,16 @@ try {
 } catch (Throwable $error) {
   http_response_code(503); exit('Inspectieoverzicht tijdelijk niet beschikbaar.');
 }
+$reportMode=($_GET['view'] ?? '')==='report';
+if ($reportMode) {
+  if ($inspection === null) { http_response_code(404); exit('Rapport niet gevonden.'); }
+  $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+  $reportFindings=array_values(array_filter($findings,static fn(array $f):bool=>
+    !isset($selections[$f['id']]) || (int)$selections[$f['id']]===1));
+  header('Content-Type: text/html; charset=utf-8');
+  require dirname(__DIR__).'/src/Inspection/OfficeInspectionReportPrintView.php';
+  exit;
+}
 $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
   header('Content-Type: text/html; charset=utf-8');
   $reportFindings=array_values(array_filter($findings,static fn(array $f):bool=>
@@ -100,6 +110,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <?php if ($inspection !== null): ?>
 <section><h2><?= $e($inspection['title']) ?></h2>
 <p><?= $e($inspection['building_name']) ?> · <?= $e($inspection['inspection_date']) ?> · <?= $e($inspection['status']) ?></p>
+<p><a href="/office-test/inspecties?inspection_id=<?= $e($inspection['id']) ?>&amp;view=report">Rapportvoorbeeld / afdrukken</a></p>
 <p><strong>Rapporttype:</strong> <?= $e($config['report_type'] ?? 'Niet ingesteld') ?></p>
 <p><strong>Hoofdstukken:</strong> <?= $e(implode(', ', $config['sections'] ?? [])) ?></p>
 <h3>Bevindingen</h3>
