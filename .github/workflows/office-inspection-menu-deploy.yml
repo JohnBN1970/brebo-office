@@ -1,0 +1,68 @@
+name: Deploy Office-test inspection navigation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-INSPECTION-MENU
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY-INSPECTION-MENU' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          persist-credentials: false
+      - name: Verify navigation and regression tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php office-independent/tests/OfficeNavigationV2Test.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Deploy only OfficeNavigation.php to active Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/inspection-deploy-stage"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" office-independent/src/Intake/OfficeNavigation.php "$remote:$stage/OfficeNavigation-inspection-menu.php"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL TEST_SCOPE"; exit 2;; esac
+          CONFIG_PATH="$config" php -r '
+            $c=require getenv("CONFIG_PATH");
+            if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
+              || ($c["OFFICE_TEST_INSPECTION_UI_ENABLED"]??"")!=="enabled"
+              || ($c["OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED"]??"")!=="enabled") exit(2);
+            echo "PASS INSPECTION_FEATURE_ENABLED\n";
+          '
+          target="$active/src/Intake/OfficeNavigation.php"
+          staged="$base/inspection-deploy-stage/OfficeNavigation-inspection-menu.php"
+          test -f "$target" && test -f "$staged"
+          php -l "$staged"
+          grep -Fq "'Nieuwe inspectie','/office-test/inspectie'" "$staged"
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup="$base/inspection-deploy-stage/OfficeNavigation-before-inspection-menu-$stamp.php"
+          cp -p "$target" "$backup"
+          install -m 644 "$staged" "$target"
+          if ! php -l "$target"; then cp -p "$backup" "$target"; exit 3; fi
+          echo "PASS INSPECTION_NAVIGATION_DEPLOYED"
+          echo "BACKUP_NAME=${backup##*/}"
+          REMOTE
