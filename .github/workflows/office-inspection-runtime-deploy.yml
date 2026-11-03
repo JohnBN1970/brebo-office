@@ -1,0 +1,102 @@
+name: Deploy inspection pages to Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-INSPECTION-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY-INSPECTION-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Verify PHP files
+        run: |
+          set -euo pipefail
+          for f in office-independent/public/office-inspection*.php office-independent/src/Inspection/*.php; do php -l "$f"; done
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Upload isolated inspection sources
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'mkdir -p "$HOME/domains/brebobv.nl/office_calc_test/inspection-deploy-stage"'
+          tar -C office-independent -czf inspection-stage.tar.gz public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-inspection-finding-save.php src/Inspection
+          scp -P "$PORT" inspection-stage.tar.gz "$remote:domains/brebobv.nl/office_calc_test/inspection-deploy-stage/inspection-stage.tar.gz"
+      - name: Install files and patch only inspection routes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL ACTIVE_SCOPE"; exit 2;; esac
+          test -d "$active/public"
+          test -d "$active/src"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$router"
+          php -l "$router"
+          stage="$base/inspection-deploy-stage"
+          tar -tzf "$stage/inspection-stage.tar.gz" | grep -q '^src/Inspection/'
+          tmp="$(mktemp -d "$stage/unpack.XXXXXXXX")"
+          trap 'rm -rf "$tmp"' EXIT
+          tar -xzf "$stage/inspection-stage.tar.gz" -C "$tmp"
+          for f in "$tmp"/public/*.php "$tmp"/src/Inspection/*.php; do php -l "$f" >/dev/null; done
+          # Check router patch feasibility before any release modification.
+          php -r '
+            $s=file_get_contents($argv[1]);
+            if (strpos($s,"/office-test/inspectie")!==false) exit(3);
+            if (substr_count($s,"$routes = [")!==1) exit(4);
+            if (substr_count($s,"/office-test/projecten")<1) exit(5);
+          ' "$router"
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup="$stage/backup-$stamp"
+          mkdir -p "$backup"
+          cp -p "$router" "$backup/router.php"
+          mkdir -p "$backup/public"
+          mkdir -p "$backup/src"
+          for f in "$tmp"/public/*.php; do name="${f##*/}"; if test -e "$active/public/$name"; then cp -p "$active/public/$name" "$backup/public/$name"; fi; done
+          if test -d "$active/src/Inspection"; then cp -a "$active/src/Inspection" "$backup/src/Inspection"; fi
+          install -d -m 755 "$active/src/Inspection"
+          for f in "$tmp"/src/Inspection/*.php; do install -m 644 "$f" "$active/src/Inspection/${f##*/}"; done
+          for f in "$tmp"/public/*.php; do install -m 644 "$f" "$active/public/${f##*/}"; done
+          php -r '
+            $p=$argv[1]; $s=file_get_contents($p);
+            $needle="$routes = [";
+            $insert="\n  '\''/office-test/inspectie'\'' => '\''office-inspection.php'\'',\n  '\''/office-test/inspectie/aanmaken'\'' => '\''office-inspection-create.php'\'',\n  '\''/office-test/inspecties'\'' => '\''office-inspection-overview.php'\'',\n  '\''/office-test/inspectie/bevinding-opslaan'\'' => '\''office-inspection-finding-save.php'\'',";
+            $s=str_replace($needle,$needle.$insert,$s,$count);
+            if ($count!==1) exit(4);
+            file_put_contents($p,$s,LOCK_EX);
+          ' "$router"
+          if ! php -l "$router"; then cp -p "$backup/router.php" "$router"; echo 'FAIL ROUTER_RESTORED'; exit 2; fi
+          for f in office-inspection.php office-inspection-create.php office-inspection-overview.php office-inspection-finding-save.php; do
+            test -f "$active/public/$f"
+            php -l "$active/public/$f" >/dev/null
+            echo "PASS FILE $f"
+          done
+          echo "PASS INSPECTION_FILES_AND_ROUTES_DEPLOYED"
+          echo "ROLLBACK_BACKUP=${backup##*/}"
+          echo 'NOTE Inspection feature flags unchanged'
+          REMOTE
