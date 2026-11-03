@@ -120,7 +120,7 @@ try {
       }
       require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationLink.php';
       (new \Brebo\Office\Project\OfficeHousingCalculationLink($db))->link($projectId, $housingId, $calcId);
-      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      header('Location: /office-test/projecten/detail?id=' . $projectId . '&tab=gebouwen', true, 303);
       exit;
     }
     if ($action === 'bulk_create_housing_scopes') {
@@ -145,7 +145,7 @@ try {
       require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationScopeWriter.php';
       $writer = new \Brebo\Office\Project\OfficeHousingCalculationScopeWriter($db);
       foreach ($unique as $id) $writer->create($projectId, $id);
-      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      header('Location: /office-test/projecten/detail?id=' . $projectId . '&tab=gebouwen', true, 303);
       exit;
     }
     if ($action === 'create_housing_scope') {
@@ -156,7 +156,7 @@ try {
       }
       require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationScopeWriter.php';
       (new \Brebo\Office\Project\OfficeHousingCalculationScopeWriter($db))->create($projectId, $housingTypeId);
-      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      header('Location: /office-test/projecten/detail?id=' . $projectId . '&tab=gebouwen', true, 303);
       exit;
     }
     if ($action !== 'housing_type') {
@@ -173,7 +173,7 @@ try {
     }
     require_once dirname(__DIR__) . '/src/Project/OfficeHousingTypeWriter.php';
     (new \Brebo\Office\Project\OfficeHousingTypeWriter($db))->assign($projectId, $buildingId, $code, $name, $count);
-    header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test/projecten/detail?id=' : '/office/projecten/detail?id=') . $projectId, true, 303);
+    header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test/projecten/detail?id=' : '/office/projecten/detail?id=') . $projectId . '&tab=gebouwen', true, 303);
     exit;
   }
   // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
