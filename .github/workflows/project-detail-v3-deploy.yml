@@ -1,0 +1,98 @@
+name: Projectdetailpagina V3 Office-test deployment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-detail-v3-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to deploy
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate project V3 transformation and render
+        run: |
+          set -euo pipefail
+          cp office-independent/public/office-project.php /tmp/office-project-detail-v3.php
+          python3 office-independent/deployment/hostinger/mount-project-detail-v3.py /tmp/office-project-detail-v3.php
+          php -l /tmp/office-project-detail-v3.php
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l office-independent/src/Project/OfficeProjectPageStructure.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Deploy V3 detail renderer to active Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            office-independent/deployment/hostinger/mount-project-detail-v3.py \
+            office-independent/src/Project/OfficeProjectDetailV3View.php \
+            office-independent/src/Project/OfficeProjectPageStructure.php \
+            "$USER@$HOST:/tmp/"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          target="$base/public/office-project.php"
+          router="$root/public_html/office-test/index.php"
+          htaccess="$root/public_html/office-test/.htaccess"
+          test -f "$target" && test ! -L "$target" || { echo "ACTIVE_PROJECT_DETAIL_MISSING"; exit 20; }
+          test -f "$router" && test -f "$htaccess" || { echo "OFFICE_TEST_ROUTER_MISSING"; exit 21; }
+          grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router" || { echo "DETAIL_ROUTER_MISMATCH"; exit 22; }
+          grep -Eq 'RewriteRule \^projecten\(/detail\)\?/?\$ index.php' "$htaccess" || { echo "HTACCESS_PROJECT_ROUTE_MISSING"; exit 23; }
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
+            grep -Fq "$marker" "$target" || { echo "REQUIRED_HANDLER_MISSING: $marker"; exit 24; }
+          done
+          mkdir -p "$base/src/Project"
+          for name in OfficeProjectPageStructure OfficeProjectDetailV3View; do
+            dest="$base/src/Project/$name.php"
+            if test -f "$dest"; then
+              cmp -s "/tmp/$name.php" "$dest" || { echo "EXISTING_CLASS_DIFFERS: $name"; exit 25; }
+            else
+              cp "/tmp/$name.php" "$dest"
+              chmod 644 "$dest"
+            fi
+            php -l "$dest"
+          done
+          if grep -Fq BREBO_PROJECT_DETAIL_V3_MOUNT "$target"; then
+            echo PROJECT_DETAIL_V3_ALREADY_DEPLOYED
+            exit 0
+          fi
+          backup="$target.backup-detail-v3-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$(dirname "$target")/.detail-v3-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p "$target" "$candidate"
+          python3 /tmp/mount-project-detail-v3.py "$candidate"
+          php -l "$candidate"
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess BREBO_PROJECT_DETAIL_V3_MOUNT; do
+            grep -Fq "$marker" "$candidate" || { echo "POST_PATCH_MARKER_MISSING: $marker"; exit 26; }
+          done
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          php -l "$target" || { cp -p "$backup" "$target"; exit 27; }
+          echo PROJECT_DETAIL_V3_TEST_DEPLOYED
+          REMOTE
