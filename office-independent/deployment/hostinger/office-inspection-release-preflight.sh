@@ -26,6 +26,21 @@ if [ -f "$router" ]; then
 else
   echo 'ROOT ROUTER: NOT FOUND'
 fi
+printf '%s\\n' '=== ACTIVE RELEASE CONTROL ==='
+config="$base/config/config.php"
+if [ ! -f "$config" ]; then
+  echo 'FAIL: Office-test config not found'
+  exit 2
+fi
+active="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"]) || !is_string($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$config")"
+case "$active" in
+  "$base"/release-*/private)
+    if [ ! -d "$active" ]; then echo 'FAIL: active release missing'; exit 2; fi
+    expected="$active"
+    echo "ACTIVE RELEASE: ${active#"$base"/}"
+    ;;
+  *) echo 'FAIL: active root outside Office-test'; exit 2 ;;
+esac
 printf '%s\n' '=== INSPECTION FILE CONTROL ==='
 if [ -d "$expected" ]; then
   for file in public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-inspection-finding-save.php; do
