@@ -27,7 +27,8 @@ jobs:
             office-independent/tests/OfficeSepaArtifactRepositoryTest.php \
             office-independent/tests/OfficeBankSubmissionIntentTest.php \
             office-independent/tests/OfficePaymentBatchSubmissionGuardTest.php \
-            office-independent/tests/OfficePaymentSubmissionPreparationTest.php
+            office-independent/tests/OfficePaymentSubmissionPreparationTest.php \
+            office-independent/tests/OfficePaymentSubmissionDispatchTest.php
           do
             php -l "$test"
             php "$test"
