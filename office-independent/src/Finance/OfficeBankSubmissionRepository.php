@@ -18,7 +18,13 @@ final class OfficeBankSubmissionRepository {
        VALUES (:batch_id, :idempotency_key, :payload_sha256, :status, :requested_by, UTC_TIMESTAMP())'
     );
     try {
-      $statement->execute($intent + ['requested_by' => $operatorId]);
+      $statement->execute([
+        'batch_id' => $intent['batch_id'],
+        'idempotency_key' => $intent['idempotency_key'],
+        'payload_sha256' => $intent['payload_sha256'],
+        'status' => $intent['status'],
+        'requested_by' => $operatorId,
+      ]);
     } catch (\PDOException $e) {
       // Unique constraints and any storage failures must block the bank call.
       throw new \DomainException('Payment submission reservation unavailable or already exists', 0, $e);
