@@ -65,12 +65,14 @@ jobs:
           tar -xzf "$stage/inspection-stage.tar.gz" -C "$tmp"
           for f in "$tmp"/public/*.php "$tmp"/src/Inspection/*.php; do php -l "$f" >/dev/null; done
           # Check router patch feasibility before any release modification.
-          php -r '
-            $s=file_get_contents($argv[1]);
-            if (strpos($s,"/office-test/inspectie")!==false) exit(3);
-            if (substr_count($s,"$routes = [")!==1) exit(4);
-            if (substr_count($s,"/office-test/projecten")<1) exit(5);
-          ' "$router"
+          ROUTER_PATH="$router" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          s = Path(os.environ["ROUTER_PATH"]).read_text()
+          assert "/office-test/inspectie" not in s, "inspection routes already exist"
+          assert s.count("$routes = [") == 1, "unsupported router layout"
+          assert "/office-test/projecten" in s, "project route missing"
+          PY
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
           backup="$stage/backup-$stamp"
           mkdir -p "$backup"
@@ -82,14 +84,20 @@ jobs:
           install -d -m 755 "$active/src/Inspection"
           for f in "$tmp"/src/Inspection/*.php; do install -m 644 "$f" "$active/src/Inspection/${f##*/}"; done
           for f in "$tmp"/public/*.php; do install -m 644 "$f" "$active/public/${f##*/}"; done
-          php -r '
-            $p=$argv[1]; $s=file_get_contents($p);
-            $needle="$routes = [";
-            $insert="\n  '\''/office-test/inspectie'\'' => '\''office-inspection.php'\'',\n  '\''/office-test/inspectie/aanmaken'\'' => '\''office-inspection-create.php'\'',\n  '\''/office-test/inspecties'\'' => '\''office-inspection-overview.php'\'',\n  '\''/office-test/inspectie/bevinding-opslaan'\'' => '\''office-inspection-finding-save.php'\'',";
-            $s=str_replace($needle,$needle.$insert,$s,$count);
-            if ($count!==1) exit(4);
-            file_put_contents($p,$s,LOCK_EX);
-          ' "$router"
+          ROUTER_PATH="$router" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path(os.environ["ROUTER_PATH"])
+          s = p.read_text()
+          needle = "$routes = ["
+          assert s.count(needle) == 1
+          entries = """
+            '/office-test/inspectie' => 'office-inspection.php',
+            '/office-test/inspectie/aanmaken' => 'office-inspection-create.php',
+            '/office-test/inspecties' => 'office-inspection-overview.php',
+            '/office-test/inspectie/bevinding-opslaan' => 'office-inspection-finding-save.php',"""
+          p.write_text(s.replace(needle, needle + entries, 1))
+          PY
           if ! php -l "$router"; then cp -p "$backup/router.php" "$router"; echo 'FAIL ROUTER_RESTORED'; exit 2; fi
           for f in office-inspection.php office-inspection-create.php office-inspection-overview.php office-inspection-finding-save.php; do
             test -f "$active/public/$f"
