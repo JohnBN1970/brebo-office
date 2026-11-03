@@ -36,4 +36,14 @@ if ($calls !== 1 || $result['status'] !== 'submitted_for_authorization') throw n
 try { Dispatch::send($prepared, $db, $repo, $submit); throw new RuntimeException('Repeat dispatch accepted'); }
 catch (DomainException $expected) {}
 if ($calls !== 1) throw new RuntimeException('Bank called twice');
+// A second connection cannot claim a dispatch that has already been claimed.
+$db->exec("INSERT INTO office_bank_submission_intents (batch_id, idempotency_key, payload_sha256, status, requested_by) VALUES (14, '" . str_repeat('b',64) . "', '" . hash('sha256', $xml) . "', 'reserved', 7)");
+$second = $prepared;
+$second['batch_id'] = 14;
+$second['idempotency_key'] = str_repeat('b',64);
+$repo->claimForDispatch(14, $second['payload_sha256'], $second['idempotency_key']);
+try { $repo->claimForDispatch(14, $second['payload_sha256'], $second['idempotency_key']); throw new RuntimeException('Duplicate claim accepted'); }
+catch (DomainException $expected) {}
+$repo->recordUnknown(14);
+if ($db->query('SELECT status FROM office_bank_submission_intents WHERE batch_id = 14')->fetchColumn() !== 'unknown') throw new RuntimeException('Unknown outcome not persisted');
 echo "OfficePaymentSubmissionDispatchTest OK\n";
