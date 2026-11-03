@@ -22,11 +22,11 @@ printf '%s\n' '=== ROUTER CONTROL ==='
 router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
 if [ -f "$router" ]; then
   echo 'ROOT ROUTER: PRESENT'
-  grep -n -F 'OFFICE_PRIVATE_ROOT' "$router" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY).*/[redacted]/' || true
+  echo 'Router exists (contents intentionally not printed)'
 else
   echo 'ROOT ROUTER: NOT FOUND'
 fi
-printf '%s\\n' '=== ACTIVE RELEASE CONTROL ==='
+printf '%s\n' '=== ACTIVE RELEASE CONTROL ==='
 config="$base/config/config.php"
 if [ ! -f "$config" ]; then
   echo 'FAIL: Office-test config not found'
