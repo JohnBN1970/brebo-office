@@ -33,6 +33,9 @@ final class OfficePaymentSubmissionDispatch {
       || !hash_equals($record['idempotency_key'], $key)) {
       throw new \DomainException('Committed payment submission reservation required');
     }
+    // Atomic status transition is committed before any network request.
+    // A crashed or timed-out dispatch stays non-retryable until reconciled.
+    $repository->claimForDispatch($batchId, $hash, $key);
     try {
       $result = $bankSubmit([
         'pain001_xml' => $xml,
