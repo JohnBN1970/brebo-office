@@ -63,37 +63,62 @@ jobs:
           mkdir -p "$backup"
           cp -p "$config" "$backup/config.php"
           cp -p "$htaccess" "$backup/htaccess"
-          CONFIG_PATH="$config" HTACCESS_PATH="$htaccess" python3 - <<'PY'
-          import os, re, secrets, subprocess
+          CONFIG_PATH="$config" HTACCESS_PATH="$htaccess" BACKUP_PATH="$backup" python3 - <<'PY'
+          import hashlib, os, re, secrets, subprocess
           from pathlib import Path
           p=Path(os.environ["CONFIG_PATH"])
-          s=p.read_text()
-          assert s.lstrip().startswith("<?php"), "unexpected config"
-          keys=["OFFICE_TEST_INSPECTION_UI_ENABLED","OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED","OFFICE_TEST_INSPECTION_CSRF_SECRET"]
-          for k in keys:
-            assert not re.search(r"['\"]"+re.escape(k)+r"['\"]\s*=>",s), f"key already exists: {k}"
-          assert re.search(r"(?m)^\s*return\s*\[",s), "config not simple return array"
-          assert re.search(r"(?m)^\s*\];\s*$",s), "config array end not found"
-          settings="    'OFFICE_TEST_INSPECTION_UI_ENABLED' => 'enabled',\n    'OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED' => 'enabled',\n    'OFFICE_TEST_INSPECTION_CSRF_SECRET' => '"+secrets.token_hex(32)+"',\n"
-          s,count=re.subn(r"(?m)^(\s*\];\s*)$",lambda m:settings+m.group(1),s,count=1)
-          assert count==1
-          temp=p.with_name(p.name+".inspection-new")
-          temp.write_text(s)
-          temp.chmod(0o600)
-          subprocess.run(["php","-l",str(temp)],check=True,stdout=subprocess.DEVNULL)
           h=Path(os.environ["HTACCESS_PATH"])
+          backup=Path(os.environ["BACKUP_PATH"])
+          original=p.read_bytes()
+          assert original.lstrip().startswith(b"<?php"), "unexpected config header"
           t=h.read_text()
-          assert "RewriteEngine On" in t, "rewrite engine missing"
-          assert not re.search(r"(?m)^\\s*RewriteRule\\s+\\^.*inspectie",t), "inspection rewrite exists"
-          marker="RewriteEngine On"
-          assert t.count(marker)==1, "unexpected htaccess"
+          assert t.count("RewriteEngine On")==1, "unexpected htaccess"
+          assert not re.search(r"(?m)^\s*RewriteRule\s+\^.*inspectie",t), "inspection rewrite already configured"
+          assert "RewriteRule ^projecten" in t, "existing project rewrite not found"
           lines="\n# BREBO Inspectie Office-test routes\nRewriteRule ^(?:inspectie(?:/(?:aanmaken|bevinding-opslaan))?|inspecties)/?$ index.php [END,QSA]\n"
-          new=t.replace(marker,marker+lines,1)
+          updated=t.replace("RewriteEngine On","RewriteEngine On"+lines,1)
+          # Preserve the exact original config in the same private directory, so any relative includes still resolve.
+          source=p.with_name(".config-before-inspection-"+backup.name+".php")
+          with source.open("xb") as f:
+            f.write(original)
+          source.chmod(0o600)
+          secret=p.with_name(".inspection-csrf-secret-"+backup.name)
+          with secret.open("x") as f:
+            f.write(secrets.token_hex(32)+"\n")
+          secret.chmod(0o600)
+          wrapper="""<?php
+          declare(strict_types=1);
+          $config = require __DIR__ . '/%s';
+          if (!is_array($config)) {
+            throw new RuntimeException('Invalid Office-test base configuration');
+          }
+          $config['OFFICE_TEST_INSPECTION_UI_ENABLED'] = 'enabled';
+          $config['OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED'] = 'enabled';
+          $config['OFFICE_TEST_INSPECTION_CSRF_SECRET'] = trim((string) file_get_contents(__DIR__ . '/%s'));
+          return $config;
+          """ % (source.name, secret.name)
+          temp=p.with_name(p.name+".inspection-new")
+          with temp.open("x") as f:
+            f.write(wrapper)
+          temp.chmod(0o600)
           htemp=h.with_name(h.name+".inspection-new")
-          htemp.write_text(new)
-          htemp.chmod(0o600)
-          assert new.count("RewriteRule ^(?:inspectie")==1
-          # Keep old config until rewrite file is installed, then atomically install config.
+          with htemp.open("x") as f:
+            f.write(updated)
+          htemp.chmod(h.stat().st_mode & 0o777)
+          subprocess.run(["php","-l",str(temp)],check=True,stdout=subprocess.DEVNULL)
+          subprocess.run(["php","-r", '''
+          $old=require $argv[1];
+          $new=require $argv[2];
+          if (!is_array($old)||!is_array($new)) exit(2);
+          foreach ($old as $key=>$value) {
+            if (!in_array($key,["OFFICE_TEST_INSPECTION_UI_ENABLED","OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED","OFFICE_TEST_INSPECTION_CSRF_SECRET"],true) &&
+              (!array_key_exists($key,$new)||$new[$key]!==$value)) exit(3);
+          }
+          if (($new["OFFICE_TEST_INSPECTION_UI_ENABLED"]??"")!=="enabled" ||
+              ($new["OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED"]??"")!=="enabled" ||
+              strlen((string)($new["OFFICE_TEST_INSPECTION_CSRF_SECRET"]??""))<32) exit(4);
+          ''',str(source),str(temp)],check=True,stdout=subprocess.DEVNULL)
+          # Install only after all validation; previous files remain recoverable from backup.
           os.replace(htemp,h)
           os.replace(temp,p)
           print("PASS ROUTES_AND_FLAGS_WRITTEN")
