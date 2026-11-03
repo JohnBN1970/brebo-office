@@ -84,8 +84,7 @@ jobs:
           h=Path(os.environ["HTACCESS_PATH"])
           t=h.read_text()
           assert "RewriteEngine On" in t, "rewrite engine missing"
-          assert not re.search(r"(?m)^\s*RewriteRule\s+\^\(\?:?inspectie",t), "inspection rewrite exists"
-          assert not re.search(r"(?m)^\s*RewriteRule\s+\^inspectie",t), "inspection rewrite exists"
+          assert not re.search(r"(?m)^\\s*RewriteRule\\s+\\^.*inspectie",t), "inspection rewrite exists"
           marker="RewriteEngine On"
           assert t.count(marker)==1, "unexpected htaccess"
           lines="\n# BREBO Inspectie Office-test routes\nRewriteRule ^(?:inspectie(?:/(?:aanmaken|bevinding-opslaan))?|inspecties)/?$ index.php [END,QSA]\n"
