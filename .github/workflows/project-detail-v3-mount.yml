@@ -11,14 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate V3 detail transformation
+      - name: Validate V3 live-controller compatibility fixture
         run: |
           set -euo pipefail
-          cp office-independent/public/office-project.php /tmp/project-detail-v3.php
+          python3 -m py_compile office-independent/deployment/hostinger/mount-project-detail-v3.py
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('office-independent/public/office-project.php').read_text()
+          anchor = 'echo \'<!doctype html><html lang="nl"><head>'
+          assert source.count(anchor) == 1
+          source = source[:source.index(anchor)]
+          # Synthetic fixture mirrors the verified live-only markers and output finalizer.
+          source += '''
+          // OfficeNativeProjectAccess office_project_buildings
+          // create_project_contract create_project_term create_project_change
+          // OfficeProjectFinanceOverview
+          $moduleHtml = $financeHtml = '';
+          $breboV23Render = static fn(string $html): string => $html;
+          echo '<!doctype html><html lang="nl"><head><title>Fixture</title></head><body></body></html>';
+          echo $breboV23Render((string) ob_get_clean());
+          '''
+          Path('/tmp/project-detail-v3.php').write_text(source)
+          PY
           python3 office-independent/deployment/hostinger/mount-project-detail-v3.py /tmp/project-detail-v3.php
           php -l /tmp/project-detail-v3.php
           grep -Fq BREBO_PROJECT_DETAIL_V3_MOUNT /tmp/project-detail-v3.php
-          grep -Fq OfficeNativeProjectAccess /tmp/project-detail-v3.php
+          grep -Fq 'echo $breboV23Render((string) ob_get_clean());' /tmp/project-detail-v3.php
           sha256sum /tmp/project-detail-v3.php > /tmp/detail-v3-before.sha
           python3 office-independent/deployment/hostinger/mount-project-detail-v3.py /tmp/project-detail-v3.php
           sha256sum -c /tmp/detail-v3-before.sha
