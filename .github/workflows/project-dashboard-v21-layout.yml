@@ -1,0 +1,86 @@
+name: Project dashboard V2.1 layout validation and Office-test deploy
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/refine-project-dashboard-v2.py'
+      - '.github/workflows/project-dashboard-v21-layout.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type OFFICE-TEST to apply the layout refinement'
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-dashboard
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile office-independent/deployment/hostinger/refine-project-dashboard-v2.py
+      - name: Validate source-level preservation and idempotence
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess, tempfile, sys
+          script = 'office-independent/deployment/hostinger/refine-project-dashboard-v2.py'
+          with tempfile.TemporaryDirectory() as d:
+              src=pathlib.Path(d)/'source.php'
+              dst=pathlib.Path(d)/'candidate.php'
+              src.write_text('<?php\n// BREBO_DASHBOARD_V2_MERGE\n$dashboardCss = \'\';\n$dashboardVisibility = \'<style>\';\n', encoding='utf-8')
+              subprocess.run([sys.executable,script,str(src),str(dst)],check=True)
+              subprocess.run(['php','-l',str(dst)],check=True)
+              assert 'BREBO_DASHBOARD_V21_LAYOUT' in dst.read_text()
+              again=subprocess.run([sys.executable,script,str(dst),str(src)],capture_output=True)
+              assert again.returncode != 0
+          PY
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Upload isolated patch script
+        run: |
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -P "$DEPLOY_PORT" office-independent/deployment/hostinger/refine-project-dashboard-v2.py "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-dashboard-v21-refine.py"
+      - name: Apply guarded layout-only refinement
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$base/config/config.php")"
+          case "$root" in "$base"/release-*/private) ;; *) exit 20;; esac
+          file="$root/public/office-project.php"
+          test -f "$file" && test ! -L "$file"
+          grep -Fq BREBO_DASHBOARD_V2_MERGE "$file"
+          if grep -Fq BREBO_DASHBOARD_V21_LAYOUT "$file"; then echo "ALREADY_REFINED=1"; exit 0; fi
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do grep -Fq "$marker" "$file"; done
+          backup="$file.backup-dashboard-v21-$(date +%Y%m%d%H%M%S)"
+          cp -p "$file" "$backup"
+          test "$(sha256sum "$file" | cut -d' ' -f1)" = "$(sha256sum "$backup" | cut -d' ' -f1)"
+          candidate="$(mktemp "$root/public/.office-project-v21.XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          python3 /tmp/brebo-dashboard-v21-refine.py "$file" "$candidate"
+          php -l "$candidate"
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do grep -Fq "$marker" "$candidate"; done
+          chmod --reference="$file" "$candidate"
+          mv "$candidate" "$file"
+          if ! php -l "$file" >/dev/null; then cp -p "$backup" "$file"; exit 21; fi
+          echo "OFFICE_TEST_DASHBOARD_V21_DEPLOYED=1"
+          REMOTE
