@@ -435,6 +435,13 @@ $dossierNav = '<nav class="office-dossier-nav" aria-label="Projectdossier onderd
 foreach ($tabs as $key => $label) {
   $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current="page" ' : '') . 'href="' . $escape($projectUrl . '&tab=' . $key) . '">' . $escape($label) . '</a>';
 }
+if (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED') === 'enabled') {
+  $dossierNav .= '<a href="/office-test/inspecties?project_id=' . (int) $projectId . '">Inspecties</a>';
+  if ($canManage) {
+    $dossierNav .= '<a href="/office-test/inspectie?project_id=' . (int) $projectId . '">Nieuwe inspectie</a>';
+  }
+}
 $dossierNav .= '</nav>';
 $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
   . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
