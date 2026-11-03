@@ -124,6 +124,7 @@ final class OfficeNavigation {
     foreach(['projecten'=>'Projectoverzicht','calculatie-offertes'=>'Calculatie & Offertes','finance'=>'Finance','informatie'=>'Informatie']as$key=>$label){if($key==='finance'&&!self::financeVisible())continue;$url=$key==='projecten'?$base:'/office-test/'.$key.'?project_id='.$id;$html.='<a'.($key===$area?' aria-current="page"':'').' href="'.$url.'">'.self::h($label).'</a>';}
     $html.='</nav><nav aria-label="GOTIK projectsturing">';
     foreach(self::GOTIK as$key=>$label)$html.='<a href="'.$base.'#gotik-'.$key.'">'.self::h($label).'</a>';
+    if(getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled')$html.='<a href="/office-test/inspectie?project_id='.$id.'">Nieuwe inspectie</a> · <a href="/office-test/inspecties?project_id='.$id.'">Projectinspecties</a>';
     return $html.'</nav></section>';
   }
   public static function steering(?int $project):string {
