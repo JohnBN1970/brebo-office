@@ -15,3 +15,6 @@ jobs:
       - name: Dashboard structure
         run: |
           php -r '$s=file_get_contents("office-independent/public/office-project.php"); foreach (["project-dashboard","project-metrics","aria-current","tab=gebouwen","Opdrachtgever & contactpersonen","Woningverdeling"] as $n) { if (strpos($s,$n)===false) {fwrite(STDERR,"Missing: ".$n.PHP_EOL); exit(1);} }'
+      - name: Demo isolation contract
+        run: |
+          php -r '$s=file_get_contents("office-independent/public/office-project.php"); foreach (["OfficeMount::isTest()","\$_GET[\x27demo\x27]","DEMO — fictieve gegevens","Terug naar echte gegevens","\$isDashboardDemo ? \$demoDashboardHtml : \$dashboardHtml"] as $n) { if (strpos($s,$n)===false) {fwrite(STDERR,"Missing demo guard: ".$n.PHP_EOL); exit(1);} }'
