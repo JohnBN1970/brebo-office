@@ -1,0 +1,44 @@
+name: Inspect Office-test rewrite configuration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH setup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read-only rewrite and feature audit
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -eu
+          root="$HOME/domains/brebobv.nl/public_html"
+          for file in "$root/.htaccess" "$root/office-test/.htaccess"; do
+            if test -f "$file"; then
+              echo "FOUND ${file#"$root"/}"
+              grep -nE 'Rewrite(Engine|Base|Rule|Cond)|office-test|FallbackResource' "$file" | sed -E 's#(https?://)[^ /]+#\1[host]#g' | head -100 || true
+            else
+              echo "ABSENT ${file#"$root"/}"
+            fi
+          done
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          php -r '
+            $c=require $argv[1];
+            foreach (["OFFICE_TEST_INSPECTION_UI_ENABLED","OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED"] as $k) {
+              echo $k."=".((isset($c[$k])&&$c[$k]==="enabled")?"enabled":"not_enabled").PHP_EOL;
+            }
+            $s=$c["OFFICE_TEST_INSPECTION_CSRF_SECRET"]??null;
+            echo "INSPECTION_CSRF_SECRET=".((is_string($s)&&strlen($s)>=32)?"configured":"not_configured").PHP_EOL;
+          ' "$config"
+          echo 'PASS REWRITE_AUDIT_READ_ONLY'
+          REMOTE
