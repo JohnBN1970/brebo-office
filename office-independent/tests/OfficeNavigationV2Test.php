@@ -8,7 +8,7 @@ $nav=OfficeNavigation::mainV2('/office-test/projecten');
 foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
   if(!str_contains($nav,$name)){fwrite(STDERR,"Missing group: ".$name.PHP_EOL);exit(1);}
 }
-if(substr_count($nav,'<details ')!==7){fwrite(STDERR,"Expected six collapsible groups".PHP_EOL);exit(1);}
+if(substr_count($nav,'<details ')!==8){fwrite(STDERR,"Expected eight collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
 if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
