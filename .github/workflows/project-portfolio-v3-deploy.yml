@@ -1,0 +1,92 @@
+name: Projectendashboard V3 Office-test deployment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-portfolio-v3-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to deploy
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate patch and PHP views
+        run: |
+          set -euo pipefail
+          cp office-independent/public/office-projects.php /tmp/projects-v3.php
+          python3 office-independent/deployment/hostinger/integrate-project-portfolio-v3.py /tmp/projects-v3.php
+          php -l /tmp/projects-v3.php
+          php -l office-independent/src/Project/OfficeProjectPageStructure.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioView.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectPagesV3Test.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Install portfolio V3 only in Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            office-independent/deployment/hostinger/integrate-project-portfolio-v3.py \
+            office-independent/src/Project/OfficeProjectPageStructure.php \
+            office-independent/src/Project/OfficeProjectPortfolioView.php \
+            "$USER@$HOST:/tmp/"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          target="$base/public/office-projects.php"
+          src="$base/src/Project"
+          test -f "$target" && test ! -L "$target" || { echo "ACTIVE_PROJECT_LIST_NOT_FOUND"; exit 20; }
+          grep -Fq office_project_memberships "$target" || { echo "ACL_MARKER_MISSING"; exit 21; }
+          grep -Fq 'view=inzet' "$target" || { echo "INZET_MARKER_MISSING"; exit 22; }
+          mkdir -p "$src"
+          for name in OfficeProjectPageStructure OfficeProjectPortfolioView; do
+            file="$src/$name.php"
+            if test -e "$file"; then
+              cmp -s "/tmp/$name.php" "$file" || { echo "EXISTING_CLASS_DIFFERS_$name"; exit 23; }
+            else
+              cp "/tmp/$name.php" "$file"
+              chmod 644 "$file"
+            fi
+            php -l "$file"
+          done
+          if grep -Fq BREBO_PROJECT_PORTFOLIO_V3_INTEGRATION "$target"; then
+            echo PORTFOLIO_V3_ALREADY_INSTALLED
+            exit 0
+          fi
+          backup="$target.backup-portfolio-v3-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$(dirname "$target")/.portfolio-v3-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p "$target" "$candidate"
+          python3 /tmp/integrate-project-portfolio-v3.py "$candidate"
+          php -l "$candidate"
+          grep -Fq office_project_memberships "$candidate"
+          grep -Fq 'view=inzet' "$candidate"
+          grep -Fq OfficeProjectPortfolioView::render "$candidate"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          php -l "$target" || { cp -p "$backup" "$target"; exit 24; }
+          echo PORTFOLIO_V3_TEST_DEPLOYED
+          REMOTE
