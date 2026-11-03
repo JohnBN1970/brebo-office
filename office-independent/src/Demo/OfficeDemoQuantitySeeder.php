@@ -54,9 +54,9 @@ final class OfficeDemoQuantitySeeder
         // These quantities are synthetic demonstration assumptions, not measured data.
         // Prices are intentionally zero; they require approved cost-source valuation.
         $lines=[
-            ['DEMO-B01','DEMO | Kozijninspectie en plaatselijk houtherstel','st', '232.0000','0.00'],
-            ['DEMO-B02','DEMO | Beglazing en kierdichting herstellen','st','232.0000','0.00'],
-            ['DEMO-B03','DEMO | Aansluitvoegen kozijn-gevel vernieuwen','st','232.0000','0.00'],
+            ['DEMO-B01','DEMO | Kozijninspectie en plaatselijk houtherstel','st', '1.0000','0.00'],
+            ['DEMO-B02','DEMO | Beglazing en kierdichting herstellen','st','1.0000','0.00'],
+            ['DEMO-B03','DEMO | Aansluitvoegen kozijn-gevel vernieuwen','st','1.0000','0.00'],
         ];
         $select=$this->db->prepare('SELECT id,description,unit,quantity_per_dwelling,unit_price_ex_vat FROM office_scope_quantity_lines WHERE scope_id=? AND line_code=?');
         $pending=[];
