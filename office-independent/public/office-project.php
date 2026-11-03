@@ -63,7 +63,7 @@ try {
     http_response_code(400);
     exit('Ongeldig projectnummer.');
   }
-  if (!(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead($operator->operatorId, $projectId)) {
+  if (!(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead((int) $operator->operatorId, $projectId)) {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
@@ -72,7 +72,7 @@ try {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
-  $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage($operator->operatorId, $projectId);
+  $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage((int) $operator->operatorId, $projectId);
   $writeMessage = null;
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$canManage || getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled') {
@@ -114,7 +114,7 @@ try {
       }
       require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcProjectScopeRepository.php';
       $grant = new \Brebo\Office\Calculation\OfficeCalcProjectScopeRepository($db);
-      if (!$grant->canLaunch($operator->operatorId, $projectId, $calcId)) {
+      if (!$grant->canLaunch((int) $operator->operatorId, $projectId, $calcId)) {
         http_response_code(403);
         exit('Geen toegang tot deze calculatie.');
       }
@@ -394,7 +394,7 @@ if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
   try {
     require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
     require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
-    $inzetOverview = (new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db))->forProject($operator->operatorId, $projectId);
+    $inzetOverview = (new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db))->forProject((int) $operator->operatorId, $projectId);
     if (!$inzetOverview['available']) {
       $inzetHtml .= '<p>OnSite-registraties zijn nog niet aangesloten. De testdatabase bevat nog geen klokregistratietabel.</p>';
     } else {
