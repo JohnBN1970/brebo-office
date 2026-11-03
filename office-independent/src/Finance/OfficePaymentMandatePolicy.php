@@ -29,7 +29,7 @@ final class OfficePaymentMandatePolicy {
       }
       $requiresSecond = self::cents($totalAmount) > self::cents($threshold);
     }
-    if ($requiresSecond && ($approverId === null || $approverId < 1 || $approverId === $preparerId || $approverId === $actorId)) {
+    if ($requiresSecond && ($approverId === null || $approverId < 1 || $approverId === $preparerId)) {
       throw new \DomainException('Independent approval required by payment mandate');
     }
   }
