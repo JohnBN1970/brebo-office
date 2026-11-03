@@ -59,8 +59,13 @@ try {
     http_response_code(403);
     exit('Ongeldige formulierbeveiliging.');
   }
-  $buildingId = $_POST['building_id'] ?? null;
-  $projectId = $_POST['project_id'] ?? null;
+  $pair=$_POST['building_project'] ?? null;
+  if (!is_string($pair) || !preg_match('/^([1-9][0-9]{0,18}):([1-9][0-9]{0,18})$/D',$pair,$match)) {
+    http_response_code(422);
+    exit('{"error":"invalid_building_project"}');
+  }
+  $buildingId=$match[1];
+  $projectId=$match[2];
   $title = $_POST['title'] ?? null;
   $date = $_POST['inspection_date'] ?? null;
   $sections = $_POST['sections'] ?? [];
@@ -101,6 +106,11 @@ try {
       return $stmt->fetchColumn() !== false;
     }
   );
+  $accept=$_SERVER['HTTP_ACCEPT'] ?? '';
+  if (is_string($accept) && str_contains($accept,'text/html')) {
+    header('Location: /office-test/inspecties?inspection_id='.rawurlencode($id),true,303);
+    exit;
+  }
   header('Content-Type: application/json; charset=utf-8');
   http_response_code(201);
   echo json_encode(['inspection_id'=>$id,'status'=>'draft'],JSON_THROW_ON_ERROR);
