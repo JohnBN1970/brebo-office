@@ -62,7 +62,7 @@ jobs:
           test -f "$target" && test ! -L "$target" || { echo "ACTIVE_PROJECT_DETAIL_MISSING"; exit 20; }
           test -f "$router" && test -f "$htaccess" || { echo "OFFICE_TEST_ROUTER_MISSING"; exit 21; }
           grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router" || { echo "DETAIL_ROUTER_MISMATCH"; exit 22; }
-          grep -Eq 'RewriteRule \^projecten\(/detail\)\?/?\$ index.php' "$htaccess" || { echo "HTACCESS_PROJECT_ROUTE_MISSING"; exit 23; }
+          grep -Fq 'RewriteRule ^projecten(/detail)?/?$ index.php [END,QSA]' "$htaccess" || { echo "HTACCESS_PROJECT_ROUTE_MISSING"; exit 23; }
           for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
             grep -Fq "$marker" "$target" || { echo "REQUIRED_HANDLER_MISSING: $marker"; exit 24; }
           done
