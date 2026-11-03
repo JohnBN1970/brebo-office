@@ -18,7 +18,7 @@ final class OfficeInspectionRepository {
     }
     [$y,$m,$d] = array_map('intval', explode('-', $date));
     if (!checkdate($m,$d,$y)) throw new InvalidArgumentException('invalid_inspection_date');
-    $stmt = $this->db->prepare("INSERT INTO office_inspections (building_id,project_id,title,inspection_date,created_by) SELECT id,?,?,?,? FROM office_buildings WHERE id=? AND active=1");
+    $stmt = $this->db->prepare("INSERT INTO office_inspections (building_id,project_id,title,inspection_date,created_by) SELECT id,?,?,?,? FROM office_buildings WHERE id=?");
     $stmt->execute([$projectId, trim($title), $date, $operatorId, $buildingId]);
     if ($stmt->rowCount() !== 1) throw new InvalidArgumentException('building_not_found');
     return $this->db->lastInsertId();
