@@ -1,0 +1,56 @@
+name: Office demo quantity scope seed
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Demo/OfficeDemoQuantitySeeder.php'
+      - 'office-independent/deployment/hostinger/seed-office-demo-quantities.php'
+      - '.github/workflows/office-demo-quantity-seed.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEMO-QUANTITIES-PREFLIGHT or DEMO-QUANTITIES-APPLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax checks
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Demo/OfficeDemoQuantitySeeder.php
+          php -l office-independent/deployment/hostinger/seed-office-demo-quantities.php
+  seed:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.confirmation == 'DEMO-QUANTITIES-PREFLIGHT' || inputs.confirmation == 'DEMO-QUANTITIES-APPLY') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_demo
+          chmod 600 ~/.ssh/id_demo
+      - name: Run Office-test quantity scope seed
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_demo"
+          ssh $ssh_opts -p "$PORT" "$remote" 'mkdir -p "$HOME/domains/brebobv.nl/office_calc_test/demo-seed-stage/src/Demo"'
+          scp $ssh_opts -P "$PORT" office-independent/src/Demo/OfficeDemoQuantitySeeder.php "$remote:domains/brebobv.nl/office_calc_test/demo-seed-stage/src/Demo/"
+          scp $ssh_opts -P "$PORT" office-independent/deployment/hostinger/seed-office-demo-quantities.php "$remote:domains/brebobv.nl/office_calc_test/demo-seed-stage/"
+          if [ "$CONFIRM" = "DEMO-QUANTITIES-APPLY" ]; then mode=--apply; else mode=--dry-run; fi
+          ssh $ssh_opts -p "$PORT" "$remote" "cd \$HOME/domains/brebobv.nl/office_calc_test/demo-seed-stage && OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php seed-office-demo-quantities.php '$mode'"
