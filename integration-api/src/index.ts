@@ -1,4 +1,5 @@
 import { analyzeRequestSchema } from "./contracts";
+import { getAccountBalance, getBookedActivities, AbnAmroInsightConfigurationError, AbnAmroInsightResponseError } from "./abnamro-insight";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
@@ -27,6 +28,8 @@ export default {
         response = await accountingSalesInvoices(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/business-health" && request.method === "GET") {
         response = await accountingBusinessHealth(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/banking/insight/read" && request.method === "POST") {
+        response = await bankingInsightRead(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/communications/analyze" && request.method === "POST") {
         response = await analyze(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "POST") {
@@ -44,6 +47,53 @@ export default {
     return response;
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Server-to-server read boundary. Signed request body binds IBAN, action and
+ * pagination to the existing HMAC authentication; bank credentials stay here.
+ */
+async function bankingInsightRead(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  const body = await readBoundedBody(request, 2048);
+  if (body === null) return errorResponse(413, "request_too_large", "Bank insight request too large.", requestId);
+  const auth = await authenticate(request, env, path, body, requestId);
+  if (auth) return auth;
+  let input: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
+    input = parsed as Record<string, unknown>;
+  } catch {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  const action = input.action;
+  const iban = input.iban;
+  if ((action !== "balance" && action !== "activities") || typeof iban !== "string" || !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  if (action === "balance" && (input.dateFrom !== undefined || input.nextPageKey !== undefined)) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  const dateFrom = input.dateFrom;
+  const pageKey = input.nextPageKey;
+  if ((dateFrom !== undefined && (typeof dateFrom !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateFrom) || !Number.isFinite(Date.parse(dateFrom + "T00:00:00Z")) || new Date(dateFrom + "T00:00:00Z").toISOString().slice(0, 10) !== dateFrom))
+    || (pageKey !== undefined && (typeof pageKey !== "string" || pageKey.length < 1 || pageKey.length > 512 || /[\\x00-\\x1f]/.test(pageKey)))) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  try {
+    const result = action === "balance"
+      ? await getAccountBalance(iban, env)
+      : await getBookedActivities(iban, env, dateFrom as string | undefined, pageKey as string | undefined);
+    return Response.json({ status: "ok", provider: "abnamro", request_id: requestId, data: result });
+  } catch (error) {
+    if (error instanceof AbnAmroInsightConfigurationError) {
+      return errorResponse(503, "bank_not_configured", "Bank insight is not configured.", requestId);
+    }
+    if (error instanceof AbnAmroInsightResponseError) {
+      return errorResponse(502, "bank_unavailable", "Bank insight is unavailable.", requestId);
+    }
+    throw error;
+  }
+}
 
 async function authenticatedHealth(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
   const auth = await authenticate(request, env, path, "", requestId);
