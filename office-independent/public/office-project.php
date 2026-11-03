@@ -436,17 +436,19 @@ foreach ($tabs as $key => $label) {
   $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current="page" ' : '') . 'href="' . $escape($projectUrl . '&tab=' . $key) . '">' . $escape($label) . '</a>';
 }
 $dossierNav .= '</nav>';
-$moduleHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
+$workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
   . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
   . '</div>'
-  . '<div id="project-uitvoering"><h2>Uitvoering</h2>'
+;
+$executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Projectteam, aanwezigheid en urencontrole.</p>'
   . '<p><a href="' . $escape(
       \Brebo\Office\Intake\OfficeMount::basePath()
       . '/inzet/projectkaart?id=' . (int) $projectId
     ) . '">Personeelszones en projectkaart openen</a></p>'
   . $inzetHtml . '</div>'
-  . '<div id="project-financieel"><h2>Financieel</h2>'
+;
+$financialSectionHtml = '<div id="project-financieel"><h2>Financieel</h2>'
   . '<p>Contract, termijnen, meer- en minderwerk en projectfacturen.</p>';
 
 
@@ -537,7 +539,7 @@ try {
     error_log('Office project finance overview unavailable: ' . $e->getCode());
     $financeHtml = '<p>Het financiële overzicht is nog niet beschikbaar.</p>';
 }
-$moduleHtml .= $financeHtml;
+$financialSectionHtml .= $financeHtml;
 
 // The overview only uses verified project and building data. CRM, planning and finance
 // are explicitly marked as pending until an authorized canonical reader is connected.
@@ -576,12 +578,12 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
 
 require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
 if (\Brebo\Office\Intake\OfficeNavigation::financeVisible()) {
-  $moduleHtml .= '<p><a href="' . $escape(
+  $financialSectionHtml .= '<p><a href="' . $escape(
     \Brebo\Office\Intake\OfficeMount::basePath()
     . '/finance?project_id=' . (int)$projectId
   ) . '">Financiële administratie van dit project openen</a></p>';
 }
-$moduleHtml .= '</div>';
+$financialSectionHtml .= '</div>';
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:white}.office-shell main{max-width:none;margin:0;min-width:0;padding:28px clamp(18px,4vw,55px)}.project-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0 28px}.project-metric,.project-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;min-width:0}.project-metric span,.project-metric small{display:block;color:#64748b;font-size:13px}.project-metric strong{display:block;font-size:clamp(23px,2vw,32px);margin:8px 0;color:#162639}.project-dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.project-panel h3{margin-top:0}.project-muted{color:#63748a;line-height:1.6}.project-progress{height:13px;border-radius:30px;background:#e8eef4;overflow:hidden;margin:18px 0}.project-progress-fill{height:100%;background:#175a91;border-radius:30px}.office-dossier-nav a[aria-current]{background:#30516d;color:white}.office-shell>main>section{max-width:none}.project-dashboard h2{margin:18px 0}@media(max-width:1000px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.project-metrics,.project-dashboard-grid{grid-template-columns:1fr}}.office-dossier-nav{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid #dbe1e8}.office-dossier-nav a{padding:9px 12px;background:#edf3f8;border-radius:8px;text-decoration:none;color:#234a68;font-weight:650}.office-dossier-nav a:focus-visible{outline:3px solid #e9a72c}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin-bottom:20px}.office-tab{padding:12px 2px;text-decoration:none;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;gap:6px}.office-shell main{padding:18px}}
-</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($homeUrl) . '">Overzicht</a><a class="office-side-item" aria-current="page" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten') . '">Projecten</a><a class="office-side-item" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section>' . $dossierNav . '<div id="project-gegevens"><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape((string) ($statusLabel ?? 'Onbekend')) . '</dd></dl></div>' . ($activeTab === 'overzicht' ? $dashboardHtml : '') . ($activeTab === 'gebouwen' ? '<div id="project-gebouwen">' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . '</div>' : '') . ($activeTab === 'werkvoorbereiding' || $activeTab === 'uitvoering' || $activeTab === 'financieel' ? $moduleHtml : '')
+</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($homeUrl) . '">Overzicht</a><a class="office-side-item" aria-current="page" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten') . '">Projecten</a><a class="office-side-item" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section>' . $dossierNav . '<div id="project-gegevens"><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape((string) ($statusLabel ?? 'Onbekend')) . '</dd></dl></div>' . ($activeTab === 'overzicht' ? $dashboardHtml : '') . ($activeTab === 'gebouwen' ? '<div id="project-gebouwen">' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . '</div>' : '') . ($activeTab === 'werkvoorbereiding' ? $workbenchHtml : '') . ($activeTab === 'uitvoering' ? $executionHtml : '') . ($activeTab === 'financieel' ? $financialSectionHtml : '')
   . '</section></main></div></body></html>';
