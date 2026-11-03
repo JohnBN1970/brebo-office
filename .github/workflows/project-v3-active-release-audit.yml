@@ -1,0 +1,56 @@
+name: Project V3 active release audit
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/project-v3-active-release-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Read-only Office-test V3 routing and markers
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          router="$root/public_html/office-test/index.php"
+          target="$base/public/office-project.php"
+          echo "=== ROUTER ==="
+          grep -nF "'/office-test/projecten/detail'" "$router" || true
+          echo "=== ACTIVE RELEASE ==="
+          if test -f "$target"; then
+            echo "CONTROLLER_PRESENT"
+            wc -l "$target"
+            sha256sum "$target"
+            for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View breboV23Render create_project_contract create_project_term create_project_change; do
+              if grep -Fq "$marker" "$target"; then echo "PRESENT: $marker"; else echo "MISSING: $marker"; fi
+            done
+            php -l "$target"
+          else
+            echo "CONTROLLER_MISSING"
+          fi
+          echo "=== V3 CLASS ==="
+          for file in "$base/src/Project/OfficeProjectDetailV3View.php" "$base/src/Intake/OfficeNavigation.php"; do
+            if test -f "$file"; then echo "PRESENT: ${file##*/}"; sha256sum "$file"; else echo "MISSING: ${file##*/}"; fi
+          done
+          echo "=== OTHER RELEASE V3 CONTROLLERS ==="
+          find "$root/office_calc_test" -maxdepth 5 -type f -name office-project.php -exec grep -lF BREBO_PROJECT_DETAIL_V3_MOUNT {} + 2>/dev/null | sed "s|$root/|.../|" | head -n 15 || true
+          REMOTE
