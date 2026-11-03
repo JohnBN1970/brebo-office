@@ -126,8 +126,8 @@ async function bankingInsightRead(request: Request, env: Env, path: string, requ
   }
   const dateFrom = input.dateFrom;
   const pageKey = input.nextPageKey;
-  if ((dateFrom !== undefined && (typeof dateFrom !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateFrom) || !Number.isFinite(Date.parse(dateFrom + "T00:00:00Z")) || new Date(dateFrom + "T00:00:00Z").toISOString().slice(0, 10) !== dateFrom))
-    || (pageKey !== undefined && (typeof pageKey !== "string" || pageKey.length < 1 || pageKey.length > 512 || /[\\x00-\\x1f]/.test(pageKey)))) {
+  if ((dateFrom !== undefined && (typeof dateFrom !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !Number.isFinite(Date.parse(dateFrom + "T00:00:00Z")) || new Date(dateFrom + "T00:00:00Z").toISOString().slice(0, 10) !== dateFrom))
+    || (pageKey !== undefined && (typeof pageKey !== "string" || pageKey.length < 1 || pageKey.length > 512 || /[\x00-\x1f]/.test(pageKey)))) {
     return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
   }
   try {
