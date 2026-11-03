@@ -14,10 +14,10 @@ $escape = static fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $homeUrl = '/office-test';
 $statusLabel = 'Actief';
 $buildings = [];
-// Project dossier orientation only: links target sections already rendered below.
 // Existing POST handlers must remain unchanged:
 $actions = ['create_project_contract','create_project_term','create_project_change'];
 // OfficeProjectFinanceOverview remains guarded by Finance ACL.
+// Project dossier orientation only: links target sections already rendered below.
 $dossierNav = '<nav class="office-dossier-nav" aria-label="Projectdossier onderdelen">'
   . '<a href="#project-gegevens">Projectoverzicht</a></nav>';
 $moduleHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2></div>';
