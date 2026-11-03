@@ -118,6 +118,8 @@ try {
   http_response_code(422);
   exit('Inspectiegegevens of toegangsrechten ongeldig.');
 } catch (Throwable $error) {
+  $diagnosticId = bin2hex(random_bytes(6));
+  error_log('[office-inspection-create][' . $diagnosticId . '] ' . get_class($error) . ': ' . $error->getMessage());
   http_response_code(503);
-  exit('Inspectie tijdelijk niet beschikbaar.');
+  exit('Inspectie tijdelijk niet beschikbaar. Referentie: ' . $diagnosticId);
 }
