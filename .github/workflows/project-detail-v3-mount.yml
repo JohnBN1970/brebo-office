@@ -26,7 +26,7 @@ jobs:
           // OfficeNativeProjectAccess office_project_buildings
           // create_project_contract create_project_term create_project_change
           // OfficeProjectFinanceOverview
-          $moduleHtml = $financeHtml = '';
+          $moduleHtml = $financeHtml = $formHtml = '';
           $breboV23Render = static fn(string $html): string => $html;
           echo '<!doctype html><html lang="nl"><head><title>Fixture</title></head><body></body></html>';
           echo $breboV23Render((string) ob_get_clean());
