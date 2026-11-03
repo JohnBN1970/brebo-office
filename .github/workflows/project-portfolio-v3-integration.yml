@@ -1,0 +1,24 @@
+name: Project portfolio V3 integration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/integrate-project-portfolio-v3.py'
+      - '.github/workflows/project-portfolio-v3-integration.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify guarded portfolio integration and idempotence
+        run: |
+          cp office-independent/public/office-projects.php /tmp/office-projects-v3.php
+          python3 office-independent/deployment/hostinger/integrate-project-portfolio-v3.py /tmp/office-projects-v3.php
+          php -l /tmp/office-projects-v3.php
+          sha256sum /tmp/office-projects-v3.php > /tmp/v3-before.sha
+          python3 office-independent/deployment/hostinger/integrate-project-portfolio-v3.py /tmp/office-projects-v3.php
+          sha256sum -c /tmp/v3-before.sha
+          grep -q 'BREBO_PROJECT_PORTFOLIO_V3_INTEGRATION' /tmp/office-projects-v3.php
+          grep -q 'OfficeProjectPortfolioView::render' /tmp/office-projects-v3.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectPagesV3Test.php
