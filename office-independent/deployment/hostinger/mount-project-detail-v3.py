@@ -28,8 +28,8 @@ $projectV3Sections = [
   'uitvoering' => '<section><h2>Uitvoering</h2><p>Uitvoeringsgegevens worden vanuit de gekoppelde projectmodules ontsloten.</p></section>',
   'financieel' => (string) $financeHtml,
 ];
-$projectV3Body = \\Brebo\\Office\\Project\\OfficeProjectDetailV3View::render(
-  \\Brebo\\Office\\Intake\\OfficeMount::basePath(),
+$projectV3Body = \Brebo\Office\Project\OfficeProjectDetailV3View::render(
+  \Brebo\Office\Intake\OfficeMount::basePath(),
   (int) $projectId,
   (string) $project->title,
   (string) $project->identity->projectCode,
@@ -54,12 +54,12 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . '.module strong,.module small{display:block}'
   . '.project-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}'
   . '@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-shell main{padding:18px}}'
-  . \\Brebo\\Office\\Project\\OfficeProjectDetailV3View::styles()
+  . \Brebo\Office\Project\OfficeProjectDetailV3View::styles()
   . '</style></head><body><div class="office-shell"><aside class="office-sidebar">'
   . '<div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie">'
   . '<a class="office-side-item" href="' . $escape($homeUrl) . '">Overzicht</a>'
-  . '<a class="office-side-item" aria-current="page" href="' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/projecten') . '">Projecten</a>'
-  . '<a class="office-side-item" href="' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/projecten?view=inzet') . '">Inzet</a>'
+  . '<a class="office-side-item" aria-current="page" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten') . '">Projecten</a>'
+  . '<a class="office-side-item" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet') . '">Inzet</a>'
   . '</nav></aside><main>' . $dashboardCss . $dashboardVisibility . $projectV3Body
   . '</main></div></body></html>';
 echo $breboV23Render((string) ob_get_clean());
