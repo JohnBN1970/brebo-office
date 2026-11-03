@@ -42,7 +42,9 @@ final class OfficePaymentSubmissionDispatch {
         'payload_sha256' => $hash,
         'idempotency_key' => $key,
       ]);
-      if (!is_array($result) || !is_string($result['bank_reference'] ?? null)
+      if (!is_array($result) || ($result['provider'] ?? null) !== 'abnamro'
+        || ($result['state'] ?? null) !== 'submitted_for_authorization'
+        || !is_string($result['bank_reference'] ?? null)
         || trim($result['bank_reference']) === '') {
         throw new \UnexpectedValueException('Bank acceptance not verifiable');
       }
