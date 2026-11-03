@@ -1,0 +1,21 @@
+name: Office-test demo process contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Demo/**'
+      - 'office-independent/tests/OfficeDemoProcessChainTest.php'
+      - 'office-independent/docs/office-test-demo-process-chain.md'
+      - '.github/workflows/office-demo-process-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Office-test demo scenario
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Demo/OfficeDemoProcessChain.php
+          php -l office-independent/tests/OfficeDemoProcessChainTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeDemoProcessChainTest.php
