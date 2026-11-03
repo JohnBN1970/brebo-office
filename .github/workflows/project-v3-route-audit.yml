@@ -1,0 +1,76 @@
+name: Office-test project V3 htaccess route audit
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/project-v3-route-audit.yml'
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to audit routes
+        required: true
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check project view classes
+        run: |
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioView.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
+  audit:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Audit active Office-test .htaccess and router without modifying them
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          echo "=== OFFICE-TEST ROUTE FILES ==="
+          for file in "$root/public_html/office-test/.htaccess" "$root/public_html/.htaccess"; do
+            if test -f "$file"; then
+              echo "FOUND: ${file##*/} at ${file%/*}"
+              grep -nE 'RewriteRule|RewriteCond' "$file" | grep -E 'office-test|project|index|REQUEST_URI|REQUEST_FILENAME' | head -n 50 || true
+            else
+              echo "NOT_FOUND: ${file%/*}/.htaccess"
+            fi
+          done
+          echo "=== ROUTER MARKERS ==="
+          router="$root/public_html/office-test/index.php"
+          if test -f "$router"; then
+            php -l "$router"
+            grep -nE 'projecten|detail|REQUEST_URI' "$router" | head -n 35 || true
+          else
+            echo "ROUTER_FILE_NOT_FOUND"
+          fi
+          echo "=== ACTIVE PAGE MARKERS ==="
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          for name in office-projects.php office-project.php; do
+            file="$base/public/$name"
+            if test -f "$file"; then
+              php -l "$file"
+              echo "$name present"
+            else
+              echo "$name missing"
+            fi
+          done
+          REMOTE
