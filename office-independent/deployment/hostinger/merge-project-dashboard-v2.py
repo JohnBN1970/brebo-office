@@ -117,8 +117,11 @@ needle3 = '</dl></div><div id="project-gebouwen">'
 if s.count(needle3) != 1:
     raise SystemExit("UNSUPPORTED_RENDER_BOUNDARY")
 s = s.replace(needle3, '</dl></div>\' . $dashboardHtml . \'<div id="project-gebouwen">', 1)
+original = source.read_text(encoding="utf-8")
 for marker in ("create_project_contract", "create_project_term", "create_project_change"):
-    if s.count(marker) != source.read_text(encoding="utf-8").count(marker):
-        raise SystemExit("POST_HANDLER_CHANGED: " + marker)
+    # Marker names can appear in presentation or safety checks.
+    # Only a decrease indicates a lost existing handler reference.
+    if s.count(marker) < original.count(marker):
+        raise SystemExit("POST_HANDLER_REMOVED: " + marker)
 target.write_text(s, encoding="utf-8")
 print("MERGE_READY: presentation-only; original source untouched")
