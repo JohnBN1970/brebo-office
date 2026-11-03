@@ -32,7 +32,7 @@ jobs:
       - name: Validate inspection source
         run: |
           set -euo pipefail
-          for f in inspection-source/office-independent/public/office-inspection.php inspection-source/office-independent/public/office-inspection-overview.php inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php; do php -l "$f"; done
+          for f in inspection-source/office-independent/public/office-inspection.php inspection-source/office-independent/public/office-inspection-create.php inspection-source/office-independent/public/office-inspection-overview.php inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php; do php -l "$f"; done
           grep -Fq 'forOperator(' inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php
           grep -Fq 'projectFilter' inspection-source/office-independent/public/office-inspection.php
           grep -Fq 'OfficeInspectionReportPrintView.php' inspection-source/office-independent/public/office-inspection-overview.php
@@ -54,6 +54,7 @@ jobs:
           cp office-independent/src/Intake/OfficeNavigation.php deploy-payload/src/Intake/
           cp office-independent/public/office-project.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection.php deploy-payload/public/
+          cp inspection-source/office-independent/public/office-inspection-create.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection-overview.php deploy-payload/public/
           cp inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php deploy-payload/src/Inspection/
           cp inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php deploy-payload/src/Inspection/
@@ -72,7 +73,7 @@ jobs:
           tmp="$(mktemp -d "$stage/integration.XXXXXXXX")"
           trap 'rm -rf "$tmp"' EXIT
           tar -xzf "$stage/inspection-integration.tar.gz" -C "$tmp"
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
             test -f "$active/$path" && test -f "$tmp/$path"
             php -l "$tmp/$path" >/dev/null
           done
@@ -88,11 +89,11 @@ jobs:
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
           backup="$stage/integration-backup-$stamp"
           mkdir -p "$backup"
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
             mkdir -p "$backup/$(dirname "$path")"
             cp -p "$active/$path" "$backup/$path"
           done
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-overview.php public/office-project.php; do
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-project.php; do
             install -m 644 "$tmp/$path" "$active/$path"
             php -l "$active/$path" >/dev/null
             echo "PASS FILE $path"
