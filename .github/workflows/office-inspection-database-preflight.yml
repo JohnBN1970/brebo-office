@@ -1,0 +1,71 @@
+name: Office inspection database preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type OFFICE-TEST for read-only database check'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  database:
+    if: ${{ inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Read-only inspection schema and dependency check
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'php' <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $file = getenv('HOME').'/domains/brebobv.nl/office_calc_test/config/config.php';
+          if (!is_file($file)) { echo "BLOCK test config missing\n"; exit(2); }
+          $config = require $file;
+          if (!is_array($config)) { echo "BLOCK test config invalid\n"; exit(2); }
+          foreach ($config as $key=>$value) {
+            if (!is_string($key) || !is_string($value)) { echo "BLOCK invalid config entry\n"; exit(2); }
+            putenv($key.'='.$value);
+          }
+          $allowed = ['mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4','mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4'];
+          if (getenv('OFFICE_BASE_PATH') !== '/office-test' || !in_array(getenv('OFFICE_INTAKE_PDO_DSN'),$allowed,true)) {
+            echo "BLOCK database is not isolated Office-test\n"; exit(2);
+          }
+          try {
+            $db = new PDO(getenv('OFFICE_INTAKE_PDO_DSN'),getenv('OFFICE_INTAKE_DB_USER'),getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            $required = ['office_buildings','office_project_buildings','office_project_memberships','office_operator_accounts'];
+            $inspection = ['office_inspections','office_inspection_findings','office_inspection_evidence','office_inspection_report_configs','office_inspection_report_findings'];
+            $query = $db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+            $ok = true;
+            foreach ($required as $table) {
+              $query->execute([$table]);
+              $found = (int)$query->fetchColumn() === 1;
+              echo ($found?'PASS ':'BLOCK ')."dependency $table\n";
+              $ok = $ok && $found;
+            }
+            foreach ($inspection as $table) {
+              $query->execute([$table]);
+              echo ((int)$query->fetchColumn() === 1 ? 'EXISTS ' : 'PENDING ')."inspection $table\n";
+            }
+            echo $ok ? "PASS READ_ONLY_DB_PREFLIGHT\n" : "BLOCK READ_ONLY_DB_PREFLIGHT\n";
+            exit($ok?0:1);
+          } catch (Throwable $e) {
+            echo "BLOCK database connection or metadata query\n";
+            exit(2);
+          }
+          PHP
