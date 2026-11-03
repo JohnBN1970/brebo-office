@@ -78,6 +78,12 @@ try {
   $include=($_POST['include_in_report'] ?? '0')==='1';
   $id=(new \Brebo\Office\Inspection\OfficeInspectionFindingAction($db))->save(
     $inspectionId,(string)$operator->operatorId,$input,$include,$findingId);
+  // Browser form submissions return to the inspection instead of showing raw JSON.
+  $accept=$_SERVER['HTTP_ACCEPT'] ?? '';
+  if (is_string($accept) && str_contains($accept,'text/html')) {
+    header('Location: /office-test/inspecties?inspection_id='.rawurlencode($inspectionId).'&saved=1',true,303);
+    exit;
+  }
   http_response_code($findingId===null ? 201 : 200);
   echo json_encode(['finding_id'=>$id,'inspection_id'=>$inspectionId,'include_in_report'=>$include],JSON_THROW_ON_ERROR);
 } catch (InvalidArgumentException $error) {
