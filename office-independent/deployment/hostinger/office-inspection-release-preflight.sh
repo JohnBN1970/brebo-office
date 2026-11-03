@@ -19,7 +19,7 @@ for path in "$base"/release-*/private; do
   printf 'RELEASE: %s\n' "${path#"$base"/}"
 done
 printf '%s\n' '=== ROUTER CONTROL ==='
-router="$base/index.php"
+router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
 if [ -f "$router" ]; then
   echo 'ROOT ROUTER: PRESENT'
   grep -n -F 'OFFICE_PRIVATE_ROOT' "$router" | sed -E 's/(PASSWORD|SECRET|TOKEN|KEY).*/[redacted]/' || true
