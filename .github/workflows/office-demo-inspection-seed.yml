@@ -1,5 +1,10 @@
 name: Office-test demo inspection seed
 on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Demo/**'
+      - 'office-independent/deployment/hostinger/seed-office-demo-inspection.php'
+      - '.github/workflows/office-demo-inspection-seed.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -9,6 +14,16 @@ on:
 permissions:
   contents: read
 jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP validation
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Demo/OfficeDemoInspectionSeeder.php
+          php -l office-independent/deployment/hostinger/seed-office-demo-inspection.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeDemoProcessChainTest.php
   seed:
     if: ${{ inputs.confirmation == 'DEMO-PREFLIGHT' || inputs.confirmation == 'DEMO-APPLY' }}
     runs-on: ubuntu-latest
