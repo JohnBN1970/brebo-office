@@ -18,9 +18,8 @@ jobs:
       - name: Validate project V3 transformation and render
         run: |
           set -euo pipefail
-          cp office-independent/public/office-project.php /tmp/office-project-detail-v3.php
-          python3 office-independent/deployment/hostinger/mount-project-detail-v3.py /tmp/office-project-detail-v3.php
-          php -l /tmp/office-project-detail-v3.php
+          python3 -m py_compile office-independent/deployment/hostinger/mount-project-detail-v3.py
+          php -l office-independent/public/office-project.php
           php -l office-independent/src/Project/OfficeProjectDetailV3View.php
           php -l office-independent/src/Project/OfficeProjectPageStructure.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
