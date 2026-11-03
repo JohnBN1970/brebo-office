@@ -1,0 +1,17 @@
+name: Project dashboard V2 checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-project.php'
+      - '.github/workflows/project-dashboard-v2-check.yml'
+  workflow_dispatch:
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: php -l office-independent/public/office-project.php
+      - name: Dashboard structure
+        run: |
+          php -r '$s=file_get_contents("office-independent/public/office-project.php"); foreach (["project-dashboard","project-metrics","aria-current","tab=gebouwen","Opdrachtgever & contactpersonen","Woningverdeling"] as $n) { if (strpos($s,$n)===false) {fwrite(STDERR,"Missing: ".$n.PHP_EOL); exit(1);} }'
