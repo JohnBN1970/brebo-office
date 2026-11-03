@@ -1,0 +1,39 @@
+name: Inspection runtime check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH setup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read-only inspection files check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -eu
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL RELEASE"; exit 1;; esac
+          echo "ACTIVE_RELEASE=${active##*/}"
+          for file in office-inspection.php office-inspection-create.php office-inspection-overview.php office-inspection-finding-save.php; do
+            if test -f "$active/public/$file"; then echo "PRESENT $file"; else echo "MISSING $file"; fi
+          done
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          for route in /office-test/inspectie /office-test/inspecties; do
+            if test -f "$router" && grep -Fq "$route" "$router"; then echo "ROUTED $route"; else echo "NOT_ROUTED $route"; fi
+          done
+          echo "PASS READ_ONLY_RUNTIME_CHECK"
+          REMOTE
