@@ -24,7 +24,7 @@ if "BREBO_DASHBOARD_V2_MERGE" in s:
 start = s.index("// Project dossier orientation only:")
 end = s.index("$moduleHtml = '<div id=\"project-werkbank\"", start)
 replacement = r'''// BREBO_DASHBOARD_V2_MERGE: presentation only; all existing POST actions are retained.
-$projectBaseUrl = \\Brebo\\Office\\Intake\\OfficeMount::basePath()
+$projectBaseUrl = \Brebo\Office\Intake\OfficeMount::basePath()
   . '/projecten/detail?id=' . (int) $projectId;
 $dashboardTabs = [
   'overzicht' => 'Overzicht', 'gebouwen' => 'Gebouwen',
@@ -33,7 +33,7 @@ $dashboardTabs = [
 ];
 $dashboardTab = (string) ($_GET['tab'] ?? 'overzicht');
 if (!isset($dashboardTabs[$dashboardTab])) $dashboardTab = 'overzicht';
-$dashboardDemo = \\Brebo\\Office\\Intake\\OfficeMount::isTest()
+$dashboardDemo = \Brebo\Office\Intake\OfficeMount::isTest()
   && ($_GET['demo'] ?? '') === '1' && $dashboardTab === 'overzicht';
 $dossierNav = '<nav class="office-dossier-nav" aria-label="Projectdossier onderdelen">';
 foreach ($dashboardTabs as $tabKey => $tabLabel) {
@@ -113,20 +113,10 @@ s = s[:start] + replacement + s[end:]
 needle = "' . $dossierNav . '<div id=\"project-gegevens\""
 assert s.count(needle) == 1
 s = s.replace(needle, "' . $dashboardCss . $dashboardVisibility . $dossierNav . '<div id=\"project-gegevens\"", 1)
-needle2 = "'</dd></dl></div><div id=\"project-gebouwen\"'"
-# The live file has its own project summary; insert dashboard before buildings, without touching summary.
-boundary = "'</dd></dl></div><div id=\"project-gebouwen\"'"
-if boundary not in s:
-    # The final echo has a slightly different closing literal; match the exact known fragment.
-    boundary = "' . '</div><div id=\"project-gebouwen\"'"
-if boundary not in s:
-    # Last-resort bounded insertion at the first buildings opening in the final echo.
-    needle3 = "</dl></div><div id=\"project-gebouwen\">"
-    if s.count(needle3) != 1:
-        raise SystemExit("UNSUPPORTED_RENDER_BOUNDARY")
-    s = s.replace(needle3, "</dl></div>' . $dashboardHtml . '<div id=\"project-gebouwen\">", 1)
-else:
-    s = s.replace(boundary, boundary.replace("<div id=", "' . $dashboardHtml . '<div id="), 1)
+needle3 = '</dl></div><div id="project-gebouwen">'
+if s.count(needle3) != 1:
+    raise SystemExit("UNSUPPORTED_RENDER_BOUNDARY")
+s = s.replace(needle3, '</dl></div>\' . $dashboardHtml . \'<div id="project-gebouwen">', 1)
 for marker in ("create_project_contract", "create_project_term", "create_project_change"):
     if s.count(marker) != source.read_text(encoding="utf-8").count(marker):
         raise SystemExit("POST_HANDLER_CHANGED: " + marker)
