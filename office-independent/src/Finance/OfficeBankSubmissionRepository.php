@@ -43,6 +43,17 @@ final class OfficeBankSubmissionRepository {
     return is_array($row) ? $row : null;
   }
 
+  public function claimForDispatch(int $batchId, string $hash, string $key): void {
+    if ($this->pdo->inTransaction()) throw new \DomainException('Dispatch claim must commit before network call');
+    $stmt = $this->pdo->prepare(
+      "UPDATE office_bank_submission_intents SET status = 'dispatching', changed_at = UTC_TIMESTAMP()
+       WHERE batch_id = :batch_id AND status = 'reserved'
+       AND payload_sha256 = :hash AND idempotency_key = :idempotency_key"
+    );
+    $stmt->execute(['batch_id' => $batchId, 'hash' => $hash, 'idempotency_key' => $key]);
+    if ($stmt->rowCount() !== 1) throw new \DomainException('Payment already claimed or reservation mismatch');
+  }
+
   public function recordAccepted(int $batchId, string $bankReference): void {
     if ($batchId < 1 || trim($bankReference) === '') throw new \DomainException('Invalid bank reference');
     $statement = $this->pdo->prepare(
