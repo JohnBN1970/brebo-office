@@ -1,0 +1,71 @@
+name: Fix Office-test inspection building selector
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type FIX-INSPECTION-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  fix:
+    if: ${{ inputs.confirmation == 'FIX-INSPECTION-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Verify corrected inspection source
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-inspection.php
+          grep -Fq 'b.name AS building_name' office-independent/public/office-inspection.php
+          grep -Fq 'b.address_line AS street_address' office-independent/public/office-inspection.php
+          if grep -Eq 'b\.active=1|b\.building_name|b\.street_address' office-independent/public/office-inspection.php; then exit 3; fi
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Deploy ONLY inspection form with backup and SQL preflight
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/inspection-deploy-stage"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" office-independent/public/office-inspection.php "$remote:$stage/office-inspection-fixed.php"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL TEST_RELEASE_SCOPE"; exit 2;; esac
+          target="$active/public/office-inspection.php"
+          staged="$base/inspection-deploy-stage/office-inspection-fixed.php"
+          test -f "$target" && test -f "$staged"
+          php -l "$staged"
+          CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          $c=require getenv("CONFIG_PATH");
+          if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(2);
+          $db=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          $stmt=$db->prepare("SELECT DISTINCT b.id,b.name AS building_name,b.address_line AS street_address,b.city,pb.project_id FROM office_buildings b INNER JOIN office_project_buildings pb ON pb.building_id=b.id INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id WHERE a.active=1 AND m.operator_id=? AND m.permission='manage' ORDER BY b.name LIMIT 100");
+          $stmt->execute([0]);
+          echo "PASS CORRECTED_BUILDING_QUERY\n";
+          PHP
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup="$base/inspection-deploy-stage/inspection-form-backup-$stamp.php"
+          cp -p "$target" "$backup"
+          install -m 644 "$staged" "$target"
+          if ! php -l "$target"; then cp -p "$backup" "$target"; exit 3; fi
+          echo "PASS INSPECTION_FORM_PATCHED"
+          echo "BACKUP_NAME=${backup##*/}"
+          REMOTE
