@@ -15,6 +15,25 @@ if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings 
 if(!str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'aria-current="page"')){fwrite(STDERR,"Buildings navigation not selected".PHP_EOL);exit(1);}
 if (!str_contains($nav, 'Medewerkers') || !str_contains($nav, 'Inzet en planning')) { fwrite(STDERR, "Personnel links missing\n"); exit(1); }
 foreach (['/office-test/personeel/medewerkers','tab=planning','tab=onsite','tab=controle'] as $tab) { if (!str_contains($nav, $tab)) { fwrite(STDERR, "Missing personnel tab: $tab\n"); exit(1); } }
+putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=enabled');
+putenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED=enabled');
+$inspectionNav=OfficeNavigation::mainV2('/office-test/inspectie');
+foreach (['/office-test/inspecties','/office-test/inspectie'] as $url) {
+  if (!str_contains($inspectionNav,'href="'.$url.'"')) { fwrite(STDERR,"Missing inspection link: $url\n"); exit(1); }
+}
+if (!str_contains($inspectionNav,'<summary aria-current="page">Gebouwen</summary>')) {
+  fwrite(STDERR,"Inspection must select Buildings navigation\n"); exit(1);
+}
+putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=disabled');
+if (str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'href="/office-test/inspectie')) {
+  fwrite(STDERR,"Inspection links exposed with UI disabled\n"); exit(1);
+}
+putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=enabled');
+putenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED=disabled');
+if (str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'href="/office-test/inspectie')) {
+  fwrite(STDERR,"Inspection links exposed with schema disabled\n"); exit(1);
+}
+putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=disabled');
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=disabled');
 $unavailable=OfficeNavigation::mainV2('/office-test/projecten');
 if(str_contains($unavailable,'href="/office-test/projecten"')||str_contains($unavailable,'view=inzet')||str_contains($unavailable,'href="/office-test/gebouwen"')){fwrite(STDERR,"Disabled projects must not be linked".PHP_EOL);exit(1);}
