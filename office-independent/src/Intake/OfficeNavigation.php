@@ -90,6 +90,7 @@ final class OfficeNavigation {
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
+      ['Rapporten','rapporten',getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' ? [['Inspectierapporten','/office-test/inspecties']] : []],
       ['Kennis & kwaliteit','kennis',[]],
     ];
     $selected='werkplek';
@@ -98,6 +99,7 @@ final class OfficeNavigation {
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
+    elseif(str_starts_with($path,'/office-test/rapporten'))$selected='rapporten';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
     foreach($groups as [$label,$key,$links]){
