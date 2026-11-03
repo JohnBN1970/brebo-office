@@ -45,3 +45,27 @@ jobs:
           grep -F 'name="building_project"' office-independent/public/office-inspection.php
           grep -F 'name="csrf_token"' office-independent/public/office-inspection.php
           grep -F 'name="csrf_token"' office-independent/public/office-inspection-overview.php
+
+  inspection-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: inspection-ci-root
+          MYSQL_DATABASE: office_inspection_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pinspection-ci-root"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated inspection MySQL round trip
+        env:
+          OFFICE_INSPECTION_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inspection_ci;charset=utf8mb4
+          OFFICE_INSPECTION_CI_USER: root
+          OFFICE_INSPECTION_CI_PASSWORD: inspection-ci-root
+        run: |
+          php -l office-independent/tests/OfficeInspectionMySqlRoundTripTest.php
+          php office-independent/tests/OfficeInspectionMySqlRoundTripTest.php
