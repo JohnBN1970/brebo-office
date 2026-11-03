@@ -9,7 +9,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -47,17 +47,20 @@ try {
     exit;
   }
   $stmt = $db->prepare(
-    "SELECT DISTINCT b.id,b.building_name,b.street_address,b.city
+    "SELECT DISTINCT b.id,b.building_name,b.street_address,b.city,pb.project_id
      FROM office_buildings b
      INNER JOIN office_project_buildings pb ON pb.building_id=b.id
      INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
      INNER JOIN office_operator_accounts a ON a.id=m.operator_id
      WHERE b.active=1 AND a.active=1 AND m.operator_id=?
-       AND m.permission IN ('read','manage')
+       AND m.permission='manage'
      ORDER BY b.building_name LIMIT 100"
   );
   $stmt->execute([$operator->operatorId]);
   $buildings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $secret=getenv('OFFICE_TEST_INSPECTION_CSRF_SECRET');
+  $canCreate=getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' && is_string($secret) && strlen($secret)>=32;
+  $csrfToken=$canCreate ? hash_hmac('sha256','inspection-create:'.$operator->sessionId,$secret) : '';
 } catch (Throwable $e) {
   http_response_code(503);
   exit('Inspectievoorbeeld tijdelijk niet beschikbaar.');
@@ -93,26 +96,24 @@ h2{margin:0 0 14px;font-size:20px}.pill{display:inline-block;background:#eaf2f7;
 </style></head><body><main>
 <div class="eyebrow">BREBO OFFICE / GEBOUWEN / INSPECTIE</div>
 <h1>Nieuw inspectiedossier</h1>
-<p class="muted">Formuliervoorbeeld. Opslaan, foto's uploaden en rapportgeneratie worden pas na autorisatie- en databasemigratie aangesloten.</p>
-<div class="panel"><h2>01. Inspectiegegevens <span class="pill">Voorbeeld</span></h2>
-<div class="grid"><div><label class="field" for="building">Gebouw</label><select id="building">
+<p class="muted">Maak eerst het inspectiedossier aan. Daarna kun je bevindingen toevoegen.</p>
+<?php if (!$canCreate): ?><p class="muted">Opslaan uitgeschakeld totdat schema en beveiliging zijn geverifieerd.</p><?php endif; ?>
+<form method="post" action="/office-test/inspectie/aanmaken"><input type="hidden" name="csrf_token" value="<?= $e($csrfToken) ?>">
+<div class="panel"><h2>01. Inspectiegegevens</h2>
+<div class="grid"><div><label class="field" for="building">Gebouw</label><select id="building" name="building_project" required>
 <option value="">Selecteer een toegankelijk gebouw</option>
 <?php foreach ($buildings as $building): ?>
-<option value="<?= $e($building['id']) ?>"><?= $e($building['building_name'].' - '.$building['street_address'].' '.$building['city']) ?></option>
+<option value="<?= $e($building['id'] . ':' . $building['project_id']) ?>"><?= $e($building['building_name'].' - '.$building['street_address'].' '.$building['city']) ?></option>
 <?php endforeach; ?>
 </select></div><div><label class="field" for="report_type">Rapporttype</label>
-<select id="report_type"><option>Expertiserapport</option><option>Inspectierapport</option><option>Opleveringsrapport</option><option>Schaderapport</option><option>MJOP-inspectie</option></select></div></div>
-<div class="grid"><div><label class="field" for="date">Inspectiedatum</label><input id="date" type="date"></div>
-<div><label class="field" for="title">Inspectietitel</label><input id="title" placeholder="Bijv. bouwkundige inspectie"></div></div></div>
+<select id="report_type" name="report_type"><option value="expertise">Expertiserapport</option><option value="inspection">Inspectierapport</option><option value="delivery">Opleveringsrapport</option><option value="damage">Schaderapport</option><option value="mjop">MJOP-inspectie</option></select></div></div>
+<div class="grid"><div><label class="field" for="date">Inspectiedatum</label><input id="date" name="inspection_date" type="date" required></div>
+<div><label class="field" for="title">Inspectietitel</label><input id="title" name="title" maxlength="200" required placeholder="Bijv. bouwkundige inspectie"></div></div></div>
 <div class="panel"><h2>02. Rapportonderdelen</h2><p class="muted">Selecteer welke hoofdstukken het gegenereerde rapport moet bevatten.</p>
 <div class="grid"><?php foreach ($sections as $key=>$label): ?>
-<label class="check"><input type="checkbox" <?= $key !== 'cost' ? 'checked' : '' ?> <?= $key === 'findings' ? 'disabled' : '' ?>><span><?= $e($label) ?></span></label>
+<label class="check"><input type="checkbox" name="sections[]" value="<?= $e($key) ?>" <?= $key !== 'cost' ? 'checked' : '' ?> ><span><?= $e($label) ?></span></label>
 <?php endforeach; ?></div></div>
-<div class="panel"><h2>03. Bevinding</h2>
-<div class="grid"><div><label class="field" for="floor">Verdieping</label><input id="floor"></div>
-<div><label class="field" for="room">Ruimte / bouwdeel</label><input id="room"></div></div>
-<?php foreach (['Constatering','Toetsingskader','Technische beoordeling','Gevolgen','Herstelmaatregel'] as $i=>$label): ?>
-<label class="field" for="finding<?= $i ?>"><?= $e($label) ?></label><textarea id="finding<?= $i ?>" rows="3"></textarea>
-<?php endforeach; ?>
-<p class="muted">Foto's en spraaknotities volgen in de volgende bouwstap. Ingevoerde tekst in dit voorbeeld wordt niet opgeslagen.</p></div>
+<div class="panel"><h2>03. Rapportnotities</h2><textarea name="notes" maxlength="4000" rows="4"></textarea>
+<p class="muted">Bevindingen worden na het aanmaken in het dossier vastgelegd.</p>
+<button type="submit" <?= $canCreate ? '' : 'disabled' ?>>Inspectiedossier aanmaken</button></div></form>
 </main></body></html>
