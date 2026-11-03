@@ -41,7 +41,12 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
           chmod 600 ~/.ssh/office_test_key
-      - name: Validate active release and preserve server-only contract handlers
+      - name: Stage versioned merger on Office-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -P "$DEPLOY_PORT" office-independent/deployment/hostinger/merge-project-dashboard-v2.py "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-dashboard-v2-merge.py"
+      - name: Validate and merge Office-test presentation
         shell: bash
         env:
           EXPECTED_HASH: ${{ inputs.expected_sha256 }}
@@ -63,6 +68,23 @@ jobs:
           echo "ACTIVE_RELEASE=$root"
           echo "ACTIVE_SHA256=$actual"
           echo "CONTRACT_HANDLERS_PRESERVED=1"
-          echo "DEPLOYMENT_BLOCKED_PENDING_SAFE_MERGE=1"
-          echo "No server files were modified. Server has additional POST handlers; deploy requires a merged, reviewed server-based file."
+          backup="$file.backup-dashboard-20261103"
+          test -f "$backup" || { echo "::error::Missing verified user backup"; exit 13; }
+          test "$(sha256sum "$backup" | cut -d' ' -f1)" = "$EXPECTED_HASH" || exit 14
+          candidate="$(mktemp "$root/public/.office-project-v2.XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          python3 /tmp/brebo-dashboard-v2-merge.py "$file" "$candidate"
+          php -l "$candidate"
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview BREBO_DASHBOARD_V2_MERGE; do
+            grep -Fq "$marker" "$candidate" || exit 15
+          done
+          chmod --reference="$file" "$candidate"
+          mv "$candidate" "$file"
+          if ! php -l "$file" >/dev/null; then
+            cp "$backup" "$file"
+            echo "::error::Syntax check failed; original restored"
+            exit 16
+          fi
+          echo "OFFICE_TEST_DASHBOARD_V2_DEPLOYED=1"
+          echo "Original POST handlers preserved; production and database untouched"
           REMOTE
