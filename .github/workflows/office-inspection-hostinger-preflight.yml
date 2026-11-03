@@ -1,0 +1,52 @@
+name: Office inspection Hostinger read-only preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type OFFICE-TEST to run read-only check'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  preflight:
+    if: ${{ inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Configure existing SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Read-only active release and inspection file check
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"]) || !is_string($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$config")"
+          case "$root" in "$base"/release-*/private) ;; *) echo 'FAIL: root outside Office-test'; exit 2;; esac
+          test -d "$root"
+          echo "ACTIVE_TEST_RELEASE=${root#"$base"/}"
+          for file in office-inspection.php office-inspection-create.php office-inspection-overview.php office-inspection-finding-save.php; do
+            if [ -f "$root/public/$file" ]; then
+              echo "PRESENT: $file"
+              php -l "$root/public/$file"
+            else
+              echo "MISSING: $file"
+            fi
+          done
+          echo 'READ_ONLY_PREFLIGHT_COMPLETE'
+          REMOTE
