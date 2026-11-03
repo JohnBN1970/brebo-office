@@ -26,7 +26,6 @@ jobs:
       - name: Lint all inspection PHP files and Office-test router
         run: |
           set -eu
-          find office-independent/src/Inspection office-independent/tests office-independent/public office-independent/deployment/hostinger -maxdepth 1 -type f -name 'OfficeInspection*.php' -o -false > /dev/null
           for f in office-independent/src/Inspection/*.php office-independent/tests/OfficeInspection*.php office-independent/public/office-inspection*.php office-independent/deployment/hostinger/office-inspection*.php office-independent/deployment/hostinger/office-test-index.php; do
             php -l "$f"
           done
