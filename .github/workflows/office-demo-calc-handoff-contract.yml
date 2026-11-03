@@ -1,0 +1,20 @@
+name: Office demo Calc handoff contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Demo/OfficeDemoCalcHandoff.php'
+      - 'office-independent/tests/OfficeDemoCalcHandoffContractTest.php'
+      - '.github/workflows/office-demo-calc-handoff-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint and contract test
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Demo/OfficeDemoCalcHandoff.php
+          php -l office-independent/tests/OfficeDemoCalcHandoffContractTest.php
+          php office-independent/tests/OfficeDemoCalcHandoffContractTest.php
