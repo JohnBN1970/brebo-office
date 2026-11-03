@@ -78,8 +78,9 @@ jobs:
             $allowed=["mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4","mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4"];
             if (!in_array(getenv("OFFICE_INTAKE_PDO_DSN"),$allowed,true)) exit(2);
             putenv("OFFICE_INSPECTION_SCHEMA_BACKUP_CONFIRMED=YES");
+            $installer=$argv[2];
             $GLOBALS["argv"]=["office-inspection-schema-install.php","--apply"];
-            require $argv[2];
+            require $installer;
           ' "$config" "$stage/deployment/hostinger/office-inspection-schema-install.php"
           php -r '
             $config=require $argv[1];
