@@ -14,6 +14,7 @@ $escape = static fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $homeUrl = '/office-test';
 $statusLabel = 'Actief';
 $buildings = [];
+// Project dossier orientation only: links target sections already rendered below.
 // Existing POST handlers must remain unchanged:
 $actions = ['create_project_contract','create_project_term','create_project_change'];
 // OfficeProjectFinanceOverview remains guarded by Finance ACL.
