@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   header('Allow: GET');
   http_response_code(405);
@@ -57,6 +57,12 @@ try {
     require_once dirname(__DIR__) . '/src/Inspection/OfficeInspectionReportConfiguration.php';
     require_once dirname(__DIR__) . '/src/Inspection/OfficeInspectionReportConfigurationRepository.php';
     $findings=(new \Brebo\Office\Inspection\OfficeInspectionRepository($db))->findings($inspectionId);
+    $selectionStmt=$db->prepare('SELECT finding_id,include_in_report FROM office_inspection_report_findings WHERE inspection_id=?');
+    $selectionStmt->execute([$inspectionId]);
+    $selections=$selectionStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    $permissionStmt=$db->prepare("SELECT 1 FROM office_project_memberships WHERE project_id=? AND operator_id=? AND permission='manage' LIMIT 1");
+    $permissionStmt->execute([$inspection['project_id'],$operator->operatorId]);
+    $canWrite=$canWrite && $inspection['status']==='draft' && $permissionStmt->fetchColumn()!==false;
     $config=(new \Brebo\Office\Inspection\OfficeInspectionReportConfigurationRepository($db))->forInspection($inspectionId);
   }
   if (is_string($buildingId) && $buildingId !== '') {
@@ -114,7 +120,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <?php endforeach; ?></section>
 <?php if ($inspection['status'] === 'draft' && $canWrite): ?>
 <section><h3>Nieuwe bevinding vastleggen</h3>
-<p class="muted">Opslaan wordt actief zodra de beveiligde bevindingroute in Office-test is aangesloten.</p>
+<p class="muted">Bevindingen worden opgeslagen in het inspectiedossier.</p>
 <form method="post" action="/office-test/inspectie/bevinding-opslaan">
 <input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
 <input type="hidden" name="csrf_token" value="<?= $e($findingCsrf) ?>">
