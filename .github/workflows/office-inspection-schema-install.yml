@@ -1,0 +1,94 @@
+name: Office inspection schema install (Office-test only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: 'Type INSTALL-OFFICE-TEST to install five inspection tables'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  install:
+    if: ${{ inputs.confirm_test_only == 'INSTALL-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Validate installation sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!name}"; done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          for file in office-independent/deployment/hostinger/office-inspection-schema-install.php office-independent/deployment/hostinger/office-inspection-schema-preflight.php office-independent/src/Inspection/OfficeInspectionSchema.php office-independent/src/Inspection/OfficeInspectionReportConfigurationSchema.php office-independent/src/Inspection/OfficeInspectionFindingSelectionSchema.php; do
+            php -l "$file"
+          done
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+      - name: Stage only schema sources outside webroot
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          test -d "$base"
+          mkdir -p "$base/inspection-schema-stage/deployment/hostinger" "$base/inspection-schema-stage/src/Inspection"
+          REMOTE
+          for file in office-independent/deployment/hostinger/office-inspection-schema-install.php office-independent/deployment/hostinger/office-inspection-schema-preflight.php office-independent/src/Inspection/OfficeInspectionSchema.php office-independent/src/Inspection/OfficeInspectionReportConfigurationSchema.php office-independent/src/Inspection/OfficeInspectionFindingSelectionSchema.php; do
+            scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -P "$DEPLOY_PORT" "$file" "$remote:domains/brebobv.nl/office_calc_test/inspection-schema-stage/${file#office-independent/}"
+          done
+      - name: Verify backup and install isolated schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          backup="$base/backups/inspection/office-test-before-inspection-20261103T075630Z.sql.gz"
+          test -f "$backup"
+          gzip -t "$backup"
+          test "$(wc -c < "$backup")" -gt 100
+          config="$base/config/config.php"
+          test -f "$config"
+          stage="$base/inspection-schema-stage"
+          php -r '
+            $config=require $argv[1];
+            if (!is_array($config)) exit(2);
+            foreach ($config as $key=>$value) {
+              if (!is_string($key) || !is_string($value)) exit(2);
+              putenv($key."=".$value);
+            }
+            if (getenv("OFFICE_BASE_PATH")!=="/office-test") exit(2);
+            $allowed=["mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4","mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4"];
+            if (!in_array(getenv("OFFICE_INTAKE_PDO_DSN"),$allowed,true)) exit(2);
+            putenv("OFFICE_INSPECTION_SCHEMA_BACKUP_CONFIRMED=YES");
+            $GLOBALS["argv"]=["office-inspection-schema-install.php","--apply"];
+            require $argv[2];
+          ' "$config" "$stage/deployment/hostinger/office-inspection-schema-install.php"
+          php -r '
+            $config=require $argv[1];
+            if (!is_array($config)) exit(2);
+            foreach ($config as $key=>$value) {
+              if (!is_string($key) || !is_string($value)) exit(2);
+              putenv($key."=".$value);
+            }
+            require $argv[2];
+          ' "$config" "$stage/deployment/hostinger/office-inspection-schema-preflight.php"
+          echo 'PASS OFFICE_TEST_INSPECTION_SCHEMA_INSTALLED'
+          REMOTE
