@@ -12,7 +12,7 @@ if (PHP_SAPI !== 'cli') {
 }
 $dsn=getenv('OFFICE_INTAKE_PDO_DSN') ?: '';
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
-  || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)) {
+  || !in_array($dsn, ['mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4','mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4'], true)) {
   fwrite(STDERR,"FAIL: isolated Office-test database required\n");
   exit(2);
 }
