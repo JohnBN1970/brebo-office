@@ -63,10 +63,14 @@ jobs:
           ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"
-          file="$(find "$base" -path '*/private/public/office-project.php' -type f -print | sort | tail -n 1)"
-          test -n "$file"
-          case "$file" in "$base"/release-*/private/public/office-project.php) ;; *) exit 20;; esac
-          grep -Fq BREBO_DASHBOARD_V21_LAYOUT "$file"
+          # The active release is explicitly pinned; do not select the lexicographically last release.
+          file="$base/release-office-test-contractform-20261030/private/public/office-project.php"
+          test -f "$file" || { echo "ACTIVE_RELEASE_FILE_MISSING"; exit 20; }
+          test ! -L "$file" || { echo "SYMLINK_NOT_ALLOWED"; exit 20; }
+          grep -Fq BREBO_DASHBOARD_V21_LAYOUT "$file" || { echo "V21_MARKER_MISSING"; exit 22; }
+          for marker in create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            grep -Fq "$marker" "$file" || { echo "MISSING_REQUIRED_MARKER: $marker"; exit 23; }
+          done
           if grep -Fq BREBO_DASHBOARD_V23_SERVER "$file"; then echo ALREADY_V23; exit 0; fi
           backup="$file.backup-v23-$(date +%Y%m%d%H%M%S)"
           cp -p "$file" "$backup"
