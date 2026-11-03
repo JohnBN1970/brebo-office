@@ -10,7 +10,7 @@ namespace Brebo\Office\Finance;
  * idempotency reservation before invoking the bank, and handle unknown outcomes.
  */
 final class OfficePaymentBatchSubmissionGuard {
-  public static function authorize(array $sealedPayload, int $operatorId, callable $canSubmit, callable $isRecipientUnchanged): array {
+  public static function authorize(array $sealedPayload, int $operatorId, callable $canSubmit, callable $isRecipientUnchanged, array $mandate): array {
     if ($operatorId < 1 || $canSubmit($operatorId) !== true) {
       throw new \DomainException('Payment submission permission required');
     }
@@ -24,10 +24,16 @@ final class OfficePaymentBatchSubmissionGuard {
       || !hash_equals($batch['sealed_hash'], $hash)
       || !isset($batch['id'], $batch['created_by'], $batch['released_by'])
       || (int)$batch['created_by'] < 1 || (int)$batch['released_by'] < 1
-      || (int)$batch['created_by'] === (int)$batch['released_by']
       || !in_array(($batch['controller_verdict'] ?? ''), ['green', 'orange'], true)) {
       throw new \DomainException('Sealed and independently released batch required');
     }
+    OfficePaymentMandatePolicy::authorize(
+      $mandate,
+      $operatorId,
+      (int)$batch['created_by'],
+      (int)$batch['released_by'],
+      (string)($batch['control_sum'] ?? '')
+    );
     $ids = [];
     foreach ($items as $item) {
       if (!is_array($item) || ($item['status'] ?? '') !== 'released'
