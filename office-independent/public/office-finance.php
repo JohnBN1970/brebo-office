@@ -597,11 +597,10 @@ try {
   }
 
   if ($view === 'payments') {
-    $paymentAccess = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
     $data['payment_readiness'] = \Brebo\Office\Finance\OfficePaymentReadiness::inspect(
       $db,
       getenv('OFFICE_PAYMENT_CANONICAL_SCHEMA_VERIFIED') === 'enabled',
-      $paymentAccess->allows('read')
+      false // Finance read permission is NOT a bank payment submission grant
     );
   }
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
