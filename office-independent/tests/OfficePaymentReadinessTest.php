@@ -35,6 +35,11 @@ try {
   }
   $db->exec('ALTER TABLE office_bank_submission_intents ADD COLUMN requested_by TEXT');
 
+  if (OfficePaymentReadiness::inspect($db, true, true)['ready']) {
+    throw new RuntimeException('Missing unique payment reservation keys recognized as ready');
+  }
+  $db->exec('CREATE UNIQUE INDEX uq_office_bank_submission_batch ON office_bank_submission_intents (batch_id)');
+  $db->exec('CREATE UNIQUE INDEX uq_office_bank_submission_key ON office_bank_submission_intents (idempotency_key)');
   $state = OfficePaymentReadiness::inspect($db, true, true);
   if (!$state['ready']) throw new RuntimeException('Complete readiness not recognized');
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
