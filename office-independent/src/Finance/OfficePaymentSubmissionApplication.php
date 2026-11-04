@@ -7,6 +7,30 @@ namespace Brebo\Office\Finance;
  * authorization and reservation checks pass. Disabled unless explicitly enabled.
  */
 final class OfficePaymentSubmissionApplication {
+  /** Resolve operator-specific authority from the database, never from a browser form. */
+  public static function submitWithOperatorMandate(
+    array $sealedPayload,
+    int $operatorId,
+    callable $canSubmit,
+    callable $isRecipientUnchanged,
+    OfficePaymentMandateRepository $mandates,
+    OfficeSepaArtifactRepository $artifacts,
+    OfficeBankSubmissionRepository $submissions,
+    callable $resolveKey,
+    \PDO $pdo,
+    OfficeBankIntegrationApiClient $client
+  ): array {
+    if (getenv('OFFICE_BANK_PAYMENTS_ENABLED') !== 'enabled') {
+      throw new \DomainException('Office bank payments disabled');
+    }
+    if ($operatorId < 1 || $canSubmit($operatorId) !== true) {
+      throw new \DomainException('Payment submission permission required');
+    }
+    $mandate = $mandates->forOperator($operatorId);
+    return self::submit($sealedPayload, $operatorId, $canSubmit, $isRecipientUnchanged,
+      $mandate, $artifacts, $submissions, $resolveKey, $pdo, $client, true);
+  }
+
   public static function submit(
     array $sealedPayload,
     int $operatorId,
