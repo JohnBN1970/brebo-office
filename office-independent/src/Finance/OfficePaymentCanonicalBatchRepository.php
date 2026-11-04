@@ -39,7 +39,7 @@ final class OfficePaymentCanonicalBatchRepository {
         || !in_array(($batch['controller_verdict'] ?? null), ['green', 'orange'], true)
         || (int)($batch['created_by'] ?? 0) < 1
         || (int)($batch['released_by'] ?? 0) < 1
-        || (int)$batch['created_by'] === (int)$batch['released_by']) {
+        ) {
         throw new \DomainException('Canonical payment batch release controls failed');
       }
       $seenPositions = [];
