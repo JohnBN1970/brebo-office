@@ -24,10 +24,10 @@ final class OfficePaymentReadiness {
           'office_payment_mandates'=>['operator_id','enabled','mode','limit_cents','dual_above_cents','valid_from','valid_until'],
         ],
         'artifact_schema_present'=>[
-          'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id'],
+          'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id','created_by','created_at'],
         ],
         'submission_schema_present'=>[
-          'office_bank_submission_intents'=>['batch_id','idempotency_key','payload_sha256','status','bank_reference','requested_by'],
+          'office_bank_submission_intents'=>['batch_id','idempotency_key','payload_sha256','status','bank_reference','requested_by','created_at','changed_at'],
         ],
         'canonical_batch_schema_present'=>[
           'brebo_finance_payment_batch'=>['id','status','batch_number','execution_date','currency','sealed_hash','item_count','created_by','released_by','controller_verdict','control_sum'],
