@@ -106,7 +106,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 @media(max-width:650px){table{display:block;overflow-x:auto}}
 </style></head><body><main>
 <h1>Gebouwinspecties</h1><p class="muted">Beveiligd inspectieoverzicht, uitsluitend voor toegankelijke projecten.</p>
-<?php if ($inspection !== null): ?>
+<?php if ($inspection !== null && (($_GET['view'] ?? '') !== 'form')): ?>
 <section><h2><?= $e($inspection['title']) ?></h2>
 <p><?= $e($inspection['building_name']) ?> · <?= $e($inspection['inspection_date']) ?> · <?= $e($inspection['status']) ?></p>
 <p><a href="/office-test/inspecties?inspection_id=<?= $e($inspection['id']) ?>&amp;view=report">Rapportvoorbeeld / afdrukken</a></p>
@@ -151,7 +151,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 </form></details>
 <?php endif; ?></details></article>
 <?php endforeach; ?></section>
-<?php if ($inspection['status'] === 'draft' && $canWrite): ?>
+<?php if ($inspection !== null && $inspection['status'] === 'draft' && $canWrite): ?>
 <?php if (($_GET['view'] ?? '') === 'form'): ?>
 <section id="bevinding-formulier"><h3>Nieuwe bevinding vastleggen</h3><p><a href="?inspection_id=<?= $e($inspection['id']) ?>">Terug naar bevindingen</a></p>
 <p class="muted">Bevindingen worden opgeslagen in het inspectiedossier.</p>
@@ -173,6 +173,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <?php endif; ?>
 <?php endif; ?>
 <?php endif; ?>
+<?php if (($_GET['view'] ?? '') !== 'form'): ?>
 <?php if ($buildingId !== ''): ?>
 <section><h2>Inspecties bij gebouw <?= $e($buildingId) ?></h2>
 <table><thead><tr><th>Datum</th><th>Inspectie</th><th>Status</th><th>Bevindingen</th></tr></thead><tbody>
@@ -190,4 +191,5 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <td><?= $e($row['building_name']) ?></td><td><?= $e($row['status']) ?></td><td><?= $e($row['finding_count']) ?></td>
 </tr><?php endforeach; ?></tbody></table>
 <?php if (!$inspections): ?><p class="muted">Geen toegankelijke inspecties gevonden.</p><?php endif; ?></section><?php endif; ?>
+<?php endif; ?>
 </main></body></html>
