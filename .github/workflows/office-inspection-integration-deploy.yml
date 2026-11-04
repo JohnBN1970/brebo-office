@@ -134,6 +134,32 @@ jobs:
             php -l "$active/$path" >/dev/null
             echo "PASS FILE $path"
           done
+          # Wire only the two new inspection photo routes, preserving existing router entries.
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$router"
+          ROUTER_PATH="$router" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ["ROUTER_PATH"])
+          source=p.read_text()
+          routes={
+            "/office-test/inspectie/foto-uploaden":"office-inspection-evidence-upload.php",
+            "/office-test/inspectie/foto":"office-inspection-evidence-view.php",
+          }
+          missing=[(route,file) for route,file in routes.items() if ("'"+route+"'") not in source]
+          if missing:
+              needle="$routes = ["
+              if source.count(needle)!=1:
+                  raise SystemExit("FAIL ROUTER_LAYOUT")
+              addition="".join("\\n    '"+route+"' => '"+file+"'," for route,file in missing)
+              new=source.replace(needle,needle+addition,1)
+              Path(str(p)+".inspection-photo-backup").write_text(source)
+              p.write_text(new)
+          PY
+          php -l "$router" >/dev/null
+          grep -Fq "'/office-test/inspectie/foto-uploaden'" "$router"
+          grep -Fq "'/office-test/inspectie/foto'" "$router"
+          echo "PASS INSPECTION_PHOTO_ROUTES"
           echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
           echo "PROJECT_CONTROLLER_PRESERVED"
           echo "BACKUP_NAME=${backup##*/}"
