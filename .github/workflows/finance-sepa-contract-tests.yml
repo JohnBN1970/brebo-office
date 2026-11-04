@@ -33,7 +33,8 @@ jobs:
             office-independent/tests/OfficePaymentSubmissionApplicationTest.php \
             office-independent/tests/OfficePaymentTrustedBatchResolverTest.php \
             office-independent/tests/OfficePaymentCanonicalSealTest.php \
-            office-independent/tests/OfficePaymentCanonicalBatchRepositoryTest.php
+            office-independent/tests/OfficePaymentCanonicalBatchRepositoryTest.php \
+            office-independent/tests/OfficePaymentSubmissionRequestTest.php
           do
             php -l "$test"
             php "$test"
