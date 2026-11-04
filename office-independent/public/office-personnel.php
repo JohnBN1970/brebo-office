@@ -77,14 +77,14 @@ try {
       if ($statusAction === 'create') {
         $createdId = (new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db))->create($_POST, $operator->operatorId, $operator->sessionId, $secret);
         if ($createdId === null) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
-        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $createdId . '&saved=1', true, 303);
+        header('Location: /office-test/personeel/medewerkers/detail?status=all&person_id=' . $createdId . '&saved=1', true, 303);
         exit;
       }
       if ($statusAction === 'archive' || $statusAction === 'reactivate') {
         $changed = (new \Brebo\Office\Inzet\OfficePersonnelStatusAction($db))->apply($_POST, $operator->operatorId, $operator->sessionId, $secret);
         if (!$changed) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
         $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-        header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+        header('Location: /office-test/personeel/medewerkers/detail?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
         exit;
       }
       $action = new \Brebo\Office\Inzet\OfficePersonnelDetailsAction(
@@ -94,7 +94,7 @@ try {
         exit('Geen wijzigingsrechten.');
       }
       $savedPersonId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-      header('Location: /office-test/personeel/medewerkers?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
+      header('Location: /office-test/personeel/medewerkers/detail?status=all&person_id=' . $savedPersonId . '&saved=1', true, 303);
       exit;
     } catch (InvalidArgumentException|DomainException $exception) {
       http_response_code(422);
@@ -128,6 +128,7 @@ try {
   http_response_code(503);
   exit('Medewerkers tijdelijk niet beschikbaar.');
 }
+$detailPage = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/office-test/personeel/medewerkers/detail';
 $e = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $selected = filter_input(INPUT_GET, 'person_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $creating = ($_GET['view'] ?? '') === 'new' && $detailsEnabled && $projects !== [];
@@ -137,13 +138,13 @@ require_once dirname(__DIR__).'/src/Intake/OfficeRecordActions.php';
 echo \Brebo\Office\Intake\OfficeRecordActions::styles();
 $personnelActions = ['new'=>'/office-test/personeel/medewerkers?view=new'];
 $personnelAllowed = ['new'=>true, 'edit'=>false, 'archive'=>false, 'delete'=>false];
-if (!$creating && is_int($selected) && isset($people[$selected])) {
-  $personnelActions['edit']='/office-test/personeel/medewerkers?status='.rawurlencode($status).'&person_id='.$selected.'#medewerker-detail';
+if ($detailPage && !$creating && is_int($selected) && isset($people[$selected])) {
+  $personnelActions['edit']='/office-test/personeel/medewerkers/detail?status='.rawurlencode($status).'&person_id='.$selected.'#medewerker-detail';
   $personnelAllowed['edit']=true;
 }
 echo \Brebo\Office\Intake\OfficeRecordActions::render($personnelActions, $personnelAllowed);
 echo '<section><h2>Medewerkers</h2>';
-if (!$creating) {
+if (!$creating && !$detailPage) {
 echo '<form method="get" action="/office-test/personeel/medewerkers"><label for="status">Status </label><select id="status" name="status"><option value="active"' . ($status === 'active' ? ' selected' : '') . '>Actief</option><option value="inactive"' . ($status === 'inactive' ? ' selected' : '') . '>Inactief</option><option value="all"' . ($status === 'all' ? ' selected' : '') . '>Alle</option></select> <button type="submit">Filteren</button></form>';
 foreach ($people as $person) {
   echo '<a class="person" href="/office-test/personeel/medewerkers?status=' . $e($status) . '&amp;person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e(($person['personnel_number'] ?? '') ?: 'Geen personeelsnummer') . ' · <strong>' . ((int)$person['active'] === 1 ? 'Actief' : 'Inactief') . '</strong><br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
@@ -151,7 +152,8 @@ foreach ($people as $person) {
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
 }
-if ($creating) {
+if ($detailPage && (!is_int($selected) || !isset($people[$selected]))) { http_response_code(404); echo '<p>Medewerker niet gevonden of niet toegankelijk.</p>'; }
+if ($creating && !$detailPage) {
   $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
   if (is_string($secret) && strlen($secret) >= 32) {
     $csrf = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $secret);
@@ -165,8 +167,8 @@ if ($creating) {
     echo '</select></label> <button type="submit">Medewerker aanmaken</button></form></section>';
   }
 }
-if (!$creating && is_int($selected) && isset($people[$selected])) {
-  echo '<div id="medewerker-detail"></div>';
+if ($detailPage && !$creating && is_int($selected) && isset($people[$selected])) {
+  echo '<p><a href="/office-test/personeel/medewerkers">← Terug naar medewerkers</a></p><div id="medewerker-detail"></div>';
   if (!$detailsEnabled) echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
   if ($detailsEnabled) {
     try {
