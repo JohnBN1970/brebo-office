@@ -9,13 +9,13 @@ export default defineConfig({
           bindings: {
             OPENAI_API_KEY: "test-openai-key",
             BREBO_SHARED_SECRET: "test-shared-secret-with-sufficient-length",
-            OPENAI_TIMEOUT_MS: "25",
+            OPENAI_TIMEOUT_MS: "500",
           },
           outboundService: async (request) => {
             const payload: unknown = await request.json();
             const userText = extractUserText(payload);
             if (userText.includes("Timeout")) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
+              await new Promise((resolve) => setTimeout(resolve, 1500));
             }
             if (!isPrivacySafeProviderRequest(payload)) {
               return Response.json({ error: "unsafe provider request" }, { status: 400 });
