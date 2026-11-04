@@ -36,17 +36,18 @@ $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTI
 $kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
 $roleLabels=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$h($relation['display_name']).' · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1100px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;margin-bottom:18px}dl{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:12px}dt{font-weight:650}dd{margin:0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #dbe1e8;text-align:left}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/relaties">← Terug naar relaties</a></p><h1>'.$h($relation['display_name']).'</h1><p>'.$h($kindLabels[$relation['relation_kind']]??$relation['relation_kind']).'</p><section><h2>Relatiegegevens</h2><dl>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$h($relation['display_name']).' · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1100px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;margin-bottom:18px}dl{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:12px}dt{font-weight:650}dd{margin:0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #dbe1e8;text-align:left}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/relaties">← Terug naar relaties</a></p><h1>'.$h($relation['display_name']).'</h1><p>'.$h($kindLabels[$relation['relation_kind']]??$relation['relation_kind']).'</p>';
 if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled') {
     require_once dirname(__DIR__).'/src/Intake/OfficeRecordActions.php';
-    echo \\Brebo\\Office\\Intake\\OfficeRecordActions::styles();
+    echo \Brebo\Office\Intake\OfficeRecordActions::styles();
     $base='/office-test/crm/relaties/beheren?id='.$id;
-    echo \\Brebo\\Office\\Intake\\OfficeRecordActions::render(
+    echo \Brebo\Office\Intake\OfficeRecordActions::render(
         ['new'=>'/office-test/crm/relaties/nieuw','edit'=>$base.'&action=edit','archive'=>$base.'&action=archive','delete'=>$base.'&action=delete'],
         ['new'=>true,'edit'=>true,'archive'=>true,'delete'=>true]
     );
 }
 echo '<p>Status: '.$h(['active'=>'Actief','inactive'=>'Inactief','archived'=>'Gearchiveerd'][$relation['status']]??$relation['status']).'</p>';
+echo '<section><h2>Relatiegegevens</h2><dl>';
 $fields=['legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 foreach ($fields as $key=>$label) echo '<dt>'.$label.'</dt><dd>'.$h($relation[$key]??'').'</dd>';
 echo '</dl></section><section><h2>Relatierollen</h2><p>'.$h(implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roles))?:'Geen rollen vastgelegd').'</p></section><section><h2>Contactpersonen</h2>';
