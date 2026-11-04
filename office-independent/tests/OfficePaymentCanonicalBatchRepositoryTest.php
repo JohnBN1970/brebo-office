@@ -16,7 +16,7 @@ $payload = ['batch_number'=>'BRB-27','execution_date'=>'2026-11-10','currency'=>
 $seal = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR));
 $insert = $db->prepare('INSERT INTO brebo_finance_payment_batch VALUES (27,?,?,?,?,?,?,?,?,?,?)');
 $insert->execute(['released','BRB-27','2026-11-10','EUR',$seal,1,3,4,'green','50.00']);
-$insert = $db->prepare('INSERT INTO brebo_finance_payment_batch_item VALUES (1,27,1,?,?,?,?,?,?,?,?,?,?,?,?)');
+$insert = $db->prepare('INSERT INTO brebo_finance_payment_batch_item VALUES (1,27,1,?,?,?,?,?,?,?,?,?,?,?)');
 $insert->execute(array_values($item));
 try { (new OfficePaymentCanonicalBatchRepository($db))->load(27); throw new RuntimeException('Unverified schema accepted'); }
 catch (DomainException $expected) {}
