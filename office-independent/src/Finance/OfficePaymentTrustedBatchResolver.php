@@ -34,6 +34,7 @@ final class OfficePaymentTrustedBatchResolver {
       || (float)$data['batch']['control_sum'] <= 0) {
       throw new \DomainException('Canonical released payment batch unavailable');
     }
+    OfficePaymentCanonicalSeal::verify($data['batch'], $data['items']);
     return $data;
   }
 }
