@@ -24,7 +24,7 @@ try {
     if (!is_int($id)) { http_response_code(400); exit('Ongeldig relatienummer.'); }
     $stmt=$db->prepare('SELECT id,relation_kind,display_name,legal_name,chamber_of_commerce,vat_number,email,phone,street,postal_code,city,country_code,status FROM office_crm_relations WHERE id=? LIMIT 1');
     $stmt->execute([$id]); $relation=$stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$relation || $relation['status']!=='active') { http_response_code(404); exit('Relatie niet gevonden.'); }
+    if (!$relation) { http_response_code(404); exit('Relatie niet gevonden.'); }
     $stmt=$db->prepare('SELECT role_code FROM office_crm_relation_roles WHERE relation_id=? ORDER BY role_code');
     $stmt->execute([$id]); $roles=$stmt->fetchAll(PDO::FETCH_COLUMN);
     $stmt=$db->prepare('SELECT p.given_name,p.family_name,p.email,p.phone,c.job_title,c.is_primary FROM office_crm_relation_contacts c JOIN office_crm_contact_people p ON p.id=c.contact_id WHERE c.relation_id=? AND p.status=? ORDER BY c.is_primary DESC,p.family_name,p.given_name');
@@ -37,6 +37,16 @@ $kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
 $roleLabels=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$h($relation['display_name']).' · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1100px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;margin-bottom:18px}dl{display:grid;grid-template-columns:minmax(140px,230px) 1fr;gap:12px}dt{font-weight:650}dd{margin:0;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{padding:12px;border-bottom:1px solid #dbe1e8;text-align:left}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/relaties">← Terug naar relaties</a></p><h1>'.$h($relation['display_name']).'</h1><p>'.$h($kindLabels[$relation['relation_kind']]??$relation['relation_kind']).'</p><section><h2>Relatiegegevens</h2><dl>';
+if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled') {
+    require_once dirname(__DIR__).'/src/Intake/OfficeRecordActions.php';
+    echo \\Brebo\\Office\\Intake\\OfficeRecordActions::styles();
+    $base='/office-test/crm/relaties/beheren?id='.$id;
+    echo \\Brebo\\Office\\Intake\\OfficeRecordActions::render(
+        ['new'=>'/office-test/crm/relaties/nieuw','edit'=>$base.'&action=edit','archive'=>$base.'&action=archive','delete'=>$base.'&action=delete'],
+        ['new'=>true,'edit'=>true,'archive'=>true,'delete'=>true]
+    );
+}
+echo '<p>Status: '.$h(['active'=>'Actief','inactive'=>'Inactief','archived'=>'Gearchiveerd'][$relation['status']]??$relation['status']).'</p>';
 $fields=['legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 foreach ($fields as $key=>$label) echo '<dt>'.$label.'</dt><dd>'.$h($relation[$key]??'').'</dd>';
 echo '</dl></section><section><h2>Relatierollen</h2><p>'.$h(implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roles))?:'Geen rollen vastgelegd').'</p></section><section><h2>Contactpersonen</h2>';
