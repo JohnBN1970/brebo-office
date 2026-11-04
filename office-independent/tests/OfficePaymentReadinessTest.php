@@ -63,6 +63,21 @@ try {
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
     throw new RuntimeException('Unauthorized operator recognized as ready');
   }
+  // Metadata inspection must fail closed when the PDO driver cannot be read.
+  $failing = new class extends PDO {
+    public function __construct() {}
+    public function getAttribute(int $attribute): mixed {
+      throw new RuntimeException('Metadata driver unavailable');
+    }
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false {
+      throw new RuntimeException('Metadata query unavailable');
+    }
+  };
+  $failed = OfficePaymentReadiness::inspect($failing, true, true);
+  if ($failed['ready'] || $failed['checks']['payment_transactional_tables_verified']
+    || $failed['checks']['payment_column_types_verified']) {
+    throw new RuntimeException('Metadata failures must block payment readiness');
+  }
   $db->exec('DROP TABLE brebo_finance_payment_batch_item');
   if (OfficePaymentReadiness::inspect($db, true, true)['ready']) {
     throw new RuntimeException('Missing batch items recognized as ready');
