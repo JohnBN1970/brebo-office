@@ -15,6 +15,7 @@ try {
   putenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED=enabled');
   $tables = [
     'office_payment_mandates'=>['operator_id','enabled','mode','limit_cents','dual_above_cents','valid_from','valid_until'],
+    'office_payment_mandate_audit'=>['mandate_id','changed_by','changed_at','previous_values_json','new_values_json'],
     'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id','created_by','created_at'],
     'office_bank_submission_intents'=>['batch_id','idempotency_key','payload_sha256','status','bank_reference','requested_by','created_at','changed_at'],
     'brebo_finance_payment_batch'=>['status','batch_number','execution_date','currency','sealed_hash','item_count','created_by','released_by','controller_verdict','control_sum'],
@@ -55,7 +56,8 @@ try {
   }
   foreach (['mandate_schema_present','artifact_schema_present','submission_schema_present',
     'canonical_batch_schema_present','submission_uniqueness_verified',
-    'artifact_uniqueness_verified','mandate_uniqueness_verified'] as $check) {
+    'artifact_uniqueness_verified','mandate_uniqueness_verified',
+    'mandate_audit_schema_present'] as $check) {
     if (!$state['checks'][$check]) throw new RuntimeException('Complete SQLite structural schema rejected: ' . $check);
   }
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
