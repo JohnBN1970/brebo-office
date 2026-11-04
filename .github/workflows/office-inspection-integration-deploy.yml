@@ -44,6 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           for f in inspection-source/office-independent/public/office-inspection.php inspection-source/office-independent/public/office-inspection-create.php inspection-source/office-independent/public/office-inspection-overview.php inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php; do php -l "$f"; done
+          php inspection-source/office-independent/tests/OfficeInspectionEvidenceReportContractTest.php
           grep -Fq 'INNER JOIN office_buildings b ON b.id=pb.building_id' inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php
           if grep -Fq 'b.active=1' inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php; then echo 'FAIL INVALID_BUILDING_COLUMN'; exit 2; fi
           grep -Fq 'forOperator(' inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php
