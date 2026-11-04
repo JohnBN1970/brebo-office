@@ -1,0 +1,54 @@
+name: Office process blueprint contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeDisciplineCatalog.php'
+      - 'office-independent/src/Intake/OfficeProcessBlueprint.php'
+      - 'office-independent/src/Intake/OfficeIntakeProcessPlan.php'
+      - 'office-independent/src/Buildings/OfficeBuildingColumnMap.php'
+      - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
+      - 'office-independent/tests/OfficeProcessBlueprintTest.php'
+      - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
+      - 'office-independent/tests/OfficeBuildingColumnMapTest.php'
+      - '.github/workflows/office-process-blueprint-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/OfficeDisciplineCatalog.php'
+      - 'office-independent/src/Intake/OfficeProcessBlueprint.php'
+      - 'office-independent/src/Intake/OfficeIntakeProcessPlan.php'
+      - 'office-independent/src/Buildings/OfficeBuildingColumnMap.php'
+      - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
+      - 'office-independent/tests/OfficeProcessBlueprintTest.php'
+      - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
+      - 'office-independent/tests/OfficeBuildingColumnMapTest.php'
+      - '.github/workflows/office-process-blueprint-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax and run contracts
+        run: |
+          set -eu
+          for file in \
+            office-independent/src/Intake/OfficeDisciplineCatalog.php \
+            office-independent/src/Intake/OfficeProcessBlueprint.php \
+            office-independent/src/Intake/OfficeIntakeProcessPlan.php \
+            office-independent/src/Buildings/OfficeBuildingColumnMap.php \
+            office-independent/tests/OfficeDisciplineCatalogTest.php \
+            office-independent/tests/OfficeProcessBlueprintTest.php \
+            office-independent/tests/OfficeIntakeProcessPlanTest.php \
+            office-independent/tests/OfficeBuildingColumnMapTest.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeDisciplineCatalogTest.php
+          php office-independent/tests/OfficeProcessBlueprintTest.php
+          php office-independent/tests/OfficeIntakeProcessPlanTest.php
+          php office-independent/tests/OfficeBuildingColumnMapTest.php
