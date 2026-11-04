@@ -47,7 +47,7 @@ foreach ([
     throw new RuntimeException('Missing constraint: ' . $constraint);
   }
 }
-if (preg_match('/\\b(DROP|TRUNCATE|DELETE|UPDATE|INSERT|REPLACE|ALTER)\\b/i', preg_replace('/^--.*$/m', '', $sql))) {
+if (preg_match('/^\\s*(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT|REPLACE|ALTER)\\s+/mi', preg_replace('/^--.*$/m', '', $sql))) {
   throw new RuntimeException('Migration must contain only additive CREATE statements');
 }
 echo "OfficeFinancePaymentBatchFoundationSqlTest OK\\n";
