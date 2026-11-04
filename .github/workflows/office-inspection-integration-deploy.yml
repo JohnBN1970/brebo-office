@@ -191,6 +191,14 @@ jobs:
           test -w "$storage"
           test "$(stat -c '%a' "$storage")" = 700
           echo "PASS PHOTO_STORAGE_DIRECTORY"
+
+          # Unauthenticated HTTP smoke tests: no credentials, no database writes.
+          # The upload route must reject GET; photo reads must never disclose files anonymously.
+          host="brebobv.nl"
+          upload_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "https://$host/office-test/inspectie/foto-uploaden")"
+          case "$upload_status" in 405) echo "PASS PHOTO_UPLOAD_METHOD_GUARD";; *) echo "FAIL PHOTO_UPLOAD_HTTP_$upload_status"; exit 2;; esac
+          read_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "https://$host/office-test/inspectie/foto?inspection_id=1&evidence_id=1")"
+          case "$read_status" in 401|403|404) echo "PASS PHOTO_READ_ANONYMOUS_GUARD";; *) echo "FAIL PHOTO_READ_HTTP_$read_status"; exit 2;; esac
           echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
           echo "PROJECT_CONTROLLER_PRESERVED"
           echo "BACKUP_NAME=${backup##*/}"
