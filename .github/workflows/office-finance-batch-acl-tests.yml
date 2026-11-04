@@ -13,6 +13,7 @@ on:
       - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
       - 'office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php'
       - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/modules/finance-rights/routes.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
@@ -31,6 +32,7 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
       - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
       - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/modules/finance-rights/routes.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
@@ -61,6 +63,7 @@ jobs:
           php -l office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
           php -l office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php
           php -l office-independent/public/office-finance-batch-permissions.php
+          php -l office-independent/modules/finance-rights/routes.php
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/src/Intake/OfficeNavigation.php
       - name: Run isolated ACL tests
@@ -71,6 +74,9 @@ jobs:
           php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
           php office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
           php office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php
+      - name: Verify deployed module route manifest
+        run: |
+          php -r '$routes = require "office-independent/modules/finance-rights/routes.php"; if (!is_array($routes) || count($routes) !== 1 || ($routes["/office-test/finance/mijn-betaalrechten"] ?? null) !== "office-finance-batch-permissions.php") { exit(1); }'
       - name: Verify test route registration
         run: |
           grep -F "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" office-independent/deployment/hostinger/office-test-index.php
