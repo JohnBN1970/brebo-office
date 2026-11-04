@@ -16,6 +16,7 @@ final class OfficePaymentReadiness {
       'artifact_schema_present'=>false,
       'submission_schema_present'=>false,
       'canonical_batch_schema_present'=>false,
+      'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
     if ($schemaVerified) {
       $tables = [
