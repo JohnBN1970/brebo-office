@@ -4,6 +4,7 @@ $src = dirname(__DIR__) . '/src/Finance/';
 require_once $src . 'OfficeBankSubmissionIntent.php';
 require_once $src . 'OfficeBankSubmissionRepository.php';
 require_once $src . 'OfficePaymentSubmissionDispatch.php';
+require_once $src . 'OfficeBankIntegrationApiClient.php';
 use Brebo\Office\Finance\OfficeBankSubmissionRepository;
 use Brebo\Office\Finance\OfficePaymentSubmissionDispatch as Dispatch;
 if (!extension_loaded('pdo_sqlite')) throw new RuntimeException('pdo_sqlite required');
@@ -66,4 +67,15 @@ if ($attempts !== 1 || $db->query('SELECT status FROM office_bank_submission_int
 try { Dispatch::send($timeout, $db, $repo, $timedOut); throw new RuntimeException('Unknown payment retried'); }
 catch (DomainException $expected) {}
 if ($attempts !== 1) throw new RuntimeException('Bank timeout retried');
+$db->exec("INSERT INTO office_bank_submission_intents (batch_id, idempotency_key, payload_sha256, status, requested_by) VALUES (16, '" . str_repeat('d',64) . "', '" . hash('sha256', $xml) . "', 'reserved', 7)");
+$viaApi = $prepared;
+$viaApi['batch_id'] = 16;
+$viaApi['idempotency_key'] = str_repeat('d',64);
+$client = new \Brebo\Office\Finance\OfficeBankIntegrationApiClient(
+  'https://integration.example.test', 'test-secret', 'office',
+  static fn(string $url, string $path, string $body, string $clientId, string $secret): array =>
+    ['status'=>'ok', 'provider'=>'abnamro', 'state'=>'submitted_for_authorization', 'bank_reference'=>'api-16']
+);
+$sent = Dispatch::sendViaIntegrationApi($viaApi, $db, $repo, $client);
+if ($sent['bank_reference'] !== 'api-16') throw new RuntimeException('Integration API dispatch failed');
 echo "OfficePaymentSubmissionDispatchTest OK\n";
