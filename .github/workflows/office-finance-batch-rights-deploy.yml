@@ -131,4 +131,15 @@ jobs:
           fi
           echo "FINANCE_RIGHTS_TEST_FILES_AND_ROUTE_INSTALLED_NO_DATABASE_CHANGES"
           echo "BROWSER_ACCEPTANCE_AND_MENU_LINK_STILL_REQUIRE_VERIFICATION"
+          # Verify local router configuration independently of a green file deployment.
+          test -f "$base/modules/finance-rights/routes.php"
+          php -r '
+            $routes = require $argv[1];
+            if (!is_array($routes)
+              || ($routes["/office-test/finance/mijn-betaalrechten"] ?? null) !== "office-finance-batch-permissions.php") {
+              fwrite(STDERR, "FINANCE_MODULE_ROUTE_INVALID\n");
+              exit(1);
+            }
+          ' "$base/modules/finance-rights/routes.php"
+          echo "FINANCE_RIGHTS_MODULE_MANIFEST_VERIFIED"
           REMOTE
