@@ -101,11 +101,33 @@ jobs:
             install -m 644 "$stage/office-finance-batch-permissions.php" "$base/public/office-finance-batch-permissions.php"
           fi
           php -l "$base/public/office-finance-batch-permissions.php"
+          # Patch only the expected route-table entry, with an exact-match guard.
+          # Preserve the existing router and refuse ambiguous edits.
           if ! grep -Fq "'/office-test/finance/mijn-betaalrechten'" "$router"; then
-            echo "PAGE_INSTALLED_BUT_ROUTER_NOT_CHANGED"
-            echo "Manual router review is required before the URL works."
+            anchor="  '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',"
+            test "$(grep -Fxc "$anchor" "$router")" -eq 1 || { echo ROUTER_ANCHOR_MISMATCH; exit 27; }
+            backup="$router.backup-finance-rights-$(date +%Y%m%d%H%M%S)"
+            cp -p "$router" "$backup"
+            candidate="$(mktemp "$(dirname "$router")/.finance-rights-router-XXXXXXXX.php")"
+            trap 'rm -f "$candidate"' EXIT
+            cp -p "$router" "$candidate"
+            ROUTER_CANDIDATE="$candidate" php -r '
+              $path = getenv("ROUTER_CANDIDATE");
+              $source = file_get_contents($path);
+              $anchor = "  \'/office-test/finance/betaalcentrum\' => \'office-finance-payments.php\',";
+              $replacement = $anchor . "\\n  \'/office-test/finance/mijn-betaalrechten\' => \'office-finance-batch-permissions.php\',";
+              if (substr_count($source, $anchor) !== 1) exit(2);
+              if (file_put_contents($path, str_replace($anchor, $replacement, $source)) === false) exit(3);
+            '
+            php -l "$candidate" || { echo ROUTER_CANDIDATE_INVALID; exit 28; }
+            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$candidate" || { echo ROUTER_ROUTE_MISSING; exit 29; }
+            chmod --reference="$router" "$candidate"
+            mv "$candidate" "$router"
+            php -l "$router" || { cp -p "$backup" "$router"; echo ROUTER_RESTORED; exit 30; }
+            echo "ROUTER_PATCHED_BACKUP=$backup"
           else
-            echo "PAGE_INSTALLED_AND_ROUTE_PRESENT"
+            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$router" || { echo ROUTER_CONFLICT; exit 31; }
+            echo "ROUTER_ALREADY_CONFIGURED"
           fi
-          echo "FINANCE_RIGHTS_FILES_INSTALLED_NO_DATABASE_CHANGES"
+          echo "FINANCE_RIGHTS_TEST_FILES_AND_ROUTE_INSTALLED_NO_DATABASE_CHANGES"
           REMOTE
