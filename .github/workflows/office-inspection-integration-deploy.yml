@@ -37,7 +37,7 @@ jobs:
       - name: Checkout inspection feature
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || 'feature/office-inspection-foundation-20261103' }}
+          ref: feature/office-inspection-foundation-20261103
           path: inspection-source
           persist-credentials: false
       - name: Validate inspection source
