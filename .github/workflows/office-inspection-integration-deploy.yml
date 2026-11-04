@@ -208,6 +208,8 @@ jobs:
           fi
           existing_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "https://brebobv.nl/office-test/inspecties")"
           echo "INFO EXISTING_INSPECTIONS_HTTP_$existing_status"
+          if grep -Fq 'foto-uploaden' "$rewrite"; then echo "INFO PHOTO_REWRITE_PRESENT"; else echo "INFO PHOTO_REWRITE_ABSENT"; fi
+          if grep -Fq 'bevinding-opslaan' "$rewrite"; then echo "INFO FINDING_REWRITE_PRESENT"; else echo "INFO FINDING_REWRITE_ABSENT"; fi
           host="brebobv.nl"
           upload_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "https://$host/office-test/inspectie/foto-uploaden")"
           case "$upload_status" in 405) echo "PASS PHOTO_UPLOAD_METHOD_GUARD";; *) echo "FAIL PHOTO_UPLOAD_HTTP_$upload_status"; exit 2;; esac
