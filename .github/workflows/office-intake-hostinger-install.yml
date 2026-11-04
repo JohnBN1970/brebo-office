@@ -1,0 +1,52 @@
+name: Office intake Hostinger explicit test schema installation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-isolated-office-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check installer and schema syntax
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-intake-test.php
+          php -l office-independent/src/Intake/OfficeCanonicalIntakeSchema.php
+          php office-independent/tests/OfficeCanonicalIntakeSchemaTest.php
+      - name: Stage isolated installer and schema
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/install-office-intake-test.php,office-independent/src/Intake/OfficeCanonicalIntakeSchema.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.intake-schema-install-stage"
+          overwrite: true
+      - name: Install only absent Office-test intake tables
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            STAGE="$ROOT/.intake-schema-install-stage/office-independent"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$STAGE/deployment/hostinger/install-office-intake-test.php"
+            test -f "$STAGE/src/Intake/OfficeCanonicalIntakeSchema.php"
+            "$PHP" -l "$STAGE/deployment/hostinger/install-office-intake-test.php"
+            "$PHP" -l "$STAGE/src/Intake/OfficeCanonicalIntakeSchema.php"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"
+            export OFFICE_INTAKE_SCHEMA_INSTALL=explicit
+            "$PHP" "$STAGE/deployment/hostinger/install-office-intake-test.php"
