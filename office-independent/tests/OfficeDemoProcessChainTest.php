@@ -9,7 +9,7 @@ use Brebo\Office\Demo\OfficeDemoProcessChain as Demo;
 $scenario = Demo::scenario();
 Demo::validate($scenario);
 assert($scenario['project']['code'] === 'TEST-2026-001');
-assert(count($scenario['stages']) === 16);
+assert(count($scenario['stages']) === 17);
 assert($scenario['lifecycle']['origin'] === 'crm_intake');
 assert($scenario['lifecycle']['project_creation_gate'] === 'accepted_execution_contract');
 assert($scenario['lifecycle']['inspection'] === 'separate_commission_optional');
