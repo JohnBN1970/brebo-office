@@ -26,6 +26,7 @@ try {
   $inspectionId=$_GET['inspection_id'] ?? null;
   $evidenceId=$_GET['evidence_id'] ?? null;
   $root=getenv('OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR');
+  if (!is_string($root) || $root==='') $root=dirname(__DIR__).'/var/inspection-evidence';
   if (!is_string($inspectionId) || !is_string($evidenceId) || !is_string($root) || $root==='') {http_response_code(404);exit;}
   $file=(new \Brebo\Office\Inspection\OfficeInspectionEvidenceReadAction($db,$root))
     ->locate($inspectionId,$evidenceId,(string)$operator->operatorId);
