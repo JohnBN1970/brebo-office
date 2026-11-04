@@ -69,4 +69,23 @@ try { App::submit(...$args); throw new RuntimeException('Repeated batch accepted
 catch (DomainException $expected) {}
 if ($calls !== 1) throw new RuntimeException('Bank called twice');
 
+
+// Reject an altered recipient before creating a submission reservation.
+$rejected = $args;
+$rejected[0]['batch']['id'] = 28;
+$rejected[3] = static fn(int $invoice, string $hash, int $actor): bool => false;
+try { App::submit(...$rejected); throw new RuntimeException('Changed recipient accepted'); }
+catch (DomainException $expected) {}
+if ((int)$db->query('SELECT COUNT(*) FROM office_bank_submission_intents WHERE batch_id=28')->fetchColumn() !== 0 || $calls !== 1) {
+  throw new RuntimeException('Rejected recipient created a submission');
+}
+// A denied mandate must never reserve a payment or contact the bank.
+$denied = $args;
+$denied[0]['batch']['id'] = 29;
+$denied[4] = ['enabled'=>false, 'mode'=>'single', 'limit_eur'=>'100.00'];
+try { App::submit(...$denied); throw new RuntimeException('Denied mandate accepted'); }
+catch (DomainException $expected) {}
+if ((int)$db->query('SELECT COUNT(*) FROM office_bank_submission_intents WHERE batch_id=29')->fetchColumn() !== 0 || $calls !== 1) {
+  throw new RuntimeException('Denied mandate created a submission');
+}
 echo "OfficePaymentSubmissionApplicationTest OK\n";
