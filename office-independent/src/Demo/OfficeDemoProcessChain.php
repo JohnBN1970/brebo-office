@@ -17,6 +17,14 @@ final class OfficeDemoProcessChain
     {
         return [
             'scenario_key' => 'renovatie-232-woningen-v1',
+            'lifecycle' => [
+                'origin' => 'crm_intake',
+                'initial_measurement' => 'crm_opportunity',
+                'inspection' => 'separate_commission_optional',
+                'project_creation_gate' => 'accepted_execution_contract',
+                'final_measurement' => 'optional_after_execution_contract',
+                'legacy_demo_project_preexists' => true,
+            ],
             'environment' => 'office-test',
             'project' => [
                 'code' => self::PROJECT_CODE,
@@ -25,11 +33,14 @@ final class OfficeDemoProcessChain
             ],
             'stages' => [
                 'crm' => ['lead', 'customer', 'contact'],
-                'projecten' => ['project', 'building_links'],
-                'gebouwen' => ['buildings', 'housing_units', 'building_elements'],
-                'inspectie' => ['inspections', 'findings', 'measures'],
+                'opportunity' => ['initial_measurement', 'commercial_scope'],
+                'inspectieopdracht' => ['commission', 'inspection_report'],
                 'calculatie' => ['quantities', 'cost_estimate', 'sale_price'],
                 'offerte' => ['offer', 'offer_lines', 'acceptance'],
+                'contractacceptatie' => ['accepted_execution_contract'],
+                'projecten' => ['project', 'building_links'],
+                'gebouwen' => ['buildings', 'housing_units', 'building_elements'],
+                'definitieve_inmeting' => ['optional_final_measurement'],
                 'contracten' => ['contract', 'terms', 'change_orders'],
                 'inkoop' => ['suppliers', 'purchase_orders', 'commitments'],
                 'personeel' => ['people', 'roles'],
