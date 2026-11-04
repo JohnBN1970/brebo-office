@@ -116,7 +116,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <?php if (!$findings): ?><p class="muted">Nog geen bevindingen vastgelegd.</p><?php endif; ?>
 <?php foreach ($findings as $finding): ?>
 <article><h4><?= $e($finding['code']) ?> · <?= $e($finding['building_part']) ?></h4>
-<?php if (!empty($evidenceByFinding[(string)$finding['id']])): ?><p class="muted"><strong>Fotobijlagen:</strong> <?= $e(count($evidenceByFinding[(string)$finding['id']])) ?> (metadata geregistreerd; beveiligde fotoweergave volgt)</p><?php endif; ?>
+<?php if (!empty($evidenceByFinding[(string)$finding['id']])): ?><p class="muted"><strong>Fotobijlagen:</strong> <?= $e(count($evidenceByFinding[(string)$finding['id']])) ?></p><?php foreach ($evidenceByFinding[(string)$finding['id']] as $photo): ?><figure><img loading="lazy" style="max-width:260px;max-height:200px;object-fit:contain" src="/office-test/inspectie/foto?inspection_id=<?= $e($inspection['id']) ?>&amp;evidence_id=<?= $e($photo['id']) ?>" alt="Inspectiefoto"><figcaption><?= $e($photo['caption'] ?? '') ?></figcaption></figure><?php endforeach; ?><?php endif; ?>
 <dl><?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader',
 'technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
 <dt><?= $e($label) ?></dt><dd><?= $e($finding[$key] ?? '') ?></dd>
