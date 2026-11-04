@@ -27,12 +27,21 @@ final class OfficePaymentReadinessView {
       return '<p class="notice" role="status">Bankgereedheid nog niet gecontroleerd. Verzenden is niet beschikbaar.</p>';
     }
     $html = '<h3>Technische gereedheidscontrole</h3><ul>';
+    $failed = [];
     foreach (self::LABELS as $key=>$label) {
       $ok = ($state['checks'][$key] ?? false) === true;
+      if (!$ok) $failed[] = $label;
       $html .= '<li>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8')
         . ': <strong>' . ($ok ? 'Gecontroleerd' : 'Niet gereed') . '</strong></li>';
     }
     $html .= '</ul>';
+    if ($failed !== []) {
+      $html .= '<p><strong>Ontbrekende voorwaarden (' . count($failed) . '):</strong></p><ol>';
+      foreach ($failed as $label) {
+        $html .= '<li>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</li>';
+      }
+      $html .= '</ol>';
+    }
     // A caller-provided ready flag cannot override a failed or missing gate.
     $allChecksPassed = true;
     foreach (array_keys(self::LABELS) as $key) {
