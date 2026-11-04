@@ -18,3 +18,5 @@ jobs:
           php office-independent/tests/OfficeCrmRepresentationSchemaTest.php
           php office-independent/tests/OfficeCrmManagerRevenueTest.php
           php office-independent/tests/OfficeCrmFinanceRevenueReportTest.php
+          php -l office-independent/src/Crm/OfficeCrmVerifiedSalesBridge.php
+          php office-independent/tests/OfficeCrmVerifiedSalesBridgeTest.php
