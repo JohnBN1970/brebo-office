@@ -18,7 +18,8 @@ jobs:
       - name: Validate read-only Finance endpoint and dependencies
         run: |
           set -euo pipefail
-          for file in office-independent/public/office-finance-batch-permissions.php \
+          for file in office-independent/modules/finance-rights/routes.php \
+            office-independent/public/office-finance-batch-permissions.php \
             office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php \
             office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php \
             office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php \
@@ -56,6 +57,7 @@ jobs:
           remote="$USER@$HOST"
           ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$remote" 'mkdir -p "$HOME/office-finance-rights-staging" && chmod 700 "$HOME/office-finance-rights-staging"'
           for file in \
+            office-independent/modules/finance-rights/routes.php \
             office-independent/public/office-finance-batch-permissions.php \
             office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php \
             office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php \
@@ -80,18 +82,11 @@ jobs:
           test -f "$htaccess" && test ! -L "$htaccess" || { echo HTACCESS_UNSAFE; exit 21; }
           test -d "$base/public" && test -d "$base/src/Finance" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
           test -f "$base/public/office-finance.php" || { echo FINANCE_ENTRY_MISSING; exit 23; }
-          if ! grep -Fq "'/office-test/finance/betaalcentrum'" "$router"; then
-            echo "FINANCE_ROUTE_MISSING: active router uses another Finance route structure"
-            echo "ACTIVE_ROUTER_FINANCE_REFERENCES_BEGIN"
-            # Print only matching route declarations, not application secrets or arbitrary code.
-            grep -nE "office-test/finance|office-finance[-a-z]*\\.php" "$router" | head -n 35 || true
-            echo "ACTIVE_ROUTER_FINANCE_REFERENCES_END"
-            echo "ROUTER_PATH=$router"
-            echo "NO_FILES_INSTALLED"
-            exit 24
-          fi
-          # Verify the existing web-server rewrite before installing any files.
-          grep -Eq 'RewriteRule.*finance|RewriteRule.*index\\.php' "$htaccess" || { echo FINANCE_REWRITE_UNVERIFIED; exit 32; }
+          # Active router discovers private/modules/*/routes.php.
+          # No modification to the central router or .htaccess.
+          grep -Fq "glob(\$moduleRoot . '/*/routes.php')" "$router" || { echo MODULE_ROUTE_LOADER_MISSING; exit 24; }
+          test -d "$base/modules" || { echo MODULE_ROOT_MISSING; exit 32; }
+          test -d "$base/modules/finance-rights" || test ! -e "$base/modules/finance-rights" || { echo MODULE_DIR_CONFLICT; exit 33; }
           for name in office-finance-batch-permissions OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
             php -l "$stage/$name.php"
           done
@@ -116,34 +111,16 @@ jobs:
             install -m 644 "$stage/office-finance-batch-permissions.php" "$base/public/office-finance-batch-permissions.php"
           fi
           php -l "$base/public/office-finance-batch-permissions.php"
-          # Patch only the expected route-table entry, with an exact-match guard.
-          # Preserve the existing router and refuse ambiguous edits.
-          if ! grep -Fq "'/office-test/finance/mijn-betaalrechten'" "$router"; then
-            anchor="  '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',"
-            test "$(grep -Fxc "$anchor" "$router")" -eq 1 || { echo ROUTER_ANCHOR_MISMATCH; exit 27; }
-            backup="$router.backup-finance-rights-$(date +%Y%m%d%H%M%S)"
-            cp -p "$router" "$backup"
-            candidate="$(mktemp "$(dirname "$router")/.finance-rights-router-XXXXXXXX.php")"
-            trap 'rm -f "$candidate"' EXIT
-            cp -p "$router" "$candidate"
-            ROUTER_CANDIDATE="$candidate" php -r '
-              $path = getenv("ROUTER_CANDIDATE");
-              $source = file_get_contents($path);
-              $quote = chr(39);
-              $anchor = "  " . $quote . "/office-test/finance/betaalcentrum" . $quote . " => " . $quote . "office-finance-payments.php" . $quote . ",";
-              $replacement = $anchor . PHP_EOL . "  " . $quote . "/office-test/finance/mijn-betaalrechten" . $quote . " => " . $quote . "office-finance-batch-permissions.php" . $quote . ",";
-              if (substr_count($source, $anchor) !== 1) exit(2);
-              if (file_put_contents($path, str_replace($anchor, $replacement, $source)) === false) exit(3);
-            '
-            php -l "$candidate" || { echo ROUTER_CANDIDATE_INVALID; exit 28; }
-            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$candidate" || { echo ROUTER_ROUTE_MISSING; exit 29; }
-            chmod --reference="$router" "$candidate"
-            mv "$candidate" "$router"
-            php -l "$router" || { cp -p "$backup" "$router"; echo ROUTER_RESTORED; exit 30; }
-            echo "ROUTER_PATCHED_BACKUP=$backup"
+          module="$base/modules/finance-rights"
+          manifest="$module/routes.php"
+          if test -e "$manifest" || test -L "$manifest"; then
+            cmp -s "$stage/routes.php" "$manifest" || { echo MODULE_MANIFEST_CONFLICT; exit 34; }
+            echo "FINANCE_MODULE_ROUTE_ALREADY_INSTALLED"
           else
-            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$router" || { echo ROUTER_CONFLICT; exit 31; }
-            echo "ROUTER_ALREADY_CONFIGURED"
+            mkdir -p "$module"
+            install -m 644 "$stage/routes.php" "$manifest"
+            php -l "$manifest"
+            echo "FINANCE_MODULE_ROUTE_INSTALLED"
           fi
           echo "FINANCE_RIGHTS_TEST_FILES_AND_ROUTE_INSTALLED_NO_DATABASE_CHANGES"
           echo "BROWSER_ACCEPTANCE_AND_MENU_LINK_STILL_REQUIRE_VERIFICATION"
