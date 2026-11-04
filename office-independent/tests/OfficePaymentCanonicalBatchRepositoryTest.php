@@ -26,8 +26,9 @@ $db->exec("UPDATE brebo_finance_payment_batch SET control_sum = '49.99' WHERE id
 try { $repo->load(27); throw new RuntimeException('Incorrect control sum accepted'); }
 catch (DomainException $expected) {}
 $db->exec("UPDATE brebo_finance_payment_batch SET control_sum = '50.00', released_by = 3 WHERE id = 27");
-try { $repo->load(27); throw new RuntimeException('Self-released batch accepted'); }
-catch (DomainException $expected) {}
+if ($repo->resolver()->resolve(27)['sealed_hash'] !== $seal) {
+  throw new RuntimeException('Single-approval batch rejected before mandate policy');
+}
 $db->exec("UPDATE brebo_finance_payment_batch SET released_by = 4 WHERE id = 27");
 $db->exec("UPDATE brebo_finance_payment_batch_item SET status = 'prepared' WHERE id = 1");
 try { $repo->load(27); throw new RuntimeException('Unreleased instruction accepted'); }
