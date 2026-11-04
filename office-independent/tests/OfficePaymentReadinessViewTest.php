@@ -38,6 +38,12 @@ $tampered['checks']['payment_transactional_tables_verified'] = false;
 if (!str_contains(OfficePaymentReadinessView::render($tampered), 'Bankverzending geblokkeerd')) {
   throw new RuntimeException('Failed check must override forged ready=true');
 }
+$preflight = OfficePaymentReadinessView::render($tampered);
+if (!str_contains($preflight, 'Ontbrekende voorwaarden (1)')
+  || !str_contains($preflight, '<li>InnoDB-transactietabellen gecontroleerd</li>')
+  || str_contains($preflight, '<form') || str_contains($preflight, '<button')) {
+  throw new RuntimeException('Preflight must list missing checks without payment controls');
+}
 $state['ready'] = false; $state['checks']['operator_authorized'] = false;
 if (!str_contains(OfficePaymentReadinessView::render($state), 'Bankverzending geblokkeerd')) {
   throw new RuntimeException('Blocked readiness not displayed');
