@@ -1,0 +1,40 @@
+name: Office Finance Batch ACL Tests
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
+      - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
+      - '.github/workflows/office-finance-batch-acl-tests.yml'
+  push:
+    branches:
+      - finance-office-bank-integration-contract-20261103
+    paths:
+      - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
+      - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
+      - '.github/workflows/office-finance-batch-acl-tests.yml'
+permissions:
+  contents: read
+jobs:
+  finance-batch-acl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          php -l office-independent/src/Finance/OfficeFinanceBatchAccess.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php
+          php -l office-independent/tests/OfficeFinanceBatchAccessTest.php
+          php -l office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
+      - name: Run isolated ACL tests
+        run: |
+          php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
+          php office-independent/tests/OfficeFinanceBatchAccessTest.php
