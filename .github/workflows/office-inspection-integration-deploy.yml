@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/office-inspection-foundation-20261103
+      - develop
     paths:
       - 'office-independent/src/Inspection/**'
       - 'office-independent/public/office-inspection*.php'
@@ -97,6 +98,12 @@ jobs:
           $sql="SELECT i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,b.name AS building_name,COUNT(DISTINCT f.id) AS finding_count FROM office_inspections i INNER JOIN office_buildings b ON b.id=i.building_id INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 LEFT JOIN office_inspection_findings f ON f.inspection_id=i.id WHERE m.operator_id=? AND m.permission IN ('read','manage') GROUP BY i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,b.name ORDER BY i.inspection_date DESC,i.id DESC LIMIT 100";
           $q=$db->prepare($sql);$q->execute([0]);
           echo "PASS AUTHORIZED_LIST_QUERY\n";
+          $check=$db->query("SHOW TABLES LIKE 'office_inspection_report_configs'");
+          if (!$check->fetchColumn()) { echo "FAIL REPORT_CONFIG_TABLE\n"; exit(4); }
+          echo "PASS REPORT_CONFIG_TABLE\n";
+          $create="SELECT 1 FROM office_project_buildings pb INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 INNER JOIN office_buildings b ON b.id=pb.building_id WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1";
+          $q=$db->prepare($create);$q->execute([0,0,0]);
+          echo "PASS CREATE_AUTH_QUERY\n";
           PHP
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
           backup="$stage/integration-backup-$stamp"
