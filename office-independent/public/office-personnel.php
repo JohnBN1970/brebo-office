@@ -132,7 +132,17 @@ $e = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUO
 $selected = filter_input(INPUT_GET, 'person_id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $creating = ($_GET['view'] ?? '') === 'new' && $detailsEnabled && $projects !== [];
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medewerkers · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1150px;margin:32px auto;padding:0 20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px;margin:16px 0}a{color:#175a91}.person{display:block;padding:14px;border:1px solid #dbe1e8;border-radius:8px;margin:8px 0;text-decoration:none}.person:hover{background:#f1f5f9}small{color:#64748b}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.page-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.page-actions button{font:inherit;padding:9px 13px;border:1px solid #aab9c9;border-radius:7px;background:#fff;color:#34465a}.page-actions button:disabled{opacity:.55;cursor:not-allowed}.page-actions .primary{background:#175a91;color:#fff;border-color:#175a91}section form label{display:inline-block;margin:8px 12px 8px 0}section input,section select{padding:8px;border:1px solid #cbd5e1;border-radius:6px;max-width:100%}section fieldset{border:1px solid #dbe1e8;border-radius:8px;margin:14px 0}section button{padding:9px 15px;border:0;border-radius:6px;background:#175a91;color:white;cursor:pointer}</style></head><body><main><div class="page-head"><div><h1>Personeel · Medewerkers</h1><p>Centraal medewerkersoverzicht. Alleen medewerkers uit projecten die je mag beheren.</p></div><nav class="page-actions" aria-label="Medewerkeracties"><a href="/office-test/personeel/medewerkers?view=new">Nieuwe medewerker</a></nav></div><section><h2>Medewerkers</h2>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Medewerkers · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1150px;margin:32px auto;padding:0 20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px;margin:16px 0}a{color:#175a91}.person{display:block;padding:14px;border:1px solid #dbe1e8;border-radius:8px;margin:8px 0;text-decoration:none}.person:hover{background:#f1f5f9}small{color:#64748b}.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.page-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.page-actions button{font:inherit;padding:9px 13px;border:1px solid #aab9c9;border-radius:7px;background:#fff;color:#34465a}.page-actions button:disabled{opacity:.55;cursor:not-allowed}.page-actions .primary{background:#175a91;color:#fff;border-color:#175a91}section form label{display:inline-block;margin:8px 12px 8px 0}section input,section select{padding:8px;border:1px solid #cbd5e1;border-radius:6px;max-width:100%}section fieldset{border:1px solid #dbe1e8;border-radius:8px;margin:14px 0}section button{padding:9px 15px;border:0;border-radius:6px;background:#175a91;color:white;cursor:pointer}</style></head><body><main><div class="page-head"><div><h1>Personeel · Medewerkers</h1><p>Centraal medewerkersoverzicht. Alleen medewerkers uit projecten die je mag beheren.</p></div></div>';
+require_once dirname(__DIR__).'/src/Intake/OfficeRecordActions.php';
+echo \Brebo\Office\Intake\OfficeRecordActions::styles();
+$personnelActions = ['new'=>'/office-test/personeel/medewerkers?view=new'];
+$personnelAllowed = ['new'=>true, 'edit'=>false, 'archive'=>false, 'delete'=>false];
+if (!$creating && is_int($selected) && isset($people[$selected])) {
+  $personnelActions['edit']='/office-test/personeel/medewerkers?status='.rawurlencode($status).'&person_id='.$selected.'#medewerker-detail';
+  $personnelAllowed['edit']=true;
+}
+echo \Brebo\Office\Intake\OfficeRecordActions::render($personnelActions, $personnelAllowed);
+echo '<section><h2>Medewerkers</h2>';
 if (!$creating) {
 echo '<form method="get" action="/office-test/personeel/medewerkers"><label for="status">Status </label><select id="status" name="status"><option value="active"' . ($status === 'active' ? ' selected' : '') . '>Actief</option><option value="inactive"' . ($status === 'inactive' ? ' selected' : '') . '>Inactief</option><option value="all"' . ($status === 'all' ? ' selected' : '') . '>Alle</option></select> <button type="submit">Filteren</button></form>';
 foreach ($people as $person) {
@@ -156,6 +166,7 @@ if ($creating) {
   }
 }
 if (!$creating && is_int($selected) && isset($people[$selected])) {
+  echo '<div id="medewerker-detail"></div>';
   if (!$detailsEnabled) echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
   if ($detailsEnabled) {
     try {
