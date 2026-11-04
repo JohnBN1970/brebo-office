@@ -57,6 +57,7 @@ try {
         'office_intakes',
         'office_crm_leads',
         'office_intake_requests',
+        'office_intake_request_disciplines',
         'office_requests',
         'office_opportunities',
         'office_crm_opportunities',
