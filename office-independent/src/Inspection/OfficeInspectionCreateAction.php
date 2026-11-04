@@ -35,7 +35,7 @@ final class OfficeInspectionCreateAction {
       "SELECT 1 FROM office_project_buildings pb
        INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
-       INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
+       INNER JOIN office_buildings b ON b.id=pb.building_id
        WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1"
     );
     $stmt->execute([$buildingId,$projectId,$operatorId]);
