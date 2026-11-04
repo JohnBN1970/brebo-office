@@ -49,7 +49,14 @@ try {
   }
   $db->exec('CREATE UNIQUE INDEX uq_office_payment_mandate_operator ON office_payment_mandates (operator_id)');
   $state = OfficePaymentReadiness::inspect($db, true, true);
-  if (!$state['ready']) throw new RuntimeException('Complete readiness not recognized');
+  if ($state['ready'] || $state['checks']['payment_column_types_verified']) {
+    throw new RuntimeException('SQLite test schema must not pass production MySQL type verification');
+  }
+  foreach (['mandate_schema_present','artifact_schema_present','submission_schema_present',
+    'canonical_batch_schema_present','submission_uniqueness_verified',
+    'artifact_uniqueness_verified','mandate_uniqueness_verified'] as $check) {
+    if (!$state['checks'][$check]) throw new RuntimeException('Complete SQLite structural schema rejected: ' . $check);
+  }
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
     throw new RuntimeException('Unauthorized operator recognized as ready');
   }
