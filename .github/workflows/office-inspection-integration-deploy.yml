@@ -209,7 +209,7 @@ jobs:
               p.write_text(source)
           PY
           echo "PASS PHOTO_REWRITE_UPDATED"
- no credentials, no database writes.
+          # Unauthenticated HTTP smoke tests: no credentials, no database writes.
           # The upload route must reject GET; photo reads must never disclose files anonymously.
           # Distinguish rewrite-layer 404 from the PHP router's own 404.
           rewrite="$HOME/domains/brebobv.nl/public_html/office-test/.htaccess"
