@@ -35,6 +35,45 @@ final class OfficePaymentCanonicalBatchRepository {
       if ($items === [] || (int)($batch['item_count'] ?? -1) !== count($items)) {
         throw new \DomainException('Canonical payment batch item count mismatch');
       }
+      if (($batch['currency'] ?? null) !== 'EUR'
+        || !in_array(($batch['controller_verdict'] ?? null), ['green', 'orange'], true)
+        || (int)($batch['created_by'] ?? 0) < 1
+        || (int)($batch['released_by'] ?? 0) < 1
+        || (int)$batch['created_by'] === (int)$batch['released_by']) {
+        throw new \DomainException('Canonical payment batch release controls failed');
+      }
+      $seenPositions = [];
+      $seenInstructions = [];
+      $totalCents = 0;
+      foreach ($items as $item) {
+        if (($item['status'] ?? null) !== 'released'
+          || ($item['currency'] ?? null) !== 'EUR'
+          || ($item['instruction_type'] ?? null) !== 'regular'
+          || !preg_match('/^[0-9]+\.[0-9]{2}$/D', (string)($item['amount'] ?? ''))) {
+          throw new \DomainException('Unsafe canonical payment instruction');
+        }
+        $position = (int)($item['position'] ?? 0);
+        $identity = (string)($item['end_to_end_id'] ?? '');
+        if ($position < 1 || isset($seenPositions[$position])
+          || $identity === '' || isset($seenInstructions[$identity])) {
+          throw new \DomainException('Duplicate canonical payment instruction');
+        }
+        $seenPositions[$position] = true;
+        $seenInstructions[$identity] = true;
+        [$euros, $cents] = explode('.', (string)$item['amount']);
+        if (strlen($euros) > 12) throw new \DomainException('Payment amount exceeds safe range');
+        $value = ((int)$euros * 100) + (int)$cents;
+        if ($value <= 0) throw new \DomainException('Non-positive payment amount');
+        $totalCents += $value;
+      }
+      $control = (string)($batch['control_sum'] ?? '');
+      if (!preg_match('/^[0-9]+\.[0-9]{2}$/D', $control)) {
+        throw new \DomainException('Invalid payment batch control sum');
+      }
+      [$euros, $cents] = explode('.', $control);
+      if (strlen($euros) > 12 || $totalCents !== ((int)$euros * 100 + (int)$cents)) {
+        throw new \DomainException('Canonical payment batch total mismatch');
+      }
       $sealed = OfficePaymentCanonicalSeal::verify($batch, $items);
       $this->pdo->commit();
       return ['batch'=>$batch, 'items'=>$items, 'sealed_hash'=>$sealed];
