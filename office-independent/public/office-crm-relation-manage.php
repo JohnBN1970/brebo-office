@@ -56,10 +56,11 @@ if ($method==='POST') {
   if ($active!==null&&$active!=='1') $errors[]='Ongeldige status.';
   $relation['status']=$active==='1'?'active':'inactive';
   $postedRoles=$_POST['roles']??[];
-  if (!is_array($postedRoles)||array_diff($postedRoles,array_keys($roles))||array_filter($postedRoles,static fn($v)=>!is_string($v))) $errors[]='Ongeldige rollen.';
+  if (!is_array($postedRoles)||array_filter($postedRoles,static fn($v)=>!is_string($v))||array_diff($postedRoles,array_keys($roles))) $errors[]='Ongeldige rollen.';
   else $selected=array_values(array_unique($postedRoles));
   if (($relation['display_name']??'')==='') $errors[]='Relatienaam is verplicht.';
   if (($relation['email']??'')!==''&&!filter_var($relation['email'],FILTER_VALIDATE_EMAIL)) $errors[]='Ongeldig e-mailadres.';
+  $relation['country_code']=strtoupper((string)($relation['country_code']??''));
   if (!preg_match('/^[A-Z]{2}$/D',(string)$relation['country_code'])) $errors[]='Landcode moet twee hoofdletters zijn.';
   if ($relation['status']==='archived') $errors[]='Gearchiveerde relatie eerst herstellen.';
  }
