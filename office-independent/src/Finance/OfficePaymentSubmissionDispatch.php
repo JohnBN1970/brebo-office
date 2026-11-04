@@ -7,6 +7,15 @@ namespace Brebo\Office\Finance;
  * is committed. No automatic retry after ambiguous provider responses.
  */
 final class OfficePaymentSubmissionDispatch {
+  public static function sendViaIntegrationApi(
+    array $prepared,
+    \PDO $pdo,
+    OfficeBankSubmissionRepository $repository,
+    OfficeBankIntegrationApiClient $client
+  ): array {
+    return self::send($prepared, $pdo, $repository, \Closure::fromCallable([$client, 'submit']));
+  }
+
   public static function send(
     array $prepared,
     \PDO $pdo,
