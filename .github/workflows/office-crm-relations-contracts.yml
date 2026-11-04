@@ -1,0 +1,29 @@
+name: Office CRM relations contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/tests/OfficeCrm*Test.php'
+      - '.github/workflows/office-crm-relations-contracts.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/tests/OfficeCrm*Test.php'
+      - '.github/workflows/office-crm-relations-contracts.yml'
+jobs:
+  crm-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax and CRM relation contracts
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmRelationsSchema.php
+          php -l office-independent/src/Crm/OfficeCrmRelationPolicy.php
+          php office-independent/tests/OfficeCrmRelationsFoundationTest.php
+          if test -f office-independent/src/Crm/OfficeCrmRepresentationSchema.php; then
+            php -l office-independent/src/Crm/OfficeCrmRepresentationSchema.php
+            php -l office-independent/src/Crm/OfficeCrmManagerRevenue.php
+            php office-independent/tests/OfficeCrmRepresentationSchemaTest.php
+            php office-independent/tests/OfficeCrmManagerRevenueTest.php
+          fi
