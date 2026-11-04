@@ -55,6 +55,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 foreach ([''=>'Alle relaties','customer'=>'Klanten','prospect'=>'Prospects','supplier'=>'Leveranciers'] as $key=>$label)
     echo '<option value="'.$h($key).'"'.($role===$key?' selected':'').'>'.$h($label).'</option>';
 echo '</select></label><button type="submit">Filter</button></form>';
+if (getenv('OFFICE_TEST_CRM_WRITE_ENABLED')==='enabled') echo '<p><a href="/office-test/crm/relaties/nieuw">+ Nieuwe relatie</a></p>';
 if ($relations === []) echo '<p>Geen relaties gevonden.</p>';
 else { echo '<table><thead><tr><th>Relatie</th><th>Soort</th><th>Rollen</th><th>Vestigingsplaats</th><th>Contactpersonen</th><th>Vastgoedbeheerder</th></tr></thead><tbody>';
 foreach ($relations as $item) echo '<tr><td>'.$h($item['display_name']).'</td><td>'.$h($item['relation_kind']).'</td><td>'.$h($item['roles']??'').'</td><td>'.$h($item['city']??'').'</td><td>'.$h($item['contact_count']).'</td><td>'.$h($item['managers']??'').'</td></tr>';
