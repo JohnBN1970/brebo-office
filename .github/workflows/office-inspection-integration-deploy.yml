@@ -1,0 +1,120 @@
+name: Deploy Office-test inspection project and reports integration
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - 'office-independent/src/Inspection/**'
+      - 'office-independent/public/office-inspection*.php'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-INSPECTION-INTEGRATION
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-inspection-integration
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'push' || inputs.confirmation == 'DEPLOY-INSPECTION-INTEGRATION' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          persist-credentials: false
+      - name: Verify canonical navigation
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php -l office-independent/public/office-project.php
+          php office-independent/tests/OfficeNavigationV2Test.php
+      - name: Checkout inspection feature
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'feature/office-inspection-foundation-20261103' }}
+          path: inspection-source
+          persist-credentials: false
+      - name: Validate inspection source
+        run: |
+          set -euo pipefail
+          for f in inspection-source/office-independent/public/office-inspection.php inspection-source/office-independent/public/office-inspection-create.php inspection-source/office-independent/public/office-inspection-overview.php inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php; do php -l "$f"; done
+          grep -Fq 'INNER JOIN office_buildings b ON b.id=pb.building_id' inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php
+          if grep -Fq 'b.active=1' inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php; then echo 'FAIL INVALID_BUILDING_COLUMN'; exit 2; fi
+          grep -Fq 'forOperator(' inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php
+          grep -Fq 'projectFilter' inspection-source/office-independent/public/office-inspection.php
+          grep -Fq 'OfficeInspectionReportPrintView.php' inspection-source/office-independent/public/office-inspection-overview.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Stage and deploy selected files only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          mkdir -p deploy-payload/public deploy-payload/src/Inspection deploy-payload/src/Intake
+          cp office-independent/src/Intake/OfficeNavigation.php deploy-payload/src/Intake/
+          cp inspection-source/office-independent/public/office-inspection.php deploy-payload/public/
+          cp inspection-source/office-independent/public/office-inspection-create.php deploy-payload/public/
+          cp inspection-source/office-independent/public/office-inspection-overview.php deploy-payload/public/
+          cp inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php deploy-payload/src/Inspection/
+          cp inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php deploy-payload/src/Inspection/
+          cp inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php deploy-payload/src/Inspection/
+          cp inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php deploy-payload/src/Inspection/
+          tar -C deploy-payload -czf inspection-integration.tar.gz public src
+          remote="$USER@$HOST"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" inspection-integration.tar.gz "$remote:domains/brebobv.nl/office_calc_test/inspection-deploy-stage/inspection-integration.tar.gz"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL TEST_SCOPE"; exit 2;; esac
+          stage="$base/inspection-deploy-stage"
+          tmp="$(mktemp -d "$stage/integration.XXXXXXXX")"
+          trap 'rm -rf "$tmp"' EXIT
+          tar -xzf "$stage/inspection-integration.tar.gz" -C "$tmp"
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionCreateAction.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
+            test -f "$tmp/$path"
+            php -l "$tmp/$path" >/dev/null
+          done
+          CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          $c=require getenv("CONFIG_PATH");
+          if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(2);
+          $db=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          $sql="SELECT i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,b.name AS building_name,COUNT(DISTINCT f.id) AS finding_count FROM office_inspections i INNER JOIN office_buildings b ON b.id=i.building_id INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 LEFT JOIN office_inspection_findings f ON f.inspection_id=i.id WHERE m.operator_id=? AND m.permission IN ('read','manage') GROUP BY i.id,i.building_id,i.project_id,i.title,i.inspection_date,i.status,i.created_at,b.name ORDER BY i.inspection_date DESC,i.id DESC LIMIT 100";
+          $q=$db->prepare($sql);$q->execute([0]);
+          echo "PASS AUTHORIZED_LIST_QUERY\n";
+          PHP
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          backup="$stage/integration-backup-$stamp"
+          mkdir -p "$backup"
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionCreateAction.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
+            mkdir -p "$backup/$(dirname "$path")"
+            if test -f "$active/$path"; then
+              cp -p "$active/$path" "$backup/$path"
+            else
+              echo "NEW FILE $path (no existing backup)"
+            fi
+          done
+          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionCreateAction.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php; do
+            mkdir -p "$active/$(dirname "$path")"
+            install -m 644 "$tmp/$path" "$active/$path"
+            php -l "$active/$path" >/dev/null
+            echo "PASS FILE $path"
+          done
+          echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
+          echo "PROJECT_CONTROLLER_PRESERVED"
+          echo "BACKUP_NAME=${backup##*/}"
+          REMOTE
