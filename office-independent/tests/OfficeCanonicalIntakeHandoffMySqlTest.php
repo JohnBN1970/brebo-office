@@ -105,7 +105,7 @@ foreach ($counts as $table => $expected) {
     }
 }
 $rows = $db->query('SELECT source_request_id, building_id, building_resolution FROM office_intake_requests ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
-if ($rows[0]['building_id'] !== '42' || $rows[0]['building_resolution'] !== 'linked'
+if ((string) $rows[0]['building_id'] !== '42' || $rows[0]['building_resolution'] !== 'linked'
     || $rows[1]['building_id'] !== null || $rows[1]['building_resolution'] !== 'required'
     || $rows[2]['building_id'] !== null || $rows[2]['building_resolution'] !== 'required') {
     throw new RuntimeException('persisted_building_resolution_invalid');
