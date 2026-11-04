@@ -25,6 +25,12 @@ final class OfficePaymentReadiness {
       'canonical_batch_schema_present'=>false,
       'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
+    // Any unavailable driver metadata blocks readiness without throwing.
+    try {
+      $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+    } catch (\\Throwable $ignored) {
+      return ['ready'=>false, 'checks'=>$checks];
+    }
     if ($schemaVerified) {
       $tables = [
         'mandate_schema_present'=>[
@@ -60,7 +66,7 @@ final class OfficePaymentReadiness {
       if ($checks['mandate_schema_present'] && $checks['artifact_schema_present']
         && $checks['submission_schema_present']) {
         try {
-          if ($pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+          if ($driver === 'mysql') {
             $expected = [
               'office_payment_mandates'=>[
                 'operator_id'=>'bigint unsigned', 'limit_cents'=>'bigint unsigned',
@@ -103,7 +109,7 @@ final class OfficePaymentReadiness {
       // Payment reservations must be transactionally durable. MyISAM and other
       // non-transactional engines cannot guarantee the reserve/commit boundary.
       try {
-        if ($pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+        if ($driver === 'mysql') {
           $statement = $pdo->query(
             "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = DATABASE()
@@ -124,7 +130,7 @@ final class OfficePaymentReadiness {
       // Mandate changes require durable audit records on the same transaction engine.
       try {
         if ($checks['mandate_audit_schema_present']
-          && $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+          && $driver === 'mysql') {
           $statement = $pdo->query(
             "SELECT ENGINE FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_payment_mandate_audit'"
@@ -157,7 +163,6 @@ final class OfficePaymentReadiness {
       foreach ($constraints as $check=>$rule) {
         if (!$checks[$rule['schema']]) continue;
         try {
-          $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
           $uniqueColumns = [];
           if ($driver === 'mysql') {
             $statement = $pdo->prepare(
