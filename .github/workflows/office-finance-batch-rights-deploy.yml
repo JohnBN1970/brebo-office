@@ -82,6 +82,13 @@ jobs:
           test -f "$htaccess" && test ! -L "$htaccess" || { echo HTACCESS_UNSAFE; exit 21; }
           test -d "$base/public" && test -d "$base/src/Finance" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
           test -f "$base/public/office-finance.php" || { echo FINANCE_ENTRY_MISSING; exit 23; }
+          # Apache must dispatch the new Finance URL to the Office router.
+          # A green file deployment is not sufficient if this rewrite is absent.
+          if ! grep -Eq '^RewriteRule[[:space:]]+\\^finance/.*mijn-betaalrechten.*index\\.php' "$htaccess"; then
+            echo "FINANCE_RIGHTS_REWRITE_MISSING: /office-test/finance/mijn-betaalrechten"
+            echo "Add the route to the existing Finance RewriteRule before rerunning."
+            exit 35
+          fi
           # Active router discovers private/modules/*/routes.php.
           # No modification to the central router or .htaccess.
           grep -Fq "glob(\$moduleRoot . '/*/routes.php')" "$router" || { echo MODULE_ROUTE_LOADER_MISSING; exit 24; }
