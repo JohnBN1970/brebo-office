@@ -5,6 +5,8 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
       - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
       - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
 permissions:
@@ -34,7 +38,10 @@ jobs:
           php -l office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php
           php -l office-independent/tests/OfficeFinanceBatchAccessTest.php
           php -l office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php
+          php -l office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
       - name: Run isolated ACL tests
         run: |
           php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
           php office-independent/tests/OfficeFinanceBatchAccessTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
