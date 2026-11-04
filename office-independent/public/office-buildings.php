@@ -66,9 +66,27 @@ try {
   http_response_code(503);
   exit('Gebouwenoverzicht tijdelijk niet beschikbaar.');
 }
+$buildingId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$detail = isset($_GET['id']);
+$selectedBuilding = null;
+if ($detail) {
+  if (!is_int($buildingId)) { http_response_code(404); exit('Gebouw niet gevonden.'); }
+  foreach ($buildings as $candidate) {
+    if ((int)$candidate['id'] === $buildingId) { $selectedBuilding = $candidate; break; }
+  }
+  if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
+}
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>Gebouwen</h1><p>Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.</p><section>';
+require_once dirname(__DIR__) . '/src/Intake/OfficeRecordActions.php';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
+echo \Brebo\Office\Intake\OfficeRecordActions::styles();
+if ($detail) {
+  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  echo '</main></body></html>';
+  exit;
+}
+echo '<section>';
 if ($buildings === []) {
   echo '<p>Geen toegankelijke gebouwen gevonden.</p>';
 } else {
@@ -77,7 +95,7 @@ if ($buildings === []) {
     $address = trim(implode(' ', array_filter([
       $building['street_address'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''
     ], static fn($part) => is_string($part) && trim($part) !== '')));
-    echo '<tr><td>' . $h($building['building_name']) . '</td><td>' . $h($address) .
+    echo '<tr><td><a href="/office-test/gebouwen?id=' . (int)$building['id'] . '">' . $h($building['building_name']) . '</a></td><td>' . $h($address) .
       '</td><td>' . $h($building['project_count']) . '</td><td>' . $h($building['active_zone_count']) . '</td></tr>';
   }
   echo '</tbody></table>';
