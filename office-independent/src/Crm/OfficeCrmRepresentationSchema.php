@@ -34,8 +34,8 @@ final class OfficeCrmRepresentationSchema {
     }
 
     public static function validateRepresentation(int $principalId, int $representativeId, string $type): void {
-        if ($principalId < 1 || $representativeId < 1 || $principalId === $representativeId || $type !== 'vve_manager') {
-            throw new InvalidArgumentException('Invalid VvE representation');
+        if ($principalId < 1 || $representativeId < 1 || $principalId === $representativeId || $type !== 'property_management') {
+            throw new InvalidArgumentException('Invalid property management representation');
         }
     }
 
