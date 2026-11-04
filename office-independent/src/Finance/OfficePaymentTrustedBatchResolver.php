@@ -24,7 +24,14 @@ final class OfficePaymentTrustedBatchResolver {
       || !is_array($data['items'] ?? null) || $data['items'] === []
       || !is_string($data['sealed_hash'] ?? null)
       || !preg_match('/^[a-f0-9]{64}$/D', $data['sealed_hash'])
-      || !hash_equals((string)($data['batch']['sealed_hash'] ?? ''), $data['sealed_hash'])) {
+      || !hash_equals((string)($data['batch']['sealed_hash'] ?? ''), $data['sealed_hash'])
+      || !isset($data['batch']['created_by'], $data['batch']['released_by'])
+      || (int)$data['batch']['created_by'] < 1
+      || (int)$data['batch']['released_by'] < 1
+      || !in_array(($data['batch']['controller_verdict'] ?? null), ['green', 'orange'], true)
+      || !isset($data['batch']['control_sum'])
+      || !is_numeric($data['batch']['control_sum'])
+      || (float)$data['batch']['control_sum'] <= 0) {
       throw new \DomainException('Canonical released payment batch unavailable');
     }
     return $data;
