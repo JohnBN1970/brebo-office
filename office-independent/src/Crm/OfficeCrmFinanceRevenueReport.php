@@ -19,7 +19,7 @@ final class OfficeCrmFinanceRevenueReport {
             }
             if ((int)substr($date, 0, 4) !== $year) continue;
             $status = $invoice['status'] ?? null;
-            if (!in_array($status, ['sent', 'paid', 'overdue', 'partially_paid', 'credited'], true)) continue;
+            if (!in_array($status, ['sent', 'paid', 'overdue', 'partially_paid'], true)) continue;
             $rows[] = [
                 'invoice_id' => $invoice['invoice_id'] ?? null,
                 'customer_relation_id' => $invoice['customer_relation_id'] ?? null,
