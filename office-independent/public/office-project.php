@@ -241,7 +241,7 @@ if ($buildings === []) {
   $buildingHtml .= '<ul>';
   foreach ($buildings as $building) {
     $address = trim(implode(' ', array_filter([$building['address_line'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''], static fn($part): bool => is_string($part) && $part !== '')));
-    $buildingHtml .= '<li><strong>' . $escape((string) $building['name']) . '</strong> (' . $escape((string) $building['code']) . ')' . ($address !== '' ? ' — ' . $escape($address) : '') . '</li>';
+    $buildingHtml .= '<li><strong><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . (int) $building['id']) . '">' . $escape((string) $building['name']) . '</a></strong> (' . $escape((string) $building['code']) . ')' . ($address !== '' ? ' — ' . $escape($address) : '') . '</li>';
   }
   $buildingHtml .= '</ul>';
 }
