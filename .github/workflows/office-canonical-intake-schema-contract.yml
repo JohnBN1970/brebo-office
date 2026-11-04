@@ -1,0 +1,34 @@
+name: Office canonical intake schema contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeSchema.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeSchemaTest.php'
+      - '.github/workflows/office-canonical-intake-schema-contract.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeSchema.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeSchemaTest.php'
+      - '.github/workflows/office-canonical-intake-schema-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint and contract checks
+        run: |
+          php -l office-independent/src/Intake/OfficeCanonicalIntakeSchema.php
+          php -l office-independent/tests/OfficeCanonicalIntakeSchemaTest.php
+          php office-independent/tests/OfficeCanonicalIntakeSchemaTest.php
