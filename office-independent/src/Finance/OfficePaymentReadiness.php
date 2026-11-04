@@ -7,6 +7,19 @@ namespace Brebo\Office\Finance;
  * Never exposes credentials or changes flags/schema.
  */
 final class OfficePaymentReadiness {
+  /** MariaDB reports BIGINT(20) UNSIGNED; MySQL may report BIGINT UNSIGNED. */
+  private static function matchesColumnType(string $actual, string $expected): bool {
+    $actual = strtolower(trim($actual));
+    $expected = strtolower(trim($expected));
+    if ($expected === 'bigint unsigned') {
+      return preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D', $actual) === 1;
+    }
+    if (in_array($expected, ['tinyint', 'varbinary', 'char'], true)) {
+      return preg_match('/^' . preg_quote($expected, '/') . '(?:\\([0-9]+\\))?$/D', $actual) === 1;
+    }
+    return $actual === $expected;
+  }
+
   public static function inspect(\PDO $pdo, bool $schemaVerified, bool $authorized): array {
     $checks = [
       'operator_authorized'=>$authorized,
@@ -96,7 +109,7 @@ final class OfficePaymentReadiness {
             $checks['payment_column_types_verified'] = true;
             foreach ($expected as $table=>$columns) {
               foreach ($columns as $name=>$type) {
-                if (!str_starts_with($actual[$table][$name] ?? '', $type)) {
+                if (!self::matchesColumnType($actual[$table][$name] ?? '', $type)) {
                   $checks['payment_column_types_verified'] = false;
                 }
               }
