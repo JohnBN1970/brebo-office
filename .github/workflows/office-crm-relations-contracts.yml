@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Crm/**'
+      - 'office-independent/public/office-crm-relations.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/tests/OfficeCrm*Test.php'
       - '.github/workflows/office-crm-relations-contracts.yml'
   push:
@@ -21,6 +24,10 @@ jobs:
           php -l office-independent/src/Crm/OfficeCrmRelationsSchema.php
           php -l office-independent/src/Crm/OfficeCrmRelationPolicy.php
           php office-independent/tests/OfficeCrmRelationsFoundationTest.php
+          php -l office-independent/public/office-crm-relations.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php office-independent/tests/OfficeCrmRelationsHttpWiringTest.php
           if test -f office-independent/src/Crm/OfficeCrmRepresentationSchema.php; then
             php -l office-independent/src/Crm/OfficeCrmRepresentationSchema.php
             php -l office-independent/src/Crm/OfficeCrmManagerRevenue.php
