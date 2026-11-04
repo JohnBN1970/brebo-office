@@ -36,6 +36,7 @@ try {
   if (!is_string($inspectionId) || !is_string($findingId) || !is_string($caption)
     || !isset($_FILES['photo']) || !is_array($_FILES['photo'])) {http_response_code(422);exit;}
   $root=getenv('OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR');
+  if (!is_string($root) || $root==='') $root=dirname(__DIR__).'/var/inspection-evidence';
   if (!is_string($root) || $root==='') {http_response_code(503);exit;}
   $id=(new \Brebo\Office\Inspection\OfficeInspectionEvidenceUploadAction($db,$root))
     ->upload($inspectionId,$findingId,(string)$operator->operatorId,$_FILES['photo'],$caption);
