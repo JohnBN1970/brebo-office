@@ -17,7 +17,7 @@ $seal = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESC
 $insert = $db->prepare('INSERT INTO brebo_finance_payment_batch VALUES (27,?,?,?,?,?,?,?,?,?,?)');
 $insert->execute(['released','BRB-27','2026-11-10','EUR',$seal,1,3,4,'green','50.00']);
 $insert = $db->prepare('INSERT INTO brebo_finance_payment_batch_item VALUES (1,27,1,?,?,?,?,?,?,?,?,?,?,?,?)');
-$insert->execute(array_values($item));
+$insert->execute([...array_values($item), 'released']);
 try { (new OfficePaymentCanonicalBatchRepository($db))->load(27); throw new RuntimeException('Unverified schema accepted'); }
 catch (DomainException $expected) {}
 $repo = new OfficePaymentCanonicalBatchRepository($db, true);
