@@ -192,7 +192,24 @@ jobs:
           test "$(stat -c '%a' "$storage")" = 700
           echo "PASS PHOTO_STORAGE_DIRECTORY"
 
-          # Unauthenticated HTTP smoke tests: no credentials, no database writes.
+          # Extend the existing inspection rewrite allowlist without changing other modules.
+          rewrite="$HOME/domains/brebobv.nl/public_html/office-test/.htaccess"
+          test -f "$rewrite"
+          REWRITE_PATH="$rewrite" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path(os.environ["REWRITE_PATH"])
+          source=p.read_text()
+          if "foto-uploaden" not in source:
+              old="bevinding-opslaan"
+              if source.count(old)!=1:
+                  raise SystemExit("FAIL INSPECTION_REWRITE_LAYOUT")
+              p.with_name(".htaccess.inspection-photo-backup").write_text(source)
+              source=source.replace(old,old+"|foto-uploaden|foto",1)
+              p.write_text(source)
+          PY
+          echo "PASS PHOTO_REWRITE_UPDATED"
+ no credentials, no database writes.
           # The upload route must reject GET; photo reads must never disclose files anonymously.
           # Distinguish rewrite-layer 404 from the PHP router's own 404.
           rewrite="$HOME/domains/brebobv.nl/public_html/office-test/.htaccess"
