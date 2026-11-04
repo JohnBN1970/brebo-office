@@ -35,14 +35,14 @@ jobs:
           $c=require getenv('CONFIG_PATH');
           if (($c['OFFICE_BASE_PATH']??'')!=='/office-test') { echo "FAIL TEST_SCOPE\n"; exit(2); }
           $db=new PDO($c['OFFICE_INTAKE_PDO_DSN'],$c['OFFICE_INTAKE_DB_USER'],$c['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-          foreach (['office_buildings'=>['id','active'],'office_project_buildings'=>['building_id','project_id'],'office_project_memberships'=>['project_id','operator_id','permission'],'office_operator_accounts'=>['id','active'],'office_inspections'=>['id','building_id','project_id'],'office_inspection_report_configurations'=>[]] as $table=>$columns) {
+          foreach (['office_buildings'=>['id','active'],'office_project_buildings'=>['building_id','project_id'],'office_project_memberships'=>['project_id','operator_id','permission'],'office_operator_accounts'=>['id','active'],'office_inspections'=>['id','building_id','project_id'],'office_inspection_report_configs'=>['inspection_id','report_type','sections_json','notes','updated_by']] as $table=>$columns) {
             $q=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
             $q->execute([$table]);
             $actual=$q->fetchAll(PDO::FETCH_COLUMN);
             echo ($actual ? 'PRESENT ' : 'MISSING ').$table."\n";
             foreach ($columns as $column) echo (in_array($column,$actual,true)?'PASS ':'MISSING ').$table.'.'.$column."\n";
           }
-          $sql="SELECT 1 FROM office_project_buildings pb INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1 WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1";
+          $sql="SELECT 1 FROM office_project_buildings pb INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 INNER JOIN office_buildings b ON b.id=pb.building_id WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1";
           try { $q=$db->prepare($sql);$q->execute([0,0,0]); echo "PASS CREATE_AUTH_QUERY\n"; }
           catch(Throwable $e) { echo "FAIL CREATE_AUTH_QUERY ".get_class($e)." SQLSTATE=".($e instanceof PDOException ? $e->getCode() : 'n/a')."\n"; }
           PHP
