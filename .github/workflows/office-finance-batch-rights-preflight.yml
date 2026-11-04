@@ -1,0 +1,77 @@
+name: Finance batch rights Office-test preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to run read-only remote preflight
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Finance page, routes and dependencies
+        run: |
+          set -euo pipefail
+          for file in \
+            office-independent/public/office-finance-batch-permissions.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php \
+            office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php \
+            office-independent/deployment/hostinger/office-test-index.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+          php office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
+  remote_preflight:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Check active test release without modifying server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          router="$root/public_html/office-test/index.php"
+          test -f "$router" && test ! -L "$router" || { echo "ROUTER_NOT_SAFE"; exit 21; }
+          test -d "$base/public" && test -d "$base/src/Finance" || { echo "ACTIVE_RELEASE_MISSING"; exit 22; }
+          test -f "$base/public/office-finance.php" || { echo "FINANCE_ENTRY_MISSING"; exit 23; }
+          php -l "$router"
+          php -l "$base/public/office-finance.php"
+          if grep -Fq "'/office-test/finance/mijn-betaalrechten'" "$router"; then
+            echo "FINANCE_BATCH_RIGHTS_ROUTE_ALREADY_PRESENT"
+          else
+            echo "FINANCE_BATCH_RIGHTS_ROUTE_NOT_YET_INSTALLED"
+          fi
+          for name in OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview OfficeFinanceBatchSettingsPanel; do
+            if test -f "$base/src/Finance/$name.php"; then
+              php -l "$base/src/Finance/$name.php"
+              echo "PRESENT: $name"
+            else
+              echo "MISSING: $name"
+            fi
+          done
+          echo "READ_ONLY_PREFLIGHT_COMPLETED_NO_FILES_CHANGED"
+          REMOTE
