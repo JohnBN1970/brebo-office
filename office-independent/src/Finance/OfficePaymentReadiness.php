@@ -19,6 +19,7 @@ final class OfficePaymentReadiness {
       'artifact_uniqueness_verified'=>false,
       'mandate_uniqueness_verified'=>false,
       'payment_column_types_verified'=>false,
+      'payment_transactional_tables_verified'=>false,
       'canonical_batch_schema_present'=>false,
       'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
@@ -93,6 +94,27 @@ final class OfficePaymentReadiness {
         } catch (\PDOException $ignored) {
           $checks['payment_column_types_verified'] = false;
         }
+      }
+      // Payment reservations must be transactionally durable. MyISAM and other
+      // non-transactional engines cannot guarantee the reserve/commit boundary.
+      try {
+        if ($pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+          $statement = $pdo->query(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE()
+             AND TABLE_NAME IN ('office_payment_mandates','office_sepa_batch_artifacts',
+               'office_bank_submission_intents','brebo_finance_payment_batch',
+               'brebo_finance_payment_batch_item')"
+          );
+          $engines = [];
+          foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $table) {
+            $engines[$table['TABLE_NAME']] = strtoupper((string)$table['ENGINE']);
+          }
+          $checks['payment_transactional_tables_verified'] = count($engines) === 5
+            && count(array_filter($engines, static fn(string $engine): bool => $engine === 'INNODB')) === 5;
+        }
+      } catch (\PDOException $ignored) {
+        $checks['payment_transactional_tables_verified'] = false;
       }
       // Enforce one immutable artifact and one active mandate record per identity,
       // as well as exactly one durable reservation per batch and idempotency key.
