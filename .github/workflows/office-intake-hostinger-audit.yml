@@ -1,0 +1,47 @@
+name: Office intake Hostinger read-only audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  intake-schema-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check audit syntax
+        run: php -l office-independent/deployment/hostinger/audit-office-intake-readonly.php
+      - name: Stage isolated audit script
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/audit-office-intake-readonly.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.intake-schema-audit-stage"
+          overwrite: true
+      - name: Run read-only metadata audit
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            SCRIPT="$ROOT/.intake-schema-audit-stage/office-independent/deployment/hostinger/audit-office-intake-readonly.php"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$SCRIPT"
+            "$PHP" -l "$SCRIPT"
+            export OFFICE_BASE_PATH=/office-test
+            # Database credentials must already be available in the SSH
+            # environment; this workflow never prints or transfers them.
+            "$PHP" "$SCRIPT"
