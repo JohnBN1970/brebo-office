@@ -596,6 +596,14 @@ try {
       ->visible($operator->operatorId, $projectId);
   }
 
+  if ($view === 'payments') {
+    $paymentAccess = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    $data['payment_readiness'] = \Brebo\Office\Finance\OfficePaymentReadiness::inspect(
+      $db,
+      getenv('OFFICE_PAYMENT_CANONICAL_SCHEMA_VERIFIED') === 'enabled',
+      $paymentAccess->allows('read')
+    );
+  }
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
