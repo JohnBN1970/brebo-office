@@ -1,5 +1,11 @@
 name: Deploy Office-test inspection project and reports integration
 on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - 'office-independent/src/Inspection/**'
+      - 'office-independent/public/office-inspection*.php'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -8,9 +14,12 @@ on:
         type: string
 permissions:
   contents: read
+concurrency:
+  group: office-test-inspection-integration
+  cancel-in-progress: false
 jobs:
   deploy:
-    if: ${{ inputs.confirmation == 'DEPLOY-INSPECTION-INTEGRATION' }}
+    if: ${{ github.event_name == 'push' || inputs.confirmation == 'DEPLOY-INSPECTION-INTEGRATION' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +35,7 @@ jobs:
       - name: Checkout inspection feature
         uses: actions/checkout@v4
         with:
-          ref: feature/office-inspection-foundation-20261103
+          ref: ${{ github.event_name == 'push' && github.sha || 'feature/office-inspection-foundation-20261103' }}
           path: inspection-source
           persist-credentials: false
       - name: Validate inspection source
