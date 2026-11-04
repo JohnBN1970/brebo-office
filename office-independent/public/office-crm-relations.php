@@ -58,6 +58,13 @@ echo '</select></label><button type="submit">Filter</button></form>';
 if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled') echo '<p><a href="/office-test/crm/relaties/nieuw">+ Nieuwe relatie</a></p>';
 if ($relations === []) echo '<p>Geen relaties gevonden.</p>';
 else { echo '<table><thead><tr><th>Relatie</th><th>Soort</th><th>Rollen</th><th>Vestigingsplaats</th><th>Contactpersonen</th><th>Vastgoedbeheerder</th></tr></thead><tbody>';
-foreach ($relations as $item) echo '<tr><td>'.$h($item['display_name']).'</td><td>'.$h($item['relation_kind']).'</td><td>'.$h($item['roles']??'').'</td><td>'.$h($item['city']??'').'</td><td>'.$h($item['contact_count']).'</td><td>'.$h($item['managers']??'').'</td></tr>';
+$kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
+$roleLabels=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
+foreach ($relations as $item) {
+    $roleCodes=($item['roles']??'')!==''?explode(', ',(string)$item['roles']):[];
+    $displayRoles=implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roleCodes));
+    $url='/office-test/crm/relaties/detail?id='.(int)$item['id'];
+    echo '<tr><td><a href="'.$h($url).'">'.$h($item['display_name']).'</a></td><td>'.$h($kindLabels[$item['relation_kind']]??$item['relation_kind']).'</td><td>'.$h($displayRoles).'</td><td>'.$h($item['city']??'').'</td><td>'.$h($item['contact_count']).'</td><td>'.$h($item['managers']??'').'</td></tr>';
+}
 echo '</tbody></table>'; }
 echo '</section></main></body></html>';
