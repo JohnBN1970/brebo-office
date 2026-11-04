@@ -119,6 +119,24 @@ jobs:
           $create="SELECT 1 FROM office_project_buildings pb INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 INNER JOIN office_buildings b ON b.id=pb.building_id WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1";
           $q=$db->prepare($create);$q->execute([0,0,0]);
           echo "PASS CREATE_AUTH_QUERY\n";
+          $upload="SELECT 1 FROM office_inspection_findings f
+            INNER JOIN office_inspections i ON i.id=f.inspection_id
+            INNER JOIN office_project_buildings pb ON pb.building_id=i.building_id AND pb.project_id=i.project_id
+            INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
+            INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+            WHERE i.id=? AND f.id=? AND i.status='draft' AND f.status='draft'
+            AND m.operator_id=? AND m.permission='manage' LIMIT 1";
+          $q=$db->prepare($upload);$q->execute([0,0,0]);
+          echo "PASS PHOTO_UPLOAD_AUTH_QUERY\\n";
+          $read="SELECT e.storage_key,e.mime_type FROM office_inspection_evidence e
+            INNER JOIN office_inspection_findings f ON f.id=e.finding_id
+            INNER JOIN office_inspections i ON i.id=f.inspection_id
+            INNER JOIN office_project_buildings pb ON pb.project_id=i.project_id AND pb.building_id=i.building_id
+            INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
+            INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+            WHERE e.id=? AND i.id=? AND m.operator_id=? AND m.permission IN ('read','manage') LIMIT 1";
+          $q=$db->prepare($read);$q->execute([0,0,0]);
+          echo "PASS PHOTO_READ_AUTH_QUERY\\n";
           PHP
           stamp="$(date -u +%Y%m%dT%H%M%SZ)"
           backup="$stage/integration-backup-$stamp"
