@@ -22,7 +22,7 @@ h1{font-size:23pt;color:#183d59}h2{font-size:15pt;color:#183d59;margin-top:25px}
 header{border-bottom:2px solid #183d59;padding-bottom:18px}
 dt{font-weight:bold;margin-top:13px}dd{white-space:pre-wrap;margin:3px 0 0}
 .meta{color:#5a6b79}.toolbar{max-width:760px;margin:15px auto}
-article{margin:30px 0;break-inside:avoid}.finding-location{color:#5a6b79;font-size:10pt}.report-summary{padding:12px 0;border-bottom:1px solid #d6dfe7}.report-note{white-space:pre-wrap}
+article{margin:30px 0;break-inside:avoid}.evidence-list{border-top:1px solid #d6dfe7;margin-top:16px;padding-top:10px}.evidence-list h3{font-size:11pt}.finding-location{color:#5a6b79;font-size:10pt}.report-summary{padding:12px 0;border-bottom:1px solid #d6dfe7}.report-note{white-space:pre-wrap}
 @media print{body{background:white}main{margin:0;padding:0}.toolbar{display:none}}
 </style></head><body>
 <div class="toolbar"><button type="button" id="print-report">Afdrukken / PDF opslaan</button></div>
@@ -41,6 +41,14 @@ article{margin:30px 0;break-inside:avoid}.finding-location{color:#5a6b79;font-si
 <article><h2><?= $e($finding['code']) ?> - <?= $e($finding['building_part'] ?? '') ?></h2>
 <?php $location=array_filter([$finding['floor_label'] ?? '',$finding['room_label'] ?? ''],static fn($v):bool=>trim((string)$v)!==''); ?>
 <?php if ($location): ?><p class="finding-location"><strong>Locatie:</strong> <?= $e(implode(' · ',$location)) ?></p><?php endif; ?>
+<?php if (!empty($evidenceByFinding[(string)$finding['id']])): ?>
+<section class="evidence-list"><h3>Fotoregistratie</h3>
+<?php foreach ($evidenceByFinding[(string)$finding['id']] as $photo): ?>
+<p><strong>Bijlage <?= $e($photo['id']) ?></strong><?php if (trim((string)($photo['caption'] ?? '')) !== ''): ?> — <?= $e($photo['caption']) ?><?php endif; ?></p>
+<?php endforeach; ?>
+<p class="meta">Foto's zijn geregistreerd in het dossier. Afbeeldingen worden pas na beveiligde bestandsontsluiting opgenomen.</p>
+</section>
+<?php endif; ?>
 <?php foreach ($fields as $key => $label): ?>
 <dl><dt><?= $e($label) ?></dt><dd><?= $e($finding[$key] ?? '') ?></dd></dl>
 <?php endforeach; ?>
