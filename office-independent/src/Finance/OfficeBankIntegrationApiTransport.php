@@ -23,7 +23,7 @@ final class OfficeBankIntegrationApiTransport {
           'Content-Type: application/json',
           'X-BREBO-Timestamp: ' . $timestamp,
           'X-BREBO-Request-Id: ' . $requestId,
-          'X-BREBO-Signature: sha256=' . $signature,
+          'X-BREBO-Signature: v1=' . $signature,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CONNECTTIMEOUT => 10,
