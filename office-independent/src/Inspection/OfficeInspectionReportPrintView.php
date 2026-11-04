@@ -24,7 +24,8 @@ dt{font-weight:bold;margin-top:13px}dd{white-space:pre-wrap;margin:3px 0 0}
 article{margin:30px 0;break-inside:avoid}
 @media print{body{background:white}main{margin:0;padding:0}.toolbar{display:none}}
 </style></head><body>
-<div class="toolbar"><button type="button" onclick="window.print()">Afdrukken / PDF opslaan</button></div>
+<div class="toolbar"><button type="button" id="print-report">Afdrukken / PDF opslaan</button></div>
+<script nonce="<?= $e($printScriptNonce) ?>">document.getElementById("print-report").addEventListener("click",function(){window.print();});</script>
 <main><header><strong>BREBO BOUW EN ADVIES B.V.</strong>
 <h1><?= $e($inspection['title']) ?></h1>
 <p class="meta"><?= $e($inspection['building_name']) ?> | <?= $e($inspection['inspection_date']) ?></p>
