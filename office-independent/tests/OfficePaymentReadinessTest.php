@@ -40,6 +40,14 @@ try {
   }
   $db->exec('CREATE UNIQUE INDEX uq_office_bank_submission_batch ON office_bank_submission_intents (batch_id)');
   $db->exec('CREATE UNIQUE INDEX uq_office_bank_submission_key ON office_bank_submission_intents (idempotency_key)');
+  if (OfficePaymentReadiness::inspect($db, true, true)['ready']) {
+    throw new RuntimeException('Missing artifact and mandate unique constraints recognized as ready');
+  }
+  $db->exec('CREATE UNIQUE INDEX uq_office_sepa_artifact_batch ON office_sepa_batch_artifacts (batch_id)');
+  if (OfficePaymentReadiness::inspect($db, true, true)['ready']) {
+    throw new RuntimeException('Missing mandate uniqueness recognized as ready');
+  }
+  $db->exec('CREATE UNIQUE INDEX uq_office_payment_mandate_operator ON office_payment_mandates (operator_id)');
   $state = OfficePaymentReadiness::inspect($db, true, true);
   if (!$state['ready']) throw new RuntimeException('Complete readiness not recognized');
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
