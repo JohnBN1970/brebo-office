@@ -151,7 +151,7 @@ jobs:
               needle="$routes = ["
               if source.count(needle)!=1:
                   raise SystemExit("FAIL ROUTER_LAYOUT")
-              addition="".join("\\n    '"+route+"' => '"+file+"'," for route,file in missing)
+              addition="".join(chr(10)+"    '"+route+"' => '"+file+"'," for route,file in missing)
               new=source.replace(needle,needle+addition,1)
               Path(str(p)+".inspection-photo-backup").write_text(source)
               p.write_text(new)
