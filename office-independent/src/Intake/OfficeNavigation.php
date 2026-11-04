@@ -119,6 +119,8 @@ final class OfficeNavigation {
     $id=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);return is_int($id)?$id:null;
   }
   public static function scope(int $id,string $area='projecten'):string {
+    // Project detail has its own dossier tabs; avoid duplicate area/GOTIK/inspection links.
+    if ($area === 'projecten') return '';
     $base='/office-test/projecten/detail?id='.$id;
     $html='<section class="office-project-context" aria-label="Projectnavigatie"><p><a href="/office-test/projecten">Projecten</a> / <a href="'.$base.'">Project '.$id.'</a></p><nav aria-label="Projectonderdelen">';
     foreach(['projecten'=>'Projectoverzicht','calculatie-offertes'=>'Calculatie & Offertes','finance'=>'Finance','informatie'=>'Informatie']as$key=>$label){if($key==='finance'&&!self::financeVisible())continue;$url=$key==='projecten'?$base:'/office-test/'.$key.'?project_id='.$id;$html.='<a'.($key===$area?' aria-current="page"':'').' href="'.$url.'">'.self::h($label).'</a>';}
@@ -166,7 +168,8 @@ final class OfficeNavigation {
     // V3 owns project context and tabs; do not inject legacy GOTIK or scope.
     $isV3Detail=$path==='/office-test/projecten/detail' && str_contains($html,'class="office-project-detail-v3"');
     if($isV3Detail)$scope='';
-    $steering=$path==='/office-test/projecten/detail' && !$isV3Detail?self::steering($project):'';
+    // Project V3 has its own dashboard; never inject legacy GOTIK steering cards.
+    $steering='';
     if($root){
       $links='<details class="office-steering-links"><summary>Onderdelen per GOTIK</summary>'.self::steering(null).'</details>';
       if(str_contains($html,'<!--office-overview-navigation-->'))$html=str_replace('<!--office-overview-navigation-->',$links,$html);
