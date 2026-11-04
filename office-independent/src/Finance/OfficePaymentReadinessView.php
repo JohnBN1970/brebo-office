@@ -9,6 +9,8 @@ final class OfficePaymentReadinessView {
     'bank_payments_enabled'=>'Bankverzending geactiveerd',
     'canonical_schema_verified'=>'Office-betaalschema geverifieerd',
     'mandate_schema_present'=>'Betaalmandaten beschikbaar',
+    'mandate_audit_schema_present'=>'Auditregistratie betaalmandaten beschikbaar',
+    'mandate_audit_transactional_verified'=>'Auditregistratie betaalmandaten transactioneel',
     'artifact_schema_present'=>'Versleutelde SEPA-opslag beschikbaar',
     'submission_schema_present'=>'Verzendregistratie beschikbaar',
     'submission_uniqueness_verified'=>'Unieke batch- en verzendsleutels',
