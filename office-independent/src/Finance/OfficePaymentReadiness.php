@@ -28,7 +28,7 @@ final class OfficePaymentReadiness {
     // Any unavailable driver metadata blocks readiness without throwing.
     try {
       $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-    } catch (\\Throwable $ignored) {
+    } catch (\Throwable $ignored) {
       return ['ready'=>false, 'checks'=>$checks];
     }
     if ($schemaVerified) {
