@@ -20,7 +20,7 @@ try {
     $active->execute([$operator->operatorId]);
     if (!$active->fetchColumn()) { http_response_code(403); exit('Geen CRM-toegang.'); }
 } catch (Throwable $e) { http_response_code(503); exit('Relatiebeheer tijdelijk niet beschikbaar.'); }
-if (getenv('OFFICE_TEST_CRM_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Relaties invoeren is niet ingeschakeld.'); }
+if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Relaties invoeren is niet ingeschakeld.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
     session_name('BREBO_CRM_FORM');
     session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
