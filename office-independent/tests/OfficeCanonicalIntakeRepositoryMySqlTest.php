@@ -58,7 +58,7 @@ $assertCount('office_intake_request_disciplines', 2);
 $assertCount('office_intake_events', 1);
 
 foreach ([
-    [$payload, 8, 'intake_retry_conflict'],
+    [$payload, null, 'intake_retry_conflict'],
     [['request_id' => 'REQ-2026-001', 'building_id' => '42',
       'disciplines' => ['advies']], 7, 'intake_retry_disciplines_conflict'],
     [['request_id' => 'REQ-2026-001', 'building_id' => '41',
