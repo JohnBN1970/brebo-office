@@ -18,6 +18,7 @@ final class OfficePaymentReadiness {
       'submission_uniqueness_verified'=>false,
       'artifact_uniqueness_verified'=>false,
       'mandate_uniqueness_verified'=>false,
+      'payment_column_types_verified'=>false,
       'canonical_batch_schema_present'=>false,
       'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
@@ -46,6 +47,51 @@ final class OfficePaymentReadiness {
             $checks[$key] = false;
             break;
           }
+        }
+      }
+      // MySQL is the production database. Verify safety-critical column types
+      // independently of mere column existence; fail closed on other drivers.
+      if ($checks['mandate_schema_present'] && $checks['artifact_schema_present']
+        && $checks['submission_schema_present']) {
+        try {
+          if ($pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+            $expected = [
+              'office_payment_mandates'=>[
+                'operator_id'=>'bigint unsigned', 'limit_cents'=>'bigint unsigned',
+                'dual_above_cents'=>'bigint unsigned', 'enabled'=>'tinyint',
+                'valid_from'=>'datetime', 'valid_until'=>'datetime',
+              ],
+              'office_sepa_batch_artifacts'=>[
+                'batch_id'=>'bigint unsigned', 'ciphertext'=>'longblob',
+                'encryption_nonce'=>'varbinary', 'payload_sha256'=>'char',
+              ],
+              'office_bank_submission_intents'=>[
+                'batch_id'=>'bigint unsigned', 'idempotency_key'=>'char',
+                'payload_sha256'=>'char', 'requested_by'=>'bigint unsigned',
+                'created_at'=>'datetime',
+              ],
+            ];
+            $statement = $pdo->query(
+              "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME IN ('office_payment_mandates',
+                 'office_sepa_batch_artifacts','office_bank_submission_intents')"
+            );
+            $actual = [];
+            foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $column) {
+              $actual[$column['TABLE_NAME']][$column['COLUMN_NAME']] = strtolower($column['COLUMN_TYPE']);
+            }
+            $checks['payment_column_types_verified'] = true;
+            foreach ($expected as $table=>$columns) {
+              foreach ($columns as $name=>$type) {
+                if (!str_starts_with($actual[$table][$name] ?? '', $type)) {
+                  $checks['payment_column_types_verified'] = false;
+                }
+              }
+            }
+          }
+        } catch (\PDOException $ignored) {
+          $checks['payment_column_types_verified'] = false;
         }
       }
       // Enforce one immutable artifact and one active mandate record per identity,
