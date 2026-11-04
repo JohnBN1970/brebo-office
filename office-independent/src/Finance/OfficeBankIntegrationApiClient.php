@@ -14,6 +14,10 @@ final class OfficeBankIntegrationApiClient {
     private readonly \Closure $transport
   ) {}
 
+  public static function withHttpTransport(string $baseUrl, string $signingSecret, string $clientId): self {
+    return new self($baseUrl, $signingSecret, $clientId, \Closure::fromCallable([OfficeBankIntegrationApiTransport::class, 'post']));
+  }
+
   public function submit(array $payment): array {
     foreach (['pain001_xml', 'payload_sha256', 'idempotency_key'] as $field) {
       if (!is_string($payment[$field] ?? null) || $payment[$field] === '') {
