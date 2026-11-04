@@ -169,7 +169,7 @@ final class OfficeNavigation {
     $isV3Detail=$path==='/office-test/projecten/detail' && str_contains($html,'class="office-project-detail-v3"');
     if($isV3Detail)$scope='';
     // Project V3 has its own dashboard; never inject legacy GOTIK steering cards.
-    $steering=$path==='/office-test/projecten/detail'?'':$steering ?? '';
+    $steering='';
     if($root){
       $links='<details class="office-steering-links"><summary>Onderdelen per GOTIK</summary>'.self::steering(null).'</details>';
       if(str_contains($html,'<!--office-overview-navigation-->'))$html=str_replace('<!--office-overview-navigation-->',$links,$html);
