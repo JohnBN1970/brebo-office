@@ -1,0 +1,20 @@
+name: Office CRM vastgoedbeheer contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/tests/OfficeCrm*Test.php'
+      - '.github/workflows/office-crm-vastgoedbeheer-contracts.yml'
+jobs:
+  vastgoedbeheer-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test vastgoedbeheer and Finance reporting contracts
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmRepresentationSchema.php
+          php -l office-independent/src/Crm/OfficeCrmManagerRevenue.php
+          php -l office-independent/src/Crm/OfficeCrmFinanceRevenueReport.php
+          php office-independent/tests/OfficeCrmRepresentationSchemaTest.php
+          php office-independent/tests/OfficeCrmManagerRevenueTest.php
+          php office-independent/tests/OfficeCrmFinanceRevenueReportTest.php
