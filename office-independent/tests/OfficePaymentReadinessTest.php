@@ -15,8 +15,8 @@ try {
   putenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED=enabled');
   $tables = [
     'office_payment_mandates'=>['operator_id','enabled','mode','limit_cents','dual_above_cents','valid_from','valid_until'],
-    'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id'],
-    'office_bank_submission_intents'=>['batch_id','idempotency_key','payload_sha256','status','bank_reference','requested_by'],
+    'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id','created_by','created_at'],
+    'office_bank_submission_intents'=>['batch_id','idempotency_key','payload_sha256','status','bank_reference','requested_by','created_at','changed_at'],
     'brebo_finance_payment_batch'=>['status','batch_number','execution_date','currency','sealed_hash','item_count','created_by','released_by','controller_verdict','control_sum'],
     'brebo_finance_payment_batch_item'=>['batch_id','position','release_id','invoice_id','instruction_type','amount','currency','creditor_name','creditor_iban','creditor_bic','recipient_hash','end_to_end_id','remittance_information','status'],
   ];
@@ -29,6 +29,12 @@ try {
     throw new RuntimeException('Incomplete mandate schema recognized as ready');
   }
   $db->exec('ALTER TABLE office_payment_mandates ADD COLUMN dual_above_cents TEXT');
+  $db->exec('ALTER TABLE office_bank_submission_intents DROP COLUMN requested_by');
+  if (OfficePaymentReadiness::inspect($db, true, true)['ready']) {
+    throw new RuntimeException('Incomplete submission persistence schema recognized as ready');
+  }
+  $db->exec('ALTER TABLE office_bank_submission_intents ADD COLUMN requested_by TEXT');
+
   $state = OfficePaymentReadiness::inspect($db, true, true);
   if (!$state['ready']) throw new RuntimeException('Complete readiness not recognized');
   if (OfficePaymentReadiness::inspect($db, true, false)['ready']) {
