@@ -57,6 +57,7 @@ try {
         'office_intakes',
         'office_crm_leads',
         'office_intake_requests',
+        'office_intake_request_disciplines',
         'office_requests',
         'office_opportunities',
         'office_crm_opportunities',
@@ -70,6 +71,19 @@ try {
         $statement->execute([$schema, $table]);
         $columns = $statement->fetchAll(PDO::FETCH_COLUMN, 1);
         echo $table . ': ' . ($columns === [] ? 'ABSENT' : implode(', ', $columns)) . PHP_EOL;
+    }
+    $fkColumns = $db->prepare(
+        "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, EXTRA "
+        . "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? "
+        . "AND TABLE_NAME IN ('office_buildings', 'office_crm_relations') "
+        . "AND COLUMN_NAME = 'id' ORDER BY TABLE_NAME"
+    );
+    $fkColumns->execute([$schema]);
+    foreach ($fkColumns->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        echo 'FK_TARGET ' . $row['TABLE_NAME'] . '.id: ' . $row['COLUMN_TYPE']
+            . ', nullable=' . $row['IS_NULLABLE']
+            . ', key=' . $row['COLUMN_KEY']
+            . ', extra=' . $row['EXTRA'] . PHP_EOL;
     }
     $db->rollBack();
     echo "READ_ONLY_AUDIT_COMPLETE\n";
