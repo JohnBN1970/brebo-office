@@ -37,7 +37,6 @@ if (!is_string($dsn)
     exit(2);
 }
 require_once dirname(__DIR__, 2) . '/src/Intake/OfficeCanonicalIntakeSchema.php';
-use Brebo\Office\Intake\OfficeCanonicalIntakeSchema;
 
 try {
     $db = new PDO($dsn, $user, $password, [
@@ -82,7 +81,7 @@ try {
         }
     }
     echo "OFFICE_TEST_INSTALL_PREFLIGHT_OK\n";
-    foreach (OfficeCanonicalIntakeSchema::statements() as $statement) {
+    foreach (\Brebo\Office\Intake\OfficeCanonicalIntakeSchema::statements() as $statement) {
         $db->exec($statement);
     }
     $columns = $db->prepare(
