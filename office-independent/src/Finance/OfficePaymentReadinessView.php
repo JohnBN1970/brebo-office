@@ -11,6 +11,11 @@ final class OfficePaymentReadinessView {
     'mandate_schema_present'=>'Betaalmandaten beschikbaar',
     'artifact_schema_present'=>'Versleutelde SEPA-opslag beschikbaar',
     'submission_schema_present'=>'Verzendregistratie beschikbaar',
+    'submission_uniqueness_verified'=>'Unieke batch- en verzendsleutels',
+    'artifact_uniqueness_verified'=>'Uniek versleuteld bestand per betaalbatch',
+    'mandate_uniqueness_verified'=>'Uniek betaalmandaat per medewerker',
+    'payment_column_types_verified'=>'MySQL-veldtypen gecontroleerd',
+    'payment_transactional_tables_verified'=>'InnoDB-transactietabellen gecontroleerd',
     'canonical_batch_schema_present'=>'Vrijgegeven betaalbatches beschikbaar',
     'bank_provider_contract_verified'=>'Bankprovider-contract geverifieerd',
   ];
