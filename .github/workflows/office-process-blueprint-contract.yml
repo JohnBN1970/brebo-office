@@ -11,6 +11,7 @@ on:
       - 'office-independent/tests/OfficeProcessBlueprintTest.php'
       - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
       - 'office-independent/tests/OfficeBuildingColumnMapTest.php'
+      - 'office-independent/deployment/hostinger/audit-office-intake-readonly.php'
       - '.github/workflows/office-process-blueprint-contract.yml'
   push:
     branches: [develop]
@@ -45,7 +46,8 @@ jobs:
             office-independent/tests/OfficeDisciplineCatalogTest.php \
             office-independent/tests/OfficeProcessBlueprintTest.php \
             office-independent/tests/OfficeIntakeProcessPlanTest.php \
-            office-independent/tests/OfficeBuildingColumnMapTest.php; do
+            office-independent/tests/OfficeBuildingColumnMapTest.php \
+            office-independent/deployment/hostinger/audit-office-intake-readonly.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeDisciplineCatalogTest.php
