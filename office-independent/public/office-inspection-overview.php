@@ -102,7 +102,7 @@ header('Content-Type: text/html; charset=utf-8');
 *{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#1b2c3c;font:15px system-ui,sans-serif}
 main{max-width:1050px;margin:36px auto;padding:0 20px}section{background:white;border:1px solid #dce3eb;border-radius:12px;padding:24px;margin:18px 0}
 table{width:100%;border-collapse:collapse}td,th{text-align:left;border-bottom:1px solid #e5eaf0;padding:12px}a{color:#1c5f8d}
-label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;padding:10px;border:1px solid #c8d3df;border-radius:7px;font:inherit}input[type=checkbox]{width:auto}button{background:#1d587c;color:white;border:0;border-radius:8px;padding:12px 18px;margin-top:15px;cursor:pointer}dt{font-weight:700;margin-top:12px}dd{margin:5px 0 12px;white-space:pre-wrap}.muted{color:#65758a}
+label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;padding:10px;border:1px solid #c8d3df;border-radius:7px;font:inherit}input[type=checkbox]{width:auto}button{background:#1d587c;color:white;border:0;border-radius:8px;padding:12px 18px;margin-top:15px;cursor:pointer}.inspection-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.action-link{display:inline-block;background:#1d587c;color:#fff;padding:10px 15px;border-radius:7px;text-decoration:none}.finding-card{border:1px solid #dce3eb;border-radius:9px;margin:12px 0;padding:14px}.finding-card>details>summary{cursor:pointer;padding:6px}.finding-card>details[open]>summary{margin-bottom:14px}dt{font-weight:700;margin-top:12px}dd{margin:5px 0 12px;white-space:pre-wrap}.muted{color:#65758a}
 @media(max-width:650px){table{display:block;overflow-x:auto}}
 </style></head><body><main>
 <h1>Gebouwinspecties</h1><p class="muted">Beveiligd inspectieoverzicht, uitsluitend voor toegankelijke projecten.</p>
@@ -112,10 +112,10 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <p><a href="/office-test/inspecties?inspection_id=<?= $e($inspection['id']) ?>&amp;view=report">Rapportvoorbeeld / afdrukken</a></p>
 <p><strong>Rapporttype:</strong> <?= $e($config['report_type'] ?? 'Niet ingesteld') ?></p>
 <p><strong>Hoofdstukken:</strong> <?= $e(implode(', ', $config['sections'] ?? [])) ?></p>
-<h3>Bevindingen</h3>
+<div class="inspection-actions"><h3>Bevindingen (<?= count($findings) ?>)</h3><?php if ($inspection['status'] === 'draft' && $canWrite): ?><a class="action-link" href="?inspection_id=<?= $e($inspection['id']) ?>&amp;view=form">+ Nieuwe bevinding</a><?php endif; ?></div>
 <?php if (!$findings): ?><p class="muted">Nog geen bevindingen vastgelegd.</p><?php endif; ?>
 <?php foreach ($findings as $finding): ?>
-<article><h4><?= $e($finding['code']) ?> · <?= $e($finding['building_part']) ?></h4>
+<article class="finding-card"><details><summary><strong><?= $e($finding['code']) ?> · <?= $e($finding['building_part']) ?></strong><span class="muted"> · <?= $e($finding['floor_label'] ?? '') ?> <?= $e($finding['room_label'] ?? '') ?> · <?= count($evidenceByFinding[(string)$finding['id']] ?? []) ?> foto(s)</span></summary>
 <?php if (!empty($evidenceByFinding[(string)$finding['id']])): ?><p class="muted"><strong>Fotobijlagen:</strong> <?= $e(count($evidenceByFinding[(string)$finding['id']])) ?></p><?php foreach ($evidenceByFinding[(string)$finding['id']] as $photo): ?><figure><img loading="lazy" style="max-width:260px;max-height:200px;object-fit:contain" src="/office-test/inspectie/foto?inspection_id=<?= $e($inspection['id']) ?>&amp;evidence_id=<?= $e($photo['id']) ?>" alt="Inspectiefoto"><figcaption><?= $e($photo['caption'] ?? '') ?></figcaption></figure><?php endforeach; ?><?php endif; ?>
 <dl><?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader',
 'technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
@@ -149,10 +149,11 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <label><input type="checkbox" name="include_in_report" value="1" <?= !isset($selections[$finding['id']]) || (int)$selections[$finding['id']] === 1 ? 'checked' : '' ?>> Opnemen in rapport</label>
 <button type="submit">Wijzigingen opslaan</button>
 </form></details>
-<?php endif; ?></article>
+<?php endif; ?></details></article>
 <?php endforeach; ?></section>
 <?php if ($inspection['status'] === 'draft' && $canWrite): ?>
-<section><h3>Nieuwe bevinding vastleggen</h3>
+<?php if (($_GET['view'] ?? '') === 'form'): ?>
+<section id="bevinding-formulier"><h3>Nieuwe bevinding vastleggen</h3><p><a href="?inspection_id=<?= $e($inspection['id']) ?>">Terug naar bevindingen</a></p>
 <p class="muted">Bevindingen worden opgeslagen in het inspectiedossier.</p>
 <form method="post" action="/office-test/inspectie/bevinding-opslaan">
 <input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
@@ -169,6 +170,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <label><input type="checkbox" name="include_in_report" value="1" checked> Opnemen in rapport</label>
 <button type="submit">Bevinding opslaan</button>
 </form></section>
+<?php endif; ?>
 <?php endif; ?>
 <?php endif; ?>
 <?php if ($buildingId !== ''): ?>
