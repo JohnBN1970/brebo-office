@@ -6,6 +6,7 @@ on:
     paths:
       - 'office-independent/src/Inspection/**'
       - 'office-independent/public/office-inspection*.php'
+      - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
     inputs:
       confirmation:
