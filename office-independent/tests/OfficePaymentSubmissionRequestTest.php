@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 $src = dirname(__DIR__) . '/src/Finance/';
-require_once $src . 'bootstrap.php';
+require_once $src . 'OfficePaymentSubmissionApplication.php';
 require_once $src . 'OfficePaymentSubmissionRequest.php';
 require_once $src . 'OfficePaymentCanonicalBatchRepository.php';
 require_once $src . 'OfficePaymentMandateRepository.php';
