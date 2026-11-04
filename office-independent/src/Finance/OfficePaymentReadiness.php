@@ -13,11 +13,13 @@ final class OfficePaymentReadiness {
       'bank_payments_enabled'=>getenv('OFFICE_BANK_PAYMENTS_ENABLED') === 'enabled',
       'canonical_schema_verified'=>$schemaVerified,
       'mandate_schema_present'=>false,
+      'mandate_audit_schema_present'=>false,
       'artifact_schema_present'=>false,
       'submission_schema_present'=>false,
       'submission_uniqueness_verified'=>false,
       'artifact_uniqueness_verified'=>false,
       'mandate_uniqueness_verified'=>false,
+      'mandate_audit_transactional_verified'=>false,
       'payment_column_types_verified'=>false,
       'payment_transactional_tables_verified'=>false,
       'canonical_batch_schema_present'=>false,
@@ -27,6 +29,9 @@ final class OfficePaymentReadiness {
       $tables = [
         'mandate_schema_present'=>[
           'office_payment_mandates'=>['operator_id','enabled','mode','limit_cents','dual_above_cents','valid_from','valid_until'],
+        ],
+        'mandate_audit_schema_present'=>[
+          'office_payment_mandate_audit'=>['id','mandate_id','changed_by','changed_at','previous_values_json','new_values_json'],
         ],
         'artifact_schema_present'=>[
           'office_sepa_batch_artifacts'=>['batch_id','payload_sha256','ciphertext','encryption_nonce','encryption_key_id','created_by','created_at'],
@@ -115,6 +120,20 @@ final class OfficePaymentReadiness {
         }
       } catch (\PDOException $ignored) {
         $checks['payment_transactional_tables_verified'] = false;
+      }
+      // Mandate changes require durable audit records on the same transaction engine.
+      try {
+        if ($checks['mandate_audit_schema_present']
+          && $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql') {
+          $statement = $pdo->query(
+            "SELECT ENGINE FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_payment_mandate_audit'"
+          );
+          $checks['mandate_audit_transactional_verified'] =
+            strtoupper((string)$statement->fetchColumn()) === 'INNODB';
+        }
+      } catch (\PDOException $ignored) {
+        $checks['mandate_audit_transactional_verified'] = false;
       }
       // Enforce one immutable artifact and one active mandate record per identity,
       // as well as exactly one durable reservation per batch and idempotency key.
