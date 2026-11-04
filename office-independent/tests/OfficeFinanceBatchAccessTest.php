@@ -7,8 +7,7 @@ use Brebo\Office\Finance\OfficeFinanceBatchAccess as Access;
 use Brebo\Office\Finance\OfficeFinanceBatchPermissionCatalog as Catalog;
 
 if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
-  echo "OfficeFinanceBatchAccessTest SKIP: pdo_sqlite unavailable\n";
-  exit(0);
+  throw new RuntimeException("pdo_sqlite is required for Finance ACL regression tests");
 }
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -32,6 +31,10 @@ $db->exec("INSERT INTO office_module_permissions VALUES ('3','finance','payment_
 $assert((new Access($db,'3'))->allows(Catalog::RELEASE),'Explicit release grant must allow');
 $db->exec("UPDATE office_operator_accounts SET active=0 WHERE id='3'");
 $assert(!(new Access($db,'3'))->allows(Catalog::RELEASE),'Deactivation must revoke');
+// An authenticated operator may hold both creation and release grants.
+// This tests permission resolution only, not payment release execution.
+$db->exec("INSERT INTO office_module_permissions VALUES ('1','finance','payment_batch.release')");
+$assert($one->allows(Catalog::CREATE) && $one->allows(Catalog::RELEASE), 'Independent create and release grants may coexist');
 $db->exec('DROP TABLE office_module_permissions');
 $assert(!$one->allows(Catalog::CREATE),'Missing permissions table must fail closed');
 echo "OfficeFinanceBatchAccessTest OK ($checks checks)\n";
