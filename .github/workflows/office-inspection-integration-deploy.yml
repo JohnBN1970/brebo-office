@@ -156,7 +156,10 @@ jobs:
               Path(str(p)+".inspection-photo-backup").write_text(source)
               p.write_text(new)
           PY
-          php -l "$router" >/dev/null
+          if ! php -l "$router" >/dev/null; then
+            if test -f "$router.inspection-photo-backup"; then cp -p "$router.inspection-photo-backup" "$router"; fi
+            echo "FAIL PHOTO_ROUTER_RESTORED"; exit 2
+          fi
           grep -Fq "'/office-test/inspectie/foto-uploaden'" "$router"
           grep -Fq "'/office-test/inspectie/foto'" "$router"
           echo "PASS INSPECTION_PHOTO_ROUTES"
