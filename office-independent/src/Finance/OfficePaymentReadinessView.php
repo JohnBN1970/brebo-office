@@ -12,6 +12,7 @@ final class OfficePaymentReadinessView {
     'artifact_schema_present'=>'Versleutelde SEPA-opslag beschikbaar',
     'submission_schema_present'=>'Verzendregistratie beschikbaar',
     'canonical_batch_schema_present'=>'Vrijgegeven betaalbatches beschikbaar',
+    'bank_provider_contract_verified'=>'Bankprovider-contract geverifieerd',
   ];
 
   public static function render(?array $state): string {
