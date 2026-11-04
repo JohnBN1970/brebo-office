@@ -142,4 +142,11 @@ jobs:
             }
           ' "$base/modules/finance-rights/routes.php"
           echo "FINANCE_RIGHTS_MODULE_MANIFEST_VERIFIED"
+          # Confirm the actual public route reaches the expected Office endpoint.
+          # Authentication denial is acceptable; a webserver 404 is not.
+          http_code="$(curl --silent --show-error --output /dev/null --max-time 15 --write-out '%{http_code}' 'https://brebobv.nl/office-test/finance/mijn-betaalrechten' || true)"
+          case "$http_code" in
+            200|301|302|303|307|308|401|403) echo "FINANCE_RIGHTS_PUBLIC_ROUTE_RESPONDS_HTTP_$http_code" ;;
+            *) echo "FINANCE_RIGHTS_PUBLIC_ROUTE_UNVERIFIED_HTTP_$http_code"; exit 36 ;;
+          esac
           REMOTE
