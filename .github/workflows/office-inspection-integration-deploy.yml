@@ -113,6 +113,9 @@ jobs:
           $check=$db->query("SHOW TABLES LIKE 'office_inspection_report_configs'");
           if (!$check->fetchColumn()) { echo "FAIL REPORT_CONFIG_TABLE\n"; exit(4); }
           echo "PASS REPORT_CONFIG_TABLE\n";
+          $evidence=$db->query("SHOW TABLES LIKE 'office_inspection_evidence'");
+          if (!$evidence->fetchColumn()) {echo "FAIL EVIDENCE_TABLE\\n"; exit(5);}
+          echo "PASS EVIDENCE_TABLE\\n";
           $create="SELECT 1 FROM office_project_buildings pb INNER JOIN office_project_memberships m ON m.project_id=pb.project_id INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1 INNER JOIN office_buildings b ON b.id=pb.building_id WHERE pb.building_id=? AND pb.project_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1";
           $q=$db->prepare($create);$q->execute([0,0,0]);
           echo "PASS CREATE_AUTH_QUERY\n";
@@ -163,6 +166,24 @@ jobs:
           grep -Fq "'/office-test/inspectie/foto-uploaden'" "$router"
           grep -Fq "'/office-test/inspectie/foto'" "$router"
           echo "PASS INSPECTION_PHOTO_ROUTES"
+          # Validate private storage without exposing configured paths or credentials.
+          CONFIG_PATH="$config" ACTIVE_ROOT="$active" php <<'PHP'
+          <?php
+          $c=require getenv('CONFIG_PATH');
+          $configured=$c['OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR'] ?? getenv('OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR');
+          if (!is_string($configured) || $configured==='') {
+            echo "WARN PHOTO_STORAGE_NOT_CONFIGURED\\n";
+          } else {
+            $root=realpath($configured);
+            $active=realpath(getenv('ACTIVE_ROOT'));
+            if ($root===false || $active===false || !str_starts_with($root,$active.DIRECTORY_SEPARATOR)
+              || !is_dir($root) || !is_writable($root)) {
+              echo "WARN PHOTO_STORAGE_INVALID_OR_OUTSIDE_RELEASE\\n";
+            } else {
+              echo "PASS PHOTO_STORAGE_DIRECTORY\\n";
+            }
+          }
+          PHP
           echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
           echo "PROJECT_CONTROLLER_PRESERVED"
           echo "BACKUP_NAME=${backup##*/}"
