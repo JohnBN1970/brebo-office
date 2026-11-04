@@ -1,0 +1,32 @@
+name: Office intake building handoff contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeBuildingHandoff.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeBuildingHandoffContractTest.php'
+      - '.github/workflows/office-intake-building-handoff-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeBuildingHandoff.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeBuildingHandoffContractTest.php'
+      - '.github/workflows/office-intake-building-handoff-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: |
+          php -l office-independent/src/Intake/OfficeCanonicalIntakeBuildingHandoff.php
+          php office-independent/tests/OfficeCanonicalIntakeBuildingHandoffContractTest.php
