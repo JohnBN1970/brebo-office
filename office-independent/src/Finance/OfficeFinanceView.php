@@ -40,7 +40,9 @@ final class OfficeFinanceView {
       $html .= '<section aria-label="Bankkoppeling"><h2>Bankkoppeling ABN AMRO</h2>';
       $html .= '<p>Betaalopdrachten worden uitsluitend vanuit een vrijgegeven Office-betaalbatch verwerkt, na controle van bevoegdheid, betaalmandaat en ontvanger.</p>';
       $html .= '<p class="notice" role="status">Bankverzending vanuit dit scherm is niet beschikbaar. Er wordt geen betaalopdracht gestart.</p>';
-      $html .= '<p class="muted">De beveiligde bankkoppeling wordt afzonderlijk getest en geactiveerd. Een aangeboden betaalopdracht is nog niet hetzelfde als een uitgevoerde betaling.</p></section>';
+      $html .= '<p class="muted">De beveiligde bankkoppeling wordt afzonderlijk getest en geactiveerd. Een aangeboden betaalopdracht is nog niet hetzelfde als een uitgevoerde betaling.</p>';
+      $html .= OfficePaymentReadinessView::render($data['payment_readiness'] ?? null);
+      $html .= '</section>';
     }
     if ($view === 'dossier') {
       $dossier = $data['registered_dossier'] ?? null;
