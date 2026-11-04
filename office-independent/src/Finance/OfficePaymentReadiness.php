@@ -49,7 +49,7 @@ final class OfficePaymentReadiness {
         foreach ($requiredTables as $table=>$columns) {
           try {
             $pdo->query('SELECT ' . implode(', ', $columns) . ' FROM ' . $table . ' WHERE 1 = 0');
-          } catch (\PDOException $ignored) {
+          } catch (\Throwable $ignored) {
             $checks[$key] = false;
             break;
           }
