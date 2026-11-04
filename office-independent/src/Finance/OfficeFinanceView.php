@@ -34,6 +34,16 @@ final class OfficeFinanceView {
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
+    if ($view === 'payments') {
+      // Informational only: no browser-originated payment submission endpoint.
+      // Never expose bank credentials, signed SEPA XML or a send action in HTML.
+      $html .= '<section aria-label="Bankkoppeling"><h2>Bankkoppeling ABN AMRO</h2>';
+      $html .= '<p>Betaalopdrachten worden uitsluitend vanuit een vrijgegeven Office-betaalbatch verwerkt, na controle van bevoegdheid, betaalmandaat en ontvanger.</p>';
+      $html .= '<p class="notice" role="status">Bankverzending vanuit dit scherm is niet beschikbaar. Er wordt geen betaalopdracht gestart.</p>';
+      $html .= '<p class="muted">De beveiligde bankkoppeling wordt afzonderlijk getest en geactiveerd. Een aangeboden betaalopdracht is nog niet hetzelfde als een uitgevoerde betaling.</p>';
+      $html .= OfficePaymentReadinessView::render($data['payment_readiness'] ?? null);
+      $html .= '</section>';
+    }
     if ($view === 'dossier') {
       $dossier = $data['registered_dossier'] ?? null;
       if (!is_array($dossier)) {

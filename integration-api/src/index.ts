@@ -1,4 +1,6 @@
 import { analyzeRequestSchema } from "./contracts";
+import { submitBusinessAccountPayment, AbnAmroConfigurationError, AbnAmroResponseError } from "./abnamro";
+import { getAccountBalance, getBookedActivities, AbnAmroInsightConfigurationError, AbnAmroInsightResponseError } from "./abnamro-insight";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
@@ -27,6 +29,10 @@ export default {
         response = await accountingSalesInvoices(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/business-health" && request.method === "GET") {
         response = await accountingBusinessHealth(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/banking/payments/submit" && request.method === "POST") {
+        response = await bankingPaymentSubmit(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/banking/insight/read" && request.method === "POST") {
+        response = await bankingInsightRead(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/communications/analyze" && request.method === "POST") {
         response = await analyze(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "POST") {
@@ -44,6 +50,101 @@ export default {
     return response;
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Server-to-server read boundary. Signed request body binds IBAN, action and
+ * pagination to the existing HMAC authentication; bank credentials stay here.
+ */
+/**
+ * Disabled-by-default payment initiation boundary.
+ * Only a server-signed, sealed SEPA payload may cross this boundary.
+ * A successful response is submission, never evidence of bank execution.
+ */
+async function bankingPaymentSubmit(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  const body = await readBoundedBody(request, 262144);
+  if (body === null) return errorResponse(413, "request_too_large", "Payment payload too large.", requestId);
+  const auth = await authenticate(request, env, path, body, requestId);
+  if (auth) return auth;
+  if ((env as unknown as Record<string, unknown>).OFFICE_BANK_PAYMENTS_ENABLED !== "enabled") {
+    return errorResponse(503, "payments_disabled", "Bank payment initiation is disabled.", requestId);
+  }
+  let input: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
+    input = parsed as Record<string, unknown>;
+  } catch {
+    return errorResponse(400, "invalid_request", "Invalid payment submission.", requestId);
+  }
+  const xml = input.pain001_xml;
+  const hash = input.payload_sha256;
+  const key = input.idempotency_key;
+  if (typeof xml !== "string" || xml.length < 100 || xml.length > 200000
+    || !xml.includes("urn:iso:std:iso:20022:tech:xsd:pain.001")
+    || typeof hash !== "string" || !/^[a-f0-9]{64}$/.test(hash)
+    || typeof key !== "string" || !/^[a-f0-9]{64}$/.test(key)
+    || (await sha256Hex(xml)) !== hash) {
+    return errorResponse(400, "invalid_payment_payload", "Payment payload verification failed.", requestId);
+  }
+  try {
+    const result = await submitBusinessAccountPayment({
+      pain001_xml: xml, payload_sha256: hash, idempotency_key: key,
+    }, env);
+    return Response.json({ status: "ok", request_id: requestId, ...result });
+  } catch (error) {
+    if (error instanceof AbnAmroConfigurationError) {
+      return errorResponse(503, "bank_not_configured", "Bank payment provider not configured.", requestId);
+    }
+    if (error instanceof AbnAmroResponseError) {
+      // A provider error can be ambiguous: Office must never retry automatically.
+      return errorResponse(502, "bank_submission_unknown", "Verify payment status before any retry.", requestId);
+    }
+    throw error;
+  }
+}
+
+async function bankingInsightRead(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  const body = await readBoundedBody(request, 2048);
+  if (body === null) return errorResponse(413, "request_too_large", "Bank insight request too large.", requestId);
+  const auth = await authenticate(request, env, path, body, requestId);
+  if (auth) return auth;
+  let input: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid");
+    input = parsed as Record<string, unknown>;
+  } catch {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  const action = input.action;
+  const iban = input.iban;
+  if ((action !== "balance" && action !== "activities") || typeof iban !== "string" || !/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/.test(iban)) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  if (action === "balance" && (input.dateFrom !== undefined || input.nextPageKey !== undefined)) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  const dateFrom = input.dateFrom;
+  const pageKey = input.nextPageKey;
+  if ((dateFrom !== undefined && (typeof dateFrom !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || !Number.isFinite(Date.parse(dateFrom + "T00:00:00Z")) || new Date(dateFrom + "T00:00:00Z").toISOString().slice(0, 10) !== dateFrom))
+    || (pageKey !== undefined && (typeof pageKey !== "string" || pageKey.length < 1 || pageKey.length > 512 || /[\x00-\x1f]/.test(pageKey)))) {
+    return errorResponse(400, "invalid_request", "Invalid bank insight request.", requestId);
+  }
+  try {
+    const result = action === "balance"
+      ? await getAccountBalance(iban, env)
+      : await getBookedActivities(iban, env, dateFrom as string | undefined, pageKey as string | undefined);
+    return Response.json({ status: "ok", provider: "abnamro", request_id: requestId, data: result });
+  } catch (error) {
+    if (error instanceof AbnAmroInsightConfigurationError) {
+      return errorResponse(503, "bank_not_configured", "Bank insight is not configured.", requestId);
+    }
+    if (error instanceof AbnAmroInsightResponseError) {
+      return errorResponse(502, "bank_unavailable", "Bank insight is unavailable.", requestId);
+    }
+    throw error;
+  }
+}
 
 async function authenticatedHealth(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
   const auth = await authenticate(request, env, path, "", requestId);

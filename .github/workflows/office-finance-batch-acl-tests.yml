@@ -1,0 +1,77 @@
+name: Office Finance Batch ACL Tests
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
+      - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
+      - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
+      - 'office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php'
+      - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
+      - '.github/workflows/office-finance-batch-acl-tests.yml'
+  push:
+    branches:
+      - finance-office-bank-integration-contract-20261103
+    paths:
+      - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
+      - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
+      - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
+      - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
+      - '.github/workflows/office-finance-batch-acl-tests.yml'
+permissions:
+  contents: read
+jobs:
+  finance-batch-acl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax checks
+        run: |
+          php -l office-independent/src/Finance/OfficeFinanceBatchAccess.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php
+          php -l office-independent/tests/OfficeFinanceBatchAccessTest.php
+          php -l office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php
+          php -l office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php
+          php -l office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php
+          php -l office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
+          php -l office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php
+          php -l office-independent/public/office-finance-batch-permissions.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Intake/OfficeNavigation.php
+      - name: Run isolated ACL tests
+        run: |
+          php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
+          php office-independent/tests/OfficeFinanceBatchAccessTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+          php office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
+          php office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php
+      - name: Verify test route registration
+        run: |
+          grep -F "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F "['Mijn betaalbatchrechten','/office-test/finance/mijn-betaalrechten']" office-independent/src/Intake/OfficeNavigation.php

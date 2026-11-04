@@ -1,0 +1,137 @@
+name: Deploy Finance batch rights to Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to install read-only Finance rights page
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only Finance endpoint and dependencies
+        run: |
+          set -euo pipefail
+          for file in office-independent/public/office-finance-batch-permissions.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php \
+            office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeFinanceBatchRightsEndpointContractTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
+          php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Transfer release files into temporary staging directory
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$remote" 'mkdir -p "$HOME/office-finance-rights-staging" && chmod 700 "$HOME/office-finance-rights-staging"'
+          for file in \
+            office-independent/public/office-finance-batch-permissions.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsView.php \
+            office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php; do
+            scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" "$file" "$remote:office-finance-rights-staging/$(basename "$file")"
+          done
+      - name: Install only missing Finance rights files in isolated test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          router="$root/public_html/office-test/index.php"
+          htaccess="$root/public_html/office-test/.htaccess"
+          stage="$HOME/office-finance-rights-staging"
+          test -f "$router" && test ! -L "$router" || { echo ROUTER_UNSAFE; exit 20; }
+          test -f "$htaccess" && test ! -L "$htaccess" || { echo HTACCESS_UNSAFE; exit 21; }
+          test -d "$base/public" && test -d "$base/src/Finance" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
+          test -f "$base/public/office-finance.php" || { echo FINANCE_ENTRY_MISSING; exit 23; }
+          grep -Fq "'/office-test/finance/betaalcentrum'" "$router" || { echo FINANCE_ROUTE_MISSING; exit 24; }
+          # Verify the existing web-server rewrite before installing any files.
+          grep -Eq 'RewriteRule.*finance|RewriteRule.*index\\.php' "$htaccess" || { echo FINANCE_REWRITE_UNVERIFIED; exit 32; }
+          for name in office-finance-batch-permissions OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
+            php -l "$stage/$name.php"
+          done
+          for name in OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
+            dest="$base/src/Finance/$name.php"
+            if test -e "$dest" || test -L "$dest"; then
+              cmp -s "$stage/$name.php" "$dest" || { echo "CONFLICT: $name"; exit 25; }
+            fi
+          done
+          dest="$base/public/office-finance-batch-permissions.php"
+          if test -e "$dest" || test -L "$dest"; then
+            cmp -s "$stage/office-finance-batch-permissions.php" "$dest" || { echo PAGE_CONFLICT; exit 26; }
+          fi
+          for name in OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
+            dest="$base/src/Finance/$name.php"
+            if test ! -e "$dest"; then
+              install -m 644 "$stage/$name.php" "$dest"
+            fi
+            php -l "$dest"
+          done
+          if test ! -e "$base/public/office-finance-batch-permissions.php"; then
+            install -m 644 "$stage/office-finance-batch-permissions.php" "$base/public/office-finance-batch-permissions.php"
+          fi
+          php -l "$base/public/office-finance-batch-permissions.php"
+          # Patch only the expected route-table entry, with an exact-match guard.
+          # Preserve the existing router and refuse ambiguous edits.
+          if ! grep -Fq "'/office-test/finance/mijn-betaalrechten'" "$router"; then
+            anchor="  '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',"
+            test "$(grep -Fxc "$anchor" "$router")" -eq 1 || { echo ROUTER_ANCHOR_MISMATCH; exit 27; }
+            backup="$router.backup-finance-rights-$(date +%Y%m%d%H%M%S)"
+            cp -p "$router" "$backup"
+            candidate="$(mktemp "$(dirname "$router")/.finance-rights-router-XXXXXXXX.php")"
+            trap 'rm -f "$candidate"' EXIT
+            cp -p "$router" "$candidate"
+            ROUTER_CANDIDATE="$candidate" php -r '
+              $path = getenv("ROUTER_CANDIDATE");
+              $source = file_get_contents($path);
+              $quote = chr(39);
+              $anchor = "  " . $quote . "/office-test/finance/betaalcentrum" . $quote . " => " . $quote . "office-finance-payments.php" . $quote . ",";
+              $replacement = $anchor . PHP_EOL . "  " . $quote . "/office-test/finance/mijn-betaalrechten" . $quote . " => " . $quote . "office-finance-batch-permissions.php" . $quote . ",";
+              if (substr_count($source, $anchor) !== 1) exit(2);
+              if (file_put_contents($path, str_replace($anchor, $replacement, $source)) === false) exit(3);
+            '
+            php -l "$candidate" || { echo ROUTER_CANDIDATE_INVALID; exit 28; }
+            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$candidate" || { echo ROUTER_ROUTE_MISSING; exit 29; }
+            chmod --reference="$router" "$candidate"
+            mv "$candidate" "$router"
+            php -l "$router" || { cp -p "$backup" "$router"; echo ROUTER_RESTORED; exit 30; }
+            echo "ROUTER_PATCHED_BACKUP=$backup"
+          else
+            grep -Fq "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" "$router" || { echo ROUTER_CONFLICT; exit 31; }
+            echo "ROUTER_ALREADY_CONFIGURED"
+          fi
+          echo "FINANCE_RIGHTS_TEST_FILES_AND_ROUTE_INSTALLED_NO_DATABASE_CHANGES"
+          echo "BROWSER_ACCEPTANCE_AND_MENU_LINK_STILL_REQUIRE_VERIFICATION"
+          REMOTE

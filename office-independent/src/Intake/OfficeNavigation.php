@@ -88,6 +88,7 @@ final class OfficeNavigation {
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+        ['Mijn betaalbatchrechten','/office-test/finance/mijn-betaalrechten'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
       ['Rapporten','rapporten',getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' ? [['Inspectierapporten','/office-test/inspecties']] : []],
