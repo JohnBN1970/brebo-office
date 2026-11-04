@@ -16,6 +16,8 @@ final class OfficePaymentReadiness {
       'artifact_schema_present'=>false,
       'submission_schema_present'=>false,
       'submission_uniqueness_verified'=>false,
+      'artifact_uniqueness_verified'=>false,
+      'mandate_uniqueness_verified'=>false,
       'canonical_batch_schema_present'=>false,
       'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
@@ -46,23 +48,42 @@ final class OfficePaymentReadiness {
           }
         }
       }
-      // Duplicate prevention is a database invariant, not merely an application check.
-      // Both unique keys must exist before a bank submission can be considered ready.
-      if ($checks['submission_schema_present']) {
+      // Enforce one immutable artifact and one active mandate record per identity,
+      // as well as exactly one durable reservation per batch and idempotency key.
+      $constraints = [
+        'submission_uniqueness_verified'=>[
+          'table'=>'office_bank_submission_intents',
+          'columns'=>[['batch_id'],['idempotency_key']],
+          'schema'=>'submission_schema_present',
+        ],
+        'artifact_uniqueness_verified'=>[
+          'table'=>'office_sepa_batch_artifacts',
+          'columns'=>[['batch_id']],
+          'schema'=>'artifact_schema_present',
+        ],
+        'mandate_uniqueness_verified'=>[
+          'table'=>'office_payment_mandates',
+          'columns'=>[['operator_id']],
+          'schema'=>'mandate_schema_present',
+        ],
+      ];
+      foreach ($constraints as $check=>$rule) {
+        if (!$checks[$rule['schema']]) continue;
         try {
           $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
           $uniqueColumns = [];
           if ($driver === 'mysql') {
-            $statement = $pdo->query(
+            $statement = $pdo->prepare(
               "SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX FROM information_schema.STATISTICS
-               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_bank_submission_intents'
+               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table
                  AND NON_UNIQUE = 0 ORDER BY INDEX_NAME, SEQ_IN_INDEX"
             );
+            $statement->execute(['table'=>$rule['table']]);
             foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $index) {
               $uniqueColumns[$index['INDEX_NAME']][] = $index['COLUMN_NAME'];
             }
           } elseif ($driver === 'sqlite') {
-            foreach ($pdo->query("PRAGMA index_list('office_bank_submission_intents')")->fetchAll(\PDO::FETCH_ASSOC) as $index) {
+            foreach ($pdo->query("PRAGMA index_list('" . $rule['table'] . "')")->fetchAll(\PDO::FETCH_ASSOC) as $index) {
               if ((int)$index['unique'] !== 1) continue;
               $names = [];
               foreach ($pdo->query('PRAGMA index_info(' . $pdo->quote($index['name']) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $column) {
@@ -71,11 +92,12 @@ final class OfficePaymentReadiness {
               $uniqueColumns[$index['name']] = $names;
             }
           }
-          $checks['submission_uniqueness_verified'] =
-            in_array(['batch_id'], $uniqueColumns, true)
-            && in_array(['idempotency_key'], $uniqueColumns, true);
+          $checks[$check] = true;
+          foreach ($rule['columns'] as $required) {
+            if (!in_array($required, $uniqueColumns, true)) $checks[$check] = false;
+          }
         } catch (\PDOException $ignored) {
-          $checks['submission_uniqueness_verified'] = false;
+          $checks[$check] = false;
         }
       }
     }
