@@ -83,6 +83,8 @@ if ($reportMode) {
   $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
   $reportFindings=array_values(array_filter($findings,static fn(array $f):bool=>
     !isset($selections[$f['id']]) || (int)$selections[$f['id']]===1));
+  $printScriptNonce=base64_encode(random_bytes(18));
+  header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-".$printScriptNonce."'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
   header('Content-Type: text/html; charset=utf-8');
   require dirname(__DIR__).'/src/Inspection/OfficeInspectionReportPrintView.php';
   exit;
