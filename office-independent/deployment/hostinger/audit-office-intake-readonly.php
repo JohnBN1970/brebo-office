@@ -14,12 +14,25 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test') {
     fwrite(STDERR, "ABORT: OFFICE_BASE_PATH must be /office-test\n");
     exit(2);
 }
-$dsn = getenv('OFFICE_INTAKE_PDO_DSN');
-$user = getenv('OFFICE_INTAKE_DB_USER');
-$password = getenv('OFFICE_INTAKE_DB_PASSWORD');
-if (!is_string($dsn) || !str_starts_with($dsn, 'mysql:')
-    || !is_string($user) || $user === ''
-    || !is_string($password)) {
+$configPath = getenv('OFFICE_TEST_CONFIG_PATH');
+if (!is_string($configPath) || $configPath !==
+    '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php'
+    || !is_file($configPath)) {
+    fwrite(STDERR, "ABORT: isolated Office-test config unavailable\\n");
+    exit(2);
+}
+$config = require $configPath;
+if (!is_array($config) || ($config['OFFICE_BASE_PATH'] ?? null) !== '/office-test') {
+    fwrite(STDERR, "ABORT: invalid Office-test config\\n");
+    exit(2);
+}
+$dsn = $config['OFFICE_INTAKE_PDO_DSN'] ?? null;
+$user = $config['OFFICE_INTAKE_DB_USER'] ?? null;
+$password = $config['OFFICE_INTAKE_DB_PASSWORD'] ?? null;
+if (!is_string($dsn) ||
+    !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', $dsn)
+    || $user !== 'u213420663_office_test'
+    || !is_string($password) || $password === '') {
     fwrite(STDERR, "ABORT: Office-test database connection not configured\n");
     exit(2);
 }
@@ -33,7 +46,7 @@ try {
         fwrite(STDERR, "ABORT: unexpected database\n");
         exit(2);
     }
-    $db->exec('SET SESSION TRANSACTION READ ONLY');
+    $db->exec('SET TRANSACTION READ ONLY');
     $db->beginTransaction();
     $targets = [
         'office_buildings',
@@ -41,6 +54,8 @@ try {
         'office_projects',
         'office_crm_relations',
         'office_crm_relation_roles',
+        'office_intakes',
+        'office_crm_leads',
         'office_intake_requests',
         'office_requests',
         'office_opportunities',
