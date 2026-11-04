@@ -23,6 +23,8 @@ $args = ['POST', ['csrf'=>'csrf123','batch_id'=>'27'], 'csrf123', 3, $can,
   new OfficePaymentMandateRepository($db), new OfficeSepaArtifactRepository($db),
   new OfficeBankSubmissionRepository($db), static fn(): string => '', $db, $client];
 $old = getenv('OFFICE_BANK_PAYMENTS_ENABLED');
+$oldProvider = getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED');
+putenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED');
 putenv('OFFICE_BANK_PAYMENTS_ENABLED');
 try {
   try { Request::handle(...$args); throw new RuntimeException('Disabled payment accepted'); }
@@ -30,6 +32,10 @@ try {
     if ($e->getMessage() !== 'Office bank payments disabled') throw $e;
   }
   putenv('OFFICE_BANK_PAYMENTS_ENABLED=enabled');
+  try { Request::handle(...$args); throw new RuntimeException('Unverified bank provider accepted'); }
+  catch (DomainException $e) {
+    if ($e->getMessage() !== 'Bank provider contract not verified') throw $e;
+  }
   foreach ([
     [0,'GET'], [1,['csrf'=>'invalid','batch_id'=>'27']],
     [1,['csrf'=>'csrf123','batch_id'=>'27','creditor_iban'=>'NL91ABNA0417164300']],
@@ -44,6 +50,8 @@ try {
   catch (DomainException $expected) {}
   if ($bankCalls !== 0) throw new RuntimeException('Rejected requests contacted bank');
 } finally {
+  if ($oldProvider === false) putenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED');
+  else putenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED='.$oldProvider);
   if ($old === false) putenv('OFFICE_BANK_PAYMENTS_ENABLED');
   else putenv('OFFICE_BANK_PAYMENTS_ENABLED='.$old);
 }
