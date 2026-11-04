@@ -11,6 +11,9 @@ on:
       - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
       - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
+      - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
   push:
@@ -26,6 +29,9 @@ on:
       - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
       - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
+      - 'office-independent/public/office-finance-batch-permissions.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
 permissions:
@@ -52,6 +58,9 @@ jobs:
           php -l office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
           php -l office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php
           php -l office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
+          php -l office-independent/public/office-finance-batch-permissions.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Intake/OfficeNavigation.php
       - name: Run isolated ACL tests
         run: |
           php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
@@ -59,3 +68,7 @@ jobs:
           php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
           php office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
+      - name: Verify test route registration
+        run: |
+          grep -F "'/office-test/finance/mijn-betaalrechten' => 'office-finance-batch-permissions.php'" office-independent/deployment/hostinger/office-test-index.php
+          grep -F "['Mijn betaalbatchrechten','/office-test/finance/mijn-betaalrechten']" office-independent/src/Intake/OfficeNavigation.php
