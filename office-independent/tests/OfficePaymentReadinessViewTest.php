@@ -12,8 +12,10 @@ $state = ['ready'=>true,'checks'=>[
   'artifact_schema_present'=>true,'submission_schema_present'=>true,
   'canonical_batch_schema_present'=>true,
   'submission_uniqueness_verified'=>true,'artifact_uniqueness_verified'=>true,
-  'mandate_uniqueness_verified'=>true,'payment_column_types_verified'=>true,
-  'payment_transactional_tables_verified'=>true
+  'mandate_uniqueness_verified'=>true,'mandate_audit_schema_present'=>true,
+  'mandate_audit_transactional_verified'=>true,'payment_column_types_verified'=>true,
+  'payment_transactional_tables_verified'=>true,
+  'bank_provider_contract_verified'=>true
 ]];
 $html = OfficePaymentReadinessView::render($state);
 if (!str_contains($html, 'Technische basiscontrole geslaagd')
@@ -25,6 +27,16 @@ foreach (['Unieke batch- en verzendsleutels','Uniek versleuteld bestand per beta
   'Uniek betaalmandaat per medewerker','MySQL-veldtypen gecontroleerd',
   'InnoDB-transactietabellen gecontroleerd'] as $label) {
   if (!str_contains($html, $label)) throw new RuntimeException('Missing security readiness label: ' . $label);
+}
+$tampered = $state;
+unset($tampered['checks']['submission_uniqueness_verified']);
+if (!str_contains(OfficePaymentReadinessView::render($tampered), 'Bankverzending geblokkeerd')) {
+  throw new RuntimeException('Missing check must override forged ready=true');
+}
+$tampered = $state;
+$tampered['checks']['payment_transactional_tables_verified'] = false;
+if (!str_contains(OfficePaymentReadinessView::render($tampered), 'Bankverzending geblokkeerd')) {
+  throw new RuntimeException('Failed check must override forged ready=true');
 }
 $state['ready'] = false; $state['checks']['operator_authorized'] = false;
 if (!str_contains(OfficePaymentReadinessView::render($state), 'Bankverzending geblokkeerd')) {
