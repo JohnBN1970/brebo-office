@@ -41,7 +41,8 @@ jobs:
             PHP=/opt/alt/php83/usr/bin/php
             test -f "$SCRIPT"
             "$PHP" -l "$SCRIPT"
+            # Read the existing isolated Office-test config without printing secrets.
             export OFFICE_BASE_PATH=/office-test
-            # Database credentials must already be available in the SSH
-            # environment; this workflow never prints or transfers them.
+            export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"
+            test -f "$OFFICE_TEST_CONFIG_PATH"
             "$PHP" "$SCRIPT"
