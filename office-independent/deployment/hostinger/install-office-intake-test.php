@@ -65,6 +65,20 @@ try {
             throw new RuntimeException('fk_target_unverified');
         }
     }
+    // Foreign keys must reference InnoDB tables and compatible collations/settings.
+    $engineStatement = $db->prepare(
+        "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+        . "WHERE TABLE_SCHEMA = ? AND TABLE_NAME IN ('office_buildings', 'office_crm_relations')"
+    );
+    $engineStatement->execute(['u213420663_office_test']);
+    $engines = [];
+    foreach ($engineStatement->fetchAll(PDO::FETCH_ASSOC) as $tableRow) {
+        $engines[$tableRow['TABLE_NAME']] = $tableRow['ENGINE'];
+    }
+    if (($engines['office_buildings'] ?? null) !== 'InnoDB'
+        || ($engines['office_crm_relations'] ?? null) !== 'InnoDB') {
+        throw new RuntimeException('fk_parent_engine_unverified');
+    }
     $expected = [
         'office_intake_requests',
         'office_intake_request_disciplines',
