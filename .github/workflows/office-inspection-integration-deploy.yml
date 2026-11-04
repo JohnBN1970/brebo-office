@@ -166,24 +166,13 @@ jobs:
           grep -Fq "'/office-test/inspectie/foto-uploaden'" "$router"
           grep -Fq "'/office-test/inspectie/foto'" "$router"
           echo "PASS INSPECTION_PHOTO_ROUTES"
-          # Validate private storage without exposing configured paths or credentials.
-          CONFIG_PATH="$config" ACTIVE_ROOT="$active" php <<'PHP'
-          <?php
-          $c=require getenv('CONFIG_PATH');
-          $configured=$c['OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR'] ?? getenv('OFFICE_INSPECTION_EVIDENCE_PRIVATE_DIR');
-          if (!is_string($configured) || $configured==='') {
-            echo "WARN PHOTO_STORAGE_NOT_CONFIGURED\\n";
-          } else {
-            $root=realpath($configured);
-            $active=realpath(getenv('ACTIVE_ROOT'));
-            if ($root===false || $active===false || !str_starts_with($root,$active.DIRECTORY_SEPARATOR)
-              || !is_dir($root) || !is_writable($root)) {
-              echo "WARN PHOTO_STORAGE_INVALID_OR_OUTSIDE_RELEASE\\n";
-            } else {
-              echo "PASS PHOTO_STORAGE_DIRECTORY\\n";
-            }
-          }
-          PHP
+          # Provision storage under the isolated private release, never the public webroot.
+          storage="$active/var/inspection-evidence"
+          install -d -m 700 "$active/var" "$storage"
+          test -d "$storage"
+          test -w "$storage"
+          test "$(stat -c '%a' "$storage")" = 700
+          echo "PASS PHOTO_STORAGE_DIRECTORY"
           echo "PASS INSPECTION_PROJECT_REPORTS_INTEGRATION"
           echo "PROJECT_CONTROLLER_PRESERVED"
           echo "BACKUP_NAME=${backup##*/}"
