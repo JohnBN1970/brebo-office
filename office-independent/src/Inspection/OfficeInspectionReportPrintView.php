@@ -3,6 +3,7 @@ declare(strict_types=1);
 // Included only after the inspection controller has verified read access.
 if (!isset($inspection, $reportFindings, $e)) { http_response_code(404); exit; }
 $includedCount=count($reportFindings);
+$showPhotos=$config === null || in_array('photos',$config['sections'] ?? [],true);
 $fields = [
   'observation' => 'Constatering',
   'assessment_framework' => 'Toetsingskader',
@@ -41,7 +42,7 @@ article{margin:30px 0;break-inside:avoid}.evidence-list{border-top:1px solid #d6
 <article><h2><?= $e($finding['code']) ?> - <?= $e($finding['building_part'] ?? '') ?></h2>
 <?php $location=array_filter([$finding['floor_label'] ?? '',$finding['room_label'] ?? ''],static fn($v):bool=>trim((string)$v)!==''); ?>
 <?php if ($location): ?><p class="finding-location"><strong>Locatie:</strong> <?= $e(implode(' · ',$location)) ?></p><?php endif; ?>
-<?php if (!empty($evidenceByFinding[(string)$finding['id']])): ?>
+<?php if ($showPhotos && !empty($evidenceByFinding[(string)$finding['id']])): ?>
 <section class="evidence-list"><h3>Fotoregistratie</h3>
 <?php foreach ($evidenceByFinding[(string)$finding['id']] as $photo): ?>
 <p><strong>Bijlage <?= $e($photo['id']) ?></strong><?php if (trim((string)($photo['caption'] ?? '')) !== ''): ?> — <?= $e($photo['caption']) ?><?php endif; ?></p>
