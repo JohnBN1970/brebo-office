@@ -27,6 +27,9 @@ final class OfficePaymentSubmissionApplication {
     if ($operatorId < 1 || $canSubmit($operatorId) !== true) {
       throw new \DomainException('Payment submission permission required');
     }
+    if (getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') !== 'enabled') {
+      throw new \DomainException('Bank provider contract not verified');
+    }
     return self::submitWithOperatorMandate(
       $resolver->resolve($batchId), $operatorId, $canSubmit, $isRecipientUnchanged,
       $mandates, $artifacts, $submissions, $resolveKey, $pdo, $client
