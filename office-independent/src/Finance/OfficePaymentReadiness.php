@@ -15,6 +15,7 @@ final class OfficePaymentReadiness {
       'mandate_schema_present'=>false,
       'artifact_schema_present'=>false,
       'submission_schema_present'=>false,
+      'submission_uniqueness_verified'=>false,
       'canonical_batch_schema_present'=>false,
       'bank_provider_contract_verified'=>getenv('OFFICE_BANK_PROVIDER_CONTRACT_VERIFIED') === 'enabled',
     ];
@@ -43,6 +44,38 @@ final class OfficePaymentReadiness {
             $checks[$key] = false;
             break;
           }
+        }
+      }
+      // Duplicate prevention is a database invariant, not merely an application check.
+      // Both unique keys must exist before a bank submission can be considered ready.
+      if ($checks['submission_schema_present']) {
+        try {
+          $driver = $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+          $uniqueColumns = [];
+          if ($driver === 'mysql') {
+            $statement = $pdo->query(
+              "SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX FROM information_schema.STATISTICS
+               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_bank_submission_intents'
+                 AND NON_UNIQUE = 0 ORDER BY INDEX_NAME, SEQ_IN_INDEX"
+            );
+            foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $index) {
+              $uniqueColumns[$index['INDEX_NAME']][] = $index['COLUMN_NAME'];
+            }
+          } elseif ($driver === 'sqlite') {
+            foreach ($pdo->query("PRAGMA index_list('office_bank_submission_intents')")->fetchAll(\PDO::FETCH_ASSOC) as $index) {
+              if ((int)$index['unique'] !== 1) continue;
+              $names = [];
+              foreach ($pdo->query('PRAGMA index_info(' . $pdo->quote($index['name']) . ')')->fetchAll(\PDO::FETCH_ASSOC) as $column) {
+                $names[] = $column['name'];
+              }
+              $uniqueColumns[$index['name']] = $names;
+            }
+          }
+          $checks['submission_uniqueness_verified'] =
+            in_array(['batch_id'], $uniqueColumns, true)
+            && in_array(['idempotency_key'], $uniqueColumns, true);
+        } catch (\PDOException $ignored) {
+          $checks['submission_uniqueness_verified'] = false;
         }
       }
     }
