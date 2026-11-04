@@ -122,6 +122,17 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 <dt><?= $e($label) ?></dt><dd><?= $e($finding[$key] ?? '') ?></dd>
 <?php endforeach; ?></dl><p class="muted">In rapport: <?= !isset($selections[$finding['id']]) || (int)$selections[$finding['id']] === 1 ? 'Ja' : 'Nee' ?></p>
 <?php if ($inspection['status'] === 'draft' && $finding['status'] === 'draft' && $canWrite): ?>
+<details><summary>Foto toevoegen</summary>
+<form method="post" enctype="multipart/form-data" action="/office-test/inspectie/foto-uploaden">
+<input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
+<input type="hidden" name="finding_id" value="<?= $e($finding['id']) ?>">
+<input type="hidden" name="csrf_token" value="<?= $e($findingCsrf) ?>">
+<label>Foto (JPEG, PNG of WebP, maximaal 10 MB)<input type="file" name="photo" accept="image/jpeg,image/png,image/webp" required></label>
+<label>Bijschrift<input name="caption" maxlength="500"></label>
+<button type="submit">Foto opslaan</button>
+</form></details>
+<?php endif; ?>
+<?php if ($inspection['status'] === 'draft' && $finding['status'] === 'draft' && $canWrite): ?>
 <details><summary>Bevinding wijzigen</summary>
 <form method="post" action="/office-test/inspectie/bevinding-opslaan">
 <input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
