@@ -33,8 +33,13 @@ final class OfficePaymentReadinessView {
         . ': <strong>' . ($ok ? 'Gecontroleerd' : 'Niet gereed') . '</strong></li>';
     }
     $html .= '</ul>';
+    // A caller-provided ready flag cannot override a failed or missing gate.
+    $allChecksPassed = true;
+    foreach (array_keys(self::LABELS) as $key) {
+      if (($state['checks'][$key] ?? false) !== true) $allChecksPassed = false;
+    }
     $html .= '<p class="notice" role="status">'
-      . (($state['ready'] ?? false) === true
+      . (($state['ready'] ?? false) === true && $allChecksPassed
         ? 'Technische basiscontrole geslaagd. Bankverzending vanuit dit scherm blijft uitgeschakeld.'
         : 'Bankverzending geblokkeerd: een of meer voorwaarden ontbreken.')
       . '</p>';
