@@ -46,7 +46,7 @@ article{margin:30px 0;break-inside:avoid}.evidence-list{border-top:1px solid #d6
 <section class="evidence-list"><h3>Fotoregistratie</h3>
 <?php foreach ($evidenceByFinding[(string)$finding['id']] as $photo): ?>
 <p><strong>Bijlage <?= $e($photo['id']) ?></strong><?php if (trim((string)($photo['caption'] ?? '')) !== ''): ?> — <?= $e($photo['caption']) ?><?php endif; ?></p>
-<figure><img loading="lazy" alt="<?= $e($photo['caption'] ?: 'Inspectiefoto bij bevinding '.$finding['code']) ?>" src="/office-test/inspectie/foto?inspection_id=<?= rawurlencode((string)$inspection['id']) ?>&amp;evidence_id=<?= rawurlencode((string)$photo['id']) ?>"></figure>
+<figure><img loading="eager" alt="<?= $e($photo['caption'] ?: 'Inspectiefoto bij bevinding '.$finding['code']) ?>" src="/office-test/inspectie/foto?inspection_id=<?= rawurlencode((string)$inspection['id']) ?>&amp;evidence_id=<?= rawurlencode((string)$photo['id']) ?>"></figure>
 <?php endforeach; ?>
 
 </section>
