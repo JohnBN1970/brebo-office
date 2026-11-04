@@ -22,6 +22,17 @@ try { (new OfficePaymentCanonicalBatchRepository($db))->load(27); throw new Runt
 catch (DomainException $expected) {}
 $repo = new OfficePaymentCanonicalBatchRepository($db, true);
 if ($repo->resolver()->resolve(27)['sealed_hash'] !== $seal) throw new RuntimeException('Valid batch rejected');
+$db->exec("UPDATE brebo_finance_payment_batch SET control_sum = '49.99' WHERE id = 27");
+try { $repo->load(27); throw new RuntimeException('Incorrect control sum accepted'); }
+catch (DomainException $expected) {}
+$db->exec("UPDATE brebo_finance_payment_batch SET control_sum = '50.00', released_by = 3 WHERE id = 27");
+try { $repo->load(27); throw new RuntimeException('Self-released batch accepted'); }
+catch (DomainException $expected) {}
+$db->exec("UPDATE brebo_finance_payment_batch SET released_by = 4 WHERE id = 27");
+$db->exec("UPDATE brebo_finance_payment_batch_item SET status = 'prepared' WHERE id = 1");
+try { $repo->load(27); throw new RuntimeException('Unreleased instruction accepted'); }
+catch (DomainException $expected) {}
+$db->exec("UPDATE brebo_finance_payment_batch_item SET status = 'released' WHERE id = 1");
 $db->exec("UPDATE brebo_finance_payment_batch_item SET creditor_iban = 'NL02ABNA0123456789' WHERE id = 1");
 try { $repo->load(27); throw new RuntimeException('Modified recipient accepted'); }
 catch (DomainException $expected) {}
