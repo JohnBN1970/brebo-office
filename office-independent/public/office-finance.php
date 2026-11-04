@@ -600,7 +600,7 @@ try {
     $data['payment_readiness'] = \Brebo\Office\Finance\OfficePaymentReadiness::inspect(
       $db,
       getenv('OFFICE_PAYMENT_CANONICAL_SCHEMA_VERIFIED') === 'enabled',
-      false // Finance read permission is NOT a bank payment submission grant
+      (new \Brebo\Office\Finance\OfficePaymentPermission($db))->canSubmit((int)$operator->operatorId)
     );
   }
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
