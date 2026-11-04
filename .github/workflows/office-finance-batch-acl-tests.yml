@@ -9,6 +9,8 @@ on:
       - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
+      - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
   push:
@@ -22,6 +24,8 @@ on:
       - 'office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php'
+      - 'office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php'
+      - 'office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php'
       - 'office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php'
       - '.github/workflows/office-finance-batch-acl-tests.yml'
 permissions:
@@ -46,9 +50,12 @@ jobs:
           php -l office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
           php -l office-independent/src/Finance/OfficeFinanceBatchPermissionsOverview.php
           php -l office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+          php -l office-independent/src/Finance/OfficeFinanceBatchSettingsPanel.php
+          php -l office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
       - name: Run isolated ACL tests
         run: |
           php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
           php office-independent/tests/OfficeFinanceBatchAccessTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionsOverviewTest.php
+          php office-independent/tests/OfficeFinanceBatchSettingsPanelTest.php
