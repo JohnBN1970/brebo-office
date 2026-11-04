@@ -1,0 +1,39 @@
+name: Office intake installer contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-test.php'
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeSchema.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeSchemaTest.php'
+      - '.github/workflows/office-intake-hostinger-install.yml'
+      - '.github/workflows/office-intake-installer-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-test.php'
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeSchema.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeSchemaTest.php'
+      - '.github/workflows/office-intake-hostinger-install.yml'
+      - '.github/workflows/office-intake-installer-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Validate PHP and schema contract without database writes
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-intake-test.php
+          php -l office-independent/src/Intake/OfficeCanonicalIntakeSchema.php
+          php -l office-independent/tests/OfficeCanonicalIntakeSchemaTest.php
+          php office-independent/tests/OfficeCanonicalIntakeSchemaTest.php
