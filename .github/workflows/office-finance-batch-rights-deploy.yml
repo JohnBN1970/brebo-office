@@ -86,6 +86,20 @@ jobs:
             # Print only matching route declarations, not application secrets or arbitrary code.
             grep -nE "office-test/finance|office-finance[-a-z]*\\.php" "$router" | head -n 35 || true
             echo "ACTIVE_ROUTER_FINANCE_REFERENCES_END"
+            echo "ROUTER_STRUCTURE_DIAGNOSTIC_BEGIN"
+            echo "ROUTER_BYTES=$(wc -c < "$router")"
+            echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d ' ' -f 1)"
+            echo "ROUTER_FIRST_LINE_KIND=$(head -n 1 "$router" | grep -Eq '^<\\?php' && echo PHP || echo OTHER)"
+            echo "ROUTER_INCLUDE_TARGETS:"
+            # Only show literal include/require targets, never print source or environment.
+            grep -E '^[[:space:]]*(require|require_once|include|include_once)[[:space:]]*\\(?[[:space:]]*(__DIR__|dirname|[\x27\x22])' "$router" | sed -E 's/[^[:alnum:]_./-]+/ /g' | head -n 15 || true
+            echo "ROUTER_ROUTE_INDICATORS:"
+            for marker in 'REQUEST_URI' 'parse_url' 'routes' 'switch' 'header(' 'OfficeMount' 'office-test' 'index.php'; do
+              if grep -Fq "$marker" "$router"; then echo "PRESENT: $marker"; else echo "ABSENT: $marker"; fi
+            done
+            echo "HTACCESS_REWRITE_INDICATORS:"
+            grep -E '^[[:space:]]*RewriteRule ' "$htaccess" | sed -E 's/[^[:alnum:]_./^$?=-]+/ /g' | head -n 20 || true
+            echo "ROUTER_STRUCTURE_DIAGNOSTIC_END"
             echo "ROUTER_PATH=$router"
             echo "NO_FILES_INSTALLED"
             exit 24
