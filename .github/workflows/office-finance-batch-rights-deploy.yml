@@ -80,7 +80,16 @@ jobs:
           test -f "$htaccess" && test ! -L "$htaccess" || { echo HTACCESS_UNSAFE; exit 21; }
           test -d "$base/public" && test -d "$base/src/Finance" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
           test -f "$base/public/office-finance.php" || { echo FINANCE_ENTRY_MISSING; exit 23; }
-          grep -Fq "'/office-test/finance/betaalcentrum'" "$router" || { echo FINANCE_ROUTE_MISSING; exit 24; }
+          if ! grep -Fq "'/office-test/finance/betaalcentrum'" "$router"; then
+            echo "FINANCE_ROUTE_MISSING: active router uses another Finance route structure"
+            echo "ACTIVE_ROUTER_FINANCE_REFERENCES_BEGIN"
+            # Print only matching route declarations, not application secrets or arbitrary code.
+            grep -nE "office-test/finance|office-finance[-a-z]*\\.php" "$router" | head -n 35 || true
+            echo "ACTIVE_ROUTER_FINANCE_REFERENCES_END"
+            echo "ROUTER_PATH=$router"
+            echo "NO_FILES_INSTALLED"
+            exit 24
+          fi
           # Verify the existing web-server rewrite before installing any files.
           grep -Eq 'RewriteRule.*finance|RewriteRule.*index\\.php' "$htaccess" || { echo FINANCE_REWRITE_UNVERIFIED; exit 32; }
           for name in office-finance-batch-permissions OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
