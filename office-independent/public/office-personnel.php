@@ -147,7 +147,7 @@ echo '<section><h2>Medewerkers</h2>';
 if (!$creating && !$detailPage) {
 echo '<form method="get" action="/office-test/personeel/medewerkers"><label for="status">Status </label><select id="status" name="status"><option value="active"' . ($status === 'active' ? ' selected' : '') . '>Actief</option><option value="inactive"' . ($status === 'inactive' ? ' selected' : '') . '>Inactief</option><option value="all"' . ($status === 'all' ? ' selected' : '') . '>Alle</option></select> <button type="submit">Filteren</button></form>';
 foreach ($people as $person) {
-  echo '<a class="person" href="/office-test/personeel/medewerkers?status=' . $e($status) . '&amp;person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e(($person['personnel_number'] ?? '') ?: 'Geen personeelsnummer') . ' · <strong>' . ((int)$person['active'] === 1 ? 'Actief' : 'Inactief') . '</strong><br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
+  echo '<a class="person" href="/office-test/personeel/medewerkers/detail?status=' . $e($status) . '&amp;person_id=' . (int)$person['id'] . '"><strong>' . $e($person['display_name']) . '</strong> · ' . $e(($person['personnel_number'] ?? '') ?: 'Geen personeelsnummer') . ' · <strong>' . ((int)$person['active'] === 1 ? 'Actief' : 'Inactief') . '</strong><br><small>' . $e(implode(', ', $person['projects'])) . '</small></a>';
 }
 if ($people === []) echo '<p>Geen medewerkers beschikbaar.</p>';
 echo '</section>';
