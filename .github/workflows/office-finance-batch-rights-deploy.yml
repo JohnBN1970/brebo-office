@@ -114,8 +114,9 @@ jobs:
             ROUTER_CANDIDATE="$candidate" php -r '
               $path = getenv("ROUTER_CANDIDATE");
               $source = file_get_contents($path);
-              $anchor = "  \'/office-test/finance/betaalcentrum\' => \'office-finance-payments.php\',";
-              $replacement = $anchor . "\\n  \'/office-test/finance/mijn-betaalrechten\' => \'office-finance-batch-permissions.php\',";
+              $quote = chr(39);
+              $anchor = "  " . $quote . "/office-test/finance/betaalcentrum" . $quote . " => " . $quote . "office-finance-payments.php" . $quote . ",";
+              $replacement = $anchor . PHP_EOL . "  " . $quote . "/office-test/finance/mijn-betaalrechten" . $quote . " => " . $quote . "office-finance-batch-permissions.php" . $quote . ",";
               if (substr_count($source, $anchor) !== 1) exit(2);
               if (file_put_contents($path, str_replace($anchor, $replacement, $source)) === false) exit(3);
             '
