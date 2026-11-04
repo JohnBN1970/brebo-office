@@ -1,0 +1,18 @@
+name: Office commercial lifecycle
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Demo/OfficeCommercialLifecycle.php'
+      - 'office-independent/tests/OfficeCommercialLifecycleTest.php'
+      - '.github/workflows/office-commercial-lifecycle.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/src/Demo/OfficeCommercialLifecycle.php
+          php -l office-independent/tests/OfficeCommercialLifecycleTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeCommercialLifecycleTest.php
