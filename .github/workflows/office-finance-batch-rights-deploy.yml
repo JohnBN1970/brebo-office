@@ -77,6 +77,8 @@ jobs:
           test -d "$base/public" && test -d "$base/src/Finance" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
           test -f "$base/public/office-finance.php" || { echo FINANCE_ENTRY_MISSING; exit 23; }
           grep -Fq "'/office-test/finance/betaalcentrum'" "$router" || { echo FINANCE_ROUTE_MISSING; exit 24; }
+          # Verify the existing web-server rewrite before installing any files.
+          grep -Eq 'RewriteRule.*finance|RewriteRule.*index\\.php' "$htaccess" || { echo FINANCE_REWRITE_UNVERIFIED; exit 32; }
           for name in office-finance-batch-permissions OfficeFinanceBatchPermissionCatalog OfficeFinanceBatchPermissionsView OfficeFinanceBatchPermissionsOverview; do
             php -l "$stage/$name.php"
           done
@@ -131,4 +133,5 @@ jobs:
             echo "ROUTER_ALREADY_CONFIGURED"
           fi
           echo "FINANCE_RIGHTS_TEST_FILES_AND_ROUTE_INSTALLED_NO_DATABASE_CHANGES"
+          echo "BROWSER_ACCEPTANCE_AND_MENU_LINK_STILL_REQUIRE_VERIFICATION"
           REMOTE
