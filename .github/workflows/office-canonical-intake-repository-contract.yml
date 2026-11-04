@@ -1,0 +1,35 @@
+name: Office canonical intake repository contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeRepository.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeRepositoryContractTest.php'
+      - '.github/workflows/office-canonical-intake-repository-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/OfficeCanonicalIntakeRepository.php'
+      - 'office-independent/tests/OfficeCanonicalIntakeRepositoryContractTest.php'
+      - '.github/workflows/office-canonical-intake-repository-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint and run contracts
+        run: |
+          php -l office-independent/src/Intake/OfficeCanonicalIntakeRepository.php
+          php -l office-independent/tests/OfficeCanonicalIntakeRepositoryContractTest.php
+          php office-independent/tests/OfficeCanonicalIntakeRepositoryContractTest.php
+          php office-independent/tests/OfficeIntakeProcessPlanTest.php
