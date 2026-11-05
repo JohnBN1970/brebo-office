@@ -10,7 +10,7 @@ foreach ([
     'strlen($rawBody) > 8192',
     '$this->authenticator->verify',
     'json_decode($rawBody',
-    "($envelope['source'] ?? null) !== $source",
+    "(\$envelope['source'] ?? null) !== \$source",
     'OfficeCanonicalIntakeAdapter::map',
     '$this->replays->reserve',
     '$this->handoff->register',
