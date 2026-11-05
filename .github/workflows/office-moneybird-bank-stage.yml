@@ -1,0 +1,61 @@
+name: Stage Moneybird bank components for Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type STAGE-OFFICE-BANK
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  stage:
+    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: finance-brebo-source-moneybird-bank-only-20261105
+      - name: Verify isolated Office code
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
+      - name: Set up SSH
+        run: |
+          set -euo pipefail
+          for key in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            test -n "${!key}" || { echo "::error::Missing $key"; exit 1; }
+          done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_bank_stage_key
+          chmod 600 ~/.ssh/office_bank_stage_key
+      - name: Stage to private non-active directory
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          stage="office-bank-staging-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
+            office-independent/src/Finance/OfficeMoneybirdBankReadService.php "$remote:$stage/"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' bash -se" <<'REMOTE'
+          set -euo pipefail
+          stage="$HOME/$STAGE"
+          test -d "$stage" && test ! -L "$stage"
+          php -l "$stage/OfficeMoneybirdBankSnapshot.php"
+          php -l "$stage/OfficeMoneybirdBankReadService.php"
+          echo "BANK_STAGE_SHA256_BEGIN"
+          sha256sum "$stage/OfficeMoneybirdBankSnapshot.php" "$stage/OfficeMoneybirdBankReadService.php"
+          echo "BANK_STAGE_SHA256_END"
+          echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
+          REMOTE
