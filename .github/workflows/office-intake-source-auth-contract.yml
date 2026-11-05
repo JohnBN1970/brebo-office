@@ -1,0 +1,33 @@
+name: Office intake source authentication
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeIntakeSourceAuthenticator.php'
+      - 'office-independent/tests/OfficeIntakeSourceAuthenticatorTest.php'
+      - '.github/workflows/office-intake-source-auth-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/OfficeIntakeSourceAuthenticator.php'
+      - 'office-independent/tests/OfficeIntakeSourceAuthenticatorTest.php'
+      - '.github/workflows/office-intake-source-auth-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  auth-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: |
+          php -l office-independent/src/Intake/OfficeIntakeSourceAuthenticator.php
+          php -l office-independent/tests/OfficeIntakeSourceAuthenticatorTest.php
+          php office-independent/tests/OfficeIntakeSourceAuthenticatorTest.php
