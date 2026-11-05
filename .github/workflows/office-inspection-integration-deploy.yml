@@ -11,6 +11,8 @@ on:
       - 'office-independent/tests/OfficeProjectDocumentMenuContractTest.php'
       - 'office-independent/public/office-documents.php'
       - 'office-independent/tests/OfficeDocumentsProjectContextContractTest.php'
+      - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/tests/OfficeProjectDetailV3DocumentsTest.php'
       - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
     inputs:
@@ -55,6 +57,8 @@ jobs:
           php inspection-source/office-independent/tests/OfficeNewDocumentMenuTest.php
           php inspection-source/office-independent/tests/OfficeProjectDocumentMenuContractTest.php
           php inspection-source/office-independent/tests/OfficeDocumentsProjectContextContractTest.php
+          php -l inspection-source/office-independent/src/Project/OfficeProjectDetailV3View.php
+          php inspection-source/office-independent/tests/OfficeProjectDetailV3DocumentsTest.php
           php -l inspection-source/office-independent/public/office-project.php
           php -l inspection-source/office-independent/src/Intake/OfficeNavigation.php
           php -l inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceUploadAction.php
