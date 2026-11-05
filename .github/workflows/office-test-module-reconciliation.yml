@@ -49,7 +49,7 @@ jobs:
           root="$HOME/domains/brebobv.nl/office_calc_test"
           active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
           case "$active" in "$root"/release-*/private) ;; *) exit 21;; esac
-          manifest="$(find /tmp -maxdepth 1 -type f -name 'office-source-files-compare-*.txt' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d' ' -f2-)"
+          manifest="/tmp/office-source-files-compare-${GITHUB_RUN_ID}.txt"
           test -n "$manifest" && test -f "$manifest" || exit 23
           echo "=== MISSING_RELATIVE_TO_GITHUB_SOURCE ==="
           count=0
