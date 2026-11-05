@@ -113,6 +113,32 @@ jobs:
                 exit(2);
               }
             ' "$config"
+            stage=activation_readiness
+            echo OFFICE_TEST_PREFLIGHT_STAGE=activation_readiness
+            # The preceding checks prove technical infrastructure only. Activation also
+            # requires both independent source secrets and an enabled receiver.
+            "$php" -r '
+              try {
+                $c=require $argv[1];
+                if (!is_array($c)) {echo "OFFICE_TEST_ACTIVATION_CONFIG_INVALID\n";exit(2);}
+                $ready=true;
+                foreach (["OFFICE_INTAKE_SECRET_WEBSITE","OFFICE_INTAKE_SECRET_EMAIL"] as $key) {
+                  if (!is_string($c[$key]??null) || strlen($c[$key])<32) {
+                    echo "OFFICE_TEST_ACTIVATION_BLOCKED_".$key."\n";
+                    $ready=false;
+                  }
+                }
+                if (($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)!=="enabled") {
+                  echo "OFFICE_TEST_ACTIVATION_BLOCKED_RECEIVER_DISABLED\n";
+                  $ready=false;
+                }
+                if (!$ready) {exit(2);}
+                echo "OFFICE_TEST_ACTIVATION_CONFIG_READY\n";
+              } catch (Throwable $e) {
+                echo "OFFICE_TEST_ACTIVATION_CONFIG_FAILED_".get_class($e)."\n";
+                exit(2);
+              }
+            ' "$config"
             stage=complete
             trap - EXIT
             echo OFFICE_TEST_INTAKE_ACTIVATION_PREFLIGHT_OK
