@@ -1,0 +1,56 @@
+name: Office-test intake activation preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only Office-test activation readiness
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            root="$HOME/domains/brebobv.nl/office_calc_test"
+            router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+            active="$root/release-office-test-contractform-20261030/private"
+            config="$root/config/config.php"
+            php=/opt/alt/php83/usr/bin/php
+            "$php" -l "$router" >/dev/null
+            "$php" -l "$active/public/office-intake-receive.php" >/dev/null
+            "$php" -r '
+              $c=require $argv[1];
+              if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??null)!=="/office-test"
+                  || ($c["OFFICE_INTAKE_DB_USER"]??null)!=="u213420663_office_test"
+                  || ($c["OFFICE_PRIVATE_ROOT"]??null)!==$argv[2]) {exit(2);}
+              foreach (["website"=>"OFFICE_INTAKE_SECRET_WEBSITE","email"=>"OFFICE_INTAKE_SECRET_EMAIL"] as $source=>$key) {
+                  $v=$c[$key]??null;
+                  echo "OFFICE_TEST_INTAKE_".strtoupper($source)."_SECRET_READY=".(is_string($v)&&strlen($v)>=32?"yes":"no")."\n";
+              }
+              echo "OFFICE_TEST_INTAKE_FLAG_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\n";
+              echo "OFFICE_TEST_INTAKE_CONFIG_LAYOUT=php_return_array\n";
+            ' "$config" "$active"
+            grep -Fq '/office-test/api/intake/v1/receive' "$router"
+            grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' "$router"
+            for rel in public/office-intake-receive.php src/Intake/OfficeIntakeSecureReceiver.php src/Intake/OfficeIntakeSourceAuthenticator.php src/Intake/OfficeIntakeReplayGuard.php src/Intake/OfficeCanonicalIntakeBuildingHandoff.php src/Buildings/OfficeIntakeBuildingResolver.php; do
+              test -f "$active/$rel"
+              "$php" -l "$active/$rel" >/dev/null
+            done
+            "$php" -r '
+              $c=require $argv[1];
+              $pdo=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+              if ($pdo->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") {exit(2);}
+              foreach (["office_intake_requests","office_intake_request_disciplines","office_intake_events","office_intake_signed_nonces","office_buildings"] as $t) {
+                $s=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");
+                $s->execute([$t]);
+                if ((int)$s->fetchColumn()!==1) {echo "OFFICE_TEST_TABLE_".strtoupper($t)."=missing\n";exit(2);}
+                echo "OFFICE_TEST_TABLE_".strtoupper($t)."=present\n";
+              }
+            ' "$config"
+            echo OFFICE_TEST_INTAKE_ACTIVATION_PREFLIGHT_OK
