@@ -72,6 +72,30 @@ jobs:
             echo FINANCE_ENTRY_DIFFERS_FROM_BRANCH
             echo REVIEW_AND_EXPLICIT_INSTALL_REQUIRED
           fi
+          # Report only structural facts and hashes; never print financial data or PHP source.
+          active="$base/public/office-finance.php"
+          staged="$stage/office-finance.php"
+          echo "ACTIVE_FINANCE_SHA256=$(sha256sum "$active" | cut -d ' ' -f1)"
+          echo "STAGED_FINANCE_SHA256=$(sha256sum "$staged" | cut -d ' ' -f1)"
+          echo "ACTIVE_FINANCE_LINES=$(wc -l < "$active" | tr -d ' ')"
+          echo "STAGED_FINANCE_LINES=$(wc -l < "$staged" | tr -d ' ')"
+          for token in 'OFFICE_FINANCE_PRESENTATION_MODE' 'OfficeFinancePresentationView' 'OfficeFinanceView' 'OfficeFinanceAccess' 'moneybird'; do
+            if grep -Fq "$token" "$active"; then echo "ACTIVE_HAS_${token}=yes"; else echo "ACTIVE_HAS_${token}=no"; fi
+          done
+          if test -e "$base/src/Finance/OfficeFinancePresentationView.php"; then
+            echo ACTIVE_PRESENTATION_VIEW_EXISTS=yes
+          else
+            echo ACTIVE_PRESENTATION_VIEW_EXISTS=no
+          fi
+          echo "DIFF_SUMMARY_BEGIN"
+          diff -U 0 "$active" "$staged" | awk '
+            /^@@/ { print; next }
+            /^---|^\+\+\+/ { next }
+            /^-/ { removed++; next }
+            /^\+/ { added++; next }
+            END { printf "CHANGED_LINES_REMOVED=%d\nCHANGED_LINES_ADDED=%d\n", removed, added }
+          ' || true
+          echo "DIFF_SUMMARY_END"
           echo PRESENTATION_STAGE_PREFLIGHT_OK_NO_ACTIVE_FILES_CHANGED
           echo PRESENTATION_FLAG_NOT_ACTIVATED
           REMOTE
