@@ -1,0 +1,27 @@
+name: Office-test intake activation preflight contract
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-intake-activation-preflight*.yml'
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-intake-activation-preflight*.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only preflight markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/office-intake-activation-preflight.yml
+          grep -Fq 'workflow_dispatch:' "$file"
+          grep -Fq 'OFFICE_TEST_INTAKE_ACTIVATION_PREFLIGHT_OK' "$file"
+          grep -Fq 'office_intake_signed_nonces' "$file"
+          grep -Fq 'OFFICE_INTAKE_SECRET_WEBSITE' "$file"
+          grep -Fq 'OFFICE_INTAKE_SECRET_EMAIL' "$file"
+          grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' "$file"
