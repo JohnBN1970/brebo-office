@@ -25,7 +25,7 @@ final class MoneybirdBankMutationAdapter {
       }
       $id = trim((string) ($account['id'] ?? ''));
       if ($id !== '') {
-        $accounts[$id] = TRUE;
+        $accounts[$id] = strtoupper(trim((string) ($account['currency'] ?? '')));
       }
     }
 
@@ -38,7 +38,7 @@ final class MoneybirdBankMutationAdapter {
       $id = trim((string) ($mutation['id'] ?? ''));
       $accountId = trim((string) ($mutation['financial_account_id'] ?? ''));
       $amount = trim((string) ($mutation['amount'] ?? ''));
-      if ($id === '' || !isset($accounts[$accountId]) || !preg_match('/^-?\\d+(?:\\.\\d{1,4})?$/D', $amount)) {
+      if ($id === '' || !isset($accounts[$accountId]) || $accounts[$accountId] === '' || !preg_match('/^-?\\d+(?:\\.\\d{1,4})?$/D', $amount)) {
         continue;
       }
       $transactionId = 'moneybird:' . $accountId . ':' . $id;
@@ -52,7 +52,7 @@ final class MoneybirdBankMutationAdapter {
         'source_mutation_id' => $id,
         'financial_account_id' => $accountId,
         'amount' => $amount,
-        'currency' => 'EUR',
+        'currency' => $accounts[$accountId],
         'booking_date' => trim((string) ($mutation['date'] ?? '')),
         'description' => trim((string) ($mutation['message'] ?? '')),
         // Never infer payment references, IBAN or invoice identity from prose.
