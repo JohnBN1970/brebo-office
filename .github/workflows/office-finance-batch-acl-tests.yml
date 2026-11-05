@@ -11,6 +11,7 @@ on:
       - 'office-independent/tests/OfficeRoleSettingsWriteTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsController.php'
       - 'office-independent/tests/OfficeRoleSettingsEndpointTest.php'
+      - 'office-independent/tests/OfficeRoleSettingsAuditRollbackTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsEndpoint.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsPage.php'
       - 'office-independent/tests/OfficeRoleSettingsControllerTest.php'
@@ -44,6 +45,7 @@ on:
       - 'office-independent/tests/OfficeRoleSettingsWriteTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsController.php'
       - 'office-independent/tests/OfficeRoleSettingsEndpointTest.php'
+      - 'office-independent/tests/OfficeRoleSettingsAuditRollbackTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsEndpoint.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsPage.php'
       - 'office-independent/tests/OfficeRoleSettingsControllerTest.php'
@@ -86,6 +88,7 @@ jobs:
           php -l office-independent/tests/OfficeRoleSettingsWriteTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsController.php
           php -l office-independent/tests/OfficeRoleSettingsEndpointTest.php
+          php -l office-independent/tests/OfficeRoleSettingsAuditRollbackTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsEndpoint.php
           php -l office-independent/src/Offer/OfficeRoleSettingsPage.php
           php -l office-independent/tests/OfficeRoleSettingsControllerTest.php
@@ -113,6 +116,7 @@ jobs:
           php office-independent/tests/OfficeRoleSettingsWriteTest.php
           php office-independent/tests/OfficeRoleSettingsControllerTest.php
           php office-independent/tests/OfficeRoleSettingsEndpointTest.php
+          php office-independent/tests/OfficeRoleSettingsAuditRollbackTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
           php office-independent/tests/OfficeFinanceBatchAccessTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
