@@ -1,0 +1,32 @@
+name: Office-test intake staged installer contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-runtime-test.sh'
+      - '.github/workflows/office-intake-runtime-test-deploy.yml'
+      - '.github/workflows/office-intake-runtime-test-deploy-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-runtime-test.sh'
+      - '.github/workflows/office-intake-runtime-test-deploy.yml'
+      - '.github/workflows/office-intake-runtime-test-deploy-contract.yml'
+permissions:
+  contents: read
+jobs:
+  installer-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check installer syntax and disabled-only safeguards
+        run: |
+          set -euo pipefail
+          bash -n office-independent/deployment/hostinger/install-office-intake-runtime-test.sh
+          grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' office-independent/deployment/hostinger/install-office-intake-runtime-test.sh
+          grep -Fq 'active_release_changed' office-independent/deployment/hostinger/install-office-intake-runtime-test.sh
+          grep -Fq 'rollback()' office-independent/deployment/hostinger/install-office-intake-runtime-test.sh
+          grep -Fq 'workflow_dispatch' .github/workflows/office-intake-runtime-test-deploy.yml
+          grep -Fq 'INSTALL-INTAKE-TEST' .github/workflows/office-intake-runtime-test-deploy.yml
+          test ! -e /home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php
