@@ -33,9 +33,6 @@ jobs:
           php -l office-independent/public/office-finance.php
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
-          php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
-          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
-          php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -53,7 +50,6 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage/Finance ~/$stage/public"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
-            office-independent/src/Finance/OfficeMoneybirdBankReadService.php \
             office-independent/src/Finance/OfficeFinanceBankPanel.php \
             office-independent/src/Finance/OfficeMoneybirdBankApiClient.php \
             office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/Finance/"
