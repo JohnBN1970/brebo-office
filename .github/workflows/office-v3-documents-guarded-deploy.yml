@@ -1,0 +1,97 @@
+name: Office-test V3 document actions guarded deployment
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-v3-documents-guarded-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-V3-DOCUMENTS
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-v3-documents
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'push' || inputs.confirmation == 'DEPLOY-V3-DOCUMENTS' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          path: baseline
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          path: candidate
+          persist-credentials: false
+      - name: Validate exact V3-only change
+        run: |
+          set -euo pipefail
+          base=baseline/office-independent/src/Project/OfficeProjectDetailV3View.php
+          next=candidate/office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l "$base"
+          php -l "$next"
+          php candidate/office-independent/tests/OfficeProjectDetailV3DocumentsTest.php
+          grep -Fq 'project-v3-documents' "$next"
+          grep -Fq '/inspectie?project_id=' "$next"
+          grep -Fq '/documenten?project_id=' "$next"
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Guarded update of V3 view only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            baseline/office-independent/src/Project/OfficeProjectDetailV3View.php \
+            "$USER@$HOST:/tmp/brebo-v3-documents-baseline.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" \
+            candidate/office-independent/src/Project/OfficeProjectDetailV3View.php \
+            "$USER@$HOST:/tmp/brebo-v3-documents-candidate.php"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          trap 'rm -f /tmp/brebo-v3-documents-baseline.php /tmp/brebo-v3-documents-candidate.php' EXIT
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          target="$base/src/Project/OfficeProjectDetailV3View.php"
+          controller="$base/public/office-project.php"
+          test -f "$target" && test ! -L "$target" || { echo V3_VIEW_NOT_INSTALLED; exit 20; }
+          test -f "$controller" && test ! -L "$controller" || { echo V3_CONTROLLER_NOT_INSTALLED; exit 21; }
+          grep -Fq 'BREBO_PROJECT_DETAIL_V3_MOUNT' "$controller" || { echo V3_CONTROLLER_NOT_MOUNTED; exit 22; }
+          php -l "$target"
+          php -l /tmp/brebo-v3-documents-candidate.php
+          if cmp -s "$target" /tmp/brebo-v3-documents-candidate.php; then
+            echo V3_DOCUMENT_ACTIONS_ALREADY_INSTALLED
+            exit 0
+          fi
+          cmp -s "$target" /tmp/brebo-v3-documents-baseline.php || { echo V3_VIEW_DIFFERS_FROM_CANONICAL_BASELINE; exit 23; }
+          backup="$target.backup-documents-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$base/src/Project/.v3-documents-XXXXXXXX.php")"
+          trap 'rm -f "$candidate" /tmp/brebo-v3-documents-baseline.php /tmp/brebo-v3-documents-candidate.php' EXIT
+          cp /tmp/brebo-v3-documents-candidate.php "$candidate"
+          chmod --reference="$target" "$candidate"
+          php -l "$candidate"
+          mv "$candidate" "$target"
+          if ! php -l "$target"; then
+            cp -p "$backup" "$target"
+            exit 24
+          fi
+          echo V3_DOCUMENT_ACTIONS_DEPLOYED
+          REMOTE
