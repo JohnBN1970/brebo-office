@@ -22,11 +22,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          ref: finance-brebo-source-moneybird-bank-only-20261105
+          ref: develop
       - name: Verify isolated Office code
         run: |
           set -euo pipefail
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
+          php -l office-independent/src/Finance/OfficeFinanceBankPanel.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankApiClient.php
+          php -l office-independent/src/Finance/OfficeFinanceView.php
+          php -l office-independent/public/office-finance.php
+          php office-independent/tests/OfficeFinanceBankPanelTest.php
+          php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
           php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
@@ -44,18 +50,22 @@ jobs:
           set -euo pipefail
           remote="$DEPLOY_USER@$DEPLOY_HOST"
           stage="office-bank-staging-$GITHUB_RUN_ID"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage/Finance ~/$stage/public"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
-            office-independent/src/Finance/OfficeMoneybirdBankReadService.php "$remote:$stage/"
+            office-independent/src/Finance/OfficeMoneybirdBankReadService.php \
+            office-independent/src/Finance/OfficeFinanceBankPanel.php \
+            office-independent/src/Finance/OfficeMoneybirdBankApiClient.php \
+            office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/Finance/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/public/office-finance.php "$remote:$stage/public/"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' bash -se" <<'REMOTE'
           set -euo pipefail
           stage="$HOME/$STAGE"
           test -d "$stage" && test ! -L "$stage"
-          php -l "$stage/OfficeMoneybirdBankSnapshot.php"
-          php -l "$stage/OfficeMoneybirdBankReadService.php"
+          for file in "$stage"/Finance/*.php "$stage"/public/*.php; do php -l "$file"; done
           echo "BANK_STAGE_SHA256_BEGIN"
-          sha256sum "$stage/OfficeMoneybirdBankSnapshot.php" "$stage/OfficeMoneybirdBankReadService.php"
+          sha256sum "$stage"/Finance/*.php "$stage"/public/*.php
           echo "BANK_STAGE_SHA256_END"
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
           REMOTE
