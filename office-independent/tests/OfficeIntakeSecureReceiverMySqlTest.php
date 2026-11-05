@@ -77,7 +77,7 @@ $expectRejected = static function (callable $attempt, string $reason): void {
     throw new RuntimeException($reason);
 };
 $expectRejected(
- static fn () => $receiver->receive('website', $body, $timestamp, $sign($body), $nonce, $now),
+ static fn () => $receiver->receive('website', $body, $timestamp, $sign($body, $nonce), $nonce, $now),
  'replay_was_accepted'
 );
 $expectRejected(
