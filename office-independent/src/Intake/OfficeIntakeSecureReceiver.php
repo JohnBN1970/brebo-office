@@ -29,7 +29,7 @@ final class OfficeIntakeSecureReceiver
         if (strlen($rawBody) > 8192 || $rawBody === '') {
             throw new \InvalidArgumentException('intake_payload_size_invalid');
         }
-        $this->authenticator->verify($source, $rawBody, $timestamp, $signature, $now);
+        $this->authenticator->verify($source, $rawBody, $timestamp, $nonce, $signature, $now);
         if (!preg_match('/^[a-f0-9]{64}$/D', $nonce)) {
             throw new \InvalidArgumentException('invalid_intake_nonce');
         }
