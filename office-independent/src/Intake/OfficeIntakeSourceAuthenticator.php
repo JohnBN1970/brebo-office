@@ -24,6 +24,7 @@ final class OfficeIntakeSourceAuthenticator
         string $source,
         string $rawBody,
         string $timestamp,
+        string $nonce,
         string $signature,
         int $now
     ): void {
@@ -37,12 +38,13 @@ final class OfficeIntakeSourceAuthenticator
             || abs($now - (int) $timestamp) > 300) {
             throw new \DomainException('intake_signature_expired');
         }
-        if (!preg_match('/^sha256=[a-f0-9]{64}$/D', $signature)) {
+        if (!preg_match('/^[a-f0-9]{64}$/D', $nonce)
+            || !preg_match('/^sha256=[a-f0-9]{64}$/D', $signature)) {
             throw new \DomainException('intake_signature_invalid');
         }
         $expected = 'sha256=' . hash_hmac(
             'sha256',
-            $source . "\n" . $timestamp . "\n" . $rawBody,
+            $source . "\n" . $timestamp . "\n" . $nonce . "\n" . $rawBody,
             $this->secrets[$source]
         );
         if (!hash_equals($expected, $signature)) {
