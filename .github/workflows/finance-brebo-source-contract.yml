@@ -2,6 +2,12 @@ name: BREBO Finance source-of-truth contract
 on:
   pull_request:
     paths:
+      - 'office-independent/public/office-finance.php'
+      - 'office-independent/src/Finance/**'
+      - 'office-independent/tests/OfficeFinanceBankPanelTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankApiClientTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankSnapshotTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankReadServiceTest.php'
       - 'integration-api/src/**'
       - 'integration-api/test/**'
       - 'web/modules/custom/brebo_finance/src/Service/**'
