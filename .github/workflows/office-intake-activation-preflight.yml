@@ -64,14 +64,28 @@ jobs:
             stage=db_checks
             echo OFFICE_TEST_PREFLIGHT_STAGE=db_checks
             "$php" -r '
-              $c=require $argv[1];
-              $pdo=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-              if ($pdo->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") {exit(2);}
-              foreach (["office_intake_requests","office_intake_request_disciplines","office_intake_events","office_intake_signed_nonces","office_buildings"] as $t) {
-                $s=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");
-                $s->execute([$t]);
-                if ((int)$s->fetchColumn()!==1) {echo "OFFICE_TEST_TABLE_".strtoupper($t)."=missing\n";exit(2);}
-                echo "OFFICE_TEST_TABLE_".strtoupper($t)."=present\n";
+              try {
+                $c=require $argv[1];
+                if (!is_array($c)) {echo "OFFICE_TEST_DATABASE_CHECK=invalid_config\n";exit(2);}
+                $needed=["OFFICE_INTAKE_PDO_DSN","OFFICE_INTAKE_DB_USER","OFFICE_INTAKE_DB_PASSWORD"];
+                foreach ($needed as $k) {
+                  if (!is_string($c[$k]??null) || $c[$k]==="") {
+                    echo "OFFICE_TEST_DB_CONFIG_".$k."=missing\n";
+                    exit(2);
+                  }
+                }
+                $pdo=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+                if ($pdo->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") {echo "OFFICE_TEST_DATABASE_SCOPE=invalid\n";exit(2);}
+                echo "OFFICE_TEST_DATABASE_SCOPE=valid\n";
+                foreach (["office_intake_requests","office_intake_request_disciplines","office_intake_events","office_intake_signed_nonces","office_buildings"] as $t) {
+                  $s=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");
+                  $s->execute([$t]);
+                  if ((int)$s->fetchColumn()!==1) {echo "OFFICE_TEST_TABLE_".strtoupper($t)."=missing\n";exit(2);}
+                  echo "OFFICE_TEST_TABLE_".strtoupper($t)."=present\n";
+                }
+              } catch (Throwable $e) {
+                echo "OFFICE_TEST_DATABASE_CHECK=failed_".get_class($e)."\n";
+                exit(2);
               }
             ' "$config"
             stage=complete
