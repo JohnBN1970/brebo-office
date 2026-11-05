@@ -93,6 +93,13 @@ if ($reportMode) {
   require dirname(__DIR__).'/src/Inspection/OfficeInspectionReportPrintView.php';
   exit;
 }
+$editFinding=null;
+if ($inspection !== null && ($_GET['view'] ?? '') === 'form' && isset($_GET['finding_id'])) {
+  $requestedFindingId=$_GET['finding_id'];
+  if (!is_string($requestedFindingId) || !preg_match('/^[1-9][0-9]*$/D',$requestedFindingId)) {http_response_code(400);exit('Ongeldige bevinding.');}
+  foreach ($findings as $candidate) {if ((string)$candidate['id']===$requestedFindingId) {$editFinding=$candidate;break;}}
+  if ($editFinding===null) {http_response_code(404);exit('Bevinding niet gevonden.');}
+}
 $e=static fn($value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -135,42 +142,28 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 </form></details>
 <?php endif; ?>
 <?php if ($inspection['status'] === 'draft' && $finding['status'] === 'draft' && $canWrite): ?>
-<details><summary>Bevinding wijzigen</summary>
-<form method="post" action="/office-test/inspectie/bevinding-opslaan">
-<input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
-<input type="hidden" name="finding_id" value="<?= $e($finding['id']) ?>">
-<input type="hidden" name="csrf_token" value="<?= $e($findingCsrf) ?>">
-<?php foreach (['code'=>'Bevindingcode','floor_label'=>'Verdieping','room_label'=>'Ruimte','building_part'=>'Bouwdeel'] as $key=>$label): ?>
-<label for="edit-<?= $e($finding['id']) ?>-<?= $e($key) ?>"><?= $e($label) ?></label>
-<input id="edit-<?= $e($finding['id']) ?>-<?= $e($key) ?>" name="<?= $e($key) ?>" value="<?= $e($finding[$key] ?? '') ?>" <?= $key === 'code' ? 'required maxlength="30" pattern="[A-Z][A-Z0-9-]*"' : '' ?>>
-<?php endforeach; ?>
-<?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader','technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
-<label for="edit-<?= $e($finding['id']) ?>-<?= $e($key) ?>"><?= $e($label) ?></label>
-<textarea id="edit-<?= $e($finding['id']) ?>-<?= $e($key) ?>" name="<?= $e($key) ?>" rows="3" <?= $key === 'observation' ? 'required' : '' ?>><?= $e($finding[$key] ?? '') ?></textarea>
-<?php endforeach; ?>
-<label><input type="checkbox" name="include_in_report" value="1" <?= !isset($selections[$finding['id']]) || (int)$selections[$finding['id']] === 1 ? 'checked' : '' ?>> Opnemen in rapport</label>
-<button type="submit">Wijzigingen opslaan</button>
-</form></details>
+<p><a class="action-link" href="?inspection_id=<?= $e($inspection['id']) ?>&amp;view=form&amp;finding_id=<?= $e($finding['id']) ?>">Bevinding wijzigen</a></p>
 <?php endif; ?></details></article>
 <?php endforeach; ?></section>
 <?php if ($inspection !== null && $inspection['status'] === 'draft' && $canWrite): ?>
 <?php if (($_GET['view'] ?? '') === 'form'): ?>
-<section id="bevinding-formulier"><h3>Nieuwe bevinding vastleggen</h3><p><a href="?inspection_id=<?= $e($inspection['id']) ?>">Terug naar bevindingen</a></p>
+<section id="bevinding-formulier"><h3><?= $editFinding !== null ? 'Bevinding wijzigen' : 'Nieuwe bevinding vastleggen' ?></h3><p><a href="?inspection_id=<?= $e($inspection['id']) ?>">Terug naar bevindingen</a></p>
 <p class="muted">Bevindingen worden opgeslagen in het inspectiedossier.</p>
 <form method="post" action="/office-test/inspectie/bevinding-opslaan">
 <input type="hidden" name="inspection_id" value="<?= $e($inspection['id']) ?>">
 <input type="hidden" name="csrf_token" value="<?= $e($findingCsrf) ?>">
-<label for="finding-code">Bevindingcode</label><input id="finding-code" name="code" maxlength="30" pattern="[A-Z][A-Z0-9-]*" required placeholder="B01">
-<label for="finding-floor">Verdieping</label><input id="finding-floor" name="floor_label" maxlength="120">
-<label for="finding-room">Ruimte</label><input id="finding-room" name="room_label" maxlength="120">
-<label for="finding-part">Bouwdeel</label><input id="finding-part" name="building_part" maxlength="160">
+<?php if ($editFinding !== null): ?><input type="hidden" name="finding_id" value="<?= $e($editFinding['id']) ?>"><?php endif; ?>
+<label for="finding-code">Bevindingcode</label><input id="finding-code" name="code" maxlength="30" pattern="[A-Z][A-Z0-9-]*" required placeholder="B01" value="<?= $e($editFinding['code'] ?? '') ?>">
+<label for="finding-floor">Verdieping</label><input id="finding-floor" name="floor_label" maxlength="120" value="<?= $e($editFinding['floor_label'] ?? '') ?>">
+<label for="finding-room">Ruimte</label><input id="finding-room" name="room_label" maxlength="120" value="<?= $e($editFinding['room_label'] ?? '') ?>">
+<label for="finding-part">Bouwdeel</label><input id="finding-part" name="building_part" maxlength="160" value="<?= $e($editFinding['building_part'] ?? '') ?>">
 <?php foreach (['observation'=>'Constatering','assessment_framework'=>'Toetsingskader',
 'technical_assessment'=>'Technische beoordeling','consequences'=>'Gevolgen','remedy'=>'Herstelmaatregel'] as $key=>$label): ?>
 <label for="new-<?= $e($key) ?>"><?= $e($label) ?></label>
-<textarea id="new-<?= $e($key) ?>" name="<?= $e($key) ?>" rows="3" <?= $key === 'observation' ? 'required' : '' ?>></textarea>
+<textarea id="new-<?= $e($key) ?>" name="<?= $e($key) ?>" rows="3" <?= $key === 'observation' ? 'required' : '' ?>><?= $e($editFinding[$key] ?? '') ?></textarea>
 <?php endforeach; ?>
-<label><input type="checkbox" name="include_in_report" value="1" checked> Opnemen in rapport</label>
-<button type="submit">Bevinding opslaan</button>
+<label><input type="checkbox" name="include_in_report" value="1" <?= $editFinding === null || !isset($selections[$editFinding['id']]) || (int)$selections[$editFinding['id']] === 1 ? 'checked' : '' ?>> Opnemen in rapport</label>
+<button type="submit"><?= $editFinding !== null ? 'Wijzigingen opslaan' : 'Bevinding opslaan' ?></button>
 </form></section>
 <?php endif; ?>
 <?php endif; ?>
