@@ -47,7 +47,7 @@ try {
     }
     require_once dirname(__DIR__) . '/src/Finance/OfficeFinancePresentationView.php';
     header('Content-Type: text/html; charset=utf-8');
-    echo \\Brebo\\Office\\Finance\\OfficeFinancePresentationView::render();
+    echo \Brebo\Office\Finance\OfficeFinancePresentationView::render();
     exit;
   }
   $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
