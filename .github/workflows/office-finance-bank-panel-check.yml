@@ -1,0 +1,25 @@
+name: Office Finance bank panel checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-finance.php'
+      - 'office-independent/src/Finance/OfficeFinanceView.php'
+      - 'office-independent/src/Finance/OfficeFinanceBankPanel.php'
+      - 'office-independent/src/Finance/OfficeMoneybirdBankApiClient.php'
+      - 'office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php'
+      - 'office-independent/tests/OfficeFinanceBankPanelTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankApiClientTest.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint and test bank panel
+        run: |
+          set -euo pipefail
+          for file in office-independent/public/office-finance.php office-independent/src/Finance/OfficeFinanceView.php office-independent/src/Finance/OfficeFinanceBankPanel.php office-independent/src/Finance/OfficeMoneybirdBankApiClient.php office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php office-independent/tests/OfficeFinanceBankPanelTest.php office-independent/tests/OfficeMoneybirdBankApiClientTest.php; do php -l "$file"; done
+          php office-independent/tests/OfficeFinanceBankPanelTest.php
+          php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
