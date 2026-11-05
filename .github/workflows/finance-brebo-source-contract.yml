@@ -27,6 +27,14 @@ jobs:
       - name: Test standalone Office bank projection
         run: |
           set -euo pipefail
+          php -l office-independent/public/office-finance.php
+          php -l office-independent/src/Finance/OfficeFinanceView.php
+          php -l office-independent/src/Finance/OfficeFinanceBankPanel.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankApiClient.php
+          php -l office-independent/tests/OfficeFinanceBankPanelTest.php
+          php -l office-independent/tests/OfficeMoneybirdBankApiClientTest.php
+          php office-independent/tests/OfficeFinanceBankPanelTest.php
+          php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
           php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
           php -l office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
