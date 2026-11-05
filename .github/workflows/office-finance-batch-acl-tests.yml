@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeBankSubmissionReadiness.php'
+      - 'office-independent/tests/OfficeBankSubmissionReadinessTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
       - 'office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
@@ -37,6 +39,8 @@ on:
       - finance-office-bank-integration-contract-20261103
     paths:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
+      - 'office-independent/src/Finance/OfficeBankSubmissionReadiness.php'
+      - 'office-independent/tests/OfficeBankSubmissionReadinessTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
       - 'office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
@@ -80,6 +84,8 @@ jobs:
       - name: PHP syntax checks
         run: |
           php -l office-independent/src/Finance/OfficeFinanceBatchAccess.php
+          php -l office-independent/src/Finance/OfficeBankSubmissionReadiness.php
+          php -l office-independent/tests/OfficeBankSubmissionReadinessTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php
           php -l office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsView.php
@@ -110,6 +116,7 @@ jobs:
           php -l office-independent/src/Intake/OfficeNavigation.php
       - name: Run isolated ACL tests
         run: |
+          php office-independent/tests/OfficeBankSubmissionReadinessTest.php
           php office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php
           php office-independent/tests/OfficeRoleSettingsViewTest.php
           php office-independent/tests/OfficeRoleSettingsReadTest.php
