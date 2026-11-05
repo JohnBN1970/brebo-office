@@ -7,9 +7,8 @@ namespace Drupal\brebo_finance\Service;
 /**
  * Maps Moneybird bank mutations to BREBO bank evidence, without invoice reads.
  *
- * The bank reconciliation manager currently persists ABN as provider; callers
- * must not feed these Moneybird activities to it until provider-aware storage
- * and matching are implemented.
+ * The provider-aware reconciliation manager keeps Moneybird and ABN evidence separate.
+ * Missing counterparty identifiers prevent automatic definitive matching.
  */
 final class MoneybirdBankMutationAdapter {
 
