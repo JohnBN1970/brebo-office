@@ -25,3 +25,51 @@ function salesInvoiceReceivableResult(value:unknown):MoneybirdSalesInvoiceReceiv
 function supplierContactResult(contact:Record<string,unknown>):MoneybirdSupplierContactResult{return{id:contact.id===undefined||contact.id===null?null:String(contact.id),company_name:stringValue(contact.company_name),firstname:stringValue(contact.firstname),lastname:stringValue(contact.lastname),address1:stringValue(contact.address1),address2:stringValue(contact.address2),zipcode:stringValue(contact.zipcode),city:stringValue(contact.city),country:stringValue(contact.country),phone:stringValue(contact.phone),email:stringValue(contact.email),customer_id:stringValue(contact.customer_id),tax_number:stringValue(contact.tax_number),chamber_of_commerce:stringValue(contact.chamber_of_commerce),bank_account:stringValue(contact.bank_account),delivery_method:stringValue(contact.delivery_method),direct_debit:contact.direct_debit===true,sepa_active:contact.sepa_active===true,sepa_iban:stringValue(contact.sepa_iban),sepa_iban_account_name:stringValue(contact.sepa_iban_account_name),sepa_bic:stringValue(contact.sepa_bic),sepa_mandate_id:stringValue(contact.sepa_mandate_id),sepa_mandate_date:stringValue(contact.sepa_mandate_date),sepa_sequence_type:stringValue(contact.sepa_sequence_type)};}
 function stringValue(value:unknown):string|null{return typeof value==="string"&&value.trim()!==""?value.trim():value!==undefined&&value!==null?String(value).trim()||null:null;}
 function invoiceResult(value:unknown):MoneybirdSalesInvoiceResult{if(!value||typeof value!=="object")throw new MoneybirdResponseError(502,"Invalid Moneybird response.");const invoice=value as Record<string,unknown>;if(typeof invoice.id!=="string")throw new MoneybirdResponseError(502,"Invalid Moneybird response.");return{id:invoice.id,invoice_id:typeof invoice.invoice_id==="string"?invoice.invoice_id:null,state:typeof invoice.state==="string"?invoice.state:"unknown",invoice_date:typeof invoice.invoice_date==="string"?invoice.invoice_date:null,due_date:typeof invoice.due_date==="string"?invoice.due_date:null,sent_at:typeof invoice.sent_at==="string"?invoice.sent_at:null};}
+export interface MoneybirdBankSnapshot {
+  accounts: Array<{ id: string; name: string; identifier: string; currency: string }>;
+  transactions: Array<{ id: string; financial_account_id: string | null; date: string | null; amount: string | null; message: string | null }>;
+  balances_available: false;
+  note: string;
+}
+
+/** Read only bank accounts and financial mutations. Never fetch invoice documents. */
+export async function getBankSnapshot(env: Env): Promise<MoneybirdBankSnapshot> {
+  const base = `https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`;
+  const rawAccounts = await moneybirdJson(`${base}/financial_accounts.json`, env);
+  if (!Array.isArray(rawAccounts)) throw new MoneybirdResponseError(502, "Invalid Moneybird bank account response.");
+  const accounts = rawAccounts.filter((item): item is Record<string, unknown> =>
+    !!item && typeof item === "object" && !Array.isArray(item) &&
+    String((item as Record<string, unknown>).type ?? "").includes("BankAccount")
+  ).map(item => ({
+    id: String(item.id ?? ""),
+    name: stringValue(item.name) ?? "Bankrekening",
+    identifier: stringValue(item.identifier) ?? "",
+    currency: stringValue(item.currency) ?? "EUR",
+  })).filter(item => item.id !== "");
+  const allowed = new Set(accounts.map(item => item.id));
+  const transactions: MoneybirdBankSnapshot["transactions"] = [];
+  const perPage = 100;
+  for (let page = 1; page <= 10; page++) {
+    const raw = await moneybirdJson(`${base}/financial_mutations.json?per_page=${perPage}&page=${page}`, env);
+    if (!Array.isArray(raw)) throw new MoneybirdResponseError(502, "Invalid Moneybird bank mutation response.");
+    for (const candidate of raw) {
+      if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+      const item = candidate as Record<string, unknown>;
+      const accountId = stringValue(item.financial_account_id);
+      if (!accountId || !allowed.has(accountId) || item.id == null) continue;
+      transactions.push({
+        id: String(item.id),
+        financial_account_id: accountId,
+        date: stringValue(item.date),
+        amount: stringValue(item.amount),
+        message: stringValue(item.message),
+      });
+    }
+    if (raw.length < perPage) break;
+    if (page === 10) throw new MoneybirdResponseError(502, "Bank mutation pagination limit reached; snapshot incomplete.");
+  }
+  return {
+    accounts, transactions, balances_available: false,
+    note: "Bank balances are not verified by this endpoint. Do not infer a balance from mutation totals.",
+  };
+}
