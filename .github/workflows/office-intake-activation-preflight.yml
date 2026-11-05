@@ -40,6 +40,17 @@ jobs:
               echo OFFICE_TEST_CONFIG_FILE_MISSING
               exit 2
             }
+            test -r "$config" || {
+              echo OFFICE_TEST_CONFIG_NOT_READABLE
+              exit 2
+            }
+            echo OFFICE_TEST_CONFIG_FILE_READABLE
+            # First lint private config; do not output its contents.
+            "$php" -l "$config" >/dev/null || {
+              echo OFFICE_TEST_CONFIG_SYNTAX_FAILED
+              exit 2
+            }
+            echo OFFICE_TEST_CONFIG_SYNTAX_OK
             # Execute the config and emit boolean classifications only.
             "$php" -r '
               try {
