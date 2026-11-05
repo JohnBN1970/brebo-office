@@ -1,0 +1,20 @@
+name: Office project document access regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
+      - 'office-independent/src/Documents/OfficeProjectDocumentService.php'
+      - 'office-independent/tests/OfficeProjectDocumentAccessContractTest.php'
+      - '.github/workflows/office-project-document-access-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/src/Project/OfficeNativeProjectAccess.php
+          php -l office-independent/src/Documents/OfficeProjectDocumentService.php
+          php office-independent/tests/OfficeProjectDocumentAccessContractTest.php
