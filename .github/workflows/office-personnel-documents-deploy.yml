@@ -1,0 +1,72 @@
+name: Deploy Office-test personnel Documents navigation
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-personnel-documents-deploy.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Validate personnel navigation source
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-personnel.php
+          grep -Fq 'Documentenoverzicht</a></nav>' office-independent/public/office-personnel.php
+          grep -Fq 'OnSite' office-independent/public/office-personnel.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Guarded Office-test personnel navigation patch
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          target="$active/public/office-personnel.php"
+          test -f "$target" && test ! -L "$target" || { echo FAIL_PERSONNEL_TARGET; exit 21; }
+          php -l "$target"
+          if grep -Fq 'Documentenoverzicht</a></nav>' "$target"; then echo PERSONNEL_DOCUMENTS_ALREADY_PRESENT; exit 0; fi
+          backup="$target.backup-documents-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$active/public/.personnel-documents-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p "$target" "$candidate"
+          PERSONNEL_CANDIDATE="$candidate" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          path=Path(os.environ['PERSONNEL_CANDIDATE'])
+          text=path.read_text()
+          old='<a href="/office-test/personeel/medewerkers?view=new">Nieuwe medewerker</a></nav>'
+          new='<a href="/office-test/personeel/medewerkers?view=new">Nieuwe medewerker</a><a href="/office-test/documenten">Documentenoverzicht</a></nav>'
+          if text.count(old)!=1:
+              raise SystemExit('FAIL_PERSONNEL_DOCUMENTS_ANCHOR')
+          path.write_text(text.replace(old,new,1))
+          PY
+          php -l "$candidate"
+          grep -Fq 'OnSite' "$candidate"
+          grep -Fq 'Documentenoverzicht</a></nav>' "$candidate"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo PERSONNEL_DOCUMENTS_TEST_DEPLOYED
+          REMOTE
