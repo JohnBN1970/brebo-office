@@ -6,6 +6,8 @@ on:
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
       - 'office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
+      - 'office-independent/src/Offer/OfficeRoleSettingsRead.php'
+      - 'office-independent/src/Offer/OfficeRoleSettings.php'
       - 'office-independent/tests/OfficeRoleSettingsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
       - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
@@ -30,6 +32,8 @@ on:
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
       - 'office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
+      - 'office-independent/src/Offer/OfficeRoleSettingsRead.php'
+      - 'office-independent/src/Offer/OfficeRoleSettings.php'
       - 'office-independent/tests/OfficeRoleSettingsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
       - 'office-independent/tests/OfficeFinanceBatchAccessTest.php'
@@ -63,6 +67,8 @@ jobs:
           php -l office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php
           php -l office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsView.php
+          php -l office-independent/src/Offer/OfficeRoleSettingsRead.php
+          php -l office-independent/src/Offer/OfficeRoleSettings.php
           php -l office-independent/tests/OfficeRoleSettingsViewTest.php
           php -l office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php
           php -l office-independent/tests/OfficeFinanceBatchAccessTest.php
