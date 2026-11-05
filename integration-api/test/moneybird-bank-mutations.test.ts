@@ -27,7 +27,7 @@ describe("Moneybird bank mutations read-only", () => {
 
   it("fails closed when a page limit would truncate transactions", async () => {
     const fullPage = Array.from({length:100}, (_,i)=>({id:String(i),amount:"1.00"}));
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(fullPage));
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json(fullPage));
     vi.stubGlobal("fetch", fetchMock);
     await expect(listBankMutations(env)).rejects.toThrow("page limit reached");
     expect(fetchMock).toHaveBeenCalledTimes(20);
