@@ -71,11 +71,20 @@ jobs:
             if ($start===false || $end===false || $end<=$start) exit(30);
             $guard=substr($desired,$start,$end-$start);
             if (substr_count($desired,$guard)!==1) exit(31);
-            if (str_replace($guard,"",$desired)!==$active) {
-              fwrite(STDERR,"ACTIVE_FINANCE_DIFF_NOT_INSERTION_ONLY\n"); exit(32);
+            $withoutGuard=substr_replace($desired,"",$start,strlen($guard));
+            if ($withoutGuard!==$active) {
+              // Explain the first differing byte without printing source text.
+              $length=min(strlen($withoutGuard),strlen($active));
+              $at=0;
+              while ($at<$length && $withoutGuard[$at]===$active[$at]) $at++;
+              $line=substr_count(substr($active,0,$at),"\n")+1;
+              printf("INSERTION_ONLY_MISMATCH_ACTIVE_LINE=%d EXPECTED_BYTES=%d ACTIVE_BYTES=%d\n",
+                $line,strlen($withoutGuard),strlen($active));
+              // Never overwrite an active entrypoint with unreviewed drift.
+              exit(32);
             }
             if (strpos($active,"OFFICE_FINANCE_PRESENTATION_MODE")!==false) exit(33);
-            file_put_contents($argv[3],$desired);
+            if (file_put_contents($argv[3],$desired)!==strlen($desired)) exit(35);
           ' "$active" "$desired" "$stage/verified-office-finance.php"
           php -l "$stage/verified-office-finance.php"
           backup="$stage/office-finance.original.php"
