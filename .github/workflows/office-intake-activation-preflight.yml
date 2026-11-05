@@ -31,7 +31,7 @@ jobs:
             echo OFFICE_TEST_PREFLIGHT_CONFIG_COMMAND_START
             echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
             # First verify PHP CLI execution independently from private config.
-            "$php" -r 'fwrite(STDOUT, "OFFICE_TEST_CONFIG_PHP_STARTED\\n");' || {
+            "$php" -r 'fwrite(STDOUT, "OFFICE_TEST_CONFIG_PHP_STARTED\n");' || {
               echo OFFICE_TEST_CONFIG_PHP_CLI_FAILED
               exit 2
             }
@@ -44,8 +44,8 @@ jobs:
             "$php" -r '
               try {
                 $c=require $argv[1];
-                echo "OFFICE_TEST_CONFIG_REQUIRE_RETURNED\\n";
-                if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\\n";exit(2);}
+                echo "OFFICE_TEST_CONFIG_REQUIRE_RETURNED\n";
+                if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\n";exit(2);}
                 foreach ([
                   "BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
                   "DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
@@ -54,10 +54,10 @@ jobs:
                   "EMAIL_SECRET_PRESENT"=>is_string($c["OFFICE_INTAKE_SECRET_EMAIL"]??null) && strlen($c["OFFICE_INTAKE_SECRET_EMAIL"])>=32,
                   "RECEIVER_ENABLED"=>($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"
                 ] as $key=>$pass) {
-                  echo "OFFICE_TEST_CONFIG_".$key."=".($pass?"yes":"no")."\\n";
+                  echo "OFFICE_TEST_CONFIG_".$key."=".($pass?"yes":"no")."\n";
                 }
               } catch (Throwable $e) {
-                echo "OFFICE_TEST_CONFIG_READ_EXCEPTION=".get_class($e)."\\n";
+                echo "OFFICE_TEST_CONFIG_READ_EXCEPTION=".get_class($e)."\n";
                 exit(2);
               }
             ' "$config" "$active" || {
