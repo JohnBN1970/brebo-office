@@ -1,5 +1,12 @@
 name: Deploy Finance presentation mode to Office-test
 on:
+  push:
+    paths:
+      - '.github/workflows/office-finance-presentation-stage.yml'
+      - 'office-independent/public/office-finance.php'
+      - 'office-independent/src/Finance/OfficeFinancePresentationView.php'
+      - 'office-independent/tests/OfficeFinancePresentationViewTest.php'
+      - 'office-independent/tests/OfficeFinancePresentationRoutingTest.php'
   workflow_dispatch:
     inputs:
       confirmation:
