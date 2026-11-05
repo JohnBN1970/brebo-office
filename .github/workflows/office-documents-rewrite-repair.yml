@@ -1,0 +1,88 @@
+name: Repair Office-test Documents rewrite only
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-rewrite-repair.yml'
+permissions:
+  contents: read
+concurrency:
+  group: office-test-documents-rewrite-repair
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Apply guarded rewrite repair and verify HTTP
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root="$HOME/domains/brebobv.nl/public_html/office-test"
+          target="$root/.htaccess"
+          router="$root/index.php"
+          test -f "$target" && test ! -L "$target" || { echo FAIL_HTACCESS_TARGET; exit 20; }
+          test -f "$router" && test ! -L "$router" || { echo FAIL_ROUTER_TARGET; exit 21; }
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 22;; esac
+          test -f "$active/public/office-documents.php" || { echo FAIL_DOCUMENTS_CONTROLLER_MISSING; exit 23; }
+          php -l "$router" >/dev/null
+          php -l "$active/public/office-documents.php" >/dev/null
+          grep -Fq "'/office-test/documenten' => 'office-documents.php'" "$router" || { echo FAIL_DOCUMENTS_ROUTER_MAPPING; exit 24; }
+          if grep -Eq '^[[:space:]]*RewriteRule[[:space:]]+\^documenten/\?\$[[:space:]]+index\.php' "$target"; then
+            echo DOCUMENTS_REWRITE_ALREADY_PRESENT
+          else
+            backup="$root/.htaccess.backup-documents-$(date +%Y%m%d%H%M%S)"
+            cp -p "$target" "$backup"
+            candidate="$(mktemp "$root/.htaccess.documents.XXXXXXXX")"
+            trap 'rm -f "$candidate"' EXIT
+            export DOCUMENTS_HTACCESS_TARGET="$target" DOCUMENTS_HTACCESS_CANDIDATE="$candidate"
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          old = Path(os.environ["DOCUMENTS_HTACCESS_TARGET"]).read_text()
+          anchor = "RewriteRule ^gebouwen/?$ index.php [END,QSA]"
+          rule = "RewriteRule ^documenten/?$ index.php [END,QSA]"
+          if old.count(anchor) != 1:
+              raise SystemExit("FAIL_AMBIGUOUS_REWRITE_ANCHOR")
+          if rule in old:
+              raise SystemExit("FAIL_DUPLICATE_DOCUMENTS_REWRITE")
+          new = old.replace(anchor, rule + "\n" + anchor, 1)
+          if new.replace(rule + "\n", "", 1) != old:
+              raise SystemExit("FAIL_UNEXPECTED_REWRITE_CHANGE")
+          Path(os.environ["DOCUMENTS_HTACCESS_CANDIDATE"]).write_text(new)
+          PY
+            chmod --reference="$target" "$candidate"
+            mv "$candidate" "$target"
+            echo DOCUMENTS_REWRITE_PATCH_APPLIED
+            echo "BACKUP=$backup"
+          fi
+          REMOTE
+          status="$(curl -sSL --max-redirs 3 --max-time 20 -o /dev/null -w '%{http_code}' https://brebobv.nl/office-test/documenten)"
+          echo "DOCUMENTS_HTTP=$status"
+          if [[ "$status" == "404" || "$status" == "000" || "$status" == 5* ]]; then
+            echo FAIL_DOCUMENTS_HTTP_VERIFY
+            exit 25
+          fi
+          for route in inspecties gebouwen personeel/medewerkers; do
+            code="$(curl -sSL --max-redirs 3 --max-time 20 -o /dev/null -w '%{http_code}' "https://brebobv.nl/office-test/$route")"
+            echo "REGRESSION_ROUTE=$route HTTP=$code"
+            [[ "$code" == "200" ]] || exit 26
+          done
+          echo DOCUMENTS_REWRITE_HTTP_ACCEPTED
