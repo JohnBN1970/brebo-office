@@ -1,0 +1,49 @@
+name: Office-test project route target read-only audit
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-route-target-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect router and project controller without changing files
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          router="$root/public_html/office-test/index.php"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          controller="$base/public/office-project.php"
+          echo ROUTER_PROJECT_ENTRIES
+          grep -nE "'/office-test/projecten(/detail)?'|office-project.php|OFFICE_PRIVATE_ROOT|require|include" "$router" | head -n 45 || true
+          echo PROJECT_CONTROLLER_METADATA
+          stat -c '%n size=%s modified=%y' "$controller"
+          echo PROJECT_CONTROLLER_HEAD
+          sed -n '1,32p' "$controller" | sed -E 's/(password|secret|token|key)[[:space:]]*=.*/[REDACTED]/Ig'
+          echo PROJECT_CONTROLLER_TAIL
+          tail -n 26 "$controller" | sed -E 's/(password|secret|token|key)[[:space:]]*=.*/[REDACTED]/Ig'
+          echo ACTIVE_RELEASE_CANDIDATES
+          find "$root/office_calc_test" -maxdepth 4 -name office-project.php -type f -printf '%p\n' | sed "s|$HOME|~|g" | head -n 25
+          echo PROJECT_ROUTE_AUDIT_COMPLETE
+          REMOTE
