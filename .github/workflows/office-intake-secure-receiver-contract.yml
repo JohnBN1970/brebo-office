@@ -1,0 +1,33 @@
+name: Office intake secure receiver contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/OfficeIntakeSecureReceiver.php'
+      - 'office-independent/tests/OfficeIntakeSecureReceiverContractTest.php'
+      - '.github/workflows/office-intake-secure-receiver-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/OfficeIntakeSecureReceiver.php'
+      - 'office-independent/tests/OfficeIntakeSecureReceiverContractTest.php'
+      - '.github/workflows/office-intake-secure-receiver-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: |
+          php -l office-independent/src/Intake/OfficeIntakeSecureReceiver.php
+          php -l office-independent/tests/OfficeIntakeSecureReceiverContractTest.php
+          php office-independent/tests/OfficeIntakeSecureReceiverContractTest.php
