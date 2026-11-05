@@ -1,0 +1,83 @@
+name: Office-test deep release reconciliation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build GitHub SHA256 manifest
+        run: |
+          set -euo pipefail
+          find office-independent/public office-independent/src -type f -name '*.php' -print0 |
+            sort -z | xargs -0 -r sha256sum |
+            sed 's#  office-independent/#  #' > /tmp/office-release-sha256.txt
+          echo "SOURCE_COUNT=$(wc -l < /tmp/office-release-sha256.txt)"
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Compare actual active release and older release copies
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-release-sha256.txt "$USER@$HOST:/tmp/office-release-sha256-${GITHUB_RUN_ID}.txt"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$root/config/config.php"
+          test -f "$config" || exit 20
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ACTIVE_SCOPE_INVALID; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || exit 22
+          manifest="/tmp/office-release-sha256-${GITHUB_RUN_ID}.txt"
+          test -f "$manifest" || exit 23
+          echo "ACTIVE_RELEASE=${active%/private}"
+          same=0; different=0; missing=0; historical=0
+          echo "=== DIFFERENT_OR_MISSING_FILES ==="
+          while IFS=' ' read -r expected path; do
+            path="${path# }"
+            case "$path" in public/*.php|src/*.php|src/*/*.php|src/*/*/*.php) ;; *) continue;; esac
+            file="$active/$path"
+            if test -f "$file" && test ! -L "$file"; then
+              actual="$(sha256sum "$file" | cut -d' ' -f1)"
+              if test "$actual" = "$expected"; then
+                same=$((same+1))
+              else
+                different=$((different+1))
+                echo "DIFFERENT $path"
+              fi
+            else
+              missing=$((missing+1))
+              found=""
+              for candidate in "$root"/release-*/private/"$path"; do
+                if test -f "$candidate" && test ! -L "$candidate"; then
+                  found="${candidate#"$root"/}"
+                  break
+                fi
+              done
+              if test -n "$found"; then
+                historical=$((historical+1))
+                echo "MISSING_WITH_OLDER_COPY $path :: $found"
+              else
+                echo "MISSING_NO_OLDER_COPY $path"
+              fi
+            fi
+          done < "$manifest"
+          echo "MATCHING=$same"
+          echo "DIFFERENT=$different"
+          echo "MISSING=$missing"
+          echo "MISSING_WITH_OLDER_COPY=$historical"
+          rm -f "$manifest"
+          echo DEEP_RECONCILIATION_READONLY_COMPLETE
+          REMOTE
