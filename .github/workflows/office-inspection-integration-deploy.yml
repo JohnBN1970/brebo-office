@@ -219,8 +219,18 @@ jobs:
               p.write_text(source)
           PY
           if ! grep -Fq 'documenten' "$rewrite"; then
-            echo 'FAIL DOCUMENTS_REWRITE_NOT_CONFIGURED'; exit 2
+            REWRITE_PATH="$rewrite" python3 - <<'PYDOC'
+          import os
+          from pathlib import Path
+          p=Path(os.environ['REWRITE_PATH'])
+          original=p.read_text()
+          if original.count('bevinding-opslaan')!=1:
+              raise SystemExit('FAIL DOCUMENTS_REWRITE_LAYOUT')
+          p.with_name('.htaccess.documents-backup').write_text(original)
+          p.write_text(original.replace('bevinding-opslaan','bevinding-opslaan|documenten',1))
+          PYDOC
           fi
+          grep -Fq 'documenten' "$rewrite"
           echo "PASS PHOTO_REWRITE_UPDATED"
           # Unauthenticated HTTP smoke tests: no credentials, no database writes.
           # The upload route must reject GET; photo reads must never disclose files anonymously.
