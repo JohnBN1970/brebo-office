@@ -1,5 +1,7 @@
 name: Office-test V3 runtime read-only audit
 on:
+  schedule:
+    - cron: '17 5,11,17 * * *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -10,7 +12,7 @@ permissions:
   contents: read
 jobs:
   audit:
-    if: ${{ inputs.confirm == 'AUDIT-OFFICE-TEST' }}
+    if: ${{ github.event_name == 'schedule' || inputs.confirm == 'AUDIT-OFFICE-TEST' }}
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH
@@ -43,8 +45,9 @@ jobs:
           echo "ACTIVE_RELEASE_NAME=${active%/private}"
           echo "CONTROLLER_SHA256=$(sha256sum "$controller" | cut -d' ' -f1)"
           echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d' ' -f1)"
+          failed=0
           for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View 'echo $breboV23Render((string) ob_get_clean());' create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
-            if grep -Fq "$marker" "$controller"; then echo "CONTROLLER_MARKER_PRESENT=$marker"; else echo "CONTROLLER_MARKER_MISSING=$marker"; fi
+            if grep -Fq "$marker" "$controller"; then echo "CONTROLLER_MARKER_PRESENT=$marker"; else echo "CONTROLLER_MARKER_MISSING=$marker"; failed=1; fi
           done
           for name in OfficeProjectDetailV3View OfficeProjectPageStructure; do
             if test -f "$active/src/Project/$name.php"; then
@@ -52,9 +55,11 @@ jobs:
               php -l "$active/src/Project/$name.php"
             else
               echo "V3_CLASS_MISSING=$name"
+              failed=1
             fi
           done
           php -l "$controller"
-          if grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router"; then echo PROJECT_ROUTE_OK; else echo PROJECT_ROUTE_MISSING; fi
-          echo READ_ONLY_AUDIT_COMPLETE
+          if grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router"; then echo PROJECT_ROUTE_OK; else echo PROJECT_ROUTE_MISSING; failed=1; fi
+          if test "$failed" -ne 0; then echo V3_RUNTIME_REGRESSION_DETECTED; exit 30; fi
+          echo V3_RUNTIME_GUARD_PASS
           REMOTE
