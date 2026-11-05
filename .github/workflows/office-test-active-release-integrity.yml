@@ -1,0 +1,62 @@
+name: Office-test active release integrity
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5,11,17 * * *'
+permissions:
+  contents: read
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Audit configured active Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" || { echo ACTIVE_CONFIG_MISSING; exit 20; }
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo ACTIVE_RELEASE_SCOPE_INVALID; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || { echo ACTIVE_RELEASE_MISSING; exit 22; }
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$router" && test ! -L "$router" || { echo ROUTER_MISSING; exit 23; }
+          echo "ACTIVE_RELEASE=${active##*/release-}"
+          failed=0
+          for spec in public/office-project.php public/office-projects.php public/office-personnel.php src/Project/OfficeProjectDetailV3View.php src/Project/OfficeProjectPageStructure.php src/Intake/OfficeNavigation.php; do
+            file="$active/$spec"
+            if test -f "$file" && test ! -L "$file"; then
+              echo "FILE_OK=$spec"
+              php -l "$file" || failed=1
+              echo "SHA256 $spec $(sha256sum "$file" | cut -d' ' -f1)"
+            else
+              echo "FILE_MISSING=$spec"
+              failed=1
+            fi
+          done
+          controller="$active/public/office-project.php"
+          if test -f "$controller"; then
+            for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
+              if grep -Fq "$marker" "$controller"; then echo "MARKER_OK=$marker"; else echo "MARKER_MISSING=$marker"; failed=1; fi
+            done
+          fi
+          if grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router"; then echo PROJECT_ROUTE_OK; else echo PROJECT_ROUTE_MISSING; failed=1; fi
+          php -l "$router" || failed=1
+          echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d' ' -f1)"
+          if test "$failed" -ne 0; then echo ACTIVE_RELEASE_INTEGRITY_FAILED; exit 30; fi
+          echo ACTIVE_RELEASE_INTEGRITY_PASS
+          REMOTE
