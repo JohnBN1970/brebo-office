@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/Finance/OfficeMoneybirdBankFeedAdapter.php'
       - 'office-independent/public/office-finance.php'
       - 'office-independent/tests/OfficeFinancePresentationViewTest.php'
+      - 'office-independent/tests/OfficeFinancePresentationRoutingTest.php'
       - 'office-independent/tests/OfficeMoneybirdBankFeedAdapterTest.php'
       - 'integration-api/src/moneybird.ts'
       - 'integration-api/test/moneybird-bank-mutations.test.ts'
@@ -27,6 +28,7 @@ jobs:
       - run: php -l office-independent/src/Finance/OfficeFinancePresentationView.php
       - run: php -l office-independent/src/Finance/OfficeMoneybirdBankFeedAdapter.php
       - run: php office-independent/tests/OfficeFinancePresentationViewTest.php
+      - run: php office-independent/tests/OfficeFinancePresentationRoutingTest.php
       - run: php office-independent/tests/OfficeMoneybirdBankFeedAdapterTest.php
   moneybird-ts:
     runs-on: ubuntu-latest
