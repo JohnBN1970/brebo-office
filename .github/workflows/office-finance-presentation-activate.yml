@@ -60,11 +60,37 @@ jobs:
             $original=require $argv[1];
             if (array_key_exists("OFFICE_FINANCE_PRESENTATION_MODE",$original)) {
               if ($original["OFFICE_FINANCE_PRESENTATION_MODE"]!=="enabled") exit(27);
-              file_put_contents($argv[2],$source); exit;
+              if (file_put_contents($argv[2],$source)!==strlen($source)) exit(29);
+              exit;
             }
-            if (substr_count($source,"return [")!==1) { echo "CONFIG_FORMAT_REVIEW_REQUIRED\n"; exit(28); }
-            $replacement="return [\n  \"OFFICE_FINANCE_PRESENTATION_MODE\" => \"enabled\",";
-            $updated=str_replace("return [",$replacement,$source);
+            // Support both PHP array syntaxes: return [...]; and return array(...);
+            // Change only the outermost returned array, never rewrite existing keys.
+            $tokens=token_get_all($source);
+            $offset=0; $returns=[];
+            foreach ($tokens as $i=>$token) {
+              $text=is_array($token)?$token[1]:$token;
+              if (is_array($token) && $token[0]===T_RETURN) $returns[]=[$i,$offset];
+              $offset+=strlen($text);
+            }
+            if (count($returns)!==1) { echo "CONFIG_RETURN_COUNT_UNREVIEWED\n"; exit(28); }
+            [$idx,$returnAt]=$returns[0];
+            $cursor=$idx+1;
+            while (isset($tokens[$cursor]) && is_array($tokens[$cursor]) && in_array($tokens[$cursor][0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) $cursor++;
+            $token=$tokens[$cursor]??null;
+            if ($token==="[") {
+              $needle="[";
+            } elseif (is_array($token) && $token[0]===T_ARRAY) {
+              $cursor++;
+              while (isset($tokens[$cursor]) && is_array($tokens[$cursor]) && in_array($tokens[$cursor][0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) $cursor++;
+              if (($tokens[$cursor]??null)!=="(") exit(28);
+              $needle="(";
+            } else {
+              echo "CONFIG_RETURN_SHAPE_UNREVIEWED\n"; exit(28);
+            }
+            // Locate the chosen opening delimiter via byte offsets of tokens.
+            $at=0;
+            for ($i=0;$i<=$cursor;$i++) $at+=strlen(is_array($tokens[$i])?$tokens[$i][1]:$tokens[$i]);
+            $updated=substr($source,0,$at)."\n  \"OFFICE_FINANCE_PRESENTATION_MODE\" => \"enabled\",".substr($source,$at);
             if (file_put_contents($argv[2],$updated)!==strlen($updated)) exit(29);
           ' "$config" "$temp"
           chmod --reference="$config" "$temp"
