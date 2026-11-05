@@ -1,0 +1,81 @@
+name: Deploy Office-test native project document links
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-document-actions-deploy.yml'
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-document-links
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Validate patch and tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/patch-project-document-actions.php
+          php office-independent/tests/OfficeProjectDocumentActionsPatchTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Deploy minimal guarded patch to active Office-test project controller
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" office-independent/deployment/hostinger/patch-project-document-actions.php "$USER@$HOST:/tmp/brebo-project-document-actions-patch.php"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          trap 'rm -f /tmp/brebo-project-document-actions-patch.php' EXIT
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "FAIL TEST_SCOPE"; exit 20;; esac
+          target="$active/public/office-project.php"
+          test -f "$target" && test ! -L "$target" || { echo "FAIL PROJECT_CONTROLLER"; exit 21; }
+          php -l "$target"
+          for marker in 'OfficeNativeProjectAccess' 'project-related-actions' 'inspectionActions'; do
+            grep -Fq "$marker" "$target" || { echo "FAIL MISSING_ANCHOR $marker"; exit 22; }
+          done
+          if grep -Fq 'BREBO_PROJECT_DOCUMENT_ACTIONS_20261105' "$target"; then
+            echo PROJECT_DOCUMENT_ACTIONS_ALREADY_PRESENT
+            exit 0
+          fi
+          backup="$target.backup-document-actions-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$active/public/.project-document-actions-XXXXXXXX.php")"
+          trap 'rm -f "$candidate" /tmp/brebo-project-document-actions-patch.php' EXIT
+          cp -p "$target" "$candidate"
+          php /tmp/brebo-project-document-actions-patch.php "$candidate"
+          php -l "$candidate"
+          for marker in 'OfficeNativeProjectAccess' 'project-related-actions' 'inspectionActions'; do
+            grep -Fq "$marker" "$candidate" || { echo "FAIL PRESERVATION $marker"; exit 23; }
+          done
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          if ! php -l "$target"; then
+            cp -p "$backup" "$target"
+            echo FAIL ROLLBACK
+            exit 24
+          fi
+          grep -Fq 'BREBO_PROJECT_DOCUMENT_ACTIONS_20261105' "$target"
+          echo PROJECT_DOCUMENT_ACTIONS_TEST_DEPLOYED
+          REMOTE
