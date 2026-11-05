@@ -1,0 +1,66 @@
+name: Office-test V3 controller read-only diagnostics
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-v3-controller-diagnostics.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active Office-test project controller without modifications
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          controller="$base/public/office-project.php"
+          view="$base/src/Project/OfficeProjectDetailV3View.php"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          for file in "$controller" "$view" "$router"; do
+            if test -f "$file"; then
+              echo "PRESENT $(basename "$file")"
+              php -l "$file"
+              sha256sum "$file" | cut -d' ' -f1
+            else
+              echo "MISSING $(basename "$file")"
+            fi
+          done
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View 'project-v3-header' 'breboV23Render' create_project_contract create_project_term create_project_change; do
+            if test -f "$controller" && grep -Fq "$marker" "$controller"; then
+              echo "CONTROLLER_MARKER_PRESENT $marker"
+            else
+              echo "CONTROLLER_MARKER_ABSENT $marker"
+            fi
+          done
+          for marker in 'project-v3-documents' '/inspectie?project_id=' '/documenten?project_id='; do
+            if test -f "$view" && grep -Fq "$marker" "$view"; then
+              echo "VIEW_MARKER_PRESENT $marker"
+            else
+              echo "VIEW_MARKER_ABSENT $marker"
+            fi
+          done
+          if test -f "$router" && grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router"; then
+            echo ROUTER_DETAIL_PRESENT
+          else
+            echo ROUTER_DETAIL_NOT_CONFIRMED
+          fi
+          REMOTE
