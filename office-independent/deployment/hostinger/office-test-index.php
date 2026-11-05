@@ -67,6 +67,7 @@ $routes = [
   '/office-test/gebouwen' => 'office-buildings.php',
   '/office-test/inspectie' => 'office-inspection.php',
   '/office-test/inspectie/aanmaken' => 'office-inspection-create.php',
+  '/office-test/documenten' => 'office-documents.php',
   '/office-test/inspecties' => 'office-inspection-overview.php',
   '/office-test/inspectie/bevinding-opslaan' => 'office-inspection-finding-save.php',
   '/office-test/personeel/medewerkers' => 'office-personnel.php',
