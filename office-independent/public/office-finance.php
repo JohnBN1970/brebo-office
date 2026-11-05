@@ -596,6 +596,15 @@ try {
       ->visible($operator->operatorId, $projectId);
   }
 
+  if ($view === 'payments' && \Brebo\Office\Intake\OfficeMount::isTest()
+      && getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED') === 'enabled') {
+    try {
+      $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
+    } catch (\Throwable $bankError) {
+      $data['bank_snapshot'] = null;
+    }
+  }
+
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
