@@ -1,0 +1,20 @@
+name: Office document registry acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeDocumentRegistry.php'
+      - 'office-independent/tests/OfficeDocumentRegistryContractTest.php'
+      - '.github/workflows/office-document-registry-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and schema contract
+        run: |
+          php -l office-independent/src/Documents/OfficeDocumentRegistry.php
+          php -l office-independent/tests/OfficeDocumentRegistryContractTest.php
+          php office-independent/tests/OfficeDocumentRegistryContractTest.php
