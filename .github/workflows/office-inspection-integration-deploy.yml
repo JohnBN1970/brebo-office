@@ -7,6 +7,8 @@ on:
     paths:
       - 'office-independent/src/Inspection/**'
       - 'office-independent/public/office-inspection*.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/tests/OfficeProjectDocumentMenuContractTest.php'
       - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
     inputs:
@@ -49,6 +51,8 @@ jobs:
           php -l inspection-source/office-independent/src/Documents/OfficeDocumentTypes.php
           php -l inspection-source/office-independent/src/Documents/OfficeNewDocumentMenu.php
           php inspection-source/office-independent/tests/OfficeNewDocumentMenuTest.php
+          php inspection-source/office-independent/tests/OfficeProjectDocumentMenuContractTest.php
+          php -l inspection-source/office-independent/public/office-project.php
           php -l inspection-source/office-independent/src/Intake/OfficeNavigation.php
           php -l inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceUploadAction.php
           php inspection-source/office-independent/tests/OfficeInspectionEvidenceUploadContractTest.php
