@@ -1,0 +1,51 @@
+name: Office intake secure receiver MySQL
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/**'
+      - 'office-independent/src/Buildings/OfficeIntakeBuildingResolver.php'
+      - 'office-independent/tests/OfficeIntakeSecureReceiverMySqlTest.php'
+      - '.github/workflows/office-intake-secure-receiver-mysql.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/**'
+      - 'office-independent/tests/OfficeIntakeSecureReceiverMySqlTest.php'
+      - '.github/workflows/office-intake-secure-receiver-mysql.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: integration-only
+          MYSQL_DATABASE: office_intake_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pintegration-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring
+          coverage: none
+      - run: php -l office-independent/tests/OfficeIntakeSecureReceiverMySqlTest.php
+      - name: Verify authenticated intake to database
+        env:
+          OFFICE_INTAKE_INTEGRATION_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_ci;charset=utf8mb4
+          OFFICE_INTAKE_INTEGRATION_USER: root
+          OFFICE_INTAKE_INTEGRATION_PASSWORD: integration-only
+        run: php office-independent/tests/OfficeIntakeSecureReceiverMySqlTest.php
