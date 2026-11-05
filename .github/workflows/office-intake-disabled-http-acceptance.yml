@@ -1,0 +1,30 @@
+name: Office-test intake disabled HTTP acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Confirm isolated test endpoint is fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint='https://brebobv.nl/office-test/api/intake/v1/receive'
+          for method in GET POST; do
+            if [ "$method" = POST ]; then
+              code="$(curl --silent --show-error --location-trusted=false --max-redirs 0 --max-time 20 --output /tmp/intake-response --write-out '%{http_code}' --request POST --header 'Content-Type: application/json' --data '{"source":"website"}' "$endpoint")"
+            else
+              code="$(curl --silent --show-error --location-trusted=false --max-redirs 0 --max-time 20 --output /tmp/intake-response --write-out '%{http_code}' --request GET "$endpoint")"
+            fi
+            echo "OFFICE_TEST_INTAKE_DISABLED_${method}_HTTP=${code}"
+            if [ "$code" != 404 ]; then
+              echo "ABORT: disabled intake endpoint did not fail closed" >&2
+              exit 2
+            fi
+          done
+          echo 'OFFICE_TEST_INTAKE_DISABLED_HTTP_ACCEPTANCE_OK'
