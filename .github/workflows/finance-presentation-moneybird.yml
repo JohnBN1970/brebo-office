@@ -1,5 +1,6 @@
 name: Finance presentation and Moneybird contract
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'office-independent/src/Finance/OfficeFinancePresentationView.php'
