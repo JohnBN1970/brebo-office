@@ -1,0 +1,40 @@
+name: Office intake active release read-only audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify audit syntax
+        run: php -l office-independent/deployment/hostinger/audit-office-intake-release.php
+      - name: Stage isolated read-only audit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/audit-office-intake-release.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.intake-release-audit-stage"
+          overwrite: true
+      - name: Inspect active Office-test router without configuration output
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            "$PHP" "$ROOT/.intake-release-audit-stage/office-independent/deployment/hostinger/audit-office-intake-release.php"
