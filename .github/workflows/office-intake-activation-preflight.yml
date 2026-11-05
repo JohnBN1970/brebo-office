@@ -29,26 +29,27 @@ jobs:
             "$php" -l "$active/public/office-intake-receive.php" >/dev/null
             stage=config_checks
             echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
+            # Stage 1: report only boolean readiness. Never print config values.
             "$php" -r '
-              $c=require $argv[1];
-              if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\\n";exit(2);}
-              $checks=[
-                "OFFICE_TEST_CONFIG_BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
-                "OFFICE_TEST_CONFIG_DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
-                "OFFICE_TEST_CONFIG_PRIVATE_ROOT_MATCH"=>($c["OFFICE_PRIVATE_ROOT"]??null)===$argv[2]
-              ];
-              $ok=true;
-              foreach ($checks as $name=>$valid) {
-                echo $name."=".($valid?"yes":"no")."\n";
-                $ok=$ok&&$valid;
-              }
-              if (!$ok) {exit(2);}
-              foreach (["website"=>"OFFICE_INTAKE_SECRET_WEBSITE","email"=>"OFFICE_INTAKE_SECRET_EMAIL"] as $source=>$key) {
+              try {
+                $c=require $argv[1];
+                if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\n";exit(2);}
+                $checks=[
+                  "OFFICE_TEST_CONFIG_BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
+                  "OFFICE_TEST_CONFIG_DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
+                  "OFFICE_TEST_CONFIG_PRIVATE_ROOT_MATCH"=>($c["OFFICE_PRIVATE_ROOT"]??null)===$argv[2]
+                ];
+                foreach ($checks as $name=>$valid) {echo $name."=".($valid?"yes":"no")."\n";}
+                foreach (["website"=>"OFFICE_INTAKE_SECRET_WEBSITE","email"=>"OFFICE_INTAKE_SECRET_EMAIL"] as $source=>$key) {
                   $v=$c[$key]??null;
                   echo "OFFICE_TEST_INTAKE_".strtoupper($source)."_SECRET_READY=".(is_string($v)&&strlen($v)>=32?"yes":"no")."\n";
+                }
+                echo "OFFICE_TEST_INTAKE_FLAG_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\n";
+                echo "OFFICE_TEST_INTAKE_CONFIG_LAYOUT=php_return_array\n";
+              } catch (Throwable $e) {
+                echo "OFFICE_TEST_CONFIG_READ=failed_".get_class($e)."\n";
+                exit(2);
               }
-              echo "OFFICE_TEST_INTAKE_FLAG_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\n";
-              echo "OFFICE_TEST_INTAKE_CONFIG_LAYOUT=php_return_array\n";
             ' "$config" "$active"
             stage=router_checks
             echo OFFICE_TEST_PREFLIGHT_STAGE=router_checks
