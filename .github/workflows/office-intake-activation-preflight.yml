@@ -14,7 +14,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 65002
-          script_stop: true
+          script_stop: false
           script: |
             set -eu
             trap 'rc=$?; echo "OFFICE_TEST_PREFLIGHT_FAILED_STEP=${stage:-init}"; exit "$rc"' EXIT
