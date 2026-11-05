@@ -8,7 +8,7 @@ foreach ([
     "FILTER_VALIDATE_INT",
     "OfficeNativeProjectAccess.php",
     "->canRead(",
-    "OfficeNewDocumentMenu::render('documenten', \\$documentScope)",
+    "OfficeNewDocumentMenu::render('documenten', \$documentScope)",
     "inspectionUrl",
     "http_response_code(404)"
 ] as $fragment) {
