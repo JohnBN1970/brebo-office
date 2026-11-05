@@ -1,0 +1,29 @@
+name: Office-test intake disabled HTTP acceptance contract
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-intake-disabled-http-acceptance.yml'
+      - '.github/workflows/office-intake-disabled-http-acceptance-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-intake-disabled-http-acceptance.yml'
+      - '.github/workflows/office-intake-disabled-http-acceptance-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate test-only fail-closed workflow
+        run: |
+          set -euo pipefail
+          file=.github/workflows/office-intake-disabled-http-acceptance.yml
+          grep -Fq 'workflow_dispatch:' "$file"
+          grep -Fq 'office-test/api/intake/v1/receive' "$file"
+          grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' "$file"
+          grep -Fq 'OFFICE_TEST_INTAKE_DISABLED_HTTP_ACCEPTANCE_OK' "$file"
+          grep -Fq 'if [ "$code" != 404 ]' "$file"
