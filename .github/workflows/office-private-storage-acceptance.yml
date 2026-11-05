@@ -1,0 +1,23 @@
+name: Office private storage acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficePrivateFileStorage.php'
+      - 'office-independent/tests/OfficePrivateFileStorageTest.php'
+      - '.github/workflows/office-private-storage-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and private storage roundtrip
+        run: |
+          php -l office-independent/src/Documents/OfficePrivateFileStorage.php
+          php -l office-independent/tests/OfficePrivateFileStorageTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficePrivateFileStorageTest.php
