@@ -21,7 +21,7 @@ foreach ([
     }
     $positions[] = $pos;
 }
-if ($positions !== array_values(array_unique($positions)) || $positions !== array_values(array_filter($positions, static fn ($v, $i) => $i === 0 || $v > $positions[$i - 1], ARRAY_FILTER_USE_BOTH))) {
+if ($positions !== array_values(array_unique($positions)) || $positions !== (function (array $values): array { $sorted = $values; sort($sorted, SORT_NUMERIC); return $sorted; })($positions)) {
     throw new RuntimeException('receiver_order_invalid');
 }
 echo "OfficeIntakeSecureReceiverContractTest OK\n";
