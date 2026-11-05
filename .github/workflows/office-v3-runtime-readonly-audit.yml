@@ -1,0 +1,60 @@
+name: Office-test V3 runtime read-only audit
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type AUDIT-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    if: ${{ inputs.confirm == 'AUDIT-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active test release without changing files
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" || { echo TEST_CONFIG_MISSING; exit 20; }
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo TEST_SCOPE_MISMATCH; exit 21;; esac
+          controller="$active/public/office-project.php"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$controller" && test ! -L "$controller" || { echo CONTROLLER_MISSING; exit 22; }
+          test -f "$router" || { echo ROUTER_MISSING; exit 23; }
+          echo "ACTIVE_RELEASE_NAME=${active%/private}"
+          echo "CONTROLLER_SHA256=$(sha256sum "$controller" | cut -d' ' -f1)"
+          echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d' ' -f1)"
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View 'echo $breboV23Render((string) ob_get_clean());' create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            if grep -Fq "$marker" "$controller"; then echo "CONTROLLER_MARKER_PRESENT=$marker"; else echo "CONTROLLER_MARKER_MISSING=$marker"; fi
+          done
+          for name in OfficeProjectDetailV3View OfficeProjectPageStructure; do
+            if test -f "$active/src/Project/$name.php"; then
+              echo "V3_CLASS_PRESENT=$name"
+              php -l "$active/src/Project/$name.php"
+            else
+              echo "V3_CLASS_MISSING=$name"
+            fi
+          done
+          php -l "$controller"
+          if grep -Fq "'/office-test/projecten/detail' => 'office-project.php'" "$router"; then echo PROJECT_ROUTE_OK; else echo PROJECT_ROUTE_MISSING; fi
+          echo READ_ONLY_AUDIT_COMPLETE
+          REMOTE
