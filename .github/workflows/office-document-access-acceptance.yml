@@ -1,0 +1,20 @@
+name: Office document access acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeDocumentAccessGate.php'
+      - 'office-independent/tests/OfficeDocumentAccessGateTest.php'
+      - '.github/workflows/office-document-access-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  access-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint and deny-by-default authorization tests
+        run: |
+          php -l office-independent/src/Documents/OfficeDocumentAccessGate.php
+          php -l office-independent/tests/OfficeDocumentAccessGateTest.php
+          php office-independent/tests/OfficeDocumentAccessGateTest.php
