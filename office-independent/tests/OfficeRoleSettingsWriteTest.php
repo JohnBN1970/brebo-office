@@ -44,6 +44,13 @@ $assert((int)$db->query("SELECT count(*) FROM office_role_permissions WHERE modu
 $assert((int)$db->query("SELECT count(*) FROM office_role_permissions WHERE module='offers'")->fetchColumn() === 1, 'Offer grants unchanged');
 $assert($db->query("SELECT scope_key FROM office_role_scopes WHERE module='finance'")->fetchColumn() === 'none', 'Finance scope fixed');
 $assert((int)$db->query("SELECT count(*) FROM office_role_settings_audit")->fetchColumn() === 1, 'Audit created');
+$audit = $db->query("SELECT actor_operator_id, module, before_json, after_json FROM office_role_settings_audit ORDER BY rowid LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+$assert($audit['actor_operator_id'] === 'admin' && $audit['module'] === 'finance', 'Audit attributes actor and module');
+$before = json_decode($audit['before_json'], true, 512, JSON_THROW_ON_ERROR);
+$after = json_decode($audit['after_json'], true, 512, JSON_THROW_ON_ERROR);
+$assert($before === ['permissions'=>[], 'scope'=>'none'], 'Audit captures empty prior Finance state');
+$assert($after === ['permissions'=>['payment_batch.create','payment_batch.review'], 'scope'=>'none'], 'Audit captures actual new grants');
+
 $writer->setModule(1, 'finance', false, [], 'none', 'admin');
 $assert((int)$db->query("SELECT count(*) FROM office_role_permissions WHERE module='finance'")->fetchColumn() === 0, 'Finance grants revoked');
 $assert((int)$db->query("SELECT count(*) FROM office_role_scopes WHERE module='finance'")->fetchColumn() === 0, 'Finance scope revoked');
