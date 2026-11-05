@@ -36,6 +36,49 @@ exec($command, $lines, $code);
 echo $code === 0 ? "valid\n" : "invalid\n";
 echo "OFFICE_TEST_INTAKE_ROUTE_PRESENT=" . (str_contains($router, '/office-test/api/intake/v1/receive') ? 'yes' : 'no') . "\n";
 echo "OFFICE_TEST_INTAKE_ROUTE_FLAG_GUARD=" . (str_contains($router, "getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled'") ? 'yes' : 'no') . "\n";
+
+// The deployed router dynamically derives its private root from isolated config.
+// Print only a verified release basename, never the configured absolute path.
+$configuredPrivateRoot = $config['OFFICE_PRIVATE_ROOT'] ?? null;
+if (!is_string($configuredPrivateRoot) || $configuredPrivateRoot === '') {
+    echo "OFFICE_TEST_CONFIG_PRIVATE_ROOT=missing\n";
+} else {
+    $configuredRealRoot = realpath($configuredPrivateRoot);
+    $isolatedRealRoot = realpath($root);
+    $withinTestRoot = is_string($configuredRealRoot) && is_string($isolatedRealRoot)
+        && str_starts_with($configuredRealRoot, $isolatedRealRoot . DIRECTORY_SEPARATOR);
+    $matchesPrivateLayout = $withinTestRoot && preg_match(
+        '#^' . preg_quote($isolatedRealRoot, '#') . '/(release-[a-zA-Z0-9_-]+)/private$#D',
+        $configuredRealRoot,
+        $privateMatches
+    ) === 1;
+    if (!$matchesPrivateLayout) {
+        echo "OFFICE_TEST_CONFIG_PRIVATE_ROOT=invalid_scope\n";
+    } else {
+        echo "OFFICE_TEST_CONFIG_PRIVATE_ROOT=" . $privateMatches[1] . "\n";
+        foreach ([
+            'public/office-home.php',
+            'public/office-intake-receive.php',
+            'src/Intake/OfficeIntakeSecureReceiver.php',
+            'src/Intake/OfficeIntakeSourceAuthenticator.php',
+            'src/Intake/OfficeIntakeReplayGuard.php',
+            'src/Intake/OfficeCanonicalIntakeBuildingHandoff.php',
+            'src/Buildings/OfficeIntakeBuildingResolver.php',
+        ] as $relativePath) {
+            echo "OFFICE_TEST_ACTIVE_FILE_" . strtoupper(str_replace(['/', '.', '-'], '_', $relativePath))
+                . "=" . (is_file($configuredRealRoot . '/' . $relativePath) ? 'yes' : 'no') . "\n";
+        }
+        echo "OFFICE_TEST_CONFIG_INTAKE_FLAG_ENABLED="
+            . (($config['OFFICE_INTAKE_RECEIVER_ENABLED'] ?? null) === 'enabled' ? 'yes' : 'no') . "\n";
+        echo "OFFICE_TEST_CONFIG_WEBSITE_SECRET_PRESENT="
+            . (is_string($config['OFFICE_INTAKE_SECRET_WEBSITE'] ?? null)
+              && strlen($config['OFFICE_INTAKE_SECRET_WEBSITE']) >= 32 ? 'yes' : 'no') . "\n";
+        echo "OFFICE_TEST_CONFIG_EMAIL_SECRET_PRESENT="
+            . (is_string($config['OFFICE_INTAKE_SECRET_EMAIL'] ?? null)
+              && strlen($config['OFFICE_INTAKE_SECRET_EMAIL']) >= 32 ? 'yes' : 'no') . "\n";
+    }
+}
+
 $matches = [];
 if (preg_match('/\$root\s*=\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]\s*;/', $router, $matches) !== 1) {
     echo "OFFICE_TEST_ACTIVE_RELEASE=unknown\n";
