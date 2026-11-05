@@ -1,0 +1,104 @@
+name: Install Finance presentation guard on Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-FINANCE-GUARD-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  install:
+    if: ${{ inputs.confirmation == 'INSTALL-FINANCE-GUARD-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: finance-office-bank-integration-contract-20261103
+      - name: Validate source
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-finance.php
+          php -l office-independent/src/Finance/OfficeFinancePresentationView.php
+          php office-independent/tests/OfficeFinancePresentationViewTest.php
+          php office-independent/tests/OfficeFinancePresentationRoutingTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Install insertion-only patch with rollback
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          stage="finance-presentation-staging-${GITHUB_RUN_ID}"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$remote" "install -d -m 700 ~/$stage"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-finance.php "$remote:$stage/office-finance.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/src/Finance/OfficeFinancePresentationView.php "$remote:$stage/OfficeFinancePresentationView.php"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$remote" "RUN_ID='$GITHUB_RUN_ID' bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          stage="$HOME/finance-presentation-staging-$RUN_ID"
+          active="$base/public/office-finance.php"
+          desired="$stage/office-finance.php"
+          view="$base/src/Finance/OfficeFinancePresentationView.php"
+          test -f "$active" && test ! -L "$active" && test -d "$base/src/Finance" || exit 20
+          test -f "$desired" && test -f "$stage/OfficeFinancePresentationView.php" || exit 21
+          test ! -L "$view" || exit 22
+          php -l "$desired"
+          php -l "$stage/OfficeFinancePresentationView.php"
+          # Never replace an existing, different presentation view.
+          if test -f "$view"; then cmp -s "$view" "$stage/OfficeFinancePresentationView.php" || { echo PRESENTATION_VIEW_CONFLICT; exit 23; }; fi
+          # The only permitted change to the active entrypoint is the exact
+          # 23-line guard from the reviewed branch. All existing lines must
+          # remain byte-for-byte identical, in their original order.
+          php -r '
+            $active=file_get_contents($argv[1]);
+            $desired=file_get_contents($argv[2]);
+            $needle="  // Fail closed for demonstrations:";
+            $start=strpos($desired,$needle);
+            $end=strpos($desired,"  \$method = \$_SERVER", $start === false ? 0 : $start);
+            if ($start===false || $end===false || $end<=$start) exit(30);
+            $guard=substr($desired,$start,$end-$start);
+            if (substr_count($desired,$guard)!==1) exit(31);
+            if (str_replace($guard,"",$desired)!==$active) {
+              fwrite(STDERR,"ACTIVE_FINANCE_DIFF_NOT_INSERTION_ONLY\n"); exit(32);
+            }
+            if (strpos($active,"OFFICE_FINANCE_PRESENTATION_MODE")!==false) exit(33);
+            file_put_contents($argv[3],$desired);
+          ' "$active" "$desired" "$stage/verified-office-finance.php"
+          php -l "$stage/verified-office-finance.php"
+          backup="$stage/office-finance.original.php"
+          cp -p "$active" "$backup"
+          test "$(sha256sum "$backup" | cut -d ' ' -f1)" = "$(sha256sum "$active" | cut -d ' ' -f1)" || exit 34
+          rollback() {
+            cp -p "$backup" "$active"
+            if test "$view_created" = 1; then rm -f "$view"; fi
+          }
+          view_created=0
+          trap rollback ERR
+          if test ! -f "$view"; then
+            install -m 644 "$stage/OfficeFinancePresentationView.php" "$view"
+            view_created=1
+          fi
+          install -m 644 "$stage/verified-office-finance.php" "$active"
+          php -l "$active"
+          php -l "$view"
+          cmp -s "$active" "$desired"
+          cmp -s "$view" "$stage/OfficeFinancePresentationView.php"
+          trap - ERR
+          echo FINANCE_PRESENTATION_GUARD_INSTALLED_TEST_ONLY
+          echo ORIGINAL_BACKUP_PRESERVED_IN_STAGING
+          echo PRESENTATION_FLAG_NOT_ACTIVATED
+          echo PRODUCTION_UNCHANGED
+          REMOTE
