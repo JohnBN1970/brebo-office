@@ -1,0 +1,49 @@
+name: Office intake explicit Office-test nonce schema installation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-isolated-nonce-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate installer and nonce schema
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-intake-nonce-test.php
+          php -l office-independent/src/Intake/OfficeIntakeReplayGuard.php
+      - name: Stage only isolated nonce installer
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/install-office-intake-nonce-test.php,office-independent/src/Intake/OfficeIntakeReplayGuard.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.intake-nonce-install-stage"
+          overwrite: true
+      - name: Install only absent Office-test nonce table
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            STAGE="$ROOT/.intake-nonce-install-stage/office-independent"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$STAGE/deployment/hostinger/install-office-intake-nonce-test.php"
+            test -f "$STAGE/src/Intake/OfficeIntakeReplayGuard.php"
+            "$PHP" -l "$STAGE/deployment/hostinger/install-office-intake-nonce-test.php"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"
+            export OFFICE_INTAKE_NONCE_INSTALL=explicit
+            "$PHP" "$STAGE/deployment/hostinger/install-office-intake-nonce-test.php"
