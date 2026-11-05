@@ -58,3 +58,25 @@ jobs:
             echo 'ACTIVE_DRUPAL_STORAGE=unverified_without_live_drupal_database_audit'
             echo 'ACTIVE_DOCUMENT_STORAGE=unverified_without_live_drupal_file_audit'
             echo 'DIAGNOSIS_READ_ONLY_COMPLETE'
+      - name: Audit live website and Drupal footprint without reading customer data
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            WEB="$HOME/domains/brebobv.nl/public_html"
+            echo 'LIVE_AUDIT_START'
+            if test -f "$WEB/index.php"; then echo 'WEBSITE_INDEX=present'; else echo 'WEBSITE_INDEX=missing'; fi
+            if test -f "$WEB/sites/default/settings.php"; then echo 'DRUPAL_SETTINGS=present'; else echo 'DRUPAL_SETTINGS=not_at_web_root'; fi
+            if test -f "$WEB/web/sites/default/settings.php"; then echo 'DRUPAL_COMPOSER_SETTINGS=present'; else echo 'DRUPAL_COMPOSER_SETTINGS=not_found'; fi
+            if test -f "$WEB/modules/custom/brebo_data_intake/brebo_data_intake.routing.yml"; then echo 'LIVE_DRUPAL_INTAKE_MODULE=present_at_root'; else echo 'LIVE_DRUPAL_INTAKE_MODULE=not_at_root'; fi
+            if test -f "$WEB/web/modules/custom/brebo_data_intake/brebo_data_intake.routing.yml"; then echo 'LIVE_DRUPAL_INTAKE_MODULE_COMPOSER=present'; else echo 'LIVE_DRUPAL_INTAKE_MODULE_COMPOSER=not_found'; fi
+            if test -d "$HOME/domains/brebobv.nl/private"; then echo 'PRIVATE_DIRECTORY=present'; else echo 'PRIVATE_DIRECTORY=not_at_expected_path'; fi
+            echo 'LIVE_DRUPAL_DATABASE_ROWS=not_queried'
+            echo 'LIVE_UPLOAD_CONTENTS=not_read'
+            echo 'LIVE_WEBSITE_POST_DESTINATION=not_verified'
+            echo 'LIVE_AUDIT_COMPLETE'
