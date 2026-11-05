@@ -28,11 +28,14 @@ jobs:
             "$php" -l "$router" >/dev/null
             "$php" -l "$active/public/office-intake-receive.php" >/dev/null
             stage=config_checks
+            echo OFFICE_TEST_PREFLIGHT_CONFIG_COMMAND_START
             echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
             # Stage 1: report only boolean readiness. Never print config values.
             "$php" -r '
               try {
+                fwrite(STDERR, "OFFICE_TEST_CONFIG_PHP_STARTED\n");
                 $c=require $argv[1];
+                fwrite(STDERR, "OFFICE_TEST_CONFIG_REQUIRE_RETURNED\n");
                 if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\n";exit(2);}
                 $checks=[
                   "OFFICE_TEST_CONFIG_BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
@@ -51,6 +54,7 @@ jobs:
                 exit(2);
               }
             ' "$config" "$active"
+            echo OFFICE_TEST_PREFLIGHT_CONFIG_COMMAND_DONE
             stage=router_checks
             echo OFFICE_TEST_PREFLIGHT_STAGE=router_checks
             grep -Fq '/office-test/api/intake/v1/receive' "$router"
