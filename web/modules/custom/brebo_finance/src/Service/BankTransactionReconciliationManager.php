@@ -18,6 +18,8 @@ final class BankTransactionReconciliationManager {
 
   public function reconcile(array $activity): array {
     $this->repository->ensureStorage();
+    $provider = strtolower(trim((string) ($activity['provider'] ?? 'abnamro')));
+    if (!in_array($provider, ['abnamro', 'moneybird'], TRUE)) return $this->result('neutral', 'unsupported_bank_provider', 'Onbekende bankgegevensbron.', []);
     $transactionId = trim((string) ($activity['transaction_id'] ?? ''));
     $amount = (string) ($activity['amount'] ?? '0');
     $currency = strtoupper(trim((string) ($activity['currency'] ?? 'EUR')));
@@ -25,7 +27,7 @@ final class BankTransactionReconciliationManager {
     $endToEndId = trim((string) ($activity['end_to_end_id'] ?? ''));
     if ($transactionId === '' || $this->decimal->compare($amount, '0') === 0) return $this->result('neutral', 'bank_activity_incomplete', 'Bankmutatie mist een stabiele referentie of bedrag.', []);
 
-    $existing = $this->existingByTransaction($transactionId);
+    $existing = $this->existingByTransaction($provider, $transactionId);
     if ($existing) return $this->result((string) $existing['traffic_light'], (string) $existing['reason_code'], 'Bankmutatie is al beoordeeld.', $existing);
 
     $candidates = $endToEndId !== '' ? $this->repository->batchItemsByEndToEndId($endToEndId, ['released', 'submitted', 'executed', 'reconciled']) : [];
@@ -33,7 +35,8 @@ final class BankTransactionReconciliationManager {
       $item = reset($candidates);
       $amountOk = $this->decimal->compare((string) $item['amount'], ltrim($amount, '-')) === 0;
       $currencyOk = strtoupper((string) $item['currency']) === $currency;
-      $ibanOk = $counterpartyIban === '' || $this->normalizeIban((string) $item['creditor_iban']) === $counterpartyIban;
+      $ibanOk = $counterpartyIban !== '' && $this->normalizeIban((string) $item['creditor_iban']) === $counterpartyIban;
+      if ($counterpartyIban === '') return $this->persist($activity, $item, 'orange', 'bank_counterparty_unverified', 'Tegenrekening ontbreekt; automatische definitieve koppeling is geblokkeerd.', 'not_checked');
       if (!$amountOk || !$currencyOk || !$ibanOk) return $this->persist($activity, $item, 'red', 'brebo_bank_material_mismatch', 'Bankuitvoering wijkt materieel af van de vrijgegeven BREBO-betaalinstructie.', 'not_checked');
       return $this->closeMoneybird($activity, $item);
     }
@@ -58,13 +61,13 @@ final class BankTransactionReconciliationManager {
 
   private function persist(array $activity, ?array $item, string $light, string $reason, string $message, string $moneybirdState): array {
     $now=time();$transactionId=trim((string)($activity['transaction_id']??''));
-    $fields=['bank_provider'=>'abnamro','bank_transaction_id'=>$transactionId,'booking_date'=>(string)($activity['booking_date']??''),'amount'=>(string)($activity['amount']??'0'),'currency'=>strtoupper((string)($activity['currency']??'EUR')),'counterparty_iban'=>$this->normalizeIban((string)($activity['counterparty_iban']??'')),'end_to_end_id'=>(string)($activity['end_to_end_id']??''),'batch_id'=>$item?(int)$item['batch_id']:NULL,'batch_item_id'=>$item?(int)$item['id']:NULL,'invoice_id'=>$item?(int)$item['invoice_id']:NULL,'release_id'=>$item?(int)$item['release_id']:NULL,'traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'moneybird_state'=>$moneybirdState,'created'=>$now,'changed'=>$now];
-    if(!$this->repository->insert($fields)){$existing=$this->existingByTransaction($transactionId);if($existing)return $this->result((string)$existing['traffic_light'],(string)$existing['reason_code'],'Bankmutatie is gelijktijdig al beoordeeld.',$existing);throw new RuntimeException('Bank reconciliation could not be persisted.');}
+    $fields=['bank_provider'=>strtolower(trim((string)($activity['provider']??'abnamro'))),'bank_transaction_id'=>$transactionId,'booking_date'=>(string)($activity['booking_date']??''),'amount'=>(string)($activity['amount']??'0'),'currency'=>strtoupper((string)($activity['currency']??'EUR')),'counterparty_iban'=>$this->normalizeIban((string)($activity['counterparty_iban']??'')),'end_to_end_id'=>(string)($activity['end_to_end_id']??''),'batch_id'=>$item?(int)$item['batch_id']:NULL,'batch_item_id'=>$item?(int)$item['id']:NULL,'invoice_id'=>$item?(int)$item['invoice_id']:NULL,'release_id'=>$item?(int)$item['release_id']:NULL,'traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'moneybird_state'=>$moneybirdState,'created'=>$now,'changed'=>$now];
+    if(!$this->repository->insert($fields)){$existing=$this->existingByTransaction((string)$fields['bank_provider'],$transactionId);if($existing)return $this->result((string)$existing['traffic_light'],(string)$existing['reason_code'],'Bankmutatie is gelijktijdig al beoordeeld.',$existing);throw new RuntimeException('Bank reconciliation could not be persisted.');}
     return $this->result($light,$reason,$message,$fields);
   }
 
-  private function existingByTransaction(string $transactionId): array|false {
-    return $this->repository->existing('abnamro',$transactionId) ?: FALSE;
+  private function existingByTransaction(string $provider, string $transactionId): array|false {
+    return $this->repository->existing($provider,$transactionId) ?: FALSE;
   }
 
   private function result(string $light,string $reason,string $message,array $evidence):array{return['traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'evidence'=>$evidence];}
