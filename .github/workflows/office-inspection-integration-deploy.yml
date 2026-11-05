@@ -45,6 +45,10 @@ jobs:
           set -euo pipefail
           for f in inspection-source/office-independent/public/office-inspection.php inspection-source/office-independent/public/office-inspection-create.php inspection-source/office-independent/public/office-inspection-overview.php inspection-source/office-independent/src/Inspection/OfficeInspectionCreateAction.php inspection-source/office-independent/src/Inspection/OfficeInspectionRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionOverviewRepository.php inspection-source/office-independent/src/Inspection/OfficeInspectionReportPrintView.php; do php -l "$f"; done
           php inspection-source/office-independent/tests/OfficeInspectionEvidenceReportContractTest.php
+          php -l inspection-source/office-independent/src/Documents/OfficeDocumentTypes.php
+          php -l inspection-source/office-independent/src/Documents/OfficeNewDocumentMenu.php
+          php inspection-source/office-independent/tests/OfficeNewDocumentMenuTest.php
+          php -l inspection-source/office-independent/src/Intake/OfficeNavigation.php
           php -l inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceUploadAction.php
           php inspection-source/office-independent/tests/OfficeInspectionEvidenceUploadContractTest.php
           php -l inspection-source/office-independent/src/Inspection/OfficeInspectionEvidenceReadAction.php
@@ -70,8 +74,10 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          mkdir -p deploy-payload/public deploy-payload/src/Inspection deploy-payload/src/Intake
-          cp office-independent/src/Intake/OfficeNavigation.php deploy-payload/src/Intake/
+          mkdir -p deploy-payload/public deploy-payload/src/Inspection deploy-payload/src/Intake deploy-payload/src/Documents
+          cp inspection-source/office-independent/src/Intake/OfficeNavigation.php deploy-payload/src/Intake/
+          cp inspection-source/office-independent/src/Documents/OfficeDocumentTypes.php deploy-payload/src/Documents/
+          cp inspection-source/office-independent/src/Documents/OfficeNewDocumentMenu.php deploy-payload/src/Documents/
           cp inspection-source/office-independent/public/office-inspection.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection-create.php deploy-payload/public/
           cp inspection-source/office-independent/public/office-inspection-overview.php deploy-payload/public/
@@ -98,7 +104,7 @@ jobs:
           tmp="$(mktemp -d "$stage/integration.XXXXXXXX")"
           trap 'rm -rf "$tmp"' EXIT
           tar -xzf "$stage/inspection-integration.tar.gz" -C "$tmp"
-          for path in src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionCreateAction.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionEvidenceRepository.php src/Inspection/OfficeInspectionEvidenceUploadAction.php src/Inspection/OfficeInspectionEvidenceReadAction.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-inspection-evidence-upload.php public/office-inspection-evidence-view.php; do
+          for path in src/Documents/OfficeDocumentTypes.php src/Documents/OfficeNewDocumentMenu.php src/Intake/OfficeNavigation.php src/Inspection/OfficeInspectionCreateAction.php src/Inspection/OfficeInspectionRepository.php src/Inspection/OfficeInspectionEvidenceRepository.php src/Inspection/OfficeInspectionEvidenceUploadAction.php src/Inspection/OfficeInspectionEvidenceReadAction.php src/Inspection/OfficeInspectionOverviewRepository.php src/Inspection/OfficeInspectionReportPrintView.php public/office-inspection.php public/office-inspection-create.php public/office-inspection-overview.php public/office-inspection-evidence-upload.php public/office-inspection-evidence-view.php; do
             test -f "$tmp/$path"
             php -l "$tmp/$path" >/dev/null
           done
