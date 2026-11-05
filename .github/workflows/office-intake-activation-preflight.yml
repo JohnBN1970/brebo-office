@@ -17,6 +17,9 @@ jobs:
           script_stop: true
           script: |
             set -eu
+            trap 'rc=$?; echo "OFFICE_TEST_PREFLIGHT_FAILED_STEP=${stage:-init}"; exit "$rc"' EXIT
+            stage=path_checks
+            echo OFFICE_TEST_PREFLIGHT_STAGE=path_checks
             root="$HOME/domains/brebobv.nl/office_calc_test"
             router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
             active="$root/release-office-test-contractform-20261030/private"
@@ -24,6 +27,8 @@ jobs:
             php=/opt/alt/php83/usr/bin/php
             "$php" -l "$router" >/dev/null
             "$php" -l "$active/public/office-intake-receive.php" >/dev/null
+            stage=config_checks
+            echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
             "$php" -r '
               $c=require $argv[1];
               if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??null)!=="/office-test"
@@ -36,12 +41,18 @@ jobs:
               echo "OFFICE_TEST_INTAKE_FLAG_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\n";
               echo "OFFICE_TEST_INTAKE_CONFIG_LAYOUT=php_return_array\n";
             ' "$config" "$active"
+            stage=router_checks
+            echo OFFICE_TEST_PREFLIGHT_STAGE=router_checks
             grep -Fq '/office-test/api/intake/v1/receive' "$router"
             grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' "$router"
+            stage=runtime_checks
+            echo OFFICE_TEST_PREFLIGHT_STAGE=runtime_checks
             for rel in public/office-intake-receive.php src/Intake/OfficeIntakeSecureReceiver.php src/Intake/OfficeIntakeSourceAuthenticator.php src/Intake/OfficeIntakeReplayGuard.php src/Intake/OfficeCanonicalIntakeBuildingHandoff.php src/Buildings/OfficeIntakeBuildingResolver.php; do
               test -f "$active/$rel"
               "$php" -l "$active/$rel" >/dev/null
             done
+            stage=db_checks
+            echo OFFICE_TEST_PREFLIGHT_STAGE=db_checks
             "$php" -r '
               $c=require $argv[1];
               $pdo=new PDO($c["OFFICE_INTAKE_PDO_DSN"],$c["OFFICE_INTAKE_DB_USER"],$c["OFFICE_INTAKE_DB_PASSWORD"],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
@@ -53,4 +64,6 @@ jobs:
                 echo "OFFICE_TEST_TABLE_".strtoupper($t)."=present\n";
               }
             ' "$config"
+            stage=complete
+            trap - EXIT
             echo OFFICE_TEST_INTAKE_ACTIVATION_PREFLIGHT_OK
