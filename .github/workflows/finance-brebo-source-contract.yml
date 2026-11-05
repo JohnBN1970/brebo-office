@@ -1,0 +1,34 @@
+name: BREBO Finance source-of-truth contract
+on:
+  pull_request:
+    paths:
+      - 'integration-api/src/**'
+      - 'integration-api/test/**'
+      - 'web/modules/custom/brebo_finance/src/Service/**'
+      - '.github/workflows/finance-brebo-source-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  financial-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate legacy Finance PHP clients
+        run: |
+          set -euo pipefail
+          for file in \
+            web/modules/custom/brebo_finance/src/Service/PurchaseInvoiceIntegrationClient.php \
+            web/modules/custom/brebo_finance/src/Service/SalesInvoiceReceivablesIntegrationClient.php \
+            web/modules/custom/brebo_finance/src/Service/BusinessHealthIntegrationClient.php; do
+            php -l "$file"
+            grep -Fq 'Moneybird financial import disabled' "$file"
+          done
+      - name: Verify bank-only and invoice dispatch routes
+        run: |
+          set -euo pipefail
+          grep -Fq '"/v1/accounting/bank-data"' integration-api/src/index.ts
+          grep -Fq '"moneybird_financial_import_disabled"' integration-api/src/index.ts
+          grep -Fq 'request.method === "POST"' integration-api/src/index.ts
+          grep -Fq 'financial_mutations.json' integration-api/src/moneybird.ts
+          echo BREBO_FINANCE_SOURCE_CONTRACT=PASS
