@@ -79,7 +79,7 @@ final class OfficeNavigation {
         ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
       ]:[]],
       ['Gebouwen','gebouwen',$projectsAvailable?[[ 'Gebouwenoverzicht','/office-test/gebouwen' ]]:[]],
-      ['Documenten','documenten',[['Inspectierapporten','/office-test/inspecties']]],
+      ['Documenten','documenten',[['Documentenoverzicht','/office-test/documenten'],['Inspectierapporten','/office-test/inspecties']]],
       ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
