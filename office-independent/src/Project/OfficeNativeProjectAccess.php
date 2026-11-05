@@ -21,4 +21,17 @@ final class OfficeNativeProjectAccess {
     $statement->execute([':project_id'=>$projectId,':operator_id'=>$operatorId]);
     return $statement->fetchColumn()!==false;
   }
+  /** Read-only access is limited to active Office operators with project membership. */
+  public function canRead(int $operatorId, int $projectId): bool {
+    if ($operatorId < 1 || $projectId < 1) return false;
+    $statement = $this->db->prepare(
+      "SELECT 1 FROM office_projects p
+       INNER JOIN office_project_memberships m ON m.project_id=p.id
+       INNER JOIN office_operator_accounts a ON a.id=m.operator_id
+       WHERE p.id=:project_id AND m.operator_id=:operator_id
+         AND m.permission IN ('read', 'manage') AND a.active=1 LIMIT 1"
+    );
+    $statement->execute([':project_id'=>$projectId,':operator_id'=>$operatorId]);
+    return $statement->fetchColumn()!==false;
+  }
 }
