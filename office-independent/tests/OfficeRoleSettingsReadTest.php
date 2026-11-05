@@ -36,11 +36,14 @@ foreach (['', 'staff', 'inactive', 'missing'] as $actor) {
 }
 $roles = $reader->rolesForManager('admin');
 $assert(count($roles) === 2, 'Only active roles');
-$assert(isset($roles[0]['modules']['offers'], $roles[0]['modules']['finance']), 'Both modules');
-$assert($roles[0]['modules']['offers']['permissions'] === ['read'], 'Offer read retained');
-$assert($roles[0]['modules']['offers']['scope'] === 'assigned', 'Offer scope retained');
-$assert($roles[0]['modules']['finance']['permissions'] === ['payment_batch.release'], 'Unknown finance grant hidden');
-$assert($roles[0]['modules']['finance']['scope'] === 'none', 'Finance scope cannot inherit all');
-$assert($roles[1]['modules']['finance']['enabled'] === false, 'Unconfigured Finance disabled');
-$assert($roles[1]['modules']['finance']['permissions'] === [], 'No implicit role grants');
+$rolesById = [];
+foreach ($roles as $role) { $rolesById[(int)$role['id']] = $role; }
+$assert(isset($rolesById[1], $rolesById[2]) && !isset($rolesById[3]), 'Expected active role IDs');
+$assert(isset($rolesById[1]['modules']['offers'], $rolesById[1]['modules']['finance']), 'Both modules');
+$assert($rolesById[1]['modules']['offers']['permissions'] === ['read'], 'Offer read retained');
+$assert($rolesById[1]['modules']['offers']['scope'] === 'assigned', 'Offer scope retained');
+$assert($rolesById[1]['modules']['finance']['permissions'] === ['payment_batch.release'], 'Unknown finance grant hidden');
+$assert($rolesById[1]['modules']['finance']['scope'] === 'none', 'Finance scope cannot inherit all');
+$assert($rolesById[2]['modules']['finance']['enabled'] === false, 'Unconfigured Finance disabled');
+$assert($rolesById[2]['modules']['finance']['permissions'] === [], 'No implicit role grants');
 echo "OfficeRoleSettingsReadTest OK ($checks checks)\n";
