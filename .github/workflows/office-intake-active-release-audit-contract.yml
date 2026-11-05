@@ -1,0 +1,38 @@
+name: Office intake release audit contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/audit-office-intake-release.php'
+      - '.github/workflows/office-intake-active-release-audit.yml'
+      - '.github/workflows/office-intake-active-release-audit-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/hostinger/audit-office-intake-release.php'
+      - '.github/workflows/office-intake-active-release-audit.yml'
+      - '.github/workflows/office-intake-active-release-audit-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Verify syntax and reject non-test environment
+        run: |
+          php -l office-independent/deployment/hostinger/audit-office-intake-release.php
+          set +e
+          php office-independent/deployment/hostinger/audit-office-intake-release.php > /tmp/office-intake-audit.out 2>&1
+          result=$?
+          set -e
+          test "$result" -eq 2
+          grep -q 'ABORT: office_test_config_missing' /tmp/office-intake-audit.out
