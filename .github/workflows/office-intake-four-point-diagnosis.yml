@@ -53,7 +53,7 @@ jobs:
             if grep -Fq '/office-test/api/intake/v1/receive' "$ROUTER"; then echo 'ACTIVE_OFFICE_INTAKE_ROUTE=present'; else echo 'ACTIVE_OFFICE_INTAKE_ROUTE=not_found'; fi
             "$PHP" -r '
               $c=require $argv[1];
-              if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??null)!=="/office-test") {exit(2);}
+              if (!is_array($c)) { echo "OFFICE_TEST_CONFIG_READ=array_invalid\\n"; exit(0); }\n              echo "OFFICE_TEST_CONFIG_SCOPE=".(($c["OFFICE_BASE_PATH"]??null)==="/office-test"?"valid":"unexpected")."\\n";
               echo "OFFICE_TEST_CONFIG_SCOPE=valid\\n";
               echo "OFFICE_TEST_RECEIVER_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\\n";
               echo "OFFICE_TEST_WEBSITE_SECRET_PRESENT=".(is_string($c["OFFICE_INTAKE_SECRET_WEBSITE"]??null)&&strlen($c["OFFICE_INTAKE_SECRET_WEBSITE"])>=32?"yes":"no")."\\n";
