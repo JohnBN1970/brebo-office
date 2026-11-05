@@ -59,7 +59,7 @@ if (array_key_exists('project_id', $_GET) && !is_int($projectId)) {
 }
 if (is_int($projectId)) {
     require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
-    if (!(new \\Brebo\\Office\\Project\\OfficeNativeProjectAccess($db))->canRead($operator->operatorId, $projectId)) {
+    if (!(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead($operator->operatorId, $projectId)) {
         http_response_code(404);
         exit('Project niet gevonden.');
     }
