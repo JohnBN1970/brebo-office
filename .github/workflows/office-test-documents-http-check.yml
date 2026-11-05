@@ -1,0 +1,19 @@
+name: Check Office-test Documents HTTP routing
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-test-documents-http-check.yml'
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public HTTP status without credentials
+        run: |
+          for path in documenten inspecties gebouwen personeel/medewerkers; do
+            echo "ROUTE /office-test/$path"
+            curl -sS -L --max-redirs 3 --max-time 15 -o /dev/null -w 'HTTP=%{http_code} REDIRECT=%{redirect_url}\n' "https://brebobv.nl/office-test/$path" || true
+          done
