@@ -41,31 +41,19 @@ final class BankTransactionReconciliationManager {
     return $this->persist($activity, NULL, 'orange', 'external_bank_payment', 'Bankmutatie is buiten een BREBO-betaalrun ontstaan en vraagt automatische vervolgmatching of classificatie.', 'pending');
   }
 
+  /**
+   * Bank evidence is matched to BREBO-owned payment instructions only.
+   * Never read back Moneybird invoice documents or infer payment from their state.
+   */
   private function closeMoneybird(array $activity, array $item): array {
-    try { $remote = $this->invoiceReadback->all(); }
-    catch (\Throwable) { return $this->persist($activity, $item, 'orange', 'moneybird_reconciliation_unavailable', 'ABN-uitvoering is exact, maar Moneybird kon niet worden gecontroleerd.', 'unavailable'); }
-    $moneybirdId = $this->repository->invoiceMoneybirdId((int) $item['invoice_id']);
-    $invoice = NULL;
-    foreach ($remote as $candidate) if ((string) ($candidate['id'] ?? '') === $moneybirdId) { $invoice = $candidate; break; }
-    if (!$invoice) return $this->persist($activity, $item, 'orange', 'moneybird_invoice_missing', 'ABN-uitvoering is exact, maar de gekoppelde Moneybird-inkoopfactuur ontbreekt in de readback.', 'missing');
-
-    $payments = is_array($invoice['payments'] ?? NULL) ? $invoice['payments'] : [];
-    $bankTransactionId = trim((string) ($activity['transaction_id'] ?? ''));
-    $endToEndId = trim((string) ($activity['end_to_end_id'] ?? ''));
-    $matchedPayment = NULL;
-    foreach ($payments as $payment) {
-      if (!is_array($payment)) continue;
-      $refs = array_filter(array_map('strval', [$payment['financial_mutation_id'] ?? '', $payment['payment_transaction_id'] ?? '', $payment['transaction_identifier'] ?? '', $payment['linked_payment_id'] ?? '']));
-      if (in_array($bankTransactionId, $refs, TRUE) || ($endToEndId !== '' && in_array($endToEndId, $refs, TRUE))) { $matchedPayment = $payment; break; }
-    }
-    if ($matchedPayment) {
-      $paymentAmount = (string) ($matchedPayment['price'] ?? '0');
-      if ($this->decimal->compare(ltrim($paymentAmount, '-'), (string) $item['amount']) !== 0) return $this->persist($activity, $item, 'red', 'moneybird_payment_amount_mismatch', 'Moneybird koppelt dezelfde betaling, maar met een afwijkend bedrag.', 'mismatch');
-      return $this->persist($activity, $item, 'green', 'brebo_bank_moneybird_reconciled', 'BREBO-vrijgave, ABN-uitvoering en Moneybird-betaling sluiten aantoonbaar op elkaar aan.', 'linked');
-    }
-    $state = strtolower((string) ($invoice['state'] ?? ''));
-    if ($state === 'paid' || $this->decimal->compare((string) ($invoice['paid_amount'] ?? '0'), '0') > 0) return $this->persist($activity, $item, 'orange', 'moneybird_paid_link_missing', 'ABN heeft exact uitgevoerd en Moneybird toont betaling, maar de bankmutatie is niet aantoonbaar aan dezelfde payment gekoppeld.', 'paid_unlinked');
-    return $this->persist($activity, $item, 'orange', 'moneybird_payment_missing', 'ABN heeft exact uitgevoerd, maar Moneybird toont nog geen corresponderende betaling op de inkoopfactuur.', 'unpaid');
+    return $this->persist(
+      $activity,
+      $item,
+      'green',
+      'brebo_bank_instruction_matched',
+      'Bankmutatie sluit aan op de BREBO-betaalinstructie; factuurstatus blijft onder beheer van BREBO.',
+      'not_checked'
+    );
   }
 
   private function persist(array $activity, ?array $item, string $light, string $reason, string $message, string $moneybirdState): array {
