@@ -38,7 +38,23 @@ echo "OFFICE_TEST_INTAKE_ROUTE_PRESENT=" . (str_contains($router, '/office-test/
 echo "OFFICE_TEST_INTAKE_ROUTE_FLAG_GUARD=" . (str_contains($router, "getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled'") ? 'yes' : 'no') . "\n";
 $matches = [];
 if (preg_match('/\$root\s*=\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]\s*;/', $router, $matches) !== 1) {
-    echo "OFFICE_TEST_ACTIVE_RELEASE=unknown\n";
+    echo "OFFICE_TEST_ACTIVE_RELEASE=unknown\\n";
+    // Inspect only known isolated root; do not reveal arbitrary source or configuration.
+    $possible = [];
+    foreach (glob($root . '/release-*/private', GLOB_ONLYDIR) ?: [] as $candidate) {
+        if (is_file($candidate . '/public/office-home.php')) {
+            $possible[] = basename(dirname($candidate));
+        }
+    }
+    sort($possible);
+    echo "OFFICE_TEST_RELEASE_CANDIDATES=" . implode(',', $possible) . "\\n";
+    echo "OFFICE_TEST_ROUTER_SHA256=" . hash_file('sha256', $routerFile) . "\\n";
+    foreach ([
+        'office-independent.php', 'router.php', 'bootstrap.php', 'office-test.php',
+    ] as $safeMarker) {
+        echo "OFFICE_TEST_ROUTER_HAS_" . strtoupper(str_replace(['.', '-'], '_', $safeMarker)) . "="
+            . (str_contains($router, $safeMarker) ? 'yes' : 'no') . "\\n";
+    }
     exit(0);
 }
 $release = $matches[1];
