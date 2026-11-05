@@ -37,6 +37,19 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
     exit;
   }
+  // Fail closed for demonstrations: do not read or render live Finance data,
+  // including invoices, embedded PDFs, payment actions and bank details.
+  if (getenv('OFFICE_FINANCE_PRESENTATION_MODE') === 'enabled') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+      http_response_code(405);
+      header('Allow: GET');
+      exit('Presentatiemodus: wijzigingen zijn uitgeschakeld.');
+    }
+    require_once dirname(__DIR__) . '/src/Finance/OfficeFinancePresentationView.php';
+    header('Content-Type: text/html; charset=utf-8');
+    echo \\Brebo\\Office\\Finance\\OfficeFinancePresentationView::render();
+    exit;
+  }
   $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
   if ($method === 'POST' && !in_array(($officeFinanceView ?? ''), ['invoice', 'new', 'draft', 'dossier'], true)) {
     http_response_code(405);
