@@ -5,6 +5,8 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
       - 'office-independent/src/Finance/OfficeBankSubmissionReadiness.php'
       - 'office-independent/src/Finance/OfficeBankTransactionNormalizer.php'
+      - 'office-independent/src/Finance/OfficeBankTransactionImport.php'
+      - 'office-independent/tests/OfficeBankTransactionImportTest.php'
       - 'office-independent/tests/OfficeBankTransactionNormalizerTest.php'
       - 'office-independent/tests/OfficeBankSubmissionReadinessTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
@@ -43,6 +45,8 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBatchAccess.php'
       - 'office-independent/src/Finance/OfficeBankSubmissionReadiness.php'
       - 'office-independent/src/Finance/OfficeBankTransactionNormalizer.php'
+      - 'office-independent/src/Finance/OfficeBankTransactionImport.php'
+      - 'office-independent/tests/OfficeBankTransactionImportTest.php'
       - 'office-independent/tests/OfficeBankTransactionNormalizerTest.php'
       - 'office-independent/tests/OfficeBankSubmissionReadinessTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php'
@@ -90,6 +94,8 @@ jobs:
           php -l office-independent/src/Finance/OfficeFinanceBatchAccess.php
           php -l office-independent/src/Finance/OfficeBankSubmissionReadiness.php
           php -l office-independent/tests/OfficeBankSubmissionReadinessTest.php
+          php -l office-independent/src/Finance/OfficeBankTransactionImport.php
+          php -l office-independent/tests/OfficeBankTransactionImportTest.php
           php -l office-independent/src/Finance/OfficeBankTransactionNormalizer.php
           php -l office-independent/tests/OfficeBankTransactionNormalizerTest.php
           php -l office-independent/src/Offer/OfficeRoleSettingsModuleCatalog.php
@@ -123,6 +129,7 @@ jobs:
       - name: Run isolated ACL tests
         run: |
           php office-independent/tests/OfficeBankSubmissionReadinessTest.php
+          php office-independent/tests/OfficeBankTransactionImportTest.php
           php office-independent/tests/OfficeBankTransactionNormalizerTest.php
           php office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php
           php office-independent/tests/OfficeRoleSettingsViewTest.php
