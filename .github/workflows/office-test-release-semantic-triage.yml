@@ -1,0 +1,79 @@
+name: Office-test release semantic triage
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Compare selected module files without deploying
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          files=(
+            public/office-finance.php
+            src/Finance/OfficeFinanceView.php
+            public/office-personnel.php
+            public/office-project.php
+            public/office-projects.php
+            src/Project/OfficeProjectContractService.php
+            src/Project/OfficeNativeProjectAccess.php
+            src/Inzet/OfficeInzetPlanningWorkbench.php
+            src/Inzet/OfficeInzetWeekPlanning.php
+            src/Inzet/OnSiteBootstrapService.php
+            public/office-onsite-project-map.php
+            public/office-buildings.php
+          )
+          printf '%s\n' "${files[@]}" > /tmp/triage-paths.txt
+          tar -czf /tmp/office-triage-source.tar.gz -C office-independent -T /tmp/triage-paths.txt
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-triage-source.tar.gz "$USER@$HOST:/tmp/office-triage-${GITHUB_RUN_ID}.tar.gz"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo INVALID_RELEASE_SCOPE; exit 21;; esac
+          test -d "$active" || exit 22
+          stage="$(mktemp -d /tmp/office-triage-XXXXXXXX)"
+          trap 'rm -rf "$stage" "/tmp/office-triage-${GITHUB_RUN_ID}.tar.gz"' EXIT
+          tar -xzf "/tmp/office-triage-${GITHUB_RUN_ID}.tar.gz" -C "$stage"
+          echo "=== SOURCE_VS_ACTIVE_DIFF_SUMMARY ==="
+          while IFS= read -r path; do
+            case "$path" in public/*.php|src/*.php|src/*/*.php) ;; *) continue;; esac
+            test -f "$stage/$path" || continue
+            if test ! -f "$active/$path"; then echo "MISSING $path"; continue; fi
+            echo "=== $path ==="
+            diff -u "$stage/$path" "$active/$path" | diffstat 2>/dev/null || true
+            git diff --no-index --numstat -- "$stage/$path" "$active/$path" || test "$?" -eq 1
+            for marker in BREBO_PROJECT_DETAIL_V3_MOUNT create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+              if grep -Fq "$marker" "$active/$path"; then echo "ACTIVE_MARKER $marker"; fi
+            done
+          done <<'PATHS'
+          public/office-finance.php
+          src/Finance/OfficeFinanceView.php
+          public/office-personnel.php
+          public/office-project.php
+          public/office-projects.php
+          src/Project/OfficeProjectContractService.php
+          src/Project/OfficeNativeProjectAccess.php
+          src/Inzet/OfficeInzetPlanningWorkbench.php
+          src/Inzet/OfficeInzetWeekPlanning.php
+          src/Inzet/OnSiteBootstrapService.php
+          public/office-onsite-project-map.php
+          public/office-buildings.php
+          PATHS
+          echo SEMANTIC_TRIAGE_READONLY_COMPLETE
+          REMOTE
