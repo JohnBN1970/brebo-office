@@ -21,12 +21,16 @@ export default {
         response = await authenticatedHealth(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/connection" && request.method === "GET") {
         response = await accountingConnection(request, env, url.pathname, requestId);
-      } else if (url.pathname === "/v1/accounting/purchase-invoices" && request.method === "GET") {
-        response = await accountingPurchaseInvoices(request, env, url.pathname, requestId);
-      } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "GET") {
-        response = await accountingSalesInvoices(request, env, url.pathname, requestId);
-      } else if (url.pathname === "/v1/accounting/business-health" && request.method === "GET") {
-        response = await accountingBusinessHealth(request, env, url.pathname, requestId);
+      } else if (request.method === "GET" && (
+        url.pathname === "/v1/accounting/purchase-invoices" ||
+        url.pathname === "/v1/accounting/sales-invoices" ||
+        url.pathname === "/v1/accounting/business-health"
+      )) {
+        // BREBO Office is the sole invoice and financial KPI source.
+        // Fail closed: never fetch invoices or P&L figures from Moneybird.
+        // The authenticated outbound sales invoice POST route remains intact.
+        const auth = await authenticate(request, env, url.pathname, "", requestId);
+        response = auth ?? errorResponse(410, "moneybird_financial_import_disabled", "BREBO Office is the financial source; Moneybird invoice and KPI imports are disabled.", requestId);
       } else if (url.pathname === "/v1/communications/analyze" && request.method === "POST") {
         response = await analyze(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "POST") {
