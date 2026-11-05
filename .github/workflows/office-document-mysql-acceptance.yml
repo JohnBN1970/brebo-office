@@ -1,0 +1,38 @@
+name: Office document MySQL acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeDocumentRegistry.php'
+      - 'office-independent/tests/OfficeDocumentRegistryMySqlTest.php'
+      - '.github/workflows/office-document-mysql-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mysql-registry:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_only_password
+          MYSQL_DATABASE: office_documents_ci_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest_only_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      OFFICE_DOCUMENT_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_documents_ci_test;charset=utf8mb4
+      OFFICE_DOCUMENT_TEST_USER: root
+      OFFICE_DOCUMENT_TEST_PASSWORD: test_only_password
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP MySQL driver
+        run: sudo apt-get update && sudo apt-get install -y php-mysql
+      - name: Validate and run isolated integration test
+        run: |
+          php -l office-independent/tests/OfficeDocumentRegistryMySqlTest.php
+          php office-independent/tests/OfficeDocumentRegistryMySqlTest.php
