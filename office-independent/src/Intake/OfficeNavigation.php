@@ -92,7 +92,7 @@ final class OfficeNavigation {
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/gebouwen'))$selected='gebouwen';
-    elseif(str_starts_with($path,'/office-test/inspecties')||str_starts_with($path,'/office-test/inspectie'))$selected='documenten';
+    elseif(str_starts_with($path,'/office-test/documenten')||str_starts_with($path,'/office-test/inspecties')||str_starts_with($path,'/office-test/inspectie'))$selected='documenten';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
