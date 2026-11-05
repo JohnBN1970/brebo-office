@@ -31,9 +31,18 @@ jobs:
             echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
             "$php" -r '
               $c=require $argv[1];
-              if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??null)!=="/office-test"
-                  || ($c["OFFICE_INTAKE_DB_USER"]??null)!=="u213420663_office_test"
-                  || ($c["OFFICE_PRIVATE_ROOT"]??null)!==$argv[2]) {exit(2);}
+              if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\\n";exit(2);}
+              $checks=[
+                "OFFICE_TEST_CONFIG_BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
+                "OFFICE_TEST_CONFIG_DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
+                "OFFICE_TEST_CONFIG_PRIVATE_ROOT_MATCH"=>($c["OFFICE_PRIVATE_ROOT"]??null)===$argv[2]
+              ];
+              $ok=true;
+              foreach ($checks as $name=>$valid) {
+                echo $name."=".($valid?"yes":"no")."\n";
+                $ok=$ok&&$valid;
+              }
+              if (!$ok) {exit(2);}
               foreach (["website"=>"OFFICE_INTAKE_SECRET_WEBSITE","email"=>"OFFICE_INTAKE_SECRET_EMAIL"] as $source=>$key) {
                   $v=$c[$key]??null;
                   echo "OFFICE_TEST_INTAKE_".strtoupper($source)."_SECRET_READY=".(is_string($v)&&strlen($v)>=32?"yes":"no")."\n";
