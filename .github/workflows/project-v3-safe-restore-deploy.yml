@@ -76,7 +76,7 @@ jobs:
           stage="$base/v3-restore-stage"
           source="$base/backup-crm-relaties-20261104-060645/public/office-project.php"
           test -f "$source" && test -f "$controller" && test ! -L "$source" || { echo "V3_BACKUP_OR_CONTROLLER_MISSING"; exit 23; }
-          test "$(sha256sum "$source" | cut -d\x27 \x27 -f1)" = "4c87ef721df5779fe3e0a48db6a5ec5fc6e992c63d43dcf1e6f03a4c0ccab8a8" || { echo "V3_BACKUP_HASH_MISMATCH"; exit 28; }
+          test "$(sha256sum "$source" | cut -d' ' -f1)" = "4c87ef721df5779fe3e0a48db6a5ec5fc6e992c63d43dcf1e6f03a4c0ccab8a8" || { echo "V3_BACKUP_HASH_MISMATCH"; exit 28; }
           test "$(sha256sum "$controller" | cut -d' ' -f1)" = "6c3e880ef498e061485034e149189cd591dc781b31a90f8bf736ecb0b80d5354" || { echo "CONTROLLER_CHANGED_SINCE_AUDIT"; exit 24; }
           for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View 'echo $breboV23Render((string) ob_get_clean());' create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
             grep -Fq "$marker" "$source" || { echo "BACKUP_MISSING_REQUIRED_MARKER: $marker"; exit 25; }
@@ -112,7 +112,7 @@ jobs:
           done
           php -l "$controller"
           grep -Fq BREBO_PROJECT_DETAIL_V3_MOUNT "$controller"
-          test "$(sha256sum "$controller" | cut -d\x27 \x27 -f1)" = "4c87ef721df5779fe3e0a48db6a5ec5fc6e992c63d43dcf1e6f03a4c0ccab8a8" || { echo "V3_RESTORE_POST_HASH_MISMATCH"; exit 29; }
+          test "$(sha256sum "$controller" | cut -d' ' -f1)" = "4c87ef721df5779fe3e0a48db6a5ec5fc6e992c63d43dcf1e6f03a4c0ccab8a8" || { echo "V3_RESTORE_POST_HASH_MISMATCH"; exit 29; }
           echo "PROJECT_DETAIL_V3_RESTORED"
           echo "PROJECT_HANDLERS_AND_FIVE_TABS_PRESERVED"
           REMOTE
