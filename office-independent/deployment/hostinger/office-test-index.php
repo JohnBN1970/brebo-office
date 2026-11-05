@@ -90,6 +90,15 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Machine-to-machine intake is opt-in and never exposed by default.
+if ($path === '/office-test/api/intake/v1/receive') {
+  if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/office-intake-receive.php';
+  exit;
+}
 if ($path === '/office-test/inzet/apparaten') {
   require $private . '/public/onsite-devices.php';
   exit;

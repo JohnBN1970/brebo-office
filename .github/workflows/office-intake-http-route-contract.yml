@@ -1,0 +1,36 @@
+name: Office intake gated HTTP route contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-intake-receive.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeIntakeHttpRouteContractTest.php'
+      - '.github/workflows/office-intake-http-route-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/public/office-intake-receive.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeIntakeHttpRouteContractTest.php'
+      - '.github/workflows/office-intake-http-route-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - run: |
+          php -l office-independent/public/office-intake-receive.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/tests/OfficeIntakeHttpRouteContractTest.php
+          php office-independent/tests/OfficeIntakeHttpRouteContractTest.php
