@@ -1,6 +1,15 @@
 # BREBO Document Context Architecture
 
 Status: accepted architectural direction
+
+## Standalone Office ownership (2026-11-05 clarification)
+
+BREBO Office is the sole owner of document identity, metadata, provenance, context relations, authorization, revision workflow and controlled access. Drupal is only the public website and must not be a dependency of Office document storage, access or business logic. Existing Drupal implementations are legacy migration sources, not the target architecture.
+
+The initial storage provider is a private filesystem directory outside every publicly served webroot and outside release directories. Originals are immutable and content-addressed (`originals/<hash-prefix>/<sha256>`); storage keys must never encode mutable business names. Office must reject path traversal and symlink escape, never expose raw paths or public URLs, authorize every download, and record SHA-256, original filename, MIME type, size and provenance. Upload limits and accepted types must be explicitly configured. A failed database registration must not create an accessible orphaned document.
+
+A provider-neutral Office storage interface must permit future migration to Zoho WorkDrive without changing Document, DocumentContext or DocumentSource semantics. No live migration or Drupal deletion is authorized by this clarification.
+
 Issue: #209
 
 ## Purpose
@@ -243,9 +252,9 @@ Changing a folder taxonomy must not require moving or duplicating every binary.
 
 ## Storage boundary
 
-Drupal should manage identity, metadata, relationships, permissions and workflow. Large binary storage should remain abstracted behind a storage provider/key so BREBO can change physical storage later without redesigning document relations.
+Standalone BREBO Office manages identity, metadata, relationships, permissions and workflow. Large binary storage should remain abstracted behind a storage provider/key so BREBO can change physical storage later without redesigning document relations.
 
-The architecture must support local/private Drupal storage initially and allow migration to object storage or another document backend later.
+The architecture must support standalone Office private filesystem storage initially and allow migration to Zoho WorkDrive, object storage or another document backend later.
 
 Do not encode business truth in a physical pathname.
 
