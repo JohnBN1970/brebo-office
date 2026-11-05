@@ -1,0 +1,19 @@
+name: Office documents route acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/public/office-documents.php'
+      - '.github/workflows/office-documents-route-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/public/office-documents.php
+          grep -F "'/office-test/documenten' => 'office-documents.php'" office-independent/deployment/hostinger/office-test-index.php
