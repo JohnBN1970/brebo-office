@@ -1,0 +1,36 @@
+name: Office-test project document insertion point audit
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-document-anchor-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Locate safe project header insertion anchor
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          f="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private/public/office-project.php"
+          echo PROJECT_RENDER_ANCHORS
+          grep -nE '<h1|project-header|project-title|project-dashboard|project-tabs|project-nav|<main|<header|projectId|project_id' "$f" | tail -n 65 | cut -c 1-240
+          echo PROJECT_RENDER_AUDIT_COMPLETE
+          REMOTE
