@@ -93,6 +93,7 @@ if ($reportMode) {
   require dirname(__DIR__).'/src/Inspection/OfficeInspectionReportPrintView.php';
   exit;
 }
+require_once dirname(__DIR__).'/src/Documents/OfficeNewDocumentMenu.php';
 $editFinding=null;
 if ($inspection !== null && ($_GET['view'] ?? '') === 'form' && isset($_GET['finding_id'])) {
   $requestedFindingId=$_GET['finding_id'];
@@ -113,6 +114,7 @@ label{display:block;font-weight:650;margin:12px 0 5px}input,textarea{width:100%;
 @media(max-width:650px){table{display:block;overflow-x:auto}}
 </style></head><body><main>
 <h1>Gebouwinspecties</h1><p class="muted">Beveiligd inspectieoverzicht, uitsluitend voor toegankelijke projecten.</p>
+<?= \Brebo\Office\Documents\OfficeNewDocumentMenu::render('gebouwen', ['project_id'=>$projectId, 'building_id'=>$buildingId]) ?>
 <?php if ($inspection !== null && ($_GET['saved'] ?? '') === '1'): ?><p class="notice-success" role="status">Bevinding opgeslagen in het inspectiedossier.</p><?php endif; ?>
 <?php if ($inspection !== null && isset($_GET['photo_saved']) && is_string($_GET['photo_saved']) && preg_match('/^[1-9][0-9]*$/D',$_GET['photo_saved'])): ?><p class="notice-success" role="status">Foto opgeslagen bij de inspectie.</p><?php endif; ?>
 <?php if ($inspection !== null && (($_GET['view'] ?? '') !== 'form')): ?>
