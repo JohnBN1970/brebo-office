@@ -43,7 +43,8 @@ try {
     $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
         new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time()
     );
-    if ($provider->currentOperator() === null) {
+    $operator = $provider->currentOperator();
+    if ($operator === null) {
         header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
         exit;
     }
@@ -51,6 +52,20 @@ try {
     http_response_code(503);
     exit('Documenten tijdelijk niet beschikbaar.');
 }
+$projectId = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if (array_key_exists('project_id', $_GET) && !is_int($projectId)) {
+    http_response_code(400);
+    exit('Ongeldig projectnummer.');
+}
+if (is_int($projectId)) {
+    require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
+    if (!(new \\Brebo\\Office\\Project\\OfficeNativeProjectAccess($db))->canRead($operator->operatorId, $projectId)) {
+        http_response_code(404);
+        exit('Project niet gevonden.');
+    }
+}
+$documentScope = is_int($projectId) ? ['project_id' => $projectId] : [];
+$inspectionUrl = '/office-test/inspecties' . (is_int($projectId) ? '?project_id=' . $projectId : '');
 require_once dirname(__DIR__) . '/src/Documents/OfficeNewDocumentMenu.php';
 header('Content-Type: text/html; charset=utf-8');
 ?>
@@ -68,10 +83,10 @@ a{color:#1c5f8d}.muted{color:#5d6b79}.office-new-document{position:relative}
 .office-new-document li{padding:7px}.office-new-document span[aria-disabled]{color:#697685}
 </style></head><body><main>
 <header><div><h1>Documenten</h1><p class="muted">Centraal toegangspunt voor documenten in BREBO Office.</p></div>
-<?= \Brebo\Office\Documents\OfficeNewDocumentMenu::render('documenten') ?>
+<?= \Brebo\Office\Documents\OfficeNewDocumentMenu::render('documenten', $documentScope) ?>
 </header>
 <section><h2>Documentenoverzicht</h2>
-<p>De bestaande inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.</p>
-<p><a href="/office-test/inspecties">Inspectierapporten bekijken</a></p>
+<p>De bestaande inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.<?= is_int($projectId) ? " Projectfilter: " . (int) $projectId . "." : "" ?></p>
+<p><a href="<?= htmlspecialchars($inspectionUrl, ENT_QUOTES, "UTF-8") ?>">Inspectierapporten bekijken</a></p>
 <p class="muted">Andere documentsoorten worden hier zichtbaar zodra hun centrale registratie en autorisatie zijn aangesloten.</p>
 </section></main></body></html>
