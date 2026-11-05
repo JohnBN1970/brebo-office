@@ -1,0 +1,87 @@
+name: Activate Finance presentation mode on Office-test
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ACTIVATE-FINANCE-PRESENTATION-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  activate:
+    if: ${{ inputs.confirmation == 'ACTIVATE-FINANCE-PRESENTATION-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Activate isolated test config, fail closed
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "RUN_ID='$GITHUB_RUN_ID' bash -se" <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          base="$root/release-office-test-contractform-20261030/private"
+          config="$root/config/config.php"
+          entry="$base/public/office-finance.php"
+          view="$base/src/Finance/OfficeFinancePresentationView.php"
+          test -f "$config" && test ! -L "$config" || { echo TEST_CONFIG_UNSAFE; exit 20; }
+          test -f "$entry" && test -f "$view" || { echo PRESENTATION_GUARD_MISSING; exit 21; }
+          grep -Fq "OFFICE_FINANCE_PRESENTATION_MODE" "$entry" || exit 22
+          grep -Fq "OfficeFinancePresentationView::render()" "$entry" || exit 23
+          php -l "$config" >/dev/null
+          php -l "$entry" >/dev/null
+          php -l "$view" >/dev/null
+          # Validate the isolated config without printing its contents.
+          php -r '
+            $c=require $argv[1];
+            if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??null)!=="/office-test") exit(24);
+            if (!isset($c["OFFICE_INTAKE_PDO_DSN"]) || strpos($c["OFFICE_INTAKE_PDO_DSN"],"u213420663_office_test")===false) exit(25);
+            if (array_key_exists("OFFICE_FINANCE_PRESENTATION_MODE",$c)) exit(($c["OFFICE_FINANCE_PRESENTATION_MODE"]==="enabled")?0:26);
+          ' "$config"
+          backup="$root/config/config.php.finance-presentation-backup-$RUN_ID"
+          cp -p "$config" "$backup"
+          temp="$root/config/.config.php.finance-presentation-$RUN_ID"
+          trap 'rm -f "$temp"' EXIT
+          php -r '
+            $source=file_get_contents($argv[1]);
+            $original=require $argv[1];
+            if (array_key_exists("OFFICE_FINANCE_PRESENTATION_MODE",$original)) {
+              if ($original["OFFICE_FINANCE_PRESENTATION_MODE"]!=="enabled") exit(27);
+              file_put_contents($argv[2],$source); exit;
+            }
+            if (substr_count($source,"return [")!==1) { echo "CONFIG_FORMAT_REVIEW_REQUIRED\n"; exit(28); }
+            $replacement="return [\n  \"OFFICE_FINANCE_PRESENTATION_MODE\" => \"enabled\",";
+            $updated=str_replace("return [",$replacement,$source);
+            if (file_put_contents($argv[2],$updated)!==strlen($updated)) exit(29);
+          ' "$config" "$temp"
+          chmod --reference="$config" "$temp"
+          php -l "$temp" >/dev/null
+          php -r '
+            $old=require $argv[1]; $new=require $argv[2];
+            $old["OFFICE_FINANCE_PRESENTATION_MODE"]="enabled";
+            if ($old!==$new) exit(30);
+          ' "$config" "$temp"
+          mv "$temp" "$config"
+          if ! php -r '$c=require $argv[1]; exit(($c["OFFICE_FINANCE_PRESENTATION_MODE"]??"") === "enabled" ? 0 : 1);' "$config"; then
+            cp -p "$backup" "$config"
+            echo ACTIVATION_ROLLED_BACK
+            exit 31
+          fi
+          echo OFFICE_TEST_PRESENTATION_FLAG_ENABLED
+          echo FINANCE_PRESENTATION_GUARD_PRESENT
+          echo ORIGINAL_CONFIG_BACKUP_PRESERVED
+          echo PRODUCTION_CONFIG_UNCHANGED
+          REMOTE
