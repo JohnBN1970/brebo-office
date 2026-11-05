@@ -11,7 +11,7 @@ final class OfficeNavigation {
     'projecten'=>['Projecten','/projecten'],
     'personeel'=>['Personeel','/projecten?view=inzet'],
     'calculatie-offertes'=>['Calculatie & Offertes','/calculatie-offertes'],
-    'finance'=>['Finance','/finance'],
+    'finance'=>['Financiën','/finance'],
     'informatie'=>['Informatie','/informatie'],
   ];
   public const GOTIK=['geld'=>'Geld','organisatie'=>'Organisatie','tijd'=>'Tijd','informatie'=>'Informatie','kwaliteit'=>'Kwaliteit'];
@@ -85,9 +85,9 @@ final class OfficeNavigation {
           ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']]
           : []
       ):[]],
-      ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
-        ['Finance overzicht','/office-test/finance'],
-        ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+      ['Financiën','bedrijfsvoering',self::financeVisible()?[
+        ['Overzicht','/office-test/finance'],
+        ['Betalingen','/office-test/finance/betaalcentrum'],
         ['Mijn betaalbatchrechten','/office-test/finance/mijn-betaalrechten'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[]],
