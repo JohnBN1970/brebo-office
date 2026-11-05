@@ -71,20 +71,34 @@ jobs:
             if ($start===false || $end===false || $end<=$start) exit(30);
             $guard=substr($desired,$start,$end-$start);
             if (substr_count($desired,$guard)!==1) exit(31);
-            $withoutGuard=substr_replace($desired,"",$start,strlen($guard));
-            if ($withoutGuard!==$active) {
-              // Explain the first differing byte without printing source text.
-              $length=min(strlen($withoutGuard),strlen($active));
-              $at=0;
-              while ($at<$length && $withoutGuard[$at]===$active[$at]) $at++;
-              $line=substr_count(substr($active,0,$at),"\n")+1;
-              printf("INSERTION_ONLY_MISMATCH_ACTIVE_LINE=%d EXPECTED_BYTES=%d ACTIVE_BYTES=%d\n",
-                $line,strlen($withoutGuard),strlen($active));
-              // Never overwrite an active entrypoint with unreviewed drift.
-              exit(32);
+            $base=substr_replace($desired,"",$start,strlen($guard));
+            // Preserve all live code. Allow upstream additions in the staged
+            // branch, but never install them as part of this emergency guard.
+            // Require exact byte-identical prefix up to the guard insertion.
+            $prefix=substr($base,0,$start);
+            if (substr($active,0,strlen($prefix))!==$prefix) {
+              echo "FINANCE_ACTIVE_PREFIX_DRIFT\n"; exit(32);
             }
-            if (strpos($active,"OFFICE_FINANCE_PRESENTATION_MODE")!==false) exit(33);
-            if (file_put_contents($argv[3],$desired)!==strlen($desired)) exit(35);
+            $suffix=substr($active,strlen($prefix));
+            $expectedSuffix=substr($base,strlen($prefix));
+            // Approved drift must be an append-only difference near the tail.
+            // The live tail must be an ordered subsequence of the staged tail,
+            // using complete lines, with no deletions or modifications.
+            $liveLines=explode("\n",$suffix);
+            $stagedLines=explode("\n",$expectedSuffix);
+            $pos=0; $additional=0;
+            foreach ($liveLines as $line) {
+              while ($pos<count($stagedLines) && $stagedLines[$pos]!==$line) { $pos++; $additional++; }
+              if ($pos>=count($stagedLines)) { echo "FINANCE_TAIL_DRIFT_UNREVIEWED\n"; exit(33); }
+              $pos++;
+            }
+            $additional+=count($stagedLines)-$pos;
+            if ($additional>60) { echo "FINANCE_TAIL_DRIFT_TOO_LARGE\n"; exit(34); }
+            if (strpos($active,"OFFICE_FINANCE_PRESENTATION_MODE")!==false) exit(35);
+            $patched=$prefix.$guard.$suffix;
+            if (substr_replace($patched,"",$start,strlen($guard))!==$active) exit(36);
+            if (file_put_contents($argv[3],$patched)!==strlen($patched)) exit(37);
+            printf("FINANCE_INSERTION_ONLY_VERIFIED_EXTRA_BRANCH_LINES=%d\n",$additional);
           ' "$active" "$desired" "$stage/verified-office-finance.php"
           php -l "$stage/verified-office-finance.php"
           backup="$stage/office-finance.original.php"
@@ -103,7 +117,7 @@ jobs:
           install -m 644 "$stage/verified-office-finance.php" "$active"
           php -l "$active"
           php -l "$view"
-          cmp -s "$active" "$desired"
+          cmp -s "$active" "$stage/verified-office-finance.php"
           cmp -s "$view" "$stage/OfficeFinancePresentationView.php"
           trap - ERR
           echo FINANCE_PRESENTATION_GUARD_INSTALLED_TEST_ONLY
