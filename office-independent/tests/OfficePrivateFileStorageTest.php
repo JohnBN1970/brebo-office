@@ -15,9 +15,10 @@ try {
     $storage = new OfficePrivateFileStorage($root);
     $a = $storage->put($source);
     $b = $storage->put($source);
-    assert($a === $b);
-    assert($a['storage_provider'] === 'office_private');
-    assert(file_get_contents($storage->authorizedPath($a['storage_key'])) === 'BREBO original test');
+    if ($a !== $b || $a['storage_provider'] !== 'office_private'
+        || file_get_contents($storage->authorizedPath($a['storage_key'])) !== 'BREBO original test') {
+        throw new RuntimeException('storage_roundtrip_failed');
+    }
     try {
         $storage->authorizedPath('../etc/passwd');
         throw new RuntimeException('traversal_was_accepted');
