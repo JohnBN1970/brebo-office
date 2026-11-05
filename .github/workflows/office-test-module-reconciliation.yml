@@ -1,0 +1,66 @@
+name: Office-test module reconciliation report
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Build source-file manifest
+        run: |
+          set -euo pipefail
+          find office-independent/public office-independent/src -type f -name '*.php' -print |
+            sed 's#^office-independent/##' | LC_ALL=C sort > /tmp/office-source-files.txt
+          echo "GITHUB_SOURCE_FILE_COUNT=$(wc -l < /tmp/office-source-files.txt)"
+      - name: Read-only compare active release and source
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$root/config/config.php"
+          test -f "$config" || exit 20
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ACTIVE_SCOPE_INVALID; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || exit 22
+          echo "ACTIVE_ROOT=$active"
+          echo "RELEASE_PHP_FILES=$(find "$active/public" "$active/src" -type f -name '*.php' 2>/dev/null | wc -l)"
+          echo "PREVIOUS_RELEASES:"
+          find "$root" -maxdepth 1 -type d -name 'release-*' -printf '%f\n' | LC_ALL=C sort | tail -n 20
+          REMOTE
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-source-files.txt "$USER@$HOST:/tmp/office-source-files-compare-$$.txt"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) exit 21;; esac
+          manifest="$(find /tmp -maxdepth 1 -type f -name 'office-source-files-compare-*.txt' -printf '%T@ %p\n' | sort -n | tail -n 1 | cut -d' ' -f2-)"
+          test -n "$manifest" && test -f "$manifest" || exit 23
+          echo "=== MISSING_RELATIVE_TO_GITHUB_SOURCE ==="
+          count=0
+          while IFS= read -r path; do
+            case "$path" in public/*.php|src/*.php|src/*/*.php|src/*/*/*.php) ;; *) continue;; esac
+            if test ! -f "$active/$path"; then
+              echo "ABSENT $path"
+              count=$((count+1))
+            fi
+          done < "$manifest"
+          echo "ABSENT_COUNT=$count"
+          rm -f "$manifest"
+          echo MODULE_RECONCILIATION_READONLY_COMPLETE
+          REMOTE
