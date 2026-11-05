@@ -10,6 +10,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Verify deployed intake route and handler without changing server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            base=/home/u213420663/domains/brebobv.nl/office_calc_test
+            router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            active="$base/release-office-test-contractform-20261030/private"
+            test -f "$router" && test -f "$active/public/office-intake-receive.php"
+            grep -Fq '/office-test/api/intake/v1/receive' "$router"
+            grep -Fq 'OFFICE_INTAKE_RECEIVER_ENABLED' "$router"
+            /opt/alt/php83/usr/bin/php -l "$router"
+            /opt/alt/php83/usr/bin/php -l "$active/public/office-intake-receive.php"
+            echo 'OFFICE_TEST_INTAKE_ROUTER_AND_HANDLER_PRESENT'
       - name: Confirm isolated test endpoint is fail-closed
         shell: bash
         run: |
