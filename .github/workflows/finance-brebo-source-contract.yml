@@ -28,6 +28,9 @@ jobs:
         run: |
           set -euo pipefail
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
+          php -l office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
+          php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
           php -l office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
       - name: Validate bank reconciliation boundary
