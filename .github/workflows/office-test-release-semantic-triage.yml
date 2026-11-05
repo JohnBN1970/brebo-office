@@ -56,8 +56,9 @@ jobs:
             test -f "$stage/$path" || continue
             if test ! -f "$active/$path"; then echo "MISSING $path"; continue; fi
             echo "=== $path ==="
-            diff -u "$stage/$path" "$active/$path" | diffstat 2>/dev/null || true
-            git diff --no-index --numstat -- "$stage/$path" "$active/$path" || test "$?" -eq 1
+            echo "SOURCE_LINES=$(wc -l < "$stage/$path") ACTIVE_LINES=$(wc -l < "$active/$path")"
+            echo "SOURCE_SHA=$(sha256sum "$stage/$path" | awk '{print $1}')"
+            echo "ACTIVE_SHA=$(sha256sum "$active/$path" | awk '{print $1}')"
             for marker in BREBO_PROJECT_DETAIL_V3_MOUNT create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
               if grep -Fq "$marker" "$active/$path"; then echo "ACTIVE_MARKER $marker"; fi
             done
