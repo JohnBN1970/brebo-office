@@ -1,0 +1,43 @@
+name: Audit Office-test V3 recovery candidates
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active controller and both backups (read only)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_TEST_SCOPE; exit 20;; esac
+          n=0
+          for file in "$active/public/office-project.php" "$base/inspection-deploy-stage/integration-backup-20261103T105144Z/public/office-project.php" "$base/backup-crm-relaties-20261104-060645/public/office-project.php"; do
+            n=$((n+1))
+            echo "CANDIDATE=$n"
+            if test ! -f "$file" || test -L "$file"; then echo FILE_UNAVAILABLE; continue; fi
+            php -l "$file"
+            sha256sum "$file" | cut -d' ' -f1
+            wc -l < "$file"
+            for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View breboV23Render create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
+              if grep -Fq "$marker" "$file"; then echo "PRESENT: $marker"; else echo "MISSING: $marker"; fi
+            done
+          done
+          echo READ_ONLY_CANDIDATE_AUDIT_COMPLETE
+          REMOTE
