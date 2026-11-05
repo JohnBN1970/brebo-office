@@ -39,7 +39,7 @@ jobs:
               ];
               $ok=true;
               foreach ($checks as $name=>$valid) {
-                echo $name."=".($valid?"yes":"no")."\\n";
+                echo $name."=".($valid?"yes":"no")."\n";
                 $ok=$ok&&$valid;
               }
               if (!$ok) {exit(2);}
