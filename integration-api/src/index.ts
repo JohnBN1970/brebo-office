@@ -2,7 +2,7 @@ import { analyzeRequestSchema } from "./contracts";
 import { submitBusinessAccountPayment, AbnAmroConfigurationError, AbnAmroResponseError } from "./abnamro";
 import { getAccountBalance, getBookedActivities, AbnAmroInsightConfigurationError, AbnAmroInsightResponseError } from "./abnamro-insight";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
-import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
+import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listBankMutations, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
 export { ReplayGuard } from "./replay-guard";
 export { UsageGuard } from "./usage-guard";
@@ -27,6 +27,8 @@ export default {
         response = await accountingPurchaseInvoices(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "GET") {
         response = await accountingSalesInvoices(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/accounting/bank-mutations" && request.method === "GET") {
+        response = await accountingBankMutations(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/business-health" && request.method === "GET") {
         response = await accountingBusinessHealth(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/banking/payments/submit" && request.method === "POST") {
@@ -201,6 +203,24 @@ async function accountingSalesInvoices(request: Request, env: Env, path: string,
     if (error instanceof MoneybirdResponseError) {
       console.error(JSON.stringify({ event: "moneybird_sales_invoice_read_failed", request_hash: await sha256Hex(requestId), provider_status: error.status }));
       return errorResponse(502, "accounting_read_failed", "Accounting provider sales invoice read failed.", requestId);
+    }
+    throw error;
+  }
+}
+
+async function accountingBankMutations(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  const auth = await authenticate(request, env, path, "", requestId);
+  if (auth) return auth;
+  if (!env.MONEYBIRD_ACCESS_TOKEN || !env.MONEYBIRD_ADMINISTRATION_ID || env.MONEYBIRD_ADMINISTRATION_ID === "REPLACE_IN_DEPLOYMENT") {
+    return errorResponse(503, "accounting_not_configured", "Accounting provider configuration is incomplete.", requestId);
+  }
+  try {
+    const bankMutations = await listBankMutations(env);
+    return Response.json({ status: "ok", request_id: requestId, provider: "moneybird", bank_mutations: bankMutations });
+  } catch (error) {
+    if (error instanceof MoneybirdResponseError) {
+      console.error(JSON.stringify({ event: "moneybird_bank_mutations_read_failed", request_hash: await sha256Hex(requestId), provider_status: error.status }));
+      return errorResponse(502, "accounting_read_failed", "Accounting provider bank mutations read failed.", requestId);
     }
     throw error;
   }
