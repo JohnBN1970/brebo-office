@@ -1,0 +1,15 @@
+name: Office project document service acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeProjectDocumentService.php'
+      - '.github/workflows/office-project-document-service-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Documents/OfficeProjectDocumentService.php
