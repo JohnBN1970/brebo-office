@@ -63,35 +63,41 @@ jobs:
               if (file_put_contents($argv[2],$source)!==strlen($source)) exit(29);
               exit;
             }
-            // Support both PHP array syntaxes: return [...]; and return array(...);
-            // Change only the outermost returned array, never rewrite existing keys.
-            $tokens=token_get_all($source);
-            $offset=0; $returns=[];
-            foreach ($tokens as $i=>$token) {
+            // The actual isolated config has a computed return expression.
+            // Preserve it completely by wrapping the original PHP in a
+            // static, closure-scoped expression and adding only one flag.
+            // Avoid any printing of confidential config values.
+            $originalTokens=token_get_all($source);
+            $returnCount=0;
+            foreach ($originalTokens as $token) {
+              if (is_array($token) && $token[0]===T_RETURN) $returnCount++;
+            }
+            if ($returnCount!==1) { echo "CONFIG_RETURN_COUNT_UNREVIEWED\n"; exit(28); }
+            if (!str_starts_with(ltrim($source),"<?php")) { echo "CONFIG_HEADER_UNREVIEWED\n"; exit(28); }
+            // Insert a single extra assignment just before the outer return.
+            // Require exactly one top-level return in the existing config.
+            $depth=0; $offset=0; $returnAt=null;
+            foreach ($originalTokens as $token) {
               $text=is_array($token)?$token[1]:$token;
-              if (is_array($token) && $token[0]===T_RETURN) $returns[]=[$i,$offset];
+              if ($text==="{") $depth++;
+              elseif ($text==="}") $depth--;
+              if (is_array($token) && $token[0]===T_RETURN && $depth===0) $returnAt=$offset;
               $offset+=strlen($text);
             }
-            if (count($returns)!==1) { echo "CONFIG_RETURN_COUNT_UNREVIEWED\n"; exit(28); }
-            [$idx,$returnAt]=$returns[0];
-            $cursor=$idx+1;
-            while (isset($tokens[$cursor]) && is_array($tokens[$cursor]) && in_array($tokens[$cursor][0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) $cursor++;
-            $token=$tokens[$cursor]??null;
-            if ($token==="[") {
-              $needle="[";
-            } elseif (is_array($token) && $token[0]===T_ARRAY) {
-              $cursor++;
-              while (isset($tokens[$cursor]) && is_array($tokens[$cursor]) && in_array($tokens[$cursor][0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) $cursor++;
-              if (($tokens[$cursor]??null)!=="(") exit(28);
-              $needle="(";
-            } else {
-              echo "CONFIG_RETURN_SHAPE_UNREVIEWED\n"; exit(28);
-            }
-            // Locate the chosen opening delimiter via byte offsets of tokens.
-            $at=0;
-            for ($i=0;$i<=$cursor;$i++) $at+=strlen(is_array($tokens[$i])?$tokens[$i][1]:$tokens[$i]);
-            $updated=substr($source,0,$at)."\n  \"OFFICE_FINANCE_PRESENTATION_MODE\" => \"enabled\",".substr($source,$at);
-            if (file_put_contents($argv[2],$updated)!==strlen($updated)) exit(29);
+            if ($returnAt===null) { echo "CONFIG_TOPLEVEL_RETURN_UNREVIEWED\n"; exit(28); }
+            // Wrap the returned value instead of altering the expression
+            // or any of the original settings.
+            $before=substr($source,0,$returnAt);
+            $after=substr($source,$returnAt);
+            $pos=strpos($after,"return");
+            if ($pos===false) exit(28);
+            $expr=substr($after,$pos+6);
+            $trim=trim($expr);
+            if (!str_ends_with($trim,";")) { echo "CONFIG_RETURN_TERMINATOR_UNREVIEWED\n"; exit(28); }
+            $trim=rtrim(substr($trim,0,-1));
+            if (str_contains($trim,"?>")) { echo "CONFIG_MIXED_CONTENT_UNREVIEWED\n"; exit(28); }
+            $modified=$before."return array_replace((".$trim."), [\"OFFICE_FINANCE_PRESENTATION_MODE\" => \"enabled\"]);\n";
+            if (file_put_contents($argv[2],$modified)!==strlen($modified)) exit(29);
           ' "$config" "$temp"
           chmod --reference="$config" "$temp"
           php -l "$temp" >/dev/null
