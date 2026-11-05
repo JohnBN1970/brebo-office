@@ -8,6 +8,7 @@ on:
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsRead.php'
       - 'office-independent/tests/OfficeRoleSettingsReadTest.php'
+      - 'office-independent/tests/OfficeRoleSettingsWriteTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettings.php'
       - 'office-independent/tests/OfficeRoleSettingsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
@@ -35,6 +36,7 @@ on:
       - 'office-independent/src/Offer/OfficeRoleSettingsView.php'
       - 'office-independent/src/Offer/OfficeRoleSettingsRead.php'
       - 'office-independent/tests/OfficeRoleSettingsReadTest.php'
+      - 'office-independent/tests/OfficeRoleSettingsWriteTest.php'
       - 'office-independent/src/Offer/OfficeRoleSettings.php'
       - 'office-independent/tests/OfficeRoleSettingsViewTest.php'
       - 'office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php'
@@ -71,6 +73,7 @@ jobs:
           php -l office-independent/src/Offer/OfficeRoleSettingsView.php
           php -l office-independent/src/Offer/OfficeRoleSettingsRead.php
           php -l office-independent/tests/OfficeRoleSettingsReadTest.php
+          php -l office-independent/tests/OfficeRoleSettingsWriteTest.php
           php -l office-independent/src/Offer/OfficeRoleSettings.php
           php -l office-independent/tests/OfficeRoleSettingsViewTest.php
           php -l office-independent/src/Finance/OfficeFinanceBatchPermissionCatalog.php
@@ -92,6 +95,7 @@ jobs:
           php office-independent/tests/OfficeRoleSettingsModuleCatalogTest.php
           php office-independent/tests/OfficeRoleSettingsViewTest.php
           php office-independent/tests/OfficeRoleSettingsReadTest.php
+          php office-independent/tests/OfficeRoleSettingsWriteTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionCatalogTest.php
           php office-independent/tests/OfficeFinanceBatchAccessTest.php
           php office-independent/tests/OfficeFinanceBatchPermissionsViewTest.php
