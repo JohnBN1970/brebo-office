@@ -45,6 +45,9 @@ try {
       header('Allow: GET');
       exit('Presentatiemodus: wijzigingen zijn uitgeschakeld.');
     }
+    header('Cache-Control: no-store, no-cache, must-revalidate, private');
+    header('Pragma: no-cache');
+    header('X-Robots-Tag: noindex, nofollow, noarchive');
     require_once dirname(__DIR__) . '/src/Finance/OfficeFinancePresentationView.php';
     header('Content-Type: text/html; charset=utf-8');
     echo \Brebo\Office\Finance\OfficeFinancePresentationView::render();
