@@ -11,6 +11,7 @@ on:
       - 'office-independent/tests/OfficeMoneybirdBankFeedAdapterTest.php'
       - 'integration-api/src/moneybird.ts'
       - 'integration-api/test/moneybird-bank-mutations.test.ts'
+      - 'integration-api/vitest.moneybird.config.ts'
       - '.github/workflows/finance-presentation-moneybird.yml'
   pull_request:
     paths:
@@ -45,4 +46,4 @@ jobs:
           cache-dependency-path: integration-api/package-lock.json
       - run: npm ci
       - run: npm run typecheck
-      - run: npm test -- --run test/moneybird-bank-mutations.test.ts
+      - run: npx vitest run --config vitest.moneybird.config.ts
