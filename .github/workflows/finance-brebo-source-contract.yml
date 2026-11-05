@@ -1,0 +1,52 @@
+name: BREBO Finance source-of-truth contract
+on:
+  pull_request:
+    paths:
+      - 'integration-api/src/**'
+      - 'integration-api/test/**'
+      - 'web/modules/custom/brebo_finance/src/Service/**'
+      - '.github/workflows/finance-brebo-source-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  financial-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate legacy Finance PHP clients
+        run: |
+          set -euo pipefail
+          for file in \
+            web/modules/custom/brebo_finance/src/Service/PurchaseInvoiceIntegrationClient.php \
+            web/modules/custom/brebo_finance/src/Service/SalesInvoiceReceivablesIntegrationClient.php \
+            web/modules/custom/brebo_finance/src/Service/BusinessHealthIntegrationClient.php; do
+            php -l "$file"
+            grep -Fq 'Moneybird financial import disabled' "$file"
+          done
+      - name: Test standalone Office bank projection
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
+          php -l office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
+          php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
+          php -l office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+      - name: Validate bank reconciliation boundary
+        run: |
+          set -euo pipefail
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdBankMutationAdapter.php
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdBankReconciliationService.php
+          php -l web/modules/custom/brebo_finance/src/Service/BankTransactionReconciliationManager.php
+          php -l web/modules/custom/brebo_finance/tests/src/Unit/MoneybirdBankMutationAdapterTest.php
+          grep -Fq 'moneybird_bank_reconciliation_service:' web/modules/custom/brebo_finance/brebo_finance.services.yml
+          grep -Fq 'bank_counterparty_unverified' web/modules/custom/brebo_finance/src/Service/BankTransactionReconciliationManager.php
+      - name: Verify bank-only and invoice dispatch routes
+        run: |
+          set -euo pipefail
+          grep -Fq '"/v1/accounting/bank-data"' integration-api/src/index.ts
+          grep -Fq '"moneybird_financial_import_disabled"' integration-api/src/index.ts
+          grep -Fq 'request.method === "POST"' integration-api/src/index.ts
+          grep -Fq 'financial_mutations.json' integration-api/src/moneybird.ts
+          echo BREBO_FINANCE_SOURCE_CONTRACT=PASS

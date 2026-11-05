@@ -19,6 +19,8 @@ final class SalesInvoiceReceivablesIntegrationClient {
 
   /** @return array<int, array<string, mixed>> */
   public function fetchAll(): array {
+    // BREBO Office owns financial records. Never read Moneybird invoices or KPIs.
+    throw new \RuntimeException('Moneybird financial import disabled: BREBO Office is the source of truth.');
     $configuration = $this->config->configuration();
     $baseUrl = $configuration['base_url'];
     $secret = $configuration['shared_secret'];

@@ -1,0 +1,63 @@
+name: Office-test Moneybird bank rollout preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate Office-only bank code
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
+          php -l office-independent/src/Finance/OfficeMoneybirdBankReadService.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
+      - name: Check deployment secrets
+        run: |
+          set -euo pipefail
+          for key in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            test -n "${!key}" || { echo "::error::Missing $key"; exit 1; }
+          done
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_bank_key
+          chmod 600 ~/.ssh/office_bank_key
+      - name: Inspect isolated Office-test release (read only)
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          root="$(php -r '$c=require $argv[1]; if (!is_array($c) || !isset($c["OFFICE_PRIVATE_ROOT"])) exit(1); echo $c["OFFICE_PRIVATE_ROOT"];' "$config")"
+          case "$root" in "$base"/release-*/private) ;; *) echo OFFICE_TEST_ROOT_INVALID; exit 20;; esac
+          test -d "$root/src/Finance" && test ! -L "$root"
+          test -f "$root/src/Finance/bootstrap.php"
+          test -f "$root/public/office-finance.php"
+          php -l "$root/public/office-finance.php"
+          php -l "$root/src/Finance/bootstrap.php"
+          for file in OfficeMoneybirdBankSnapshot.php OfficeMoneybirdBankReadService.php; do
+            if test -f "$root/src/Finance/$file"; then
+              php -l "$root/src/Finance/$file"
+              echo "ACTIVE_$file=present"
+            else
+              echo "ACTIVE_$file=missing"
+            fi
+          done
+          echo OFFICE_BANK_TEST_PREFLIGHT_OK_READ_ONLY
+          echo NO_RELEASE_FILES_OR_CONFIG_CHANGED
+          REMOTE
