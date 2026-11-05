@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAndSendSalesInvoice, listPurchaseInvoices } from "../src/moneybird";
+import { createAndSendSalesInvoice, getBankSnapshot, listPurchaseInvoices } from "../src/moneybird";
 
 describe("Moneybird sales invoice dispatch", () => {
   afterEach(() => {
@@ -156,5 +156,32 @@ describe("Moneybird purchase invoice read", () => {
       origin: "email",
     }]);
     expect(JSON.stringify(result)).not.toContain("must-not-be-forwarded");
+  });
+});
+
+describe("BREBO-owned finance: Moneybird bank-only read", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("reads bank accounts and mutations without fetching invoices or P&L", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json([
+        { id: "a1", type: "BankAccount", name: "Zakelijk", identifier: "NL00TEST", currency: "EUR" },
+        { id: "a2", type: "CashAccount", name: "Kas" },
+      ]))
+      .mockResolvedValueOnce(Response.json([
+        { id: "m1", financial_account_id: "a1", date: "2026-11-05", amount: "12.50", message: "Bijschrijving", documents: [{ secret: "invoice" }] },
+        { id: "m2", financial_account_id: "a2", amount: "99.00" },
+      ]));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await getBankSnapshot({ MONEYBIRD_ADMINISTRATION_ID: "999", MONEYBIRD_ACCESS_TOKEN: "token" } as Env);
+    expect(result.accounts).toEqual([{ id: "a1", name: "Zakelijk", identifier: "NL00TEST", currency: "EUR" }]);
+    expect(result.transactions).toEqual([{ id: "m1", financial_account_id: "a1", date: "2026-11-05", amount: "12.50", message: "Bijschrijving" }]);
+    expect(result.balances_available).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("invoice");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const urls = fetchMock.mock.calls.map(call => String(call[0]));
+    expect(urls[0]).toContain("/financial_accounts.json");
+    expect(urls[1]).toContain("/financial_mutations.json");
+    expect(urls.join(" ")).not.toMatch(/purchase_invoices|sales_invoices|profit_loss|cash_flow/);
   });
 });
