@@ -169,26 +169,25 @@ jobs:
             if ($url === "" || $secret === "") exit(26);
           '
 
-          echo '=== Moneybird read-only connectivity ==='
+          echo '=== Moneybird invoice imports must remain disabled ==='
           "${drush[@]}" php:eval '
-            try {
-              $purchase = \Drupal::service("brebo_finance.purchase_invoice_integration_client")->fetchAll();
-              echo "FINANCE_MONEYBIRD_PURCHASE_READ_OK=1\n";
-              echo "FINANCE_MONEYBIRD_PURCHASE_RECORDS=" . count($purchase) . "\n";
+            foreach ([
+              "brebo_finance.purchase_invoice_integration_client",
+              "brebo_finance.sales_invoice_receivables_integration_client",
+            ] as $id) {
+              try {
+                \Drupal::service($id)->fetchAll();
+                echo "FINANCE_MONEYBIRD_INVOICE_IMPORT_DISABLED=0\n";
+                exit(27);
+              }
+              catch (\RuntimeException $e) {
+                if (!str_contains($e->getMessage(), "Moneybird financial import disabled")) {
+                  echo "FINANCE_MONEYBIRD_INVOICE_IMPORT_GUARD_UNEXPECTED=1\n";
+                  exit(28);
+                }
+              }
             }
-            catch (\Throwable $e) {
-              echo "FINANCE_MONEYBIRD_PURCHASE_READ_OK=0\n";
-              exit(27);
-            }
-            try {
-              $sales = \Drupal::service("brebo_finance.sales_invoice_receivables_integration_client")->fetchAll();
-              echo "FINANCE_MONEYBIRD_SALES_READ_OK=1\n";
-              echo "FINANCE_MONEYBIRD_SALES_RECORDS=" . count($sales) . "\n";
-            }
-            catch (\Throwable $e) {
-              echo "FINANCE_MONEYBIRD_SALES_READ_OK=0\n";
-              exit(28);
-            }
+            echo "FINANCE_MONEYBIRD_INVOICE_IMPORT_DISABLED=1\n";
           '
 
           echo '=== Finance capability boundary ==='
