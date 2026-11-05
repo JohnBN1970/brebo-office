@@ -24,6 +24,15 @@ jobs:
             php -l "$file"
             grep -Fq 'Moneybird financial import disabled' "$file"
           done
+      - name: Validate bank reconciliation boundary
+        run: |
+          set -euo pipefail
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdBankMutationAdapter.php
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdBankReconciliationService.php
+          php -l web/modules/custom/brebo_finance/src/Service/BankTransactionReconciliationManager.php
+          php -l web/modules/custom/brebo_finance/tests/src/Unit/MoneybirdBankMutationAdapterTest.php
+          grep -Fq 'moneybird_bank_reconciliation_service:' web/modules/custom/brebo_finance/brebo_finance.services.yml
+          grep -Fq 'bank_counterparty_unverified' web/modules/custom/brebo_finance/src/Service/BankTransactionReconciliationManager.php
       - name: Verify bank-only and invoice dispatch routes
         run: |
           set -euo pipefail
