@@ -1,0 +1,76 @@
+name: Office-test canonical intake staged install (disabled)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-INTAKE-TEST to stage intake runtime, keeping endpoint disabled
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate files and guarded installer
+        run: |
+          set -euo pipefail
+          bash -n office-independent/deployment/hostinger/install-office-intake-runtime-test.sh
+          php -l office-independent/public/office-intake-receive.php
+          for file in office-independent/src/Intake/OfficeDisciplineCatalog.php office-independent/src/Intake/OfficeProcessBlueprint.php office-independent/src/Intake/OfficeIntakeProcessPlan.php office-independent/src/Intake/OfficeCanonicalIntakeRepository.php office-independent/src/Intake/OfficeCanonicalIntakeAdapter.php office-independent/src/Buildings/OfficeIntakeBuildingResolver.php office-independent/src/Intake/OfficeCanonicalIntakeBuildingHandoff.php office-independent/src/Intake/OfficeIntakeSourceAuthenticator.php office-independent/src/Intake/OfficeIntakeReplayGuard.php office-independent/src/Intake/OfficeIntakeSecureReceiver.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeIntakeHttpRouteContractTest.php
+          php office-independent/tests/OfficeIntakeSourceAuthenticatorTest.php
+  install:
+    needs: verify
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'INSTALL-INTAKE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create isolated test-only tar archive
+        run: |
+          set -euo pipefail
+          tar -C office-independent -czf /tmp/intake-runtime-stage.tar.gz public/office-intake-receive.php src/Intake/OfficeDisciplineCatalog.php src/Intake/OfficeProcessBlueprint.php src/Intake/OfficeIntakeProcessPlan.php src/Intake/OfficeCanonicalIntakeRepository.php src/Intake/OfficeCanonicalIntakeAdapter.php src/Buildings/OfficeIntakeBuildingResolver.php src/Intake/OfficeCanonicalIntakeBuildingHandoff.php src/Intake/OfficeIntakeSourceAuthenticator.php src/Intake/OfficeIntakeReplayGuard.php src/Intake/OfficeIntakeSecureReceiver.php
+      - name: Install SSH key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Copy staged archive and installer to Office-test staging area
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$USER" && test -n "$PORT"
+          remote="$USER@$HOST"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'mkdir -p "$HOME/domains/brebobv.nl/office_calc_test/.intake-runtime-install-stage"'
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" /tmp/intake-runtime-stage.tar.gz "$remote:domains/brebobv.nl/office_calc_test/.intake-runtime-install-stage/stage.tar.gz"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" office-independent/deployment/hostinger/install-office-intake-runtime-test.sh "$remote:domains/brebobv.nl/office_calc_test/.intake-runtime-install-stage/install.sh"
+      - name: Install additive Office-test intake files with router backup and rollback
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$root/.intake-runtime-install-stage"
+          mkdir -p "$stage/office-independent"
+          tar -tzf "$stage/stage.tar.gz" | grep -Fxq 'public/office-intake-receive.php'
+          tar -xzf "$stage/stage.tar.gz" -C "$stage/office-independent"
+          bash -n "$stage/install.sh"
+          bash "$stage/install.sh"
+          REMOTE
