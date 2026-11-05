@@ -38,8 +38,8 @@ echo "OFFICE_TEST_INTAKE_ROUTE_PRESENT=" . (str_contains($router, '/office-test/
 echo "OFFICE_TEST_INTAKE_ROUTE_FLAG_GUARD=" . (str_contains($router, "getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled'") ? 'yes' : 'no') . "\n";
 $matches = [];
 if (preg_match('/\$root\s*=\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]\s*;/', $router, $matches) !== 1) {
-    echo "OFFICE_TEST_ACTIVE_RELEASE=unknown\\n";
-    // Inspect only known isolated root; do not reveal arbitrary source or configuration.
+    echo "OFFICE_TEST_ACTIVE_RELEASE=unknown\n";
+    // Read-only router classification, never print source/configuration or arbitrary paths.
     $possible = [];
     foreach (glob($root . '/release-*/private', GLOB_ONLYDIR) ?: [] as $candidate) {
         if (is_file($candidate . '/public/office-home.php')) {
@@ -47,13 +47,34 @@ if (preg_match('/\$root\s*=\s*[\x27\x22]([^\x27\x22]+)[\x27\x22]\s*;/', $router,
         }
     }
     sort($possible);
-    echo "OFFICE_TEST_RELEASE_CANDIDATES=" . implode(',', $possible) . "\\n";
-    echo "OFFICE_TEST_ROUTER_SHA256=" . hash_file('sha256', $routerFile) . "\\n";
+    echo "OFFICE_TEST_RELEASE_CANDIDATES=" . implode(',', $possible) . "\n";
+    echo "OFFICE_TEST_ROUTER_SHA256=" . hash_file('sha256', $routerFile) . "\n";
+    $releaseMarkers = [];
+    // Only fixed safe basenames, not arbitrary path values.
+    foreach ($possible as $releaseName) {
+        if (str_contains($router, $releaseName)) {
+            $releaseMarkers[] = $releaseName;
+        }
+    }
+    echo "OFFICE_TEST_ROUTER_REFERENCED_RELEASES=" . implode(',', $releaseMarkers) . "\n";
     foreach ([
-        'office-independent.php', 'router.php', 'bootstrap.php', 'office-test.php',
-    ] as $safeMarker) {
-        echo "OFFICE_TEST_ROUTER_HAS_" . strtoupper(str_replace(['.', '-'], '_', $safeMarker)) . "="
-            . (str_contains($router, $safeMarker) ? 'yes' : 'no') . "\\n";
+        'require', 'include', 'realpath(', 'dirname(', 'getenv(', 'OFFICE_PRIVATE_ROOT',
+        'OFFICE_BASE_PATH', 'bootstrap.php', 'config.php', '__DIR__', 'header(',
+        'REQUEST_URI', 'PATH_INFO', 'office-home.php',
+    ] as $marker) {
+        $label = strtoupper(preg_replace('/[^a-z0-9]+/i', '_', $marker));
+        echo "OFFICE_TEST_ROUTER_MARKER_" . trim($label, '_') . "="
+            . (str_contains($router, $marker) ? 'yes' : 'no') . "\n";
+    }
+    // Identify only known release locations and presence, no files accessed beyond isolated scope.
+    foreach ($possible as $releaseName) {
+        $candidate = $root . '/' . $releaseName . '/private';
+        if (!str_contains($router, $releaseName)) {
+            continue;
+        }
+        echo "OFFICE_TEST_REFERENCED_RELEASE=" . $releaseName . "\n";
+        echo "OFFICE_TEST_REFERENCED_INTAKE_HANDLER="
+            . (is_file($candidate . '/public/office-intake-receive.php') ? 'yes' : 'no') . "\n";
     }
     exit(0);
 }
