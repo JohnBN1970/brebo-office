@@ -72,13 +72,13 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if ($buildings === []) {
   echo '<p>Geen toegankelijke gebouwen gevonden.</p>';
 } else {
-  echo '<table><thead><tr><th>Gebouw</th><th>Adres</th><th>Projecten</th><th>Actieve zones</th></tr></thead><tbody>';
+  echo '<table><thead><tr><th>Gebouw</th><th>Adres</th><th>Projecten</th><th>Actieve zones</th><th>Documenten</th></tr></thead><tbody>';
   foreach ($buildings as $building) {
     $address = trim(implode(' ', array_filter([
       $building['street_address'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''
     ], static fn($part) => is_string($part) && trim($part) !== '')));
     echo '<tr><td>' . $h($building['building_name']) . '</td><td>' . $h($address) .
-      '</td><td>' . $h($building['project_count']) . '</td><td>' . $h($building['active_zone_count']) . '</td></tr>';
+      '</td><td>' . $h($building['project_count']) . '</td><td>' . $h($building['active_zone_count']) . '</td><td><a href="/office-test/documenten">Documenten</a></td></tr>';
   }
   echo '</tbody></table>';
 }
