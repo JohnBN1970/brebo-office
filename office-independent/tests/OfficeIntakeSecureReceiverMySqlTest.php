@@ -61,9 +61,9 @@ $body = json_encode([
  'disciplines' => ['bouw'], 'address' => 'Marktstraat 10',
  'postal_code' => '1234ab', 'city' => 'Rotterdam',
 ], JSON_THROW_ON_ERROR);
-$sign = static fn (string $raw): string => 'sha256=' . hash_hmac('sha256', "website\n" . $timestamp . "\n" . $raw, $key);
+$sign = static fn (string $raw, string $nonce): string => 'sha256=' . hash_hmac('sha256', "website\n" . $timestamp . "\n" . $nonce . "\n" . $raw, $key);
 $nonce = hash('sha256', 'delivery-1');
-$first = $receiver->receive('website', $body, $timestamp, $sign($body), $nonce, $now);
+$first = $receiver->receive('website', $body, $timestamp, $sign($body, $nonce), $nonce, $now);
 if ($first['request_id'] < 1 || (string) $first['building_id'] !== '42'
  || $first['building_resolution'] !== 'linked') {
     throw new RuntimeException('signed_registration_failed');
@@ -81,14 +81,18 @@ $expectRejected(
  'replay_was_accepted'
 );
 $expectRejected(
- static fn () => $receiver->receive('website', $body . ' ', $timestamp, $sign($body), hash('sha256', 'delivery-tampered'), $now),
+ static fn () => $receiver->receive('website', $body . ' ', $timestamp, $sign($body, hash('sha256', 'delivery-tampered')), hash('sha256', 'delivery-tampered'), $now),
  'tampered_payload_accepted'
 );
 $expectRejected(
- static fn () => $receiver->receive('website', $body, (string) ($now - 301), $sign($body), hash('sha256', 'delivery-expired'), $now),
+ static fn () => $receiver->receive('website', $body, (string) ($now - 301), $sign($body, hash('sha256', 'delivery-expired')), hash('sha256', 'delivery-expired'), $now),
  'expired_payload_accepted'
 );
-$retry = $receiver->receive('website', $body, $timestamp, $sign($body), hash('sha256', 'delivery-2'), $now);
+$expectRejected(
+ static fn () => $receiver->receive('website', $body, $timestamp, $sign($body, $nonce), hash('sha256', 'forged-nonce'), $now),
+ 'nonce_substitution_accepted'
+);
+$retry = $receiver->receive('website', $body, $timestamp, $sign($body, hash('sha256', 'delivery-2')), hash('sha256', 'delivery-2'), $now);
 if ($retry !== $first) {
     throw new RuntimeException('fresh_nonce_retry_failed');
 }
