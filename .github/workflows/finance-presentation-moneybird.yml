@@ -1,0 +1,45 @@
+name: Finance presentation and Moneybird contract
+on:
+  push:
+    paths:
+      - 'office-independent/src/Finance/OfficeFinancePresentationView.php'
+      - 'office-independent/src/Finance/OfficeMoneybirdBankFeedAdapter.php'
+      - 'office-independent/public/office-finance.php'
+      - 'office-independent/tests/OfficeFinancePresentationViewTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankFeedAdapterTest.php'
+      - 'integration-api/src/moneybird.ts'
+      - 'integration-api/test/moneybird-bank-mutations.test.ts'
+      - '.github/workflows/finance-presentation-moneybird.yml'
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - 'integration-api/**'
+      - '.github/workflows/finance-presentation-moneybird.yml'
+jobs:
+  finance-php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - run: php -l office-independent/public/office-finance.php
+      - run: php -l office-independent/src/Finance/OfficeFinancePresentationView.php
+      - run: php -l office-independent/src/Finance/OfficeMoneybirdBankFeedAdapter.php
+      - run: php office-independent/tests/OfficeFinancePresentationViewTest.php
+      - run: php office-independent/tests/OfficeMoneybirdBankFeedAdapterTest.php
+  moneybird-ts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integration-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: integration-api/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test -- --run test/moneybird-bank-mutations.test.ts
