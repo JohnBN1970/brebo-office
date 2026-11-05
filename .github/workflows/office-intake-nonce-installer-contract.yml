@@ -1,0 +1,39 @@
+name: Office intake nonce installer contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-nonce-test.php'
+      - '.github/workflows/office-intake-hostinger-nonce-install.yml'
+      - '.github/workflows/office-intake-nonce-installer-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-intake-nonce-test.php'
+      - '.github/workflows/office-intake-hostinger-nonce-install.yml'
+      - '.github/workflows/office-intake-nonce-installer-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Verify installer syntax and fail-closed preflight
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-intake-nonce-test.php
+          php -l office-independent/src/Intake/OfficeIntakeReplayGuard.php
+          set +e
+          OFFICE_BASE_PATH=/office-test OFFICE_INTAKE_NONCE_INSTALL=explicit php office-independent/deployment/hostinger/install-office-intake-nonce-test.php > /tmp/intake-nonce-out 2>&1
+          result=$?
+          set -e
+          test "$result" -eq 2
+          grep -q 'ABORT: isolated config missing' /tmp/intake-nonce-out
