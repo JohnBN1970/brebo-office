@@ -53,13 +53,7 @@ jobs:
             if grep -Fq '/office-test/api/intake/v1/receive' "$ROUTER"; then echo 'ACTIVE_OFFICE_INTAKE_ROUTE=present'; else echo 'ACTIVE_OFFICE_INTAKE_ROUTE=not_found'; fi
             echo 'OFFICE_TEST_CONFIG_FILE=present'
             echo 'OFFICE_TEST_CONFIG_RUNTIME=not_executed_for_safety'
-            for KEY in OFFICE_BASE_PATH OFFICE_INTAKE_RECEIVER_ENABLED OFFICE_INTAKE_SECRET_WEBSITE OFFICE_INTAKE_SECRET_EMAIL; do
-              if grep -Fq "$KEY" "$CONFIG"; then
-                echo "OFFICE_TEST_CONFIG_KEY_${KEY}=referenced"
-              else
-                echo "OFFICE_TEST_CONFIG_KEY_${KEY}=not_found"
-              fi
-            done
+            echo 'OFFICE_TEST_CONFIG_KEY_REFERENCES=not_checked'
             echo 'ACTIVE_WEBSITE_ROUTING=unverified_without_live_website_router_audit'
             echo 'ACTIVE_DRUPAL_STORAGE=unverified_without_live_drupal_database_audit'
             echo 'ACTIVE_DOCUMENT_STORAGE=unverified_without_live_drupal_file_audit'
