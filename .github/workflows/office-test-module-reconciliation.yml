@@ -43,8 +43,8 @@ jobs:
           echo "PREVIOUS_RELEASES:"
           find "$root" -maxdepth 1 -type d -name 'release-*' -printf '%f\n' | LC_ALL=C sort | tail -n 20
           REMOTE
-          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-source-files.txt "$USER@$HOST:/tmp/office-source-files-compare-$$.txt"
-          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-source-files.txt "$USER@$HOST:/tmp/office-source-files-compare-${GITHUB_RUN_ID}.txt"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
           set -euo pipefail
           root="$HOME/domains/brebobv.nl/office_calc_test"
           active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
