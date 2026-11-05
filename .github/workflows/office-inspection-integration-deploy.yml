@@ -12,6 +12,7 @@ on:
       - 'office-independent/public/office-documents.php'
       - 'office-independent/tests/OfficeDocumentsProjectContextContractTest.php'
       - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/src/Project/OfficeProjectPageStructure.php'
       - 'office-independent/tests/OfficeProjectDetailV3DocumentsTest.php'
       - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
