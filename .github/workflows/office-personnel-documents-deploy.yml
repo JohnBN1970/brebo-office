@@ -46,7 +46,7 @@ jobs:
           target="$active/public/office-personnel.php"
           test -f "$target" && test ! -L "$target" || { echo FAIL_PERSONNEL_TARGET; exit 21; }
           php -l "$target"
-          if grep -Fq 'Documentenoverzicht</a></nav>' "$target"; then echo PERSONNEL_DOCUMENTS_ALREADY_PRESENT; exit 0; fi
+          if grep -Fq 'Documentenoverzicht</a></p></main>' "$target"; then echo PERSONNEL_DOCUMENTS_ALREADY_PRESENT; exit 0; fi
           backup="$target.backup-documents-$(date +%Y%m%d%H%M%S)"
           cp -p "$target" "$backup"
           candidate="$(mktemp "$active/public/.personnel-documents-XXXXXXXX.php")"
@@ -57,15 +57,17 @@ jobs:
           from pathlib import Path
           path=Path(os.environ['PERSONNEL_CANDIDATE'])
           text=path.read_text()
-          old='<a href="/office-test/personeel/medewerkers?view=new">Nieuwe medewerker</a></nav>'
-          new='<a href="/office-test/personeel/medewerkers?view=new">Nieuwe medewerker</a><a href="/office-test/documenten">Documentenoverzicht</a></nav>'
+          # The active controller has a different header than the repository copy.
+          # Inject only into the final HTML closing echo, preserving all existing logic.
+          old="echo '</main></body></html>';"
+          new="echo '<p><a href=\"/office-test/documenten\">Documentenoverzicht</a></p></main></body></html>';"
           if text.count(old)!=1:
               raise SystemExit('FAIL_PERSONNEL_DOCUMENTS_ANCHOR')
           path.write_text(text.replace(old,new,1))
           PY
           php -l "$candidate"
           grep -Fq 'OnSite' "$candidate"
-          grep -Fq 'Documentenoverzicht</a></nav>' "$candidate"
+          grep -Fq 'Documentenoverzicht</a></p></main>' "$candidate"
           chmod --reference="$target" "$candidate"
           mv "$candidate" "$target"
           echo PERSONNEL_DOCUMENTS_TEST_DEPLOYED
