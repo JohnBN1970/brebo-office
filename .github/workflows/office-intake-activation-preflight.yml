@@ -30,30 +30,40 @@ jobs:
             stage=config_checks
             echo OFFICE_TEST_PREFLIGHT_CONFIG_COMMAND_START
             echo OFFICE_TEST_PREFLIGHT_STAGE=config_checks
-            # Stage 1: report only boolean readiness. Never print config values.
+            # First verify PHP CLI execution independently from private config.
+            "$php" -r 'fwrite(STDOUT, "OFFICE_TEST_CONFIG_PHP_STARTED\n");' || {
+              echo OFFICE_TEST_CONFIG_PHP_CLI_FAILED
+              exit 2
+            }
+            # Use a file test without executing config and never print its contents.
+            test -f "$config" || {
+              echo OFFICE_TEST_CONFIG_FILE_MISSING
+              exit 2
+            }
+            # Execute the config and emit boolean classifications only.
             "$php" -r '
               try {
-                fwrite(STDERR, "OFFICE_TEST_CONFIG_PHP_STARTED\n");
                 $c=require $argv[1];
-                fwrite(STDERR, "OFFICE_TEST_CONFIG_REQUIRE_RETURNED\n");
+                echo "OFFICE_TEST_CONFIG_REQUIRE_RETURNED\n";
                 if (!is_array($c)) {echo "OFFICE_TEST_CONFIG_SHAPE=invalid\n";exit(2);}
-                $checks=[
-                  "OFFICE_TEST_CONFIG_BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
-                  "OFFICE_TEST_CONFIG_DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
-                  "OFFICE_TEST_CONFIG_PRIVATE_ROOT_MATCH"=>($c["OFFICE_PRIVATE_ROOT"]??null)===$argv[2]
-                ];
-                foreach ($checks as $name=>$valid) {echo $name."=".($valid?"yes":"no")."\n";}
-                foreach (["website"=>"OFFICE_INTAKE_SECRET_WEBSITE","email"=>"OFFICE_INTAKE_SECRET_EMAIL"] as $source=>$key) {
-                  $v=$c[$key]??null;
-                  echo "OFFICE_TEST_INTAKE_".strtoupper($source)."_SECRET_READY=".(is_string($v)&&strlen($v)>=32?"yes":"no")."\n";
+                foreach ([
+                  "BASE_PATH_MATCH"=>($c["OFFICE_BASE_PATH"]??null)==="/office-test",
+                  "DB_USER_MATCH"=>($c["OFFICE_INTAKE_DB_USER"]??null)==="u213420663_office_test",
+                  "PRIVATE_ROOT_MATCH"=>($c["OFFICE_PRIVATE_ROOT"]??null)===$argv[2],
+                  "WEBSITE_SECRET_PRESENT"=>is_string($c["OFFICE_INTAKE_SECRET_WEBSITE"]??null) && strlen($c["OFFICE_INTAKE_SECRET_WEBSITE"])>=32,
+                  "EMAIL_SECRET_PRESENT"=>is_string($c["OFFICE_INTAKE_SECRET_EMAIL"]??null) && strlen($c["OFFICE_INTAKE_SECRET_EMAIL"])>=32,
+                  "RECEIVER_ENABLED"=>($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"
+                ] as $key=>$pass) {
+                  echo "OFFICE_TEST_CONFIG_".$key."=".($pass?"yes":"no")."\n";
                 }
-                echo "OFFICE_TEST_INTAKE_FLAG_ENABLED=".(($c["OFFICE_INTAKE_RECEIVER_ENABLED"]??null)==="enabled"?"yes":"no")."\n";
-                echo "OFFICE_TEST_INTAKE_CONFIG_LAYOUT=php_return_array\n";
               } catch (Throwable $e) {
-                echo "OFFICE_TEST_CONFIG_READ=failed_".get_class($e)."\n";
+                echo "OFFICE_TEST_CONFIG_READ_EXCEPTION=".get_class($e)."\n";
                 exit(2);
               }
-            ' "$config" "$active"
+            ' "$config" "$active" || {
+              echo OFFICE_TEST_CONFIG_LOAD_FAILED
+              exit 2
+            }
             echo OFFICE_TEST_PREFLIGHT_CONFIG_COMMAND_DONE
             stage=router_checks
             echo OFFICE_TEST_PREFLIGHT_STAGE=router_checks
