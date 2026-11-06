@@ -7,6 +7,7 @@ on:
       - 'office-independent/tests/OfficeCalcLaunchTokenTest.php'
       - 'office-independent/tests/OfficeCalcSessionGrantRepositoryTest.php'
       - 'office-independent/tests/OfficeCalcLaunchAccessTest.php'
+      - 'office-independent/tests/OfficeCalcSignedRequestTest.php'
       - 'office-independent/deployment/hostinger/sql/office-calc-session-grants.sql'
       - 'office-independent/tests/OfficeCalcReconnectGateTest.php'
       - 'office-independent/public/office-home.php'
@@ -27,9 +28,11 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcLaunchToken.php
           php -l office-independent/src/Calculation/OfficeCalcSessionGrantRepository.php
           php -l office-independent/src/Calculation/OfficeCalcLaunchAccess.php
+          php -l office-independent/src/Calculation/OfficeCalcSignedRequest.php
           php -l office-independent/tests/OfficeCalcLaunchTokenTest.php
           php -l office-independent/tests/OfficeCalcSessionGrantRepositoryTest.php
           php -l office-independent/tests/OfficeCalcLaunchAccessTest.php
+          php -l office-independent/tests/OfficeCalcSignedRequestTest.php
           php -l office-independent/tests/OfficeCalcReconnectGateTest.php
       - name: Calc launch token contract
         run: php office-independent/tests/OfficeCalcLaunchTokenTest.php
@@ -37,5 +40,7 @@ jobs:
         run: php office-independent/tests/OfficeCalcSessionGrantRepositoryTest.php
       - name: Calc launch ACL contract
         run: php office-independent/tests/OfficeCalcLaunchAccessTest.php
+      - name: Calc signed request contract
+        run: php office-independent/tests/OfficeCalcSignedRequestTest.php
       - name: Office-test safe disconnected gate
         run: php office-independent/tests/OfficeCalcReconnectGateTest.php
