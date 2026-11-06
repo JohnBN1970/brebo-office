@@ -51,7 +51,13 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || in_array(strtolower($host), ['office.brebobv.nl', 'www.office.brebobv.nl'], true)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
   || (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled')
-  || getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled') {
+  || (getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'
+      && (getenv('OFFICE_CALC_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') !== 'enabled'
+          || getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled'
+          || strlen((string)getenv('OFFICE_CALC_SHARED_SECRET')) < 32))) {
   http_response_code(503);
   exit('Testomgeving niet beschikbaar.');
 }
