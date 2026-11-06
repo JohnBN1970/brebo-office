@@ -14,6 +14,8 @@ on:
       - 'office-independent/tests/OfficeFinanceBankAccessTest.php'
       - 'office-independent/tests/OfficeFinanceBankViewTest.php'
       - '.github/workflows/office-finance-bank-panel-check.yml'
+      - '.github/workflows/office-moneybird-bank-stage.yml'
+      - 'office-independent/deployment/hostinger/office-moneybird-bank-preflight.php'
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,4 +34,7 @@ jobs:
           php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php office-independent/tests/OfficeFinanceBankAccessTest.php
           php office-independent/tests/OfficeFinanceBankViewTest.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
+          BANK_PREFLIGHT_LIVE_READ=0 php office-independent/deployment/hostinger/office-moneybird-bank-preflight.php > /tmp/bank-preflight-unconfigured.txt
+          grep -q 'BANK_READ_PREFLIGHT_GO=0' /tmp/bank-preflight-unconfigured.txt
 

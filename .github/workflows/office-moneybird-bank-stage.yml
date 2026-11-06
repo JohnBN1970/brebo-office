@@ -6,6 +6,10 @@ on:
         description: Type STAGE-OFFICE-BANK
         required: true
         type: string
+      check_live_bank:
+        description: Check bank API with read-only GET requests; no activation
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -18,14 +22,17 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      BANK_PREFLIGHT_LIVE_READ: ${{ inputs.check_live_bank && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          ref: develop
+          ref: ${{ github.sha }}
       - name: Verify isolated Office code
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "BANK_STAGE_SOURCE_SHA=$GITHUB_SHA"
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
           php -l office-independent/src/Finance/OfficeFinanceBankPanel.php
           php -l office-independent/src/Finance/OfficeFinanceAccess.php
@@ -37,6 +44,8 @@ jobs:
           php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php office-independent/tests/OfficeFinanceBankAccessTest.php
           php office-independent/tests/OfficeFinanceBankViewTest.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
+          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -50,24 +59,41 @@ jobs:
         run: |
           set -euo pipefail
           remote="$DEPLOY_USER@$DEPLOY_HOST"
-          stage="office-bank-staging-$GITHUB_RUN_ID"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage/Finance ~/$stage/public"
+          stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage && install -d -m 700 ~/$stage/src/Finance ~/$stage/src/Intake ~/$stage/public ~/$stage/tests ~/$stage/deployment/hostinger"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
             office-independent/src/Finance/OfficeFinanceBankPanel.php \
             office-independent/src/Finance/OfficeFinanceAccess.php \
             office-independent/src/Finance/OfficeMoneybirdBankApiClient.php \
-            office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/Finance/"
+            office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/src/Finance/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/src/Intake/OfficeMount.php "$remote:$stage/src/Intake/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/tests/OfficeFinanceBankPanelTest.php office-independent/tests/OfficeFinanceBankAccessTest.php \
+            office-independent/tests/OfficeFinanceBankViewTest.php office-independent/tests/OfficeMoneybirdBankApiClientTest.php \
+            office-independent/tests/OfficeMoneybirdBankSnapshotTest.php "$remote:$stage/tests/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/deployment/hostinger/office-moneybird-bank-preflight.php "$remote:$stage/deployment/hostinger/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            "$RUNNER_TEMP/office-bank-stage.sha256" "$remote:$stage/EXPECTED_SHA256"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/public/office-finance.php "$remote:$stage/public/"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' bash -se" <<'REMOTE'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' SOURCE_SHA='$GITHUB_SHA' BANK_PREFLIGHT_LIVE_READ='$BANK_PREFLIGHT_LIVE_READ' bash -se" <<'REMOTE'
           set -euo pipefail
           stage="$HOME/$STAGE"
           test -d "$stage" && test ! -L "$stage"
-          for file in "$stage"/Finance/*.php "$stage"/public/*.php; do php -l "$file"; done
-          echo "BANK_STAGE_SHA256_BEGIN"
-          sha256sum "$stage"/Finance/*.php "$stage"/public/*.php
-          echo "BANK_STAGE_SHA256_END"
+          cd "$stage"
+          sha256sum -c EXPECTED_SHA256
+          printf '%s\n' "$SOURCE_SHA" > SOURCE_SHA
+          while read -r hash file; do php -l "$file"; done < EXPECTED_SHA256
+          for file in tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php; do php "$file"; done
+          if php -r 'exit(extension_loaded("pdo_sqlite") ? 0 : 1);'; then
+            php tests/OfficeFinanceBankAccessTest.php
+          else
+            echo 'BANK_ACL_SQLITE_TEST_SKIPPED_ON_TARGET_RUN_IN_CI'
+          fi
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
+          php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php
           REMOTE
 

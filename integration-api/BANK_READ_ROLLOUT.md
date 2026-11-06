@@ -51,6 +51,23 @@ zet geen configuratie aan. De bestaande deploy gebruikt `--keep-vars`.
 
 ## Volgende stappen en grenzen
 
+De stagingworkflow checkt de immutable `github.sha` van de gekozen workflowbranch
+uit. Selecteer voor deze PR de branch `finance-moneybird-bank-api-20261106`, met
+bevestiging `STAGE-OFFICE-BANK`. Er is geen merge nodig voor deze test.
+Elke poging krijgt een eigen directory met rechten 700. Een meegekopieerd
+SHA-256-manifest wordt op de doelserver vergeleken voordat de tests starten.
+De map bevat alleen de benodigde bronbestanden, tests en het CLI-preflightscript;
+er is geen router, sessie of actieve release aan gekoppeld.
+
+`check_live_bank=true` voert aanvullend een ongesigneerde en, indien serverconfiguratie
+aanwezig is, een gesigneerde bank-GET uit. De preflight gebruikt uitsluitend de
+Office-testconfiguratie en leest de ACL binnen een read-only databasetransactie.
+Er worden alleen booleans en de ongesigneerde HTTP-status gelogd. Configuratie- en
+actieve Finance-bestandshashes worden voor/na vergeleken. Geen geheimen of bankdata
+worden naar staging gekopieerd of in logs gezet. Ontbrekende prerequisites blijven
+expliciet zichtbaar als `BANK_READ_PREFLIGHT_GO=0`, ook als staging zelf slaagt.
+Een geslaagde CLI-preflight vervangt de sessie-/UI-acceptatie niet.
+
 1. PR-check: typecheck, volledige Vitest-set en Wrangler dry-run. Tests gebruiken
    fictieve bankdata; remote bindings zijn in Vitest uitgeschakeld.
 2. Review vóór merge: `integration-api/**` activeert bij merge naar `develop` de
