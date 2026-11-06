@@ -32,7 +32,7 @@ try {
     $timestamp = $_SERVER['HTTP_X_BREBO_TIMESTAMP'] ?? '';
     $requestId = $_SERVER['HTTP_X_BREBO_REQUEST_ID'] ?? '';
     $signature = $_SERVER['HTTP_X_BREBO_SIGNATURE'] ?? '';
-    if (!\\Brebo\\Office\\Calculation\\OfficeCalcSignedRequest::verify(
+    if (!\Brebo\Office\Calculation\OfficeCalcSignedRequest::verify(
         'GET', $path, '', (string)$timestamp, (string)$requestId,
         (string)$signature, $secret, time()
     )) $deny(403);
@@ -42,7 +42,7 @@ try {
         getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
     );
-    if (!(new \\Brebo\\Office\\Calculation\\OfficeCalcRequestReplayRepository($db))
+    if (!(new \Brebo\Office\Calculation\OfficeCalcRequestReplayRepository($db))
         ->reserve((string)$requestId, time())) $deny(403);
     $query = $db->prepare('SELECT id, code, title FROM office_projects WHERE id=:id LIMIT 1');
     $query->execute([':id' => $projectId]);
