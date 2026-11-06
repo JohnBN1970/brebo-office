@@ -1,0 +1,42 @@
+name: Inspect active project document integration anchors
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-documents-live-audit.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read only anchor and module audit
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          for name in office-project.php office-projects.php crm-workspace.php office-finance.php; do
+            file="$active/public/$name"
+            test -f "$file" || continue
+            echo "=== $name ==="
+            php -l "$file" >/dev/null || exit 21
+            sha256sum "$file" | cut -d' ' -f1
+            grep -nE 'dossierNav|project-gebouwen|projectDocumentMenu|OfficeNewDocumentMenu|office-dossier-nav|<main|<h1|Documenten|documenten' "$file" | head -n 22 | cut -c1-250 || true
+          done
+          REMOTE
