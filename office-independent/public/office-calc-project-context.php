@@ -44,24 +44,34 @@ try {
     );
     if (!(new \Brebo\Office\Calculation\OfficeCalcRequestReplayRepository($db))
         ->reserve((string)$requestId, time())) $deny(403);
-    $query = $db->prepare('SELECT id, code, title FROM office_projects WHERE id=:id LIMIT 1');
+    $query = $db->prepare('SELECT id, code, title, status FROM office_projects WHERE id=:id LIMIT 1');
     $query->execute([':id' => $projectId]);
     $project = $query->fetch(PDO::FETCH_ASSOC);
     if (!is_array($project)) $deny(404);
-    // Only expose schema-backed values; no invented customer, status or building data.
+    $buildingsQuery = $db->prepare(
+        'SELECT b.id, b.name FROM office_project_buildings pb
+         INNER JOIN office_buildings b ON b.id=pb.building_id
+         WHERE pb.project_id=:id ORDER BY b.id'
+    );
+    $buildingsQuery->execute([':id' => $projectId]);
+    $buildings = [];
+    foreach ($buildingsQuery->fetchAll(PDO::FETCH_ASSOC) as $building) {
+        $buildings[] = ['id' => (int)$building['id'], 'title' => (string)$building['name']];
+    }
+    // Only expose verified schema-backed values; unknown customer metadata stays empty.
     echo json_encode([
         'contract' => 'brebo-office-calc-context-v1',
         'project' => [
             'id' => (int)$project['id'],
             'code' => (string)$project['code'],
             'title' => (string)$project['title'],
-            'status' => '',
+            'status' => (string)$project['status'],
             'client_name' => '',
             'client_organization' => null,
             'project_kind' => '',
             'disciplines' => [],
             'description' => '',
-            'buildings' => [],
+            'buildings' => $buildings,
         ],
     ], JSON_THROW_ON_ERROR);
 } catch (Throwable) {
