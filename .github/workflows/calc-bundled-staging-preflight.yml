@@ -86,6 +86,28 @@ jobs:
               if grep -Fq "$key" "$config"; then echo "CONFIG_KEY_$key=mentioned"; else echo "CONFIG_KEY_$key=not_found"; fi
             done
           else echo CONFIG=missing; fi
+          echo SECTION=EFFECTIVE_RUNTIME
+          echo "ROUTER_SOURCE=public_html/office-test/index.php"
+          if [ -f "$router" ]; then
+            for term in 'release-next' 'release-office-test-contractform-20261030' 'OFFICE_PRIVATE_ROOT' 'realpath' 'require' 'include'; do
+              if grep -Fq "$term" "$router"; then echo "ROUTER_PATTERN_$term=present"; else echo "ROUTER_PATTERN_$term=missing"; fi
+            done
+          fi
+          for rel in "$base"/release-*/private; do
+            [ -d "$rel" ] || continue
+            name=$(basename "$(dirname "$rel")")
+            if [ -f "$rel/public/office-home.php" ] && [ -f "$rel/src/Intake/OfficeNavigation.php" ]; then echo "RELEASE_BOOTSTRAP_CANDIDATE=$name"; fi
+          done
+          echo SECTION=SERVER_CONTEXT
+          for path in "$web/office-test/index.php" "$web/office-test/.htaccess" "$web/.htaccess"; do
+            if [ -e "$path" ]; then
+              echo "FILE_EXISTS=$(basename "$(dirname "$path")")/$(basename "$path")"
+              echo "FILE_TYPE=$(stat -c %F "$path" 2>/dev/null || echo unknown)"
+            fi
+          done
+          for cmd in node npm; do
+            if command -v "$cmd" >/dev/null 2>&1; then echo "CMD_$cmd=present"; else echo "CMD_$cmd=missing"; fi
+          done
           echo SECTION=PHP
           php -r 'echo "PHP_VERSION=".PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION.PHP_EOL; echo "PDO_MYSQL=".(extension_loaded("pdo_mysql")?"present":"missing").PHP_EOL;'
           echo CALC_BUNDLE_COMPLETE
