@@ -56,11 +56,11 @@ jobs:
           $htaccess=getenv('HTACCESS');
           $r=file_get_contents($router);
           $h=file_get_contents($htaccess);
-          $base="'/office-test/documenten' => 'office-documents.php'";
-          $new="'/office-test/documenten/nieuw' => 'office-documents.php'";
+          $base="'/office-test/documenten' => 'office-documents.php',";
+          $new="'/office-test/documenten/nieuw' => 'office-documents.php',";
           if (substr_count($r,$base)!==1) { echo "ABORT_ROUTE_ANCHOR\n"; exit(26); }
           if (strpos($r,$new)===false) {
-              $r=str_replace($base,$base.",\n    ".$new,$r);
+              $r=str_replace($base,$base."\n    ".$new,$r);
               if (!str_contains($r,$new)) exit(27);
           }
           $rule="RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]";
