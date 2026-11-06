@@ -1,0 +1,61 @@
+name: Guarded Documents link on project overview
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-overview-documents-link.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Add link to authorized project list
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          target="$active/public/office-projects.php"
+          test -f "$target" && test ! -L "$target" || exit 21
+          php -l "$target" >/dev/null
+          if grep -Fq 'BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106' "$target"; then echo PROJECT_OVERVIEW_DOCUMENTS_ALREADY_PRESENT; exit 0; fi
+          candidate="$(mktemp "$active/public/.project-overview-docs-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          export DOC_TARGET="$target" DOC_CANDIDATE="$candidate"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          src=Path(os.environ['DOC_TARGET']).read_text()
+          anchor="echo '</section></main></div></body></html>';"
+          if src.count(anchor)!=1: raise SystemExit("FAIL_PROJECT_OVERVIEW_ANCHOR")
+          addition="""// BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106
+          echo '<p><a href="/office-test/documenten">Documentenoverzicht openen</a></p>';
+          """
+          out=src.replace(anchor,addition+anchor,1)
+          if out.replace(addition,'',1)!=src: raise SystemExit("FAIL_PRESERVATION")
+          Path(os.environ['DOC_CANDIDATE']).write_text(out)
+          PY
+          php -l "$candidate" >/dev/null || exit 22
+          backup="$target.backup-documents-link-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo PROJECT_OVERVIEW_DOCUMENTS_LINK_DEPLOYED
+          echo "BACKUP=$(basename "$backup")"
+          REMOTE
