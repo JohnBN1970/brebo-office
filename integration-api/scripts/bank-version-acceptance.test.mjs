@@ -98,3 +98,17 @@ test('permits promotion only for the exact accepted candidate at 100 percent', a
   await checkPromotedBank(promoted,plan,'secret'.repeat(6),fetcher);
   assert.equal(calls,2);
 });
+
+test('waits for a promoted route to replace a transient 404 before signing', async()=>{
+  const plan=zeroTrafficPlan(baseline,'Worker Version ID: '+candidateId);
+  const promoted=[{...baseline[0],versions:[{version_id:candidateId,percentage:100}]}];
+  let calls=0;
+  await checkPromotedBank(promoted,plan,'secret'.repeat(6),async(url,init)=>{
+    calls++;
+    if(calls===1) { assert.equal(init.headers['X-BREBO-Signature'],undefined); return new Response('',{status:404}); }
+    if(calls===2) { assert.equal(init.headers['X-BREBO-Signature'],undefined); return new Response('',{status:401}); }
+    assert.match(init.headers['X-BREBO-Signature'],/^v1=/);
+    return Response.json(valid(),{headers:{'Cache-Control':'no-store'}});
+  });
+  assert.equal(calls,3);
+});

@@ -111,6 +111,20 @@ try {
   if (!is_string($secret) || strlen($secret)<24 || strlen($secret)>4096 || str_contains($secret,"\n") || str_contains($secret,"\r")) throw new RuntimeException('Integration secret unavailable');
   if (is_string($config['OFFICE_INTEGRATION_SHARED_SECRET']??null) && $config['OFFICE_INTEGRATION_SHARED_SECRET']!=='' && !hash_equals($config['OFFICE_INTEGRATION_SHARED_SECRET'],$secret)) throw new RuntimeException('Existing integration secret differs');
   if (is_string($config['OFFICE_MONEYBIRD_BANK_API_URL']??null) && $config['OFFICE_MONEYBIRD_BANK_API_URL']!=='' && $config['OFFICE_MONEYBIRD_BANK_API_URL']!=='https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data') throw new RuntimeException('Existing bank endpoint differs');
+  $phase='server_route_ready';
+  if (!function_exists('curl_init')) throw new RuntimeException('cURL unavailable');
+  $routeReady=false;
+  for ($attempt=0;$attempt<30;$attempt++) {
+    $curl=curl_init('https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data');
+    curl_setopt_array($curl,[CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>3,CURLOPT_TIMEOUT=>5,
+      CURLOPT_WRITEFUNCTION=>static fn($handle,string $chunk): int=>strlen($chunk)]);
+    curl_exec($curl); $status=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE); curl_close($curl);
+    if ($status===401) { $routeReady=true; break; }
+    if ($status!==404) break;
+    sleep(1);
+  }
+  if (!$routeReady) throw new RuntimeException('Server route not ready');
+  echo "OFFICE_BANK_SERVER_ROUTE_READY=1\n";
   $phase='backup';
   $suffix=basename($stage);
   if (!preg_match('/^office-bank-staging-\d+-\d+$/D',$suffix)) throw new RuntimeException('Unsafe activation ID');

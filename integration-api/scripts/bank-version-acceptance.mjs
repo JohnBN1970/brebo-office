@@ -111,11 +111,12 @@ async function checkBankRequest(baseUrl, secret, fetcher, versionId, promoted = 
   const url = base.origin + bankPath;
   const overrideHeaders = override ? { 'Cloudflare-Workers-Version-Overrides':`brebo-integration-api="${versionId}"` } : {};
   let unsigned;
-  for (let attempt=0; attempt<6; attempt++) {
+  const attempts = promoted ? 30 : 6;
+  for (let attempt=0; attempt<attempts; attempt++) {
     unsigned = await fetcher(url, { method:'GET', redirect:'error', signal:AbortSignal.timeout(15000), headers:overrideHeaders });
     await unsigned.body?.cancel();
     // Allow bounded edge propagation after installing the zero-traffic version.
-    if (!override || unsigned.status !== 404 || attempt===5) break;
+    if (!(override || promoted) || unsigned.status !== 404 || attempt===attempts-1) break;
     await new Promise(resolve=>setTimeout(resolve,1000));
   }
   if (unsigned.status !== 401) throw new Error(`Unsigned bank request returned HTTP ${unsigned.status}; expected 401.`);
