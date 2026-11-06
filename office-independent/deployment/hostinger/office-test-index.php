@@ -91,6 +91,11 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Browser handoff never puts signed credentials in query strings.
+if ($path === '/office-test/calc-werkbank') {
+  require $private . '/public/office-calc-browser-handoff.php';
+  exit;
+}
 // Launch endpoint is POST-only and remains disabled unless every flag is enabled.
 if ($path === '/office-test/calc/start') {
   require $private . '/public/office-calc-launch.php';
