@@ -60,12 +60,12 @@ jobs:
           marker = "$inspectionActions = '';"
           if source.count(marker) != 1:
               sys.exit("ABORT_INSERTION_ANCHOR_MISSING")
-          inject = r'''$officeProjectDocumentsAction = '<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
+          inject = r"""$officeProjectDocumentsAction = '<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
               . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId]))
               . '">Projectdocumenten</a> <a href="'
               . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten/nieuw', ['project_id' => (int)$projectId]))
               . '">Nieuw document</a></div>';
-          '''
+          """
           source = source.replace(marker, inject + marker, 1)
           output_anchor = "' . $inspectionActions ."
           if source.count(output_anchor) != 1:
