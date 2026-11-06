@@ -90,6 +90,13 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Calc grant validation is an opt-in, signed machine-to-machine endpoint.
+// The /api/... alias only works if the webserver rewrites it to this test router.
+if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
+  || $path === '/api/workbench/v1/calculation-grants/validate') {
+  require $private . '/public/office-calc-grant-validate.php';
+  exit;
+}
 // Machine-to-machine intake is opt-in and never exposed by default.
 if ($path === '/office-test/api/intake/v1/receive') {
   if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
