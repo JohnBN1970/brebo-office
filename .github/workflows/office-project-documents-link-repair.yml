@@ -1,0 +1,61 @@
+name: Add project dossier Documents link guarded
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-documents-link-repair.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Patch only existing authorized project dossier navigation
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          target="$active/public/office-project.php"
+          test -f "$target" && test ! -L "$target" || exit 21
+          php -l "$target" >/dev/null
+          grep -Fq "OfficeNewDocumentMenu::render('projecten'" "$target" || { echo FAIL_PROJECT_MENU_NOT_PRESENT; exit 22; }
+          grep -Fq 'office-dossier-nav' "$target" || exit 23
+          if grep -Fq 'BREBO_PROJECT_DOCUMENTS_CONTEXT_LINK_20261106' "$target"; then echo PROJECT_DOCUMENTS_LINK_ALREADY_PRESENT; exit 0; fi
+          backup="$target.backup-documents-context-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$active/public/.project-documents-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          export DOC_TARGET="$target" DOC_CANDIDATE="$candidate"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          src=Path(os.environ["DOC_TARGET"]).read_text()
+          anchor="  . '<a href=\"#project-gebouwen\">Gebouwen</a>'"
+          if src.count(anchor)!=1: raise SystemExit("FAIL_PROJECT_NAV_ANCHOR")
+          addition="\n  . '<a href=\"/office-test/documenten?project_id=' . (int)$projectId . '\">Documenten</a>' // BREBO_PROJECT_DOCUMENTS_CONTEXT_LINK_20261106"
+          out=src.replace(anchor,anchor+addition,1)
+          if out.replace(addition,'',1)!=src: raise SystemExit("FAIL_UNEXPECTED_CHANGE")
+          Path(os.environ["DOC_CANDIDATE"]).write_text(out)
+          PY
+          if ! php -l "$candidate"; then echo FAIL_CANDIDATE_LINT; exit 24; fi
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo PROJECT_DOCUMENTS_LINK_DEPLOYED
+          echo "BACKUP=$(basename "$backup")"
+          REMOTE
