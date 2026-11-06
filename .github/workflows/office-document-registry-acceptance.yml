@@ -4,6 +4,8 @@ on:
     paths:
       - 'office-independent/src/Documents/OfficeDocumentRegistry.php'
       - 'office-independent/tests/OfficeDocumentRegistryContractTest.php'
+      - 'office-independent/src/Documents/OfficeDocumentContextLinks.php'
+      - 'office-independent/tests/OfficeDocumentContextLinksTest.php'
       - '.github/workflows/office-document-registry-acceptance.yml'
   workflow_dispatch:
 permissions:
@@ -18,3 +20,6 @@ jobs:
           php -l office-independent/src/Documents/OfficeDocumentRegistry.php
           php -l office-independent/tests/OfficeDocumentRegistryContractTest.php
           php office-independent/tests/OfficeDocumentRegistryContractTest.php
+          php -l office-independent/src/Documents/OfficeDocumentContextLinks.php
+          php -l office-independent/tests/OfficeDocumentContextLinksTest.php
+          php office-independent/tests/OfficeDocumentContextLinksTest.php
