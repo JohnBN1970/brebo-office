@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Calculation/**'
+      - 'office-independent/public/office-calc-grant-validate.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
       - 'office-independent/tests/OfficeCalcLaunchTokenTest.php'
       - 'office-independent/tests/OfficeCalcSessionGrantRepositoryTest.php'
       - 'office-independent/tests/OfficeCalcLaunchAccessTest.php'
@@ -34,6 +36,8 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcSignedRequest.php
           php -l office-independent/src/Calculation/OfficeCalcRequestReplayRepository.php
           php -l office-independent/src/Calculation/OfficeCalcGrantValidationService.php
+          php -l office-independent/public/office-calc-grant-validate.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeCalcLaunchTokenTest.php
           php -l office-independent/tests/OfficeCalcSessionGrantRepositoryTest.php
           php -l office-independent/tests/OfficeCalcLaunchAccessTest.php
