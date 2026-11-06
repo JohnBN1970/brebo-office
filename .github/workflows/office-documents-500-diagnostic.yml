@@ -1,0 +1,49 @@
+name: Diagnose Office-test Documents 500 safely
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-500-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Check active controller dependencies and error class without exposing secrets
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          echo ACTIVE_RELEASE="$(basename "$(dirname "$active")")"
+          for file in public/office-documents.php src/Documents/OfficeNewDocumentMenu.php src/Documents/OfficeDocumentTypes.php src/Intake/OfficeNavigation.php src/Intake/OfficeMount.php src/Intake/WebsiteCrmOperatorContext.php src/Intake/WebsiteCrmOperatorSessionProviderInterface.php src/Intake/WebsiteOfficeCrmSessionRepository.php src/Intake/WebsiteOfficeCrmCookieSessionProvider.php; do
+            if test -f "$active/$file"; then
+              echo "PRESENT=$file"
+              php -l "$active/$file" >/dev/null && echo "LINT_OK=$file" || echo "LINT_FAIL=$file"
+            else
+              echo "MISSING=$file"
+            fi
+          done
+          for file in "$HOME/domains/brebobv.nl/logs/error.log" "$HOME/domains/brebobv.nl/public_html/error_log" "$HOME/domains/brebobv.nl/public_html/office-test/error_log"; do
+            if test -f "$file"; then
+              echo "ERROR_LOG_PRESENT=$(basename "$file")"
+              tail -n 100 "$file" | grep -Ei 'office-documents|OfficeNewDocumentMenu|OfficeDocumentTypes|OfficeNavigation' | sed -E 's@(/home/[^ :]+)+@<server-path>@g; s/(password|token|secret|cookie)[^ ]*/[redacted]/Ig' | tail -n 10 || true
+            fi
+          done
+          REMOTE
