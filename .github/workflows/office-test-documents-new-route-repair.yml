@@ -1,0 +1,110 @@
+name: Repair Office-test Documents new route
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-documents-new-route
+  cancel-in-progress: false
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Add only missing Documents new route
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          site="$HOME/domains/brebobv.nl/public_html/office-test"
+          router="$site/index.php"
+          htaccess="$site/.htaccess"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_INVALID_RELEASE; exit 20;; esac
+          for path in "$router" "$htaccess" "$active/public/office-documents.php"; do
+            test -f "$path" && test ! -L "$path" || { echo ABORT_MISSING_OR_UNSAFE; exit 21; }
+          done
+          php -l "$router" >/dev/null
+          php -l "$active/public/office-documents.php" >/dev/null
+          grep -Fq "'/office-test/documenten' => 'office-documents.php'" "$router" || { echo ABORT_DOCUMENTS_BASE_ROUTER_MISMATCH; exit 22; }
+          grep -Fq 'RewriteRule ^documenten' "$htaccess" || { echo ABORT_DOCUMENTS_REWRITE_MISSING; exit 23; }
+          php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(2);' "$root/config/config.php" || { echo ABORT_NOT_OFFICE_TEST; exit 24; }
+          ROUTER="$router" HTACCESS="$htaccess" php -r '
+            $router=file_get_contents(getenv("ROUTER"));
+            $ht=file_get_contents(getenv("HTACCESS"));
+            if (substr_count($router,"/office-test/documenten")<1 || substr_count($ht,"RewriteEngine On")!==1) exit(25);
+            if (strpos($router,"/office-test/documenten/nieuw")!==false) echo "NEW_ROUTE_ALREADY_IN_ROUTER\n";
+            if (preg_match("~(?m)^RewriteRule \\^documenten(?:/|\\()~",$ht)) echo "DOCUMENTS_SUBPATH_REWRITE_PRESENT\n";
+          '
+          ROUTER="$router" HTACCESS="$htaccess" php <<'PHP'
+          <?php
+          $router=getenv('ROUTER');
+          $htaccess=getenv('HTACCESS');
+          $r=file_get_contents($router);
+          $h=file_get_contents($htaccess);
+          $base="'/office-test/documenten' => 'office-documents.php'";
+          $new="'/office-test/documenten/nieuw' => 'office-documents.php'";
+          if (substr_count($r,$base)!==1) { echo "ABORT_ROUTE_ANCHOR\n"; exit(26); }
+          if (strpos($r,$new)===false) {
+              $r=str_replace($base,$base.",\n    ".$new,$r);
+              if (!str_contains($r,$new)) exit(27);
+          }
+          $rule="RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]";
+          if (!str_contains($h,$rule)) {
+              $prefix="RewriteEngine On";
+              if (substr_count($h,$prefix)!==1) exit(28);
+              $h=str_replace($prefix,$prefix."\n# BREBO Documents new route\n".$rule,$h);
+          }
+          $oldR=file_get_contents($router);
+          $oldH=file_get_contents($htaccess);
+          if ($r===$oldR && $h===$oldH) { echo "ALREADY_CONFIGURED_NO_CHANGE\n"; exit(0); }
+          $stamp=gmdate('YmdHis').'-'.getmypid();
+          $backupR=$router.'.documents-new-backup-'.$stamp;
+          $backupH=$htaccess.'.documents-new-backup-'.$stamp;
+          if (file_put_contents($backupR,$oldR,LOCK_EX)===false || file_put_contents($backupH,$oldH,LOCK_EX)===false) exit(29);
+          chmod($backupR,0600); chmod($backupH,0600);
+          $tmpR=$router.'.documents-new-'.$stamp;
+          $tmpH=$htaccess.'.documents-new-'.$stamp;
+          if (file_put_contents($tmpR,$r,LOCK_EX)===false || file_put_contents($tmpH,$h,LOCK_EX)===false) exit(30);
+          chmod($tmpR,fileperms($router)&0777); chmod($tmpH,fileperms($htaccess)&0777);
+          $output=[]; $exit=0; exec('php -l '.escapeshellarg($tmpR).' 2>&1',$output,$exit);
+          if ($exit!==0) { unlink($tmpR); unlink($tmpH); echo "ABORT_PHP_SYNTAX\n"; exit(31); }
+          if (rename($tmpH,$htaccess)===false) exit(32);
+          if (rename($tmpR,$router)===false) {
+              copy($backupH,$htaccess);
+              echo "ABORT_ROUTER_INSTALL_RESTORED_REWRITE\n";
+              exit(33);
+          }
+          echo "DOCUMENTS_ROUTE_PATCH_INSTALLED\n";
+          echo "BACKUP_ROUTER=".basename($backupR)."\n";
+          echo "BACKUP_REWRITE=".basename($backupH)."\n";
+          PHP
+          php -l "$router" >/dev/null
+          grep -Fq "'/office-test/documenten/nieuw' => 'office-documents.php'" "$router"
+          grep -Fq 'RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]' "$htaccess"
+          echo DOCUMENTS_NEW_ROUTE_SERVER_CHECK_PASS
+          REMOTE
+      - name: Check unauthenticated route status
+        run: |
+          set -euo pipefail
+          for path in /office-test/documenten /office-test/documenten/nieuw; do
+            response="$(curl --silent --show-error --max-redirs 0 --connect-timeout 10 --max-time 25 --output /dev/null --write-out '%{http_code} %{redirect_url}' "https://brebobv.nl$path")"
+            echo "$path $response"
+            test "${response%% *}" != "404" || exit 34
+            test "${response%% *}" != "500" || exit 35
+          done
+          echo DOCUMENTS_HTTP_SMOKE_PASS
