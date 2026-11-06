@@ -23,6 +23,7 @@ on:
       - 'office-independent/deployment/hostinger/sql/office-calc-session-grants.sql'
       - 'office-independent/tests/OfficeCalcProjectContextContractTest.php'
       - 'office-independent/tests/OfficeCalcReconnectGateTest.php'
+      - 'office-independent/tests/OfficeCalcProjectLaunchLinksContractTest.php'
       - 'office-independent/public/office-home.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
       - '.github/workflows/calc-office-test-reconnect.yml'
@@ -63,6 +64,7 @@ jobs:
           php -l office-independent/tests/OfficeCalcBrowserHandoffContractTest.php
           php -l office-independent/tests/OfficeCalcProjectContextContractTest.php
           php -l office-independent/tests/OfficeCalcReconnectGateTest.php
+          php -l office-independent/tests/OfficeCalcProjectLaunchLinksContractTest.php
       - name: Calc launch token contract
         run: php office-independent/tests/OfficeCalcLaunchTokenTest.php
       - name: Calc grant input contract
@@ -83,5 +85,7 @@ jobs:
         run: php office-independent/tests/OfficeCalcBrowserHandoffContractTest.php
       - name: Calc signed project context contract
         run: php office-independent/tests/OfficeCalcProjectContextContractTest.php
+      - name: Project launch links authorization contract
+        run: php office-independent/tests/OfficeCalcProjectLaunchLinksContractTest.php
       - name: Office-test safe disconnected gate
         run: php office-independent/tests/OfficeCalcReconnectGateTest.php
