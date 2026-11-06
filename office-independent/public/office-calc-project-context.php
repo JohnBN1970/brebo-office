@@ -44,6 +44,22 @@ try {
     );
     if (!(new \Brebo\Office\Calculation\OfficeCalcRequestReplayRepository($db))
         ->reserve((string)$requestId, time())) $deny(403);
+    // Context is only available while Office has an active, unrevoked Calc
+    // grant for this project and the issuing operator session remains active.
+    // The shared HMAC secret alone must not enumerate arbitrary Office projects.
+    $grantQuery = $db->prepare(
+        'SELECT 1 FROM office_calc_session_grants g
+         INNER JOIN office_operator_sessions s ON s.token_hash=g.session_hash
+         INNER JOIN office_operator_accounts a ON a.id=g.actor_id
+         INNER JOIN office_project_memberships m ON m.project_id=g.project_id
+           AND m.operator_id=g.actor_id AND m.permission=\'manage\'
+         WHERE g.project_id=:id AND g.revoked_at IS NULL
+           AND g.expires_at > UTC_TIMESTAMP()
+           AND s.revoked_at IS NULL AND s.expires_at > UTC_TIMESTAMP()
+           AND a.active=1 LIMIT 1'
+    );
+    $grantQuery->execute([':id' => $projectId]);
+    if ($grantQuery->fetchColumn() === false) $deny(403);
     $query = $db->prepare('SELECT id, code, title, status FROM office_projects WHERE id=:id LIMIT 1');
     $query->execute([':id' => $projectId]);
     $project = $query->fetch(PDO::FETCH_ASSOC);
