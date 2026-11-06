@@ -33,7 +33,18 @@ if (!is_string($session) || strlen($session) < 32) $deny(403);
 // This GET page issues no grant. The POST endpoint independently authenticates,
 // authorizes, checks CSRF, and issues the grant only on explicit user action.
 $csrf = $_COOKIE['office_project_csrf'] ?? null;
-if (!is_string($csrf) || preg_match('/^[a-f0-9]{64}$/D', $csrf) !== 1) $deny(403);
+if (!is_string($csrf) || preg_match('/^[a-f0-9]{64}$/D', $csrf) !== 1) {
+    $csrf = bin2hex(random_bytes(32));
+    if (!setcookie('office_project_csrf', $csrf, [
+        'expires' => 0,
+        'path' => '/office-test',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ])) {
+        $deny(503);
+    }
+}
 $nonce = base64_encode(random_bytes(18));
 header("Content-Security-Policy: default-src 'none'; script-src 'nonce-{$nonce}'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");
 ?>
