@@ -27,4 +27,22 @@ foreach ([
         throw new RuntimeException('Invalid Calc signed request accepted');
     }
 }
+// The Calc project context GET must use the exact canonical path and empty body.
+$contextPath = '/api/workbench/v1/projects/123/calculation-context';
+$getCanonical = implode("\n", ['GET', $contextPath, hash('sha256', ''), (string)$time, $requestId]);
+$getSignature = 'v1=' . hash_hmac('sha256', $getCanonical, $secret);
+if (!$verify('GET', $contextPath, '', $time, $getSignature)) {
+    throw new RuntimeException('Valid signed Calc project context GET rejected');
+}
+foreach ([
+    ['GET', '/api/workbench/v1/projects/0123/calculation-context', '', $time, $getSignature],
+    ['GET', '/api/workbench/v1/projects/123/calculation-context/extra', '', $time, $getSignature],
+    ['GET', $contextPath, '{}', $time, $getSignature],
+    ['POST', $contextPath, '', $time, $getSignature],
+    ['GET', $contextPath, '', $time + 91, $getSignature],
+] as [$method, $pathValue, $raw, $now, $sig]) {
+    if ($verify($method, $pathValue, $raw, $now, $sig)) {
+        throw new RuntimeException('Invalid Calc project context request accepted');
+    }
+}
 echo "CALC_SIGNED_GRANT_TRANSPORT=PASS\n";
