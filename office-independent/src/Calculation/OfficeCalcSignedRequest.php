@@ -20,8 +20,8 @@ final class OfficeCalcSignedRequest
         string $sharedSecret,
         int $now
     ): bool {
-        if ($method !== 'POST'
-            || $path !== '/api/workbench/v1/calculation-grants/validate'
+        if (!(($method === 'POST' && $path === '/api/workbench/v1/calculation-grants/validate')
+            || ($method === 'GET' && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path) === 1))
             || strlen($rawBody) > 8192
             || strlen($sharedSecret) < 32
             || !preg_match('/^[0-9]{10}$/D', $timestamp)
