@@ -1,0 +1,49 @@
+name: Audit Office-test Documents cross-module integration
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-cross-module-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read-only module and link audit
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          echo "ACTIVE_RELEASE=$(basename "$(dirname "$active")")"
+          for file in public/office-documents.php public/office-project.php public/office-projects.php public/crm-workspace.php public/office-personnel.php public/office-buildings.php public/office-finance.php src/Documents/OfficeDocumentTypes.php src/Documents/OfficeNewDocumentMenu.php; do
+            if test -f "$active/$file"; then
+              echo "PRESENT=$file"
+              php -l "$active/$file" >/dev/null && echo "LINT_OK=$file" || echo "LINT_FAIL=$file"
+              case "$file" in public/*)
+                if grep -Fq '/office-test/documenten' "$active/$file"; then echo "DOCUMENT_LINK_PRESENT=$file"; else echo "DOCUMENT_LINK_MISSING=$file"; fi
+                if grep -Fq 'OfficeNewDocumentMenu' "$active/$file"; then echo "DOCUMENT_MENU_PRESENT=$file"; fi
+              esac
+            else echo "MISSING=$file"; fi
+          done
+          for route in documenten projecten crm/relaties crm/bedrijven gebouwen personeel/medewerkers finance inspecties inspectie; do
+            status="$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 12 "https://brebobv.nl/office-test/$route" || true)"
+            echo "ROUTE=$route HTTP=$status"
+          done
+          REMOTE
