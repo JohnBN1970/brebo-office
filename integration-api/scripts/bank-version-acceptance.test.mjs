@@ -1,0 +1,51 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload } from './bank-version-acceptance.mjs';
+
+const versionUrl = 'https://12345678-brebo-integration-api.john-boon.workers.dev';
+const valid = () => ({status:'ok',request_id:'test',provider:'moneybird',bank:{balances_available:false,period:'this_month',
+  accounts:[{id:'123',name:'Test',identifier:'NL00TEST',currency:'EUR'}],
+  transactions:[{id:'456',financial_account_id:'123',amount:'-12.3400',date:'2026-11-06',message:'PRIVATE-BANK-MARKER'}]}});
+
+test('extracts only the owned version URL, never production or another Worker', () => {
+  assert.equal(extractVersionUrl('Preview URL: '+versionUrl),versionUrl);
+  assert.throws(()=>extractVersionUrl('https://brebo-integration-api.john-boon.workers.dev'));
+  assert.throws(()=>extractVersionUrl('https://bank.evil.test'));
+});
+test('compares the latest deployment and traffic regardless of list order', () => {
+  const old={id:'old',created_on:'2026-10-01',versions:[{version_id:'v0',percentage:100}]};
+  const current={id:'current',created_on:'2026-11-01',versions:[{version_id:'v1',percentage:100}]};
+  assert.equal(deploymentFingerprint([old,current]),deploymentFingerprint([current,old]));
+  assert.notEqual(deploymentFingerprint([current]),deploymentFingerprint([{...current,versions:[{version_id:'v2',percentage:100}]}]));
+  assert.throws(()=>deploymentFingerprint([]));
+});
+test('reports only counts and verified scope from fixture bank data', () => {
+  assert.deepEqual(validateBankPayload(valid()),{accounts:1,transactions:1,period:'this_month',balances_available:false});
+});
+for (const [name,change] of [
+  ['invoice root',p=>{p.sales_invoices=[];}],
+  ['invoice link',p=>{p.bank.transactions[0].payments=[];}],
+  ['balances',p=>{p.bank.balances_available=true;}],
+  ['wrong period',p=>{p.bank.period='this_year';}],
+  ['numeric amount',p=>{p.bank.transactions[0].amount=12.34;}],
+  ['unknown account',p=>{p.bank.transactions[0].financial_account_id='999';}],
+  ['duplicate mutation',p=>{p.bank.transactions.push(p.bank.transactions[0]);}],
+]) test('rejects '+name,()=>{const p=valid();change(p);assert.throws(()=>validateBankPayload(p));});
+test('sends only GET to the owned version URL and never logs private bank contents', async () => {
+  const calls=[];
+  const result=await checkBankVersion(versionUrl,'test-secret-with-sufficient-length',async(url,init)=>{
+    calls.push({url,init});
+    return calls.length===1?new Response('',{status:401}):Response.json(valid(),{headers:{'Cache-Control':'no-store, private'}});
+  });
+  assert.equal(calls.length,2);
+  assert(calls.every(call=>call.url===versionUrl+'/v1/accounting/bank-data'&&call.init.method==='GET'&&call.init.redirect==='error'));
+  assert.match(calls[1].init.headers['X-BREBO-Signature'],/^v1=[a-f0-9]{64}$/);
+  assert(!JSON.stringify(result).includes('PRIVATE-BANK-MARKER'));
+});
+test('rejects production, unowned URLs and provider failures without echoing bodies', async () => {
+  let calls=0;
+  const fetcher=async()=>{calls++;return new Response('PRIVATE-PROVIDER-MARKER',{status:503});};
+  await assert.rejects(checkBankVersion('https://brebo-integration-api.john-boon.workers.dev','secret'.repeat(6),fetcher));
+  assert.equal(calls,0);
+  await assert.rejects(checkBankVersion(versionUrl,'secret'.repeat(6),fetcher),error=>!error.message.includes('PRIVATE-PROVIDER-MARKER'));
+});

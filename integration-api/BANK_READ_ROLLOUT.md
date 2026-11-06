@@ -68,6 +68,22 @@ worden naar staging gekopieerd of in logs gezet. Ontbrekende prerequisites blijv
 expliciet zichtbaar als `BANK_READ_PREFLIGHT_GO=0`, ook als staging zelf slaagt.
 Een geslaagde CLI-preflight vervangt de sessie-/UI-acceptatie niet.
 
+Met `check_worker_version=true` volgt een afzonderlijke versietest op Cloudflare.
+`wrangler versions upload --keep-vars` uploadt de exacte bron als een niet-actieve
+versie. Alleen voor die versie wordt `MONEYBIRD_BANK_READ_ENABLED=enabled` gezet.
+De teruggegeven versie-URL wordt gecontroleerd op de eigen Worker-hostnaam.
+De proef doet uitsluitend een ongesigneerde en gesigneerde bank-GET en rapporteert
+status, periode en aantallen; nooit rekeningen, bedragen of omschrijvingen.
+De actieve Worker-deployment en verkeersverdeling worden voor/na vergeleken,
+ook wanneer de bankaanvraag faalt. Er wordt geen `wrangler deploy` of
+`wrangler versions deploy` uitgevoerd. De versie-URL gebruikt bestaande
+productieresources en secrets; dit is geen geïsoleerde database of administratie.
+Er worden geen factuur-, AI- of Durable Object-routes aangeroepen. Als Cloudflare
+geen versie-URL teruggeeft, stopt de workflow zonder instellingen te activeren.
+Versietest bewijst de bankroute maar repareert de Office-testconfiguratie niet.
+
+Bron: https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/
+
 1. PR-check: typecheck, volledige Vitest-set en Wrangler dry-run. Tests gebruiken
    fictieve bankdata; remote bindings zijn in Vitest uitgeschakeld.
 2. Review vóór merge: `integration-api/**` activeert bij merge naar `develop` de
