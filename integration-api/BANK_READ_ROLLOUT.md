@@ -74,6 +74,17 @@ SHA-256-manifest wordt op de doelserver vergeleken voordat de tests starten.
 De map bevat alleen de benodigde bronbestanden, tests en het CLI-preflightscript;
 er is geen router, sessie of actieve release aan gekoppeld.
 
+Staging maakt daarnaast een private `activation-preview` uit de huidige
+Office-testbestanden. Alleen de vijf gereviewde bankwijzigingen worden daar met
+een patch zonder fuzz toegepast; de actuele mount en overige wijzigingen blijven
+behouden. De proefkopie krijgt syntaxcontrole en de bank-/toegang-/weergavetests.
+Ontbrekende componenten, een niet-passende patch of ontbrekende SQLite-teststeun
+blokkeren `BANK_PLAN_PRIVATE_PREVIEW_READY`. Actieve bestanden en configuratie
+worden voor/na met SHA-256 vergeleken. Er wordt geen route gepubliceerd, geheim
+opgeslagen, configuratie gewijzigd of recht toegekend. De plancontrole activeert
+niets: `BANK_PLAN_ACTIVATION_EXECUTED=0`. Een groene stagingjob alleen is geen
+toestemming of gereedheidsbewijs voor activering; lees de expliciete planstatus.
+
 `check_live_bank=true` voert aanvullend een ongesigneerde en, indien serverconfiguratie
 aanwezig is, een gesigneerde bank-GET uit. De preflight gebruikt uitsluitend de
 Office-testconfiguratie en leest de ACL binnen een read-only databasetransactie.
