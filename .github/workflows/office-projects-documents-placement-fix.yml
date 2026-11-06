@@ -1,0 +1,64 @@
+name: Move Projecten Documents link into module tabs
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-projects-documents-placement-fix.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Move link without altering project table
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          target="$active/public/office-projects.php"
+          test -f "$target" && test ! -L "$target" || exit 21
+          php -l "$target" >/dev/null
+          if grep -Fq 'BREBO_PROJECTS_DOCUMENTS_TAB_20261106' "$target"; then echo ALREADY_FIXED; exit 0; fi
+          candidate="$(mktemp "$active/public/.projects-placement-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          export DOC_TARGET="$target" DOC_CANDIDATE="$candidate"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          src=Path(os.environ['DOC_TARGET']).read_text()
+          old="""// BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106
+          echo '<p><a href="/office-test/documenten">Documentenoverzicht openen</a></p>';
+          """
+          if src.count(old)!=1: raise SystemExit('FAIL_BOTTOM_LINK_ANCHOR')
+          anchor="""'>Inzet</a></nav>' . (!$inzetView"""
+          if src.count(anchor)!=1: raise SystemExit('FAIL_MODULE_TABS_ANCHOR')
+          replacement="""'>Inzet</a><a class="office-tab" href="/office-test/documenten">Documenten</a></nav>' . (!$inzetView"""
+          out=src.replace(old,'',1).replace(anchor,replacement,1)
+          if out.count('BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106') or out.count('href="/office-test/documenten"')!=1: raise SystemExit('FAIL_DUPLICATE_LINK')
+          out=out.replace(replacement,replacement+" /* BREBO_PROJECTS_DOCUMENTS_TAB_20261106 */",1)
+          Path(os.environ['DOC_CANDIDATE']).write_text(out)
+          PY
+          php -l "$candidate" >/dev/null || exit 22
+          backup="$target.backup-documents-placement-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo PROJECTS_DOCUMENTS_TAB_MOVED
+          echo "BACKUP=$(basename "$backup")"
+          REMOTE
