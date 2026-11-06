@@ -1,0 +1,85 @@
+name: Unify Documents links under central Office-test sidebar
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-single-navigation.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Verify central navigation and remove redundant page links
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          import os,subprocess,datetime,shutil
+          from pathlib import Path
+          root=Path(os.environ['DOC_ACTIVE'])
+          nav=root/'src/Intake/OfficeNavigation.php'
+          if not nav.is_file(): raise RuntimeError('CENTRAL_NAV_MISSING')
+          t=nav.read_text()
+          for needle in ["['Documenten','documenten'","['Documentenoverzicht','/office-test/documenten']","public static function decorate(","self::mainV2($path)"]:
+              if needle not in t: raise RuntimeError('CENTRAL_NAV_GUARD_FAILED '+needle)
+          print('CENTRAL_DOCUMENTS_NAV_PRESENT')
+          changed={}
+          def swap(s,a,b,label):
+              if s.count(a)!=1: raise RuntimeError(label+' count '+str(s.count(a)))
+              return s.replace(a,b,1)
+          p=root/'public/office-projects.php';s=p.read_text()
+          s=swap(s,'<a class="office-tab" href="/office-test/documenten">Documenten</a>','','project redundant tab')
+          changed[p]=s
+          p=root/'public/crm-workspace.php';s=p.read_text()
+          s=swap(s,'<a href="/office-test/documenten">Documenten</a> <!-- BREBO_CRM_DOCUMENTS_LINK_20261106 -->','','crm redundant sidebar')
+          changed[p]=s
+          p=root/'public/office-buildings.php';s=p.read_text()
+          s=swap(s,'<p><a href="/office-test/documenten">Documentenoverzicht</a></p>','','buildings redundant header')
+          changed[p]=s
+          p=root/'public/office-finance.php';s=p.read_text()
+          start=s.index('// BREBO_FINANCE_DOCUMENTS_LINK_20261106:')
+          end=s.index('echo $html;',start)
+          block=s[start:end]
+          if 'preg_replace' not in block or '$documentsLink' not in block or 'documenten' not in block: raise RuntimeError('finance block mismatch')
+          s=s[:start]+s[end:]
+          changed[p]=s
+          for p,s in changed.items():
+              if not p.is_file() or p.is_symlink(): raise RuntimeError('UNSAFE_FILE '+p.name)
+              temp=p.with_name('.'+p.name+'.single-nav-check')
+              if temp.exists(): raise RuntimeError('TEMP_ALREADY_EXISTS')
+              try:
+                  temp.write_text(s)
+                  r=subprocess.run(['php','-l',str(temp)],capture_output=True,text=True)
+                  if r.returncode: raise RuntimeError('LINT_FAIL '+p.name+' '+r.stdout+r.stderr)
+              finally: temp.unlink(missing_ok=True)
+          stamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+          for p,s in changed.items():
+              backup=p.with_name(p.name+'.backup-single-documents-nav-'+stamp)
+              shutil.copy2(p,backup)
+              temp=p.with_name('.'+p.name+'.single-nav-'+stamp)
+              temp.write_text(s)
+              temp.chmod(p.stat().st_mode)
+              temp.replace(p)
+              print('REMOVED_REDUNDANT_DOCUMENT_LINK='+p.name+' BACKUP='+backup.name)
+          print('SINGLE_DOCUMENTS_NAV_PASS')
+          PY
+          REMOTE
