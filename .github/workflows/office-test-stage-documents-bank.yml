@@ -90,14 +90,18 @@ jobs:
           count=0
           for path in "${files[@]}"; do
             dest="$active/$path"
-            # Use no-clobber link creation: an existing target is never replaced.
-            cp "$stage/$path" "$stage/install-${count}.php"
-            chmod 644 "$stage/install-${count}.php"
-            php -l "$stage/install-${count}.php" >/dev/null
-            if ! ln "$stage/install-${count}.php" "$dest"; then
+            # Temp file is on the SAME filesystem as the destination.
+            temp="$(mktemp "${dest}.stage-${GITHUB_RUN_ID}.XXXXXXXX")"
+            cp "$stage/$path" "$temp"
+            chmod 644 "$temp"
+            php -l "$temp" >/dev/null
+            # Hard link is atomic, no-clobber, and now stays within one filesystem.
+            if ! ln "$temp" "$dest"; then
+              rm -f "$temp"
               echo "ABORT_TARGET_CHANGED=$path"
               exit 29
             fi
+            rm -f "$temp"
             cmp -s "$stage/$path" "$dest" || exit 30
             echo "ADDED=$path"
             count=$((count+1))
