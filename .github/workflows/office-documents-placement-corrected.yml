@@ -1,0 +1,87 @@
+name: Fix Documents placement on all affected Office-test pages
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-placement-corrected.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Validate entire batch then deploy
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,subprocess,datetime,shutil
+          root=Path(os.environ['DOC_ACTIVE'])/'public'
+          changed={}
+          def swap(s,a,b,label):
+              n=s.count(a)
+              if n!=1: raise RuntimeError(label+': expected 1, got '+str(n))
+              return s.replace(a,b,1)
+          p=root/'office-projects.php';s=p.read_text()
+          s=swap(s,"// BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106\necho '<p><a href=\"/office-test/documenten\">Documentenoverzicht openen</a></p>';\n",'','project bottom')
+          s=swap(s,"'>Inzet</a></nav>' . (!$inzetView","'>Inzet</a><a class=\"office-tab\" href=\"/office-test/documenten\">Documenten</a></nav>' . (!$inzetView",'project tabs')
+          changed[p]=s
+          p=root/'crm-workspace.php';s=p.read_text()
+          link='<a href="/office-test/documenten">Documenten</a> <!-- BREBO_CRM_DOCUMENTS_LINK_20261106 -->'
+          s=swap(s,link,'','crm first')
+          s=swap(s,'Relaties &amp; CRM</a></nav>','Relaties &amp; CRM</a>'+link+'</nav>','crm last')
+          changed[p]=s
+          p=root/'office-buildings.php';s=p.read_text()
+          s=swap(s,'<th>Documenten</th>','','buildings header')
+          s=swap(s,'<td><a href="/office-test/documenten">Documenten</a></td>','','buildings row')
+          changed[p]=s
+          p=root/'office-personnel.php';s=p.read_text()
+          link='<p><a href="/office-test/documenten">Documentenoverzicht</a></p>'
+          s=swap(s,link,'','personnel bottom')
+          s=swap(s,'<h1>Personeel · Medewerkers</h1>','<h1>Personeel · Medewerkers</h1>'+link,'personnel heading')
+          changed[p]=s
+          p=root/'office-finance.php';s=p.read_text()
+          old="""$html = str_replace('</main>', $documentsLink . '</main>', $html);"""
+          new="""$html = preg_replace('/(<h1\\b[^>]*>.*?<\\/h1>)/is', '$1' . $documentsLink, $html, 1) ?? $html;"""
+          s=swap(s,old,new,'finance heading placement')
+          changed[p]=s
+          for p,s in changed.items():
+              if not p.is_file() or p.is_symlink(): raise RuntimeError('unsafe '+p.name)
+              candidate=p.with_name('.'+p.name+'.lint-candidate')
+              if candidate.exists(): raise RuntimeError('stale candidate '+p.name)
+              try:
+                  candidate.write_text(s)
+                  result=subprocess.run(['php','-l',str(candidate)],capture_output=True,text=True)
+                  if result.returncode: raise RuntimeError('lint '+p.name+': '+result.stdout+result.stderr)
+              finally: candidate.unlink(missing_ok=True)
+          stamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+          for p,s in changed.items():
+              backup=p.with_name(p.name+'.backup-documents-layout-'+stamp)
+              shutil.copy2(p,backup)
+              candidate=p.with_name('.'+p.name+'.layout-'+stamp)
+              candidate.write_text(s)
+              candidate.chmod(p.stat().st_mode)
+              candidate.replace(p)
+              print('DOCUMENTS_LAYOUT_FIXED='+p.name+' BACKUP='+backup.name)
+          print('DOCUMENTS_LAYOUT_BUNDLE_PASS')
+          PY
+          REMOTE
