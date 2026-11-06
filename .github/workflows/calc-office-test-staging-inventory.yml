@@ -72,3 +72,13 @@ jobs:
           done
           echo "CALC_AUDIT_COMPLETE"
           REMOTE
+      - name: State deployment readiness explicitly
+        run: |
+          echo "CALC_STAGING_AUDIT_ONLY=PASS"
+          echo "CALC_DEPLOYMENT_READY=NOT_VERIFIED"
+          echo "CALC_ENABLEMENT=BLOCKED_PENDING_ROUTER_RELEASE_PROXY_AND_RUNTIME"
+          {
+            echo "### Calc staging readiness"
+            echo "SSH inventory succeeded, but this job does not deploy or prove an end-to-end launch."
+            echo "Do not enable Calc until router, active release, proxy, Calc runtime, and signed Office callbacks have passed staging checks."
+          } >> "$GITHUB_STEP_SUMMARY"
