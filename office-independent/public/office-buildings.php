@@ -102,7 +102,7 @@ $pdokNotice = '';
 $pdokQuery = '';
 if ($detail && isset($_GET['pdok_q'])) {
   $pdokQuery = trim((string)$_GET['pdok_q']);
-  if (mb_strlen($pdokQuery) < 3 || mb_strlen($pdokQuery) > 160) {
+  if (strlen($pdokQuery) < 3 || strlen($pdokQuery) > 160) {
     $pdokNotice = 'Vul een adres in van 3 tot 160 tekens.';
   } else {
     try {
