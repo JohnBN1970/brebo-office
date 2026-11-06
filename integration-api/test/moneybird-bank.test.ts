@@ -26,10 +26,21 @@ describe("Moneybird bank-only evidence", () => {
       "https://moneybird.com/api/v2/999/financial_mutations.json?filter=period%3Athis_month%2Cstate%3Aall",
     ]);
     for (const [, init] of fetchMock.mock.calls) {
-      expect(init).toMatchObject({ method: "GET", redirect: "error", headers: { Authorization: "Bearer secret-marker" } });
+      expect(init).toMatchObject({ method: "GET", redirect: "manual", headers: { Authorization: "Bearer secret-marker" } });
       expect(init.body).toBeUndefined();
       expect(init.signal).toBeInstanceOf(AbortSignal);
     }
+  });
+
+  it("constructs outbound requests in the real Worker runtime without following redirects", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      const request = new Request(url, init);
+      expect(request.redirect).toBe("manual");
+      return Response.json([]);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getMoneybirdBankData(env)).toMatchObject({ accounts: [], transactions: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("strips invoice/payment links and balances instead of importing or deriving them", async () => {
@@ -70,6 +81,16 @@ describe("Moneybird bank-only evidence", () => {
   it.each([400, 401, 429, 500])("does not expose a provider error body for HTTP %s", async status => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("secret-marker private-account", { status })));
     await expect(getMoneybirdBankData(env)).rejects.toThrow("Moneybird request failed.");
+  });
+
+  it.each([301, 302, 307, 308])("rejects HTTP %s without forwarding credentials to a redirect", async status => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("private-redirect-body", {
+      status, headers: { Location: "https://other.example/private" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getMoneybirdBankData(env)).rejects.toThrow("Moneybird request failed.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls).toMatchObject([[expect.any(String), { redirect: "manual" }]]);
   });
 
   it("accepts an empty bank response", async () => {

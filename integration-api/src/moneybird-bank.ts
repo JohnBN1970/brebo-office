@@ -50,7 +50,8 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
 
 async function bankJson(url: string, env: Env, stage: 'accounts' | 'transactions'): Promise<unknown> {
   const response = await fetch(url, {
-    method: "GET", redirect: "error", signal: AbortSignal.timeout(4000),
+    // Workers supports manual redirects; reject all non-2xx below without forwarding credentials.
+    method: "GET", redirect: "manual", signal: AbortSignal.timeout(4000),
     headers: { Authorization: `Bearer ${env.MONEYBIRD_ACCESS_TOKEN}`, Accept: "application/json" },
   });
   if (!response.ok) throw new MoneybirdBankResponseError(response.status, stage);
