@@ -1,0 +1,20 @@
+name: Office-test Documents HTTP route probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Documents URLs without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://brebobv.nl"
+          for path in /office-test/documenten /office-test/documenten/nieuw /office-test/projecten /office-test/gebouwen /office-test/inloggen; do
+            echo "=== ROUTE $path ==="
+            response="$(curl --silent --show-error --max-redirs 0 --connect-timeout 10 --max-time 25 --output /dev/null --write-out '%{http_code} %{redirect_url} %{content_type}' "$base$path")" || true
+            echo "HTTP_RESPONSE=$response"
+          done
+          echo HTTP_ROUTE_PROBE_COMPLETE_NO_CHANGES
