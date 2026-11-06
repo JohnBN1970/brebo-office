@@ -157,6 +157,20 @@ jobs:
           set -euo pipefail
           baseline_version="$(node scripts/bank-version-acceptance.mjs baseline-version "$RUNNER_TEMP/bank-zero-plan.json")"
           candidate_version="$(node scripts/bank-version-acceptance.mjs candidate-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          version_available=0
+          for attempt in 1 2 3 4 5; do
+            if npx --no-install wrangler versions view "$candidate_version" --json > "$RUNNER_TEMP/bank-candidate-metadata.json" 2> "$RUNNER_TEMP/bank-candidate-read-error.log"; then
+              version_available=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$version_available" != 1 ]; then
+            node scripts/bank-version-acceptance.mjs upload-error "$RUNNER_TEMP/bank-candidate-read-error.log"
+            echo '::error::Uploaded version is not readable after bounded metadata checks; no traffic change attempted.'
+            exit 1
+          fi
+          echo 'BANK_CANDIDATE_METADATA_READABLE=1'
           npx --no-install wrangler versions deploy "$baseline_version@100%" "$candidate_version@0%" --yes --message "Temporary bank GET acceptance; existing traffic stays at 100 percent"
           npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-zero-current.json"
           node scripts/bank-version-acceptance.mjs verify-zero "$RUNNER_TEMP/bank-zero-current.json" "$RUNNER_TEMP/bank-zero-plan.json"
