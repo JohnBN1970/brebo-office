@@ -1,0 +1,92 @@
+name: Correct misplaced Documents links across Office-test
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-placement-bundle.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH setup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Validate and atomically replace only matching pages
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          import os,subprocess,datetime
+          from pathlib import Path
+          root=Path(os.environ['DOC_ACTIVE'])/'public'
+          changes={}
+          def replace_one(s,old,new,label):
+              if s.count(old)!=1: raise RuntimeError(label+': expected one anchor, got '+str(s.count(old)))
+              return s.replace(old,new,1)
+          p=root/'office-projects.php';s=p.read_text()
+          s=replace_one(s,"// BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106\necho '<p><a href=\"/office-test/documenten\">Documentenoverzicht openen</a></p>';\n",'','projects bottom')
+          s=replace_one(s,"'>Inzet</a></nav>' . (!$inzetView", "'>Inzet</a><a class=\"office-tab\" href=\"/office-test/documenten\">Documenten</a></nav>' . (!$inzetView",'projects tabs')
+          changes[p]=s
+          p=root/'crm-workspace.php';s=p.read_text()
+          link='<a href="/office-test/documenten">Documenten</a> <!-- BREBO_CRM_DOCUMENTS_LINK_20261106 -->'
+          s=replace_one(s,link,'','crm remove first')
+          s=replace_one(s,'Relaties &amp; CRM</a></nav>','Relaties &amp; CRM</a>'+link+'</nav>','crm navigation')
+          changes[p]=s
+          p=root/'office-buildings.php';s=p.read_text()
+          s=replace_one(s,'<p><a href="/office-test/documenten">Documentenoverzicht</a></p>','','buildings top duplicate')
+          changes[p]=s
+          p=root/'office-personnel.php';s=p.read_text()
+          link='<p><a href="/office-test/documenten">Documentenoverzicht</a></p>'
+          s=replace_one(s,link,'','personnel bottom')
+          # Existing heading is HTML in a PHP echo: move link immediately below heading.
+          import re
+          m=re.search(r'<h1[^>]*>[^<]*(?:Medewerkers|Personeel)[^<]*</h1>',s,re.I)
+          if not m: raise RuntimeError('personnel heading anchor not found')
+          s=s[:m.end()]+link+s[m.end():]
+          changes[p]=s
+          p=root/'office-finance.php';s=p.read_text()
+          old="$html = str_replace('</main>', $documentsLink . '</main>', $html);"
+          new="""$html = str_replace('</main>', $documentsLink . '</main>', $html);"""
+          # Finance view HTML structure is not yet confirmed; do not change its position blindly.
+          if old not in s: raise RuntimeError('finance existing link missing')
+          print('FINANCE_REQUIRES_VIEW_LAYOUT_REVIEW_NO_CHANGE')
+          for p,s in changes.items():
+              if not p.is_file() or p.is_symlink(): raise RuntimeError('unsafe target '+p.name)
+              candidate=p.with_name('.'+p.name+'.documents-placement-candidate')
+              if candidate.exists(): raise RuntimeError('candidate exists')
+              candidate.write_text(s)
+              result=subprocess.run(['php','-l',str(candidate)],capture_output=True,text=True)
+              if result.returncode:
+                  candidate.unlink(missing_ok=True)
+                  raise RuntimeError(p.name+' lint failed: '+result.stdout+result.stderr)
+              candidate.unlink()
+          stamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+          for p,s in changes.items():
+              backup=p.with_name(p.name+'.backup-placement-'+stamp)
+              import shutil
+              shutil.copy2(p,backup)
+              candidate=p.with_name('.'+p.name+'.placement-'+stamp)
+              candidate.write_text(s)
+              candidate.chmod(p.stat().st_mode)
+              candidate.replace(p)
+              print('PLACEMENT_FIXED='+p.name+' BACKUP='+backup.name)
+          print('PLACEMENT_BUNDLE_PASS')
+          PY
+          REMOTE
