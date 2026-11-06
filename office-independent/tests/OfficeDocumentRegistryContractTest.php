@@ -13,4 +13,11 @@ foreach (['office_document_originals', 'office_documents', 'office_document_cont
 if (str_contains(strtolower($sql), 'drupal')) {
     throw new RuntimeException('drupal_dependency_forbidden');
 }
-echo "OFFICE_DOCUMENT_REGISTRY_CONTRACT_OK\n";
+$expected = ['building', 'project', 'organization', 'contact', 'brebo', 'personnel'];
+if (OfficeDocumentRegistry::allowedContextTypes() !== $expected) {
+    throw new RuntimeException('document_context_types_mismatch');
+}
+if (in_array('employee', OfficeDocumentRegistry::allowedContextTypes(), true)) {
+    throw new RuntimeException('unapproved_context_alias');
+}
+echo "OFFICE_DOCUMENT_REGISTRY_CONTRACT_OK\\n";
