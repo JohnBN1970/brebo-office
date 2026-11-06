@@ -210,3 +210,15 @@ Europe/Amsterdam en de expliciete beperking dat dit geen bankbevestigde actuele
 stand is. Ontbrekende saldi blijven 'Niet aangeleverd'. De proefkopie kan de
 vooraf gecontroleerde vorige versies van uitsluitend paneel/snapshot vervangen;
 een afwijkende doelhash blokkeert het vervangen van die bestanden.
+
+### Beperkte saldo-upgrade bij reeds actieve banktoegang
+
+Gebruik `upgrade_booked_balances=true`, `activate_office_bank=false` en bevestiging
+`UPGRADE-OFFICE-BALANCES`. Deze route promoveert de geteste Worker-uitbreiding en
+vervangt uitsluitend `OfficeMoneybirdBankSnapshot.php` en `OfficeFinanceBankPanel.php`.
+Ze leest bestaande configuratie en bank-/Finance-grants; ze schrijft geen
+Office-configuratie, maakt geen configuratieback-up en kent geen rechten toe.
+De databaseverbinding staat expliciet in een read-only transactie. Het bestaande
+integratiegeheim blijft op de server en wordt bij deze upgrade niet overgedragen.
+Een echte rapport-GET en bronlabelcontrole zijn vereist. Bij fouten worden alleen
+de twee eigen bestandswijzigingen en de Worker-promotie teruggedraaid.

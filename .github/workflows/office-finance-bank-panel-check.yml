@@ -19,6 +19,7 @@ on:
       - 'office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php'
       - 'office-independent/tests/OfficeFinanceBankPreviewHooksTest.php'
       - 'office-independent/deployment/hostinger/office-moneybird-bank-activate.php'
+      - 'office-independent/deployment/hostinger/office-moneybird-booked-balance-upgrade.php'
       - 'office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php'
       - 'office-independent/deployment/hostinger/office-moneybird-bank-account-check.php'
       - 'office-independent/deployment/hostinger/office-moneybird-bank-account-install.php'
@@ -44,6 +45,7 @@ jobs:
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
           php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-activate.php
+          php -l office-independent/deployment/hostinger/office-moneybird-booked-balance-upgrade.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-account-check.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-account-install.php
           php office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php
