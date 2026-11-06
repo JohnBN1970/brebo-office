@@ -1,0 +1,68 @@
+name: Personnel Documents link remove misplaced standalone
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-personnel-documents-sidebar-fix.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Remove misplaced link and inspect shared navigation
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,subprocess,datetime,shutil
+          root=Path(os.environ['DOC_ACTIVE'])
+          p=root/'public/office-personnel.php'
+          s=p.read_text()
+          link='<p><a href="/office-test/documenten">Documentenoverzicht</a></p>'
+          if s.count(link)!=1: raise RuntimeError('PERSONNEL_LINK_ANCHOR_UNEXPECTED')
+          new=s.replace(link,'',1)
+          candidate=p.with_name('.personnel-documents-check.php')
+          try:
+              candidate.write_text(new)
+              r=subprocess.run(['php','-l',str(candidate)],capture_output=True,text=True)
+              if r.returncode: raise RuntimeError('PHP_LINT_FAIL '+r.stdout)
+          finally: candidate.unlink(missing_ok=True)
+          stamp=datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+          backup=p.with_name(p.name+'.backup-remove-misplaced-documents-'+stamp)
+          shutil.copy2(p,backup)
+          candidate=p.with_name('.personnel-documents-'+stamp+'.php')
+          candidate.write_text(new)
+          candidate.chmod(p.stat().st_mode)
+          candidate.replace(p)
+          print('PERSONNEL_MISPLACED_LINK_REMOVED BACKUP='+backup.name)
+          for f in (root/'src').rglob('*.php'):
+              if not f.is_file(): continue
+              try: txt=f.read_text()
+              except (OSError,UnicodeError): continue
+              if ('Bedrijfsvoering' in txt and 'Personeel' in txt) or ('Kennis & kwaliteit' in txt and 'Projecten' in txt):
+                  print('SHARED_NAV_CANDIDATE='+str(f.relative_to(root)))
+                  for line in txt.splitlines():
+                      if any(x in line for x in ['Bedrijfsvoering','Personeel','Kennis & kwaliteit','Documenten']):
+                          print('NAV_LINE='+line[:260])
+          PY
+          REMOTE
