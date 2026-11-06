@@ -1,0 +1,26 @@
+name: Office-test bundled recovery preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate recovery candidate PHP classes
+        run: |
+          set -euo pipefail
+          for area in Documents Finance Inzet Crm Buildings Project; do
+            echo "=== MODULE $area ==="
+            find "office-independent/src/$area" -maxdepth 1 -type f -name '*.php' -print | sort | while IFS= read -r file; do php -l "$file" >/dev/null; done
+            echo "PHP_SYNTAX_OK=$area"
+          done
+      - name: Build module inventory
+        run: |
+          set -euo pipefail
+          for area in Documents Finance Inzet Crm Buildings Project; do
+            count=$(find "office-independent/src/$area" -maxdepth 1 -type f -name '*.php' | wc -l)
+            echo "GITHUB_MODULE_COUNT $area $count"
+          done
+          echo BUNDLED_PREFLIGHT_COMPLETE
