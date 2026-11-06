@@ -38,6 +38,17 @@ export function trafficState(deployments, plan) {
   throw new Error('Unexpected active traffic allocation; refusing to overwrite another deployment.');
 }
 
+export function activationTrafficState(deployments, plan) {
+  validatePlan(plan);
+  const versions = latestDeployment(deployments).versions;
+  if (versions.length === 1 && versions[0].version_id === plan.candidate_version_id && versions[0].percentage === 100) return 'promoted';
+  return trafficState(deployments, plan);
+}
+export async function checkPromotedBank(deployments, plan, secret, fetcher = fetch) {
+  if (activationTrafficState(deployments, plan) !== 'promoted') throw new Error('Candidate promotion must be verified before production bank acceptance.');
+  return checkBankRequest('https://'+productionHost, secret, fetcher, undefined, true);
+}
+
 export function extractVersionUrl(output) {
   const candidates = output.match(/https:\/\/[a-z0-9.-]+/g) ?? [];
   const candidate = candidates.find(value => versionHost.test(new URL(value).hostname));
@@ -88,10 +99,13 @@ export function validateBankPayload(value) {
 }
 
 export async function checkBankVersion(baseUrl, secret, fetcher = fetch, versionId) {
+  return checkBankRequest(baseUrl, secret, fetcher, versionId);
+}
+async function checkBankRequest(baseUrl, secret, fetcher, versionId, promoted = false) {
   const base = new URL(baseUrl);
   const override = versionId !== undefined;
   if (override && !versionIdPattern.test(versionId)) throw new Error('Invalid bank test version override.');
-  if (base.protocol !== 'https:' || !(versionHost.test(base.hostname) || (override && base.hostname===productionHost)) || base.port || base.username || base.password
+  if (base.protocol !== 'https:' || !(versionHost.test(base.hostname) || ((override || promoted) && base.hostname===productionHost)) || base.port || base.username || base.password
       || base.search || base.hash || base.pathname !== '/') throw new Error('Only the bank Worker version URL is permitted.');
   if (typeof secret !== 'string' || secret.length < 24) throw new Error('Bank acceptance secret is not configured.');
   const url = base.origin + bankPath;
@@ -152,6 +166,11 @@ async function main() {
     const plan = JSON.parse(await readFile(first,'utf8'));
     validatePlan(plan);
     console.log(mode === 'baseline-version' ? plan.baseline_version_id : plan.candidate_version_id);
+  } else if (mode === 'activation-traffic-state') {
+    console.log(activationTrafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))));
+  } else if (mode === 'check-promoted') {
+    await checkPromotedBank(JSON.parse(await readFile(first,'utf8')), JSON.parse(await readFile(second,'utf8')), process.env.BREBO_SHARED_SECRET);
+    console.log('BANK_ACTIVE_ROUTE_ACCEPTANCE_OK=1');
   } else if (mode === 'traffic-state') {
     console.log(trafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))));
   } else if (mode === 'verify-zero') {

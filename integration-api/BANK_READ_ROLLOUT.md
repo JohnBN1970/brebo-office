@@ -50,6 +50,32 @@ Geen geheimen opnemen in Git, screenshots, logs of responsebodies. De standaards
 zet geen configuratie aan. Alleen de optionele 0%-versie krijgt een bankflag.
 De bestaande deploy gebruikt `--keep-vars`.
 
+## Afzonderlijk geautoriseerde activering in Office-test
+
+Selecteer `activate_office_bank` en bevestig exact `ACTIVATE-OFFICE-BANK` uitsluitend
+na toestemming voor API-promotie, testconfiguratie en het bankleesrecht voor
+`john.boon`. Gewone staging blijft `STAGE-OFFICE-BANK` zonder activeringsoptie.
+De workflow controleert dat gedeelde Worker-bron/configuratie in develop sinds
+de bankbasis niet gewijzigd is, maakt een nieuwe proefkopie van de huidige
+testrelease en controleert doelhashes en bestaande Finance-leestoegang.
+Pas na geslaagde 0%-acceptatie wordt de geaccepteerde kandidaat 100% actief.
+Een tweede bank-GET zonder versieheader moet daarna slagen.
+
+De server plaatst uitsluitend de vijf gecontroleerde bankbestanden. Hij bewaart
+private back-ups, vervangt bestanden atomair en weigert tussentijdse wijzigingen.
+De testconfiguratie krijgt een private overlay met endpoint, bankflag en het
+bestaande API-integratiegeheim. Een afwijkend bestaand geheim/endpoint wordt niet
+overschreven. Alleen `finance/bank_read` voor de reeds actieve Finance-lezer
+`john.boon` kan worden toegevoegd, binnen een transactie. Geen facturen of andere
+rechten worden gewijzigd. Echte bank-GET en toegestane/geweigerde weergave worden
+op de server gecontroleerd voordat die transactie wordt bevestigd.
+
+Bij mislukking herstelt de server zijn eigen wijzigingen; de workflow voert ook
+expliciet herstel uit en zet de Worker terug op de vastgelegde basisversie.
+Onverwachte andere wijzigingen worden niet overschreven. Alleen als alle
+activeringscontroles slagen blijft de kandidaat actief. Controleer daarna de
+echte Office-testpagina met een bestaande geauthenticeerde gebruikerssessie.
+
 ## Volgende stappen en grenzen
 
 Voor een uitsluitend lezende Cloudflare-toegangsdiagnose: selecteer de PR-branch,

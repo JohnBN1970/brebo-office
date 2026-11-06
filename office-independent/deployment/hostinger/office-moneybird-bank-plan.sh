@@ -66,5 +66,6 @@ if [ "$ready" = 1 ]; then
 fi
 sha256sum -c "$candidate/active-before.sha256" >/dev/null
 echo BANK_PLAN_ACTIVE_FILES_AND_CONFIG_UNCHANGED=1
+if [ "$ready" = 1 ]; then cp "$stage/SOURCE_SHA" "$candidate/PLAN_READY"; fi
 echo "BANK_PLAN_PRIVATE_PREVIEW_READY=$ready"
 echo BANK_PLAN_ACTIVATION_EXECUTED=0

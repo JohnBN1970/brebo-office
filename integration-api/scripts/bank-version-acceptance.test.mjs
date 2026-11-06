@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload, zeroTrafficPlan, trafficState } from './bank-version-acceptance.mjs';
+import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload, zeroTrafficPlan, trafficState, activationTrafficState, checkPromotedBank } from './bank-version-acceptance.mjs';
 
 const versionUrl = 'https://12345678-brebo-integration-api.john-boon.workers.dev';
 const baselineId='11111111-1111-4111-8111-111111111111';
@@ -78,4 +78,23 @@ test('reports only whitelisted provider failure metadata, never error text or cr
     calls++;
     return calls===1?new Response('',{status:401}):Response.json({error:{category:'provider_http_error',provider_status:403,stage:'accounts',message:'PRIVATE-ERROR-MARKER'}},{status:502});
   }),error=>error.message.includes('provider_status=403')&&error.message.includes('stage=accounts')&&error.message.includes('category=provider_http_error')&&!error.message.includes('PRIVATE-ERROR-MARKER'));
+});
+
+test('permits promotion only for the exact accepted candidate at 100 percent', async()=>{
+  const plan=zeroTrafficPlan(baseline,'Worker Version ID: '+candidateId);
+  const promoted=[{...baseline[0],versions:[{version_id:candidateId,percentage:100}]}];
+  assert.equal(activationTrafficState(promoted,plan),'promoted');
+  assert.throws(()=>trafficState(promoted,plan));
+  assert.throws(()=>activationTrafficState([{...baseline[0],versions:[{version_id:candidateId,percentage:90}]}],plan));
+  let calls=0;
+  const fetcher=async(url,init)=>{
+    calls++;
+    assert.equal(url,'https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data');
+    assert.equal(init.headers['Cloudflare-Workers-Version-Overrides'],undefined);
+    return calls===1?new Response('',{status:401}):Response.json(valid(),{headers:{'Cache-Control':'no-store'}});
+  };
+  await assert.rejects(checkPromotedBank(baseline,plan,'secret'.repeat(6),fetcher));
+  assert.equal(calls,0);
+  await checkPromotedBank(promoted,plan,'secret'.repeat(6),fetcher);
+  assert.equal(calls,2);
 });

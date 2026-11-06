@@ -18,6 +18,8 @@ on:
       - 'office-independent/deployment/hostinger/office-moneybird-bank-preflight.php'
       - 'office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php'
       - 'office-independent/tests/OfficeFinanceBankPreviewHooksTest.php'
+      - 'office-independent/deployment/hostinger/office-moneybird-bank-activate.php'
+      - 'office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php'
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,6 +41,8 @@ jobs:
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
           php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-activate.php
+          php office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php
           BANK_PREFLIGHT_LIVE_READ=0 php office-independent/deployment/hostinger/office-moneybird-bank-preflight.php > /tmp/bank-preflight-unconfigured.txt
           grep -q 'BANK_READ_PREFLIGHT_GO=0' /tmp/bank-preflight-unconfigured.txt
 
