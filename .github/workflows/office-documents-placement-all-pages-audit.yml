@@ -1,0 +1,51 @@
+name: Audit Documents placement across all Office-test pages
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-placement-all-pages-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read all active pages without changes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export AUDIT_ACTIVE="$active"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,re
+          root=Path(os.environ['AUDIT_ACTIVE'])/'public'
+          files=sorted(root.glob('*.php'))
+          for p in files:
+              s=p.read_text(errors='replace')
+              if 'documenten' not in s.lower() and 'document' not in p.name.lower(): continue
+              matches=list(re.finditer(r'(?i)(?:href=[^\s]{0,100}documenten|BREBO_\w*DOCUMENTS\w*|OfficeNewDocumentMenu|Documentenoverzicht openen|office-dossier-nav|office-tabs|Hoofdnavigatie)',s))
+              if not matches: continue
+              print('PAGE='+p.name+' MATCHES='+str(len(matches)))
+              for m in matches[:14]:
+                  lo=max(0,m.start()-115);hi=min(len(s),m.end()+145)
+                  snippet=s[lo:hi].replace('\n',' ').replace('\r',' ')
+                  print('  LINE='+str(s.count('\n',0,m.start())+1)+' '+snippet[:330])
+          PY
+          REMOTE
