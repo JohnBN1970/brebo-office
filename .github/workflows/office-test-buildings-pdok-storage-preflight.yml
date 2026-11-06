@@ -1,0 +1,53 @@
+name: Office-test PDOK building storage preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active Office-test schema (read only)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo INVALID_RELEASE_SCOPE; exit 21;; esac
+          cd "$active"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $configFile = getenv('HOME') . '/domains/brebobv.nl/office_calc_test/config/config.php';
+          $config = require $configFile;
+          $dsn = getenv('OFFICE_INTAKE_PDO_DSN') ?: ($config['OFFICE_INTAKE_PDO_DSN'] ?? '');
+          $user = getenv('OFFICE_INTAKE_DB_USER') ?: ($config['OFFICE_INTAKE_DB_USER'] ?? '');
+          $password = getenv('OFFICE_INTAKE_DB_PASSWORD') ?: ($config['OFFICE_INTAKE_DB_PASSWORD'] ?? '');
+          if (!is_string($dsn) || $dsn === '') { echo "PDOK_STORAGE_PREFLIGHT=NO_DSN\n"; exit(2); }
+          try {
+            $db = new PDO($dsn, $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $query = $db->query("SELECT COLUMN_NAME,DATA_TYPE,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_buildings' ORDER BY ORDINAL_POSITION");
+            $columns = $query->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($columns as $col) echo 'BUILDING_COLUMN=' . $col['COLUMN_NAME'] . ' TYPE=' . $col['DATA_TYPE'] . ' NULLABLE=' . $col['IS_NULLABLE'] . "\n";
+            foreach (['latitude','longitude','bag_id','pdok_id'] as $field) {
+              $found = in_array($field, array_column($columns, 'COLUMN_NAME'), true);
+              echo 'PDOK_FIELD_' . strtoupper($field) . '=' . ($found ? 'PRESENT' : 'MISSING') . "\n";
+            }
+            echo 'PDOK_STORAGE_PREFLIGHT=READ_ONLY_COMPLETE' . "\n";
+          } catch (Throwable $e) { echo 'PDOK_STORAGE_PREFLIGHT=DB_ERROR ' . $e->getCode() . "\n"; exit(3); }
+          PHP
+          REMOTE
