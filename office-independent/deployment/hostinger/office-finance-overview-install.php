@@ -54,13 +54,11 @@ try {
   foreach (['OfficeFinanceBankViewTest.php', 'OfficeFinanceOverviewTest.php'] as $test) copy($stage.'/tests/'.$test, $preview.'/tests/'.$test);
   foreach ($paths as $path) {
     $phase = 'preview_lint';
-    exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($preview.'/'.$path).' 2>&1', $ignoredOutput, $status);
-    if ($status !== 0) throw new RuntimeException('Preview syntax failed');
+    token_get_all(file_get_contents($preview.'/'.$path), TOKEN_PARSE);
   }
   foreach (['OfficeFinanceBankViewTest.php', 'OfficeFinanceOverviewTest.php'] as $test) {
     $phase = $test === 'OfficeFinanceBankViewTest.php' ? 'preview_bank_test' : 'preview_overview_test';
-    exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($preview.'/tests/'.$test).' 2>&1', $ignoredOutput, $status);
-    if ($status !== 0) throw new RuntimeException('Preview contract failed');
+    (static function(string $file): void { require $file; })($preview.'/tests/'.$test);
   }
   if (hash_file('sha256', $configFile) !== $hash) throw new RuntimeException('Configuration changed during preview');
   foreach ($journal as $path=>$row) if (hash_file('sha256', $root.'/'.$path) !== $row['before']) throw new RuntimeException('Concurrent source change');
