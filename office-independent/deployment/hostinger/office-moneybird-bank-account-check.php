@@ -9,9 +9,8 @@ header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'");
 try {
   if (($_SERVER['REQUEST_METHOD']??'')!=='GET') { http_response_code(405); exit; }
-  $domain=dirname(__DIR__,2);
-  $base=$domain.'/office_calc_test';
-  $file=$base.'/config/config.php';
+  $file='/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+  $base=dirname($file,2);
   $level=ob_get_level(); ob_start();
   try { $config=require $file; } finally { while(ob_get_level()>$level) ob_end_clean(); }
   $root=$config['OFFICE_PRIVATE_ROOT']??'';
