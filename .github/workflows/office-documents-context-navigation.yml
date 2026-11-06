@@ -1,0 +1,78 @@
+name: Add central Documents context navigation safely
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-context-navigation.yml'
+permissions:
+  contents: read
+concurrency:
+  group: office-test-documents-context-navigation
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Add navigation without replacing existing controller
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          target="$active/public/office-documents.php"
+          test -f "$target" && test ! -L "$target" || exit 21
+          php -l "$target" >/dev/null
+          grep -Fq 'OfficeNewDocumentMenu::render' "$target" || exit 22
+          grep -Fq 'Documentenoverzicht</h2>' "$target" || exit 23
+          if grep -Fq 'office-document-context-navigation' "$target"; then
+            echo DOCUMENTS_CONTEXT_NAV_ALREADY_PRESENT
+            exit 0
+          fi
+          backup="$target.backup-context-navigation-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          candidate="$(mktemp "$active/public/.documents-context-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          export DOC_TARGET="$target" DOC_CANDIDATE="$candidate"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          old=Path(os.environ["DOC_TARGET"]).read_text()
+          anchor='<section><h2>Documentenoverzicht</h2>'
+          if old.count(anchor)!=1: raise SystemExit("FAIL_CONTEXT_ANCHOR")
+          insert='''<section class="office-document-context-navigation" aria-label="Documenten per onderdeel">
+          <h2>Documenten per onderdeel</h2>
+          <p>Open documenten vanuit het bijbehorende onderdeel. Bestaande rechten en projectafscherming blijven van toepassing.</p>
+          <nav aria-label="Documentcontexten" style="display:flex;flex-wrap:wrap;gap:12px">
+          <a href="/office-test/projecten">Projecten</a>
+          <a href="/office-test/crm/relaties">Klanten en relaties</a>
+          <a href="/office-test/gebouwen">Gebouwen</a>
+          <a href="/office-test/personeel/medewerkers">Personeel</a>
+          <a href="/office-test/finance">Bedrijfsvoering</a>
+          </nav></section>
+          '''
+          new=old.replace(anchor,insert+anchor,1)
+          if new.replace(insert,'',1)!=old: raise SystemExit("FAIL_UNEXPECTED_CHANGE")
+          Path(os.environ["DOC_CANDIDATE"]).write_text(new)
+          PY
+          php -l "$candidate" >/dev/null
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo DOCUMENTS_CONTEXT_NAV_DEPLOYED
+          echo "BACKUP_CREATED=$(basename "$backup")"
+          REMOTE
