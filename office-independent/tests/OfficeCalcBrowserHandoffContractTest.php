@@ -39,6 +39,10 @@ foreach ([
         throw new RuntimeException('Missing common launch gate: ' . $flag);
     }
 }
+if (!str_contains($launch, 'CONTENT_TYPE') || !str_contains($launch, 'CONTENT_LENGTH')
+    || !str_contains($launch, '(int)$contentLength > 2048')) {
+    throw new RuntimeException('Launch request size/type gate missing');
+}
 if (!str_contains($launch, 'OfficeCalcLaunchCsrf::verify')
     || !str_contains($launch, 'OfficeCalcLaunchCsrf::validOrigin')
     || !str_contains($grant, 'OFFICE_CALC_GRANT_VALIDATION_ENABLED')) {
