@@ -48,7 +48,7 @@ try {
     // grant for this project and the issuing operator session remains active.
     // The shared HMAC secret alone must not enumerate arbitrary Office projects.
     $grantQuery = $db->prepare(
-        'SELECT 1 FROM office_calc_session_grants g
+        "SELECT 1 FROM office_calc_session_grants g
          INNER JOIN office_operator_sessions s ON s.token_hash=g.session_hash
          INNER JOIN office_operator_accounts a ON a.id=g.actor_id
          INNER JOIN office_project_memberships m ON m.project_id=g.project_id
@@ -56,7 +56,7 @@ try {
          WHERE g.project_id=:id AND g.revoked_at IS NULL
            AND g.expires_at > UTC_TIMESTAMP()
            AND s.revoked_at IS NULL AND s.expires_at > UTC_TIMESTAMP()
-           AND a.active=1 LIMIT 1'
+           AND a.active=1 LIMIT 1"
     );
     $grantQuery->execute([':id' => $projectId]);
     if ($grantQuery->fetchColumn() === false) $deny(403);
