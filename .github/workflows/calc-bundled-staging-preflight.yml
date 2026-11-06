@@ -108,6 +108,28 @@ jobs:
           for cmd in node npm; do
             if command -v "$cmd" >/dev/null 2>&1; then echo "CMD_$cmd=present"; else echo "CMD_$cmd=missing"; fi
           done
+          echo SECTION=EFFECTIVE_OFFICE_ROOT
+          # Read only the expected root path, never print config values or secrets.
+          # Read the configuration as a PHP array without triggering application bootstrap.
+          if [ -f "$base/config/config.php" ]; then
+            OFFICE_CONFIG_PATH="$base/config/config.php" php -r '
+              $path = getenv("OFFICE_CONFIG_PATH");
+              $config = require $path;
+              if (!is_array($config)) { echo "ROOT_CONFIG=non_array\n"; exit(0); }
+              $root = $config["OFFICE_PRIVATE_ROOT"] ?? null;
+              $base = dirname(dirname($path));
+              if (is_string($root) && $root !== "") {
+                $real = realpath($root);
+                $prefix = realpath($base);
+                if ($real !== false && $prefix !== false && str_starts_with($real, $prefix . DIRECTORY_SEPARATOR)) {
+                  $relative = substr($real, strlen($prefix) + 1);
+                  echo "ROOT_RELEASE_RELATIVE=" . $relative . "\n";
+                  echo "ROOT_PUBLIC_FILE=" . (is_file($real . "/public/office-home.php") ? "present" : "missing") . "\n";
+                  echo "ROOT_CALC_BRIDGE=" . (is_file($real . "/public/office-calc-launch.php") ? "present" : "missing") . "\n";
+                } else { echo "ROOT_RELEASE_RELATIVE=outside_expected_base_or_missing\n"; }
+              } else { echo "ROOT_CONFIG=missing_root_key\n"; }
+            ' || echo ROOT_CONFIG_CHECK=error
+          fi
           echo SECTION=PHP
           php -r 'echo "PHP_VERSION=".PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION.PHP_EOL; echo "PDO_MYSQL=".(extension_loaded("pdo_mysql")?"present":"missing").PHP_EOL;'
           echo CALC_BUNDLE_COMPLETE
