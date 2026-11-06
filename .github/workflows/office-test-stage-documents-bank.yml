@@ -1,0 +1,109 @@
+name: Office-test stage missing Documents and bank classes
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-seven-class-stage
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and syntax-check seven classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            src/Documents/OfficeDocumentAccessGate.php
+            src/Documents/OfficeDocumentRegistry.php
+            src/Documents/OfficePrivateFileStorage.php
+            src/Documents/OfficeProjectDocumentService.php
+            src/Finance/OfficeFinanceBankPanel.php
+            src/Finance/OfficeMoneybirdBankApiClient.php
+            src/Finance/OfficeMoneybirdBankSnapshot.php
+          )
+          printf '%s\n' "${files[@]}" > /tmp/office-additive-paths.txt
+          for path in "${files[@]}"; do
+            php -l "office-independent/$path" >/dev/null
+          done
+          tar -czf /tmp/office-additive-classes.tar.gz -C office-independent -T /tmp/office-additive-paths.txt
+          echo "SOURCE_PREFLIGHT_PASS=7"
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Apply additive-only file stage to active Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-additive-classes.tar.gz "$USER@$HOST:/tmp/office-additive-classes-${GITHUB_RUN_ID}.tar.gz"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$root/config/config.php"
+          test -f "$config" || exit 20
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ACTIVE_SCOPE_INVALID; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || exit 22
+          package="/tmp/office-additive-classes-${GITHUB_RUN_ID}.tar.gz"
+          stage="$(mktemp -d /tmp/office-additive-stage-XXXXXXXX)"
+          trap 'rm -rf "$stage" "$package"' EXIT
+          tar -xzf "$package" -C "$stage"
+          files=(
+            src/Documents/OfficeDocumentAccessGate.php
+            src/Documents/OfficeDocumentRegistry.php
+            src/Documents/OfficePrivateFileStorage.php
+            src/Documents/OfficeProjectDocumentService.php
+            src/Finance/OfficeFinanceBankPanel.php
+            src/Finance/OfficeMoneybirdBankApiClient.php
+            src/Finance/OfficeMoneybirdBankSnapshot.php
+          )
+          critical="$active/public/office-project.php"
+          test -f "$critical" || exit 23
+          v3_before="$(sha256sum "$critical" | awk '{print $1}')"
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            grep -Fq "$marker" "$critical" || exit 24
+          done
+          for path in "${files[@]}"; do
+            test -f "$stage/$path" && test ! -L "$stage/$path" || exit 25
+            php -l "$stage/$path" >/dev/null || exit 26
+            dest="$active/$path"
+            test -d "${dest%/*}" && test ! -L "${dest%/*}" || exit 27
+            if test -e "$dest" || test -L "$dest"; then
+              echo "ABORT_EXISTING_TARGET=$path"
+              exit 28
+            fi
+          done
+          echo "ALL_TARGETS_ABSENT_AND_VALID"
+          count=0
+          for path in "${files[@]}"; do
+            dest="$active/$path"
+            # Use no-clobber link creation: an existing target is never replaced.
+            cp "$stage/$path" "$stage/install-${count}.php"
+            chmod 644 "$stage/install-${count}.php"
+            php -l "$stage/install-${count}.php" >/dev/null
+            if ! ln "$stage/install-${count}.php" "$dest"; then
+              echo "ABORT_TARGET_CHANGED=$path"
+              exit 29
+            fi
+            cmp -s "$stage/$path" "$dest" || exit 30
+            echo "ADDED=$path"
+            count=$((count+1))
+          done
+          test "$(sha256sum "$critical" | awk '{print $1}')" = "$v3_before" || exit 31
+          echo "V3_HASH_UNCHANGED=$v3_before"
+          echo "ADDED_COUNT=$count"
+          echo "ADDITIVE_STAGE_COMPLETE_NO_ROUTES_OR_DB_CHANGES"
+          REMOTE
