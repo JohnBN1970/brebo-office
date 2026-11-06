@@ -36,24 +36,29 @@ try {
   mkdir($preview, 0700);
   foreach (['src/Finance', 'src/Intake', 'public', 'tests', 'backup/src/Finance', 'backup/public'] as $dir) mkdir($preview.'/'.$dir, 0700, true);
   foreach ($paths as $path) {
+    $phase = $path === 'public/office-finance.php' ? 'controller_anchors' : 'view_anchors';
     $file = $root.'/'.$path;
     if (is_link($file) || realpath($file) !== $file) throw new RuntimeException('Unsafe active source');
     $source = file_get_contents($file);
+    foreach ($changes[$path] as $index=>$chunk) echo 'OVERVIEW_ANCHOR_'.$phase.'_'.$index.'='.substr_count($source, $chunk['before'])."\n";
     $candidate = overviewTransform($source, $changes[$path]);
     file_put_contents($preview.'/'.$path, $candidate);
     file_put_contents($preview.'/backup/'.$path, $source);
     $journal[$path] = ['before'=>hash('sha256', $source), 'after'=>hash('sha256', $candidate), 'mode'=>fileperms($file)&0777];
   }
   foreach (['src/Finance/OfficeFinanceBankPanel.php', 'src/Intake/OfficeMount.php'] as $path) {
+    $phase = 'preview_dependencies';
     if (is_link($root.'/'.$path) || realpath($root.'/'.$path) !== $root.'/'.$path) throw new RuntimeException('Unsafe preview dependency');
     copy($root.'/'.$path, $preview.'/'.$path);
   }
   foreach (['OfficeFinanceBankViewTest.php', 'OfficeFinanceOverviewTest.php'] as $test) copy($stage.'/tests/'.$test, $preview.'/tests/'.$test);
   foreach ($paths as $path) {
+    $phase = 'preview_lint';
     exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($preview.'/'.$path).' 2>&1', $ignoredOutput, $status);
     if ($status !== 0) throw new RuntimeException('Preview syntax failed');
   }
   foreach (['OfficeFinanceBankViewTest.php', 'OfficeFinanceOverviewTest.php'] as $test) {
+    $phase = $test === 'OfficeFinanceBankViewTest.php' ? 'preview_bank_test' : 'preview_overview_test';
     exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($preview.'/tests/'.$test).' 2>&1', $ignoredOutput, $status);
     if ($status !== 0) throw new RuntimeException('Preview contract failed');
   }
