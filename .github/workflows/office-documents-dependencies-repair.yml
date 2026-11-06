@@ -1,0 +1,78 @@
+name: Restore missing Office-test Documents menu dependencies
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-dependencies-repair.yml'
+permissions:
+  contents: read
+concurrency:
+  group: office-test-documents-dependencies
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-inspection-foundation-20261103
+          persist-credentials: false
+      - name: Validate source and menu contracts
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Documents/OfficeDocumentTypes.php
+          php -l office-independent/src/Documents/OfficeNewDocumentMenu.php
+          php office-independent/tests/OfficeNewDocumentMenuTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Deploy only absent dependencies to active test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          tar -C office-independent/src -czf /tmp/office-documents-dependencies.tar.gz Documents/OfficeDocumentTypes.php Documents/OfficeNewDocumentMenu.php
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" /tmp/office-documents-dependencies.tar.gz "$remote:domains/brebobv.nl/office_calc_test/documents-dependencies-candidate.tar.gz"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          archive="$base/documents-dependencies-candidate.tar.gz"
+          trap 'rm -f "$archive"' EXIT
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_TEST_SCOPE; exit 20;; esac
+          test -f "$active/public/office-documents.php" || { echo FAIL_DOCUMENTS_CONTROLLER; exit 21; }
+          php -l "$active/public/office-documents.php" >/dev/null
+          stage="$(mktemp -d "$base/.documents-deps-XXXXXXXX")"
+          trap 'rm -rf "$stage"; rm -f "$archive"' EXIT
+          tar -xzf "$archive" -C "$stage"
+          for name in OfficeDocumentTypes.php OfficeNewDocumentMenu.php; do
+            candidate="$stage/Documents/$name"
+            target="$active/src/Documents/$name"
+            test -f "$candidate" && php -l "$candidate" >/dev/null || exit 22
+            if test -e "$target" || test -L "$target"; then
+              cmp -s "$candidate" "$target" || { echo "FAIL_EXISTING_DIFFERENT=$name"; exit 23; }
+              echo "ALREADY_PRESENT=$name"
+            fi
+          done
+          mkdir -p "$active/src/Documents"
+          for name in OfficeDocumentTypes.php OfficeNewDocumentMenu.php; do
+            target="$active/src/Documents/$name"
+            if test ! -e "$target"; then
+              cp "$stage/Documents/$name" "$target"
+              chmod 644 "$target"
+              echo "RESTORED=$name"
+            fi
+            php -l "$target" >/dev/null
+          done
+          echo DOCUMENTS_DEPENDENCIES_RESTORED
+          REMOTE
