@@ -12,6 +12,7 @@ on:
       - 'office-independent/tests/OfficeCalcSignedRequestTest.php'
       - 'office-independent/tests/OfficeCalcRequestReplayRepositoryTest.php'
       - 'office-independent/tests/OfficeCalcGrantValidationServiceTest.php'
+      - 'office-independent/tests/OfficeCalcLaunchIssuerTest.php'
       - 'office-independent/deployment/hostinger/sql/office-calc-signed-request-ids.sql'
       - 'office-independent/deployment/hostinger/sql/office-calc-session-grants.sql'
       - 'office-independent/tests/OfficeCalcReconnectGateTest.php'
@@ -36,6 +37,7 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcSignedRequest.php
           php -l office-independent/src/Calculation/OfficeCalcRequestReplayRepository.php
           php -l office-independent/src/Calculation/OfficeCalcGrantValidationService.php
+          php -l office-independent/src/Calculation/OfficeCalcLaunchIssuer.php
           php -l office-independent/public/office-calc-grant-validate.php
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeCalcLaunchTokenTest.php
@@ -44,6 +46,7 @@ jobs:
           php -l office-independent/tests/OfficeCalcSignedRequestTest.php
           php -l office-independent/tests/OfficeCalcRequestReplayRepositoryTest.php
           php -l office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+          php -l office-independent/tests/OfficeCalcLaunchIssuerTest.php
           php -l office-independent/tests/OfficeCalcReconnectGateTest.php
       - name: Calc launch token contract
         run: php office-independent/tests/OfficeCalcLaunchTokenTest.php
@@ -57,5 +60,7 @@ jobs:
         run: php office-independent/tests/OfficeCalcRequestReplayRepositoryTest.php
       - name: Calc grant validation service
         run: php office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+      - name: Calc authorized launch issuer
+        run: php office-independent/tests/OfficeCalcLaunchIssuerTest.php
       - name: Office-test safe disconnected gate
         run: php office-independent/tests/OfficeCalcReconnectGateTest.php
