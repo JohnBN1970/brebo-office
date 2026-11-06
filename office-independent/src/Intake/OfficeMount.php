@@ -50,6 +50,8 @@ final class OfficeMount {
       'crm/aanvragen' => '/crm/aanvragen',
       'crm/aanvragen/detail' => '/crm/aanvragen/detail',
       'calc-werkbank' => '/calc-werkbank',
+      'documenten' => '/documenten',
+      'documenten/nieuw' => '/documenten/nieuw',
       'projecten/detail' => '/projecten/detail',
       'finance' => '/finance',
       'finance/betaalcentrum' => '/finance/betaalcentrum',
