@@ -64,12 +64,10 @@ jobs:
               if (!str_contains($r,$new)) exit(27);
           }
           $rule="RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]";
-          if (!preg_match('~(?m)^RewriteRule\\s+\\^documenten(?:/\\w+|\\()?~',$h) || !str_contains($h,$rule)) {
-              if (str_contains($h,$rule)===false) {
-                  $prefix="RewriteEngine On";
-                  if (substr_count($h,$prefix)!==1) exit(28);
-                  $h=str_replace($prefix,$prefix."\n# BREBO Documents new route\n".$rule,$h);
-              }
+          if (!str_contains($h,$rule)) {
+              $prefix="RewriteEngine On";
+              if (substr_count($h,$prefix)!==1) exit(28);
+              $h=str_replace($prefix,$prefix."\n# BREBO Documents new route\n".$rule,$h);
           }
           $oldR=file_get_contents($router);
           $oldH=file_get_contents($htaccess);
