@@ -1,0 +1,51 @@
+name: Audit live Office-test central Documents navigation
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-live-nav-audit.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read active navigation and existing links
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['DOC_ACTIVE'])
+          p=root/'src/Intake/OfficeNavigation.php'
+          print('NAV_FILE_EXISTS='+str(p.exists()))
+          if p.exists():
+            s=p.read_text()
+            for token in ['public static function mainV2','\u005b\u0027Gebouwen\u0027','\u005b\u0027Bedrijfsvoering\u0027','documenten','public static function decorate']:
+              i=s.find(token)
+              print('TOKEN='+token+' POS='+str(i)+' COUNT='+str(s.count(token)))
+              if i>=0:print('CONTEXT='+repr(s[max(0,i-300):i+700]))
+          for name in ['office-projects.php','crm-workspace.php','office-buildings.php','office-personnel.php','office-finance.php']:
+            s=(root/'public'/name).read_text()
+            print('PAGE='+name+' DOC_LINKS='+str(s.count('href="/office-test/documenten"'))+' DOC_MARKERS='+str(s.count('BREBO_')))
+          PY
+          REMOTE
