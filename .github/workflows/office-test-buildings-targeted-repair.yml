@@ -1,0 +1,64 @@
+name: Office-test buildings targeted repair
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-buildings-targeted-repair
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source PHP syntax
+        run: php -l office-independent/public/office-buildings.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Stage source file
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-buildings.php "$USER@$HOST:/tmp/office-buildings-${GITHUB_RUN_ID}.php"
+      - name: Back up and deploy to active Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo INVALID_RELEASE_SCOPE; exit 21;; esac
+          test -d "$active/public"
+          src="/tmp/office-buildings-${GITHUB_RUN_ID}.php"
+          dest="$active/public/office-buildings.php"
+          test -f "$src"
+          php -l "$src"
+          test -f "$dest"
+          backup="$dest.backup-${GITHUB_RUN_ID}"
+          cp -p "$dest" "$backup"
+          trap 'rm -f "$src"' EXIT
+          if ! cp "$src" "$dest" || ! php -l "$dest"; then
+            cp -p "$backup" "$dest"
+            echo BUILDINGS_DEPLOY_ROLLED_BACK
+            exit 31
+          fi
+          cmp -s "$src" "$dest" || { cp -p "$backup" "$dest"; echo BUILDINGS_DEPLOY_ROLLED_BACK; exit 32; }
+          echo BUILDINGS_DEPLOY_OK
+          echo "SOURCE_SHA=$(sha256sum "$src" | cut -d' ' -f1)"
+          echo "ACTIVE_SHA=$(sha256sum "$dest" | cut -d' ' -f1)"
+          echo "BACKUP_PATH=$backup"
+          REMOTE
