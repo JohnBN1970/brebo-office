@@ -1,8 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload } from './bank-version-acceptance.mjs';
+import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload, zeroTrafficPlan, trafficState } from './bank-version-acceptance.mjs';
 
 const versionUrl = 'https://12345678-brebo-integration-api.john-boon.workers.dev';
+const baselineId='11111111-1111-4111-8111-111111111111';
+const candidateId='22222222-2222-4222-8222-222222222222';
+const baseline=[{id:'baseline',created_on:'2026-11-06',versions:[{version_id:baselineId,percentage:100}]}];
 const valid = () => ({status:'ok',request_id:'test',provider:'moneybird',bank:{balances_available:false,period:'this_month',
   accounts:[{id:'123',name:'Test',identifier:'NL00TEST',currency:'EUR'}],
   transactions:[{id:'456',financial_account_id:'123',amount:'-12.3400',date:'2026-11-06',message:'PRIVATE-BANK-MARKER'}]}});
@@ -48,4 +51,24 @@ test('rejects production, unowned URLs and provider failures without echoing bod
   await assert.rejects(checkBankVersion('https://brebo-integration-api.john-boon.workers.dev','secret'.repeat(6),fetcher));
   assert.equal(calls,0);
   await assert.rejects(checkBankVersion(versionUrl,'secret'.repeat(6),fetcher),error=>!error.message.includes('PRIVATE-PROVIDER-MARKER'));
+});
+test('requires a single baseline at 100% before preparing a zero-traffic plan',()=>{
+  assert.deepEqual(zeroTrafficPlan(baseline,'Worker Version ID: '+candidateId),{baseline_version_id:baselineId,candidate_version_id:candidateId});
+  assert.throws(()=>zeroTrafficPlan([{...baseline[0],versions:[{version_id:baselineId,percentage:90}]}],'Worker Version ID: '+candidateId));
+  assert.throws(()=>zeroTrafficPlan(baseline,'Worker Version ID: '+baselineId));
+});
+test('verifies exact zero-traffic allocation and refuses unexpected deployment changes',()=>{
+  const plan=zeroTrafficPlan(baseline,'Worker Version ID: '+candidateId);
+  assert.equal(trafficState(baseline,plan),'baseline');
+  assert.equal(trafficState([{...baseline[0],versions:[{version_id:baselineId,percentage:100},{version_id:candidateId,percentage:0}]}],plan),'zero-test');
+  assert.throws(()=>trafficState([{...baseline[0],versions:[{version_id:baselineId,percentage:99},{version_id:candidateId,percentage:1}]}],plan));
+});
+test('allows the production URL only with a validated per-request version override',async()=>{
+  const calls=[];
+  await checkBankVersion('https://brebo-integration-api.john-boon.workers.dev','secret'.repeat(6),async(url,init)=>{
+    calls.push(init);
+    return calls.length===1?new Response('',{status:401}):Response.json(valid(),{headers:{'Cache-Control':'no-store'}});
+  },candidateId);
+  assert.equal(calls.length,2);
+  assert(calls.every(call=>call.method==='GET'&&call.headers['Cloudflare-Workers-Version-Overrides']===`brebo-integration-api="${candidateId}"`));
 });

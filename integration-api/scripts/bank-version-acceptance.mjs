@@ -5,6 +5,38 @@ import { fileURLToPath } from 'node:url';
 
 const bankPath = '/v1/accounting/bank-data';
 const versionHost = /^[a-z0-9-]+-brebo-integration-api\.john-boon\.workers\.dev$/;
+const versionIdPattern = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
+const productionHost = 'brebo-integration-api.john-boon.workers.dev';
+
+function latestDeployment(value) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error('Missing active deployment evidence.');
+  const latest = [...value].sort((a,b) => String(a.created_on).localeCompare(String(b.created_on))).at(-1);
+  deploymentFingerprint([latest]);
+  return latest;
+}
+
+export function zeroTrafficPlan(before, uploadOutput) {
+  const baseline = latestDeployment(before);
+  const candidate = uploadOutput.match(/Worker Version ID:\s*([a-f0-9-]{36})/)?.[1];
+  if (baseline.versions.length !== 1 || baseline.versions[0].percentage !== 100
+      || !versionIdPattern.test(baseline.versions[0].version_id) || !versionIdPattern.test(candidate ?? '')
+      || candidate === baseline.versions[0].version_id) throw new Error('Zero-traffic test requires one verified baseline at 100%.');
+  return { baseline_version_id:baseline.versions[0].version_id, candidate_version_id:candidate };
+}
+
+function validatePlan(plan) {
+  if (!plan || !versionIdPattern.test(plan.baseline_version_id ?? '') || !versionIdPattern.test(plan.candidate_version_id ?? '')
+      || plan.baseline_version_id === plan.candidate_version_id) throw new Error('Invalid zero-traffic plan.');
+}
+
+export function trafficState(deployments, plan) {
+  validatePlan(plan);
+  const versions = latestDeployment(deployments).versions;
+  if (versions.length === 1 && versions[0].version_id === plan.baseline_version_id && versions[0].percentage === 100) return 'baseline';
+  if (versions.length === 2 && versions.some(v=>v.version_id===plan.baseline_version_id&&v.percentage===100)
+      && versions.some(v=>v.version_id===plan.candidate_version_id&&v.percentage===0)) return 'zero-test';
+  throw new Error('Unexpected active traffic allocation; refusing to overwrite another deployment.');
+}
 
 export function extractVersionUrl(output) {
   const candidates = output.match(/https:\/\/[a-z0-9.-]+/g) ?? [];
@@ -55,19 +87,28 @@ export function validateBankPayload(value) {
   return { accounts: bank.accounts.length, transactions: bank.transactions.length, period: bank.period, balances_available: false };
 }
 
-export async function checkBankVersion(baseUrl, secret, fetcher = fetch) {
+export async function checkBankVersion(baseUrl, secret, fetcher = fetch, versionId) {
   const base = new URL(baseUrl);
-  if (base.protocol !== 'https:' || !versionHost.test(base.hostname) || base.port || base.username || base.password
+  const override = versionId !== undefined;
+  if (override && !versionIdPattern.test(versionId)) throw new Error('Invalid bank test version override.');
+  if (base.protocol !== 'https:' || !(versionHost.test(base.hostname) || (override && base.hostname===productionHost)) || base.port || base.username || base.password
       || base.search || base.hash || base.pathname !== '/') throw new Error('Only the bank Worker version URL is permitted.');
   if (typeof secret !== 'string' || secret.length < 24) throw new Error('Bank acceptance secret is not configured.');
   const url = base.origin + bankPath;
-  const unsigned = await fetcher(url, { method:'GET', redirect:'error', signal:AbortSignal.timeout(15000) });
-  await unsigned.body?.cancel();
+  const overrideHeaders = override ? { 'Cloudflare-Workers-Version-Overrides':`brebo-integration-api="${versionId}"` } : {};
+  let unsigned;
+  for (let attempt=0; attempt<6; attempt++) {
+    unsigned = await fetcher(url, { method:'GET', redirect:'error', signal:AbortSignal.timeout(15000), headers:overrideHeaders });
+    await unsigned.body?.cancel();
+    // Allow bounded edge propagation after installing the zero-traffic version.
+    if (!override || unsigned.status !== 404 || attempt===5) break;
+    await new Promise(resolve=>setTimeout(resolve,1000));
+  }
   if (unsigned.status !== 401) throw new Error(`Unsigned bank request returned HTTP ${unsigned.status}; expected 401.`);
   const timestamp = String(Math.floor(Date.now()/1000));
   const requestId = randomUUID();
   const canonical = ['GET',bankPath,createHash('sha256').update('').digest('hex'),timestamp,requestId].join('\n');
-  const headers = { Accept:'application/json','X-BREBO-Request-Id':requestId,'X-BREBO-Timestamp':timestamp,
+  const headers = { ...overrideHeaders, Accept:'application/json','X-BREBO-Request-Id':requestId,'X-BREBO-Timestamp':timestamp,
     'X-BREBO-Signature':'v1='+createHmac('sha256',secret).update(canonical).digest('hex') };
   const signed = await fetcher(url, { method:'GET', redirect:'error', signal:AbortSignal.timeout(15000), headers });
   if (signed.status !== 200) {
@@ -97,6 +138,28 @@ async function main() {
     const after = deploymentFingerprint(JSON.parse(await readFile(second,'utf8')));
     if (before !== after) throw new Error('Active deployment changed during acceptance; investigate before proceeding.');
     console.log('ACTIVE_WORKER_DEPLOYMENT_UNCHANGED=1');
+  } else if (mode === 'prepare-zero-plan') {
+    const plan = zeroTrafficPlan(JSON.parse(await readFile(first,'utf8')), await readFile(second,'utf8'));
+    await writeFile(process.argv[5],JSON.stringify(plan),{mode:0o600});
+    console.log('BANK_ZERO_TRAFFIC_PLAN_READY=1');
+  } else if (mode === 'baseline-version' || mode === 'candidate-version') {
+    const plan = JSON.parse(await readFile(first,'utf8'));
+    validatePlan(plan);
+    console.log(mode === 'baseline-version' ? plan.baseline_version_id : plan.candidate_version_id);
+  } else if (mode === 'traffic-state') {
+    console.log(trafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))));
+  } else if (mode === 'verify-zero') {
+    if (trafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))) !== 'zero-test') throw new Error('Candidate must have exactly 0% traffic.');
+    console.log('BASELINE_100_CANDIDATE_0_VERIFIED=1');
+  } else if (mode === 'verify-restored') {
+    if (trafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))) !== 'baseline') throw new Error('Baseline traffic is not fully restored.');
+    console.log('ACTIVE_WORKER_TRAFFIC_RESTORED=1');
+  } else if (mode === 'check-zero') {
+    const plan = JSON.parse(await readFile(first,'utf8'));
+    validatePlan(plan);
+    const result = await checkBankVersion('https://'+productionHost,process.env.BREBO_SHARED_SECRET,fetch,plan.candidate_version_id);
+    console.log(JSON.stringify(result));
+    console.log('BANK_VERSION_READ_ACCEPTANCE_OK=1');
   } else if (mode === 'check') {
     const result = await checkBankVersion((await readFile(first,'utf8')).trim(), process.env.BREBO_SHARED_SECRET);
     console.log(JSON.stringify(result));

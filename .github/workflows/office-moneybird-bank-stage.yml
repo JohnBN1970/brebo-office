@@ -11,7 +11,7 @@ on:
         type: boolean
         default: false
       check_worker_version:
-        description: Upload a non-active Worker version and test bank GET; production resources, no deployment
+        description: Temporarily test API version at 0 percent, current version at 100 percent, then restore
         type: boolean
         default: false
 permissions:
@@ -106,6 +106,9 @@ jobs:
     if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' && inputs.check_worker_version }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    concurrency:
+      group: brebo-integration-api-production
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: integration-api
@@ -137,26 +140,40 @@ jobs:
         id: baseline
         run: npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-before.json"
       - name: Upload version without deploying production traffic
+        id: plan
         run: |
           set -euo pipefail
           if ! npx --no-install wrangler versions upload --keep-vars \
             --var MONEYBIRD_BANK_READ_ENABLED:enabled \
-            --preview-alias "bank1636-$GITHUB_RUN_ID" \
             --tag bank-read-1636 --message "Read-only bank acceptance $GITHUB_SHA" \
             > "$RUNNER_TEMP/bank-version-upload.log" 2>&1; then
             node scripts/bank-version-acceptance.mjs upload-error "$RUNNER_TEMP/bank-version-upload.log"
             echo '::error::Worker version upload failed; no production deploy command was invoked.'
             exit 1
           fi
-          node scripts/bank-version-acceptance.mjs extract-url "$RUNNER_TEMP/bank-version-upload.log" "$RUNNER_TEMP/bank-version-url.txt"
+          node scripts/bank-version-acceptance.mjs prepare-zero-plan "$RUNNER_TEMP/bank-active-before.json" "$RUNNER_TEMP/bank-version-upload.log" "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Temporarily add test version at exactly zero percent traffic
+        run: |
+          set -euo pipefail
+          baseline_version="$(node scripts/bank-version-acceptance.mjs baseline-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          candidate_version="$(node scripts/bank-version-acceptance.mjs candidate-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          npx --no-install wrangler versions deploy "$baseline_version@100%" "$candidate_version@0%" --yes --message "Temporary bank GET acceptance; existing traffic stays at 100 percent"
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-zero-current.json"
+          node scripts/bank-version-acceptance.mjs verify-zero "$RUNNER_TEMP/bank-zero-current.json" "$RUNNER_TEMP/bank-zero-plan.json"
       - name: Verify bank-only response with signed GET
         env:
           BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
-        run: node scripts/bank-version-acceptance.mjs check "$RUNNER_TEMP/bank-version-url.txt"
-      - name: Prove active Worker deployment is unchanged
-        if: ${{ always() && steps.baseline.outcome == 'success' }}
+        run: node scripts/bank-version-acceptance.mjs check-zero "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Restore baseline traffic even when bank acceptance fails
+        if: ${{ always() && steps.plan.outcome == 'success' }}
         run: |
           set -euo pipefail
-          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-after.json"
-          node scripts/bank-version-acceptance.mjs compare-deployments "$RUNNER_TEMP/bank-active-before.json" "$RUNNER_TEMP/bank-active-after.json"
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-before-restore.json"
+          state="$(node scripts/bank-version-acceptance.mjs traffic-state "$RUNNER_TEMP/bank-before-restore.json" "$RUNNER_TEMP/bank-zero-plan.json")"
+          if [ "$state" = 'zero-test' ]; then
+            baseline_version="$(node scripts/bank-version-acceptance.mjs baseline-version "$RUNNER_TEMP/bank-zero-plan.json")"
+            npx --no-install wrangler versions deploy "$baseline_version@100%" --yes --message "Restore baseline after read-only bank acceptance"
+          fi
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-restored.json"
+          node scripts/bank-version-acceptance.mjs verify-restored "$RUNNER_TEMP/bank-active-restored.json" "$RUNNER_TEMP/bank-zero-plan.json"
 

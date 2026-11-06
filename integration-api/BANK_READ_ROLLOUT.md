@@ -46,8 +46,9 @@ https://developer.moneybird.com/api/financial-mutations/ (gecontroleerd 6 novemb
 | Office-test | PHP-cURL | Beschikbaar, naast bestaande Finance-configuratie/autorisatie |
 | Office-test ACL | `finance/read` én `finance/bank_read` | Beide expliciet toegekend aan een actieve Office-operator |
 
-Geen geheimen opnemen in Git, screenshots, logs of responsebodies. Deze wijziging
-zet geen configuratie aan. De bestaande deploy gebruikt `--keep-vars`.
+Geen geheimen opnemen in Git, screenshots, logs of responsebodies. De standaardstaging
+zet geen configuratie aan. Alleen de optionele 0%-versie krijgt een bankflag.
+De bestaande deploy gebruikt `--keep-vars`.
 
 ## Volgende stappen en grenzen
 
@@ -71,18 +72,30 @@ Een geslaagde CLI-preflight vervangt de sessie-/UI-acceptatie niet.
 Met `check_worker_version=true` volgt een afzonderlijke versietest op Cloudflare.
 `wrangler versions upload --keep-vars` uploadt de exacte bron als een niet-actieve
 versie. Alleen voor die versie wordt `MONEYBIRD_BANK_READ_ENABLED=enabled` gezet.
-De teruggegeven versie-URL wordt gecontroleerd op de eigen Worker-hostnaam.
-De proef doet uitsluitend een ongesigneerde en gesigneerde bank-GET en rapporteert
-status, periode en aantallen; nooit rekeningen, bedragen of omschrijvingen.
-De actieve Worker-deployment en verkeersverdeling worden voor/na vergeleken,
-ook wanneer de bankaanvraag faalt. Er wordt geen `wrangler deploy` of
-`wrangler versions deploy` uitgevoerd. De versie-URL gebruikt bestaande
-productieresources en secrets; dit is geen geïsoleerde database of administratie.
-Er worden geen factuur-, AI- of Durable Object-routes aangeroepen. Als Cloudflare
-geen versie-URL teruggeeft, stopt de workflow zonder instellingen te activeren.
-Versietest bewijst de bankroute maar repareert de Office-testconfiguratie niet.
+Deze Worker bevat Durable Objects, waarvoor Cloudflare geen versie-URL genereert.
+Dat is vastgesteld in run 42191611089; de upload slaagde, de actieve deployment
+bleef gelijk en de bank-GET werd niet uitgevoerd.
 
-Bron: https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/
+De ondersteunde proef wijzigt daarom tijdelijk de API-deployment naar exact
+100% verkeer op de vastgelegde huidige versie en 0% op de nieuwe testversie.
+Er mag bij aanvang maar één versie met 100% verkeer actief zijn. De workflow
+deelt de concurrency-lock met de productie-API-deploy en controleert de verdeling
+voordat de bank-GET start. Alleen de twee expliciete bank-GETs bevatten een
+`Cloudflare-Workers-Version-Overrides` header voor de testversie. Gewoon verkeer
+blijft op de oorspronkelijke versie. Er worden geen factuur-, AI- of Durable
+Object-routes aangeroepen en geen Office-configuratie, release of grants aangepast.
+
+Na de proef herstelt de workflow altijd de oorspronkelijke versie als enige
+versie op 100%, ook als de bankaanvraag faalt. Een onverwachte verdeling wordt
+niet overschreven. De deployment-id verandert; versie en verkeersverdeling worden
+hersteld en gecontroleerd. Deze proef vereist expliciete toestemming voor de
+tijdelijke API-deployment, naast de stagingbevestiging.
+De proef gebruikt bestaande resources/secrets en rapporteert alleen status,
+periode en aantallen. Ze bewijst de bankroute, geen complete historie en geen
+werkende Office-testconfiguratie of sessieacceptatie.
+
+Bronnen: https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/
+en https://developers.cloudflare.com/workers/versions-and-deployments/version-overrides/
 
 1. PR-check: typecheck, volledige Vitest-set en Wrangler dry-run. Tests gebruiken
    fictieve bankdata; remote bindings zijn in Vitest uitgeschakeld.
