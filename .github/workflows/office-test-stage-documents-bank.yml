@@ -82,14 +82,23 @@ jobs:
             dest="$active/$path"
             test -d "${dest%/*}" && test ! -L "${dest%/*}" || exit 27
             if test -e "$dest" || test -L "$dest"; then
-              echo "ABORT_EXISTING_TARGET=$path"
-              exit 28
+              if test ! -f "$dest" || test -L "$dest" || ! cmp -s "$stage/$path" "$dest"; then
+                echo "ABORT_EXISTING_DIFFERENT_OR_UNSAFE=$path"
+                exit 28
+              fi
+              echo "MATCHING_ALREADY_PRESENT=$path"
             fi
           done
-          echo "ALL_TARGETS_ABSENT_AND_VALID"
+          echo "ALL_TARGETS_MISSING_OR_IDENTICAL"
           count=0
+          skipped=0
           for path in "${files[@]}"; do
             dest="$active/$path"
+            if test -f "$dest" && test ! -L "$dest" && cmp -s "$stage/$path" "$dest"; then
+              skipped=$((skipped+1))
+              echo "SKIPPED_IDENTICAL=$path"
+              continue
+            fi
             # Temp file is on the SAME filesystem as the destination.
             temp="$(mktemp "${dest}.stage-${GITHUB_RUN_ID}.XXXXXXXX")"
             cp "$stage/$path" "$temp"
@@ -109,5 +118,6 @@ jobs:
           test "$(sha256sum "$critical" | awk '{print $1}')" = "$v3_before" || exit 31
           echo "V3_HASH_UNCHANGED=$v3_before"
           echo "ADDED_COUNT=$count"
+          echo "SKIPPED_IDENTICAL_COUNT=$skipped"
           echo "ADDITIVE_STAGE_COMPLETE_NO_ROUTES_OR_DB_CHANGES"
           REMOTE
