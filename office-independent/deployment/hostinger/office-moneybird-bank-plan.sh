@@ -43,6 +43,8 @@ if [ "$ready" = 1 ]; then
         echo "BANK_PLAN_PATCH_PREPARED=$path"
       elif (cd "$candidate" && patch --batch --reverse --fuzz=0 --dry-run -p1 < "$change") >/dev/null 2>&1; then
         echo "BANK_PLAN_PATCH_ALREADY_PRESENT=$path"
+      elif php -d display_errors=0 "$stage/deployment/hostinger/office-moneybird-bank-preview-hooks.php" "$path"; then
+        echo "BANK_PLAN_EXACT_HOOK_PREPARED=$path"
       else
         ready=0
         echo "BANK_PLAN_PATCH_CONFLICT=$path"

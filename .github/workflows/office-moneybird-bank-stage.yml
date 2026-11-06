@@ -53,7 +53,7 @@ jobs:
           php office-independent/tests/OfficeFinanceBankAccessTest.php
           php office-independent/tests/OfficeFinanceBankViewTest.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
-          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch) > "$RUNNER_TEMP/office-bank-stage.sha256"
+          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-preview-hooks.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -84,7 +84,8 @@ jobs:
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/deployment/hostinger/office-moneybird-bank-preflight.php \
             office-independent/deployment/hostinger/office-moneybird-bank-plan.sh \
-            office-independent/deployment/hostinger/office-moneybird-bank-office.patch "$remote:$stage/deployment/hostinger/"
+            office-independent/deployment/hostinger/office-moneybird-bank-office.patch \
+            office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php "$remote:$stage/deployment/hostinger/"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             "$RUNNER_TEMP/office-bank-stage.sha256" "$remote:$stage/EXPECTED_SHA256"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
