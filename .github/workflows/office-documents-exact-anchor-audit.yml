@@ -1,0 +1,54 @@
+name: Inspect exact live Documents placement anchors
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-exact-anchor-audit.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH setup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read nearby code
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          root=Path(os.environ['DOC_ACTIVE'])/'public'
+          tests={
+          'office-projects.php':['aria-label="Module"','BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106'],
+          'crm-workspace.php':['BREBO_CRM_DOCUMENTS_LINK_20261106','Relaties &amp; CRM'],
+          'office-buildings.php':['Documentenoverzicht','Documenten</a>'],
+          'office-personnel.php':['Documentenoverzicht','<h1'],
+          'office-finance.php':['BREBO_FINANCE_DOCUMENTS_LINK_20261106','</main>']
+          }
+          for name,needles in tests.items():
+            s=(root/name).read_text()
+            print('PAGE='+name)
+            for needle in needles:
+              pos=s.find(needle)
+              print('ANCHOR='+needle+' COUNT='+str(s.count(needle))+' POS='+str(pos))
+              if pos>=0: print('CONTEXT='+repr(s[max(0,pos-320):pos+420]))
+          PY
+          REMOTE
