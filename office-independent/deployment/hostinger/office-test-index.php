@@ -117,6 +117,13 @@ if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
   require $private . '/public/office-calc-grant-validate.php';
   exit;
 }
+// Calc uses a signed GET path for Office-owned project context.
+// The /api alias requires an explicit webserver rewrite to this isolated router.
+if (is_string($path)
+  && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)) {
+  require $private . '/public/office-calc-project-context.php';
+  exit;
+}
 // Machine-to-machine intake is opt-in and never exposed by default.
 if ($path === '/office-test/api/intake/v1/receive') {
   if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
