@@ -50,49 +50,64 @@ jobs:
             if (strpos($router,"/office-test/documenten/nieuw")!==false) echo "NEW_ROUTE_ALREADY_IN_ROUTER\n";
             if (preg_match("~(?m)^RewriteRule \\^documenten(?:/|\\()~",$ht)) echo "DOCUMENTS_SUBPATH_REWRITE_PRESENT\n";
           '
-          ROUTER="$router" HTACCESS="$htaccess" php <<'PHP'
-          <?php
-          $router=getenv('ROUTER');
-          $htaccess=getenv('HTACCESS');
-          $r=file_get_contents($router);
-          $h=file_get_contents($htaccess);
-          $base="'/office-test/documenten' => 'office-documents.php',";
-          $new="'/office-test/documenten/nieuw' => 'office-documents.php',";
-          if (substr_count($r,$base)!==1) { echo "ABORT_ROUTE_ANCHOR\n"; exit(26); }
-          if (strpos($r,$new)===false) {
-              $r=str_replace($base,$base."\n    ".$new,$r);
-              if (!str_contains($r,$new)) exit(27);
-          }
-          $rule="RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]";
-          if (!str_contains($h,$rule)) {
-              $prefix="RewriteEngine On";
-              if (substr_count($h,$prefix)!==1) exit(28);
-              $h=str_replace($prefix,$prefix."\n# BREBO Documents new route\n".$rule,$h);
-          }
-          $oldR=file_get_contents($router);
-          $oldH=file_get_contents($htaccess);
-          if ($r===$oldR && $h===$oldH) { echo "ALREADY_CONFIGURED_NO_CHANGE\n"; exit(0); }
-          $stamp=gmdate('YmdHis').'-'.getmypid();
-          $backupR=$router.'.documents-new-backup-'.$stamp;
-          $backupH=$htaccess.'.documents-new-backup-'.$stamp;
-          if (file_put_contents($backupR,$oldR,LOCK_EX)===false || file_put_contents($backupH,$oldH,LOCK_EX)===false) exit(29);
-          chmod($backupR,0600); chmod($backupH,0600);
-          $tmpR=$router.'.documents-new-'.$stamp;
-          $tmpH=$htaccess.'.documents-new-'.$stamp;
-          if (file_put_contents($tmpR,$r,LOCK_EX)===false || file_put_contents($tmpH,$h,LOCK_EX)===false) exit(30);
-          chmod($tmpR,fileperms($router)&0777); chmod($tmpH,fileperms($htaccess)&0777);
-          $output=[]; $exit=0; exec('php -l '.escapeshellarg($tmpR).' 2>&1',$output,$exit);
-          if ($exit!==0) { unlink($tmpR); unlink($tmpH); echo "ABORT_PHP_SYNTAX\n"; exit(31); }
-          if (rename($tmpH,$htaccess)===false) exit(32);
-          if (rename($tmpR,$router)===false) {
-              copy($backupH,$htaccess);
-              echo "ABORT_ROUTER_INSTALL_RESTORED_REWRITE\n";
-              exit(33);
-          }
-          echo "DOCUMENTS_ROUTE_PATCH_INSTALLED\n";
-          echo "BACKUP_ROUTER=".basename($backupR)."\n";
-          echo "BACKUP_REWRITE=".basename($backupH)."\n";
-          PHP
+          ROUTER="$router" HTACCESS="$htaccess" python3 - <<'PY'
+          import datetime
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          router = pathlib.Path(os.environ["ROUTER"])
+          htaccess = pathlib.Path(os.environ["HTACCESS"])
+          original_router = router.read_bytes()
+          original_htaccess = htaccess.read_bytes()
+          r = original_router.decode("utf-8")
+          h = original_htaccess.decode("utf-8")
+          anchor = "'/office-test/documenten' => 'office-documents.php',"
+          new = "'/office-test/documenten/nieuw' => 'office-documents.php',"
+          if r.count(anchor) != 1:
+              sys.exit("ABORT_ROUTE_ANCHOR")
+          if new not in r:
+              r = r.replace(anchor, anchor + "\n    " + new, 1)
+          rule = "RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]"
+          if rule not in h:
+              if h.count("RewriteEngine On") != 1:
+                  sys.exit("ABORT_REWRITE_ANCHOR")
+              h = h.replace("RewriteEngine On", "RewriteEngine On\n# BREBO Documents new route\n" + rule, 1)
+          if r.encode() == original_router and h.encode() == original_htaccess:
+              print("ALREADY_CONFIGURED_NO_CHANGE", flush=True)
+              sys.exit(0)
+          suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + str(os.getpid())
+          backup_router = router.with_name(router.name + ".documents-new-backup-" + suffix)
+          backup_htaccess = htaccess.with_name(htaccess.name + ".documents-new-backup-" + suffix)
+          backup_router.write_bytes(original_router)
+          backup_htaccess.write_bytes(original_htaccess)
+          backup_router.chmod(0o600)
+          backup_htaccess.chmod(0o600)
+          tmp_router = router.with_name(router.name + ".documents-new-" + suffix)
+          tmp_htaccess = htaccess.with_name(htaccess.name + ".documents-new-" + suffix)
+          tmp_router.write_bytes(r.encode())
+          tmp_htaccess.write_bytes(h.encode())
+          tmp_router.chmod(router.stat().st_mode & 0o777)
+          tmp_htaccess.chmod(htaccess.stat().st_mode & 0o777)
+          lint = subprocess.run(["php", "-l", str(tmp_router)], capture_output=True, text=True)
+          if lint.returncode != 0:
+              tmp_router.unlink(missing_ok=True)
+              tmp_htaccess.unlink(missing_ok=True)
+              print(lint.stdout + lint.stderr)
+              sys.exit("ABORT_PHP_SYNTAX")
+          print("BACKUPS_CREATED_ROUTER_AND_HTACCESS", flush=True)
+          try:
+              os.replace(tmp_htaccess, htaccess)
+              os.replace(tmp_router, router)
+          except Exception as exc:
+              os.replace(backup_htaccess, htaccess)
+              os.replace(backup_router, router)
+              sys.exit("ABORT_INSTALL_RESTORED_BACKUPS: " + str(type(exc).__name__))
+          print("DOCUMENTS_ROUTE_PATCH_INSTALLED", flush=True)
+          print("BACKUP_ROUTER=" + backup_router.name, flush=True)
+          print("BACKUP_REWRITE=" + backup_htaccess.name, flush=True)
+          PY
           php -l "$router" >/dev/null
           grep -Fq "'/office-test/documenten/nieuw' => 'office-documents.php'" "$router"
           grep -Fq 'RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]' "$htaccess"
