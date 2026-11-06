@@ -43,7 +43,8 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || in_array(strtolower($host), ['office.brebobv.nl', 'www.office.brebobv.nl'], true)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
   || (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled')
-  || getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled') {
+  || (getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') !== 'enabled')) {
   http_response_code(503);
   exit('Testomgeving niet beschikbaar.');
 }
@@ -90,6 +91,11 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Launch endpoint is POST-only and remains disabled unless every flag is enabled.
+if ($path === '/office-test/calc/start') {
+  require $private . '/public/office-calc-launch.php';
+  exit;
+}
 // Calc grant validation is an opt-in, signed machine-to-machine endpoint.
 // The /api/... alias only works if the webserver rewrites it to this test router.
 if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
