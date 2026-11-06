@@ -1,0 +1,30 @@
+name: Calc Office-test reconnect contract
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcLaunchToken.php'
+      - 'office-independent/tests/OfficeCalcLaunchTokenTest.php'
+      - 'office-independent/tests/OfficeCalcReconnectGateTest.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - '.github/workflows/calc-office-test-reconnect.yml'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcLaunchToken.php
+          php -l office-independent/tests/OfficeCalcLaunchTokenTest.php
+          php -l office-independent/tests/OfficeCalcReconnectGateTest.php
+      - name: Calc launch token contract
+        run: php office-independent/tests/OfficeCalcLaunchTokenTest.php
+      - name: Office-test safe disconnected gate
+        run: php office-independent/tests/OfficeCalcReconnectGateTest.php
