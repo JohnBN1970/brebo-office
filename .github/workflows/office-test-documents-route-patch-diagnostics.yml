@@ -1,0 +1,47 @@
+name: Office-test Documents route patch diagnostics
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect current Office-test documents mapping read-only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          site="$HOME/domains/brebobv.nl/public_html/office-test"
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          router="$site/index.php"
+          htaccess="$site/.htaccess"
+          test -f "$router" && test ! -L "$router"
+          test -f "$htaccess" && test ! -L "$htaccess"
+          echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')"
+          php -l "$router"
+          echo "ROUTER_SHA=$(sha256sum "$router" | cut -d' ' -f1)"
+          echo "HTACCESS_SHA=$(sha256sum "$htaccess" | cut -d' ' -f1)"
+          echo "ROUTER_DOCUMENT_LINES"
+          grep -nF "office-documents.php" "$router" | cut -c1-210 || true
+          echo "DOCUMENT_REWRITE_LINES"
+          grep -nE '^RewriteRule[[:space:]]+\\^documenten' "$htaccess" | cut -c1-210 || true
+          echo "DOCUMENT_RELATED_SERVER_BACKUPS"
+          find "$site" -maxdepth 1 -type f \\( -name 'index.php.documents-new-backup-*' -o -name '.htaccess.documents-new-backup-*' -o -name 'index.php.documents-new-*' -o -name '.htaccess.documents-new-*' \\) -printf '%f\n' | sort | tail -n 20
+          echo "DOCUMENTS_ROUTER_READONLY_DIAGNOSTICS_COMPLETE"
+          REMOTE
