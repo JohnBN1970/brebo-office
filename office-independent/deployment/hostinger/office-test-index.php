@@ -27,8 +27,17 @@ foreach ($config as $key => $value) {
   }
   putenv($key . '=' . $value);
 }
-$root = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';
-$private = realpath($root);
+// The active isolated release is selected by the test configuration.
+$base = '/home/u213420663/domains/brebobv.nl/office_calc_test';
+$root = getenv('OFFICE_PRIVATE_ROOT');
+$private = is_string($root) && $root !== '' ? realpath($root) : false;
+$baseReal = realpath($base);
+if (!is_string($root) || $private === false || $baseReal === false
+  || !str_starts_with($private, $baseReal . DIRECTORY_SEPARATOR)
+  || !preg_match('~/release-[^/]+/private$~D', $private)) {
+  http_response_code(503);
+  exit('Testomgeving niet beschikbaar.');
+}
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowedHost = getenv('OFFICE_PUBLIC_HOST');
