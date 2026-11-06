@@ -1,0 +1,66 @@
+name: Repair Documents link in active V3 project dossier
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-project-v3-documents-link.yml'
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-v3-documents
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Patch existing V3 dossier navigation only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) echo FAIL_SCOPE; exit 20;; esac
+          target="$active/public/office-project.php"
+          test -f "$target" && test ! -L "$target" || exit 21
+          php -l "$target" >/dev/null
+          if grep -Fq 'BREBO_PROJECT_V3_DOCUMENTS_LINK_20261106' "$target"; then echo ALREADY_PRESENT; exit 0; fi
+          export DOC_TARGET="$target"
+          candidate="$(mktemp "$active/public/.project-v3-docs-XXXXXXXX.php")"
+          export DOC_CANDIDATE="$candidate"
+          trap 'rm -f "$candidate"' EXIT
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          src=Path(os.environ['DOC_TARGET']).read_text()
+          anchor="$dossierNav .= '</nav>';"
+          if src.count(anchor)!=1: raise SystemExit('FAIL_V3_DOSSIER_ANCHOR')
+          if src.count("$dossierNav = '<nav class=\"office-dossier-nav\"")!=1: raise SystemExit('FAIL_V3_STRUCTURE')
+          if '$projectId' not in src: raise SystemExit('FAIL_PROJECT_ID')
+          addition="""$dossierNav .= '<a href="/office-test/documenten?project_id=' . (int)$projectId . '">Documenten</a>'; // BREBO_PROJECT_V3_DOCUMENTS_LINK_20261106
+          """
+          result=src.replace(anchor,addition+anchor,1)
+          if result.replace(addition,'',1)!=src: raise SystemExit('FAIL_PRESERVATION')
+          Path(os.environ['DOC_CANDIDATE']).write_text(result)
+          PY
+          php -l "$candidate" >/dev/null || { echo FAIL_PHP_LINT; exit 22; }
+          backup="$target.backup-v3-documents-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          echo PROJECT_V3_DOCUMENTS_LINK_DEPLOYED
+          echo "BACKUP=$(basename "$backup")"
+          REMOTE
