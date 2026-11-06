@@ -52,6 +52,20 @@ De bestaande deploy gebruikt `--keep-vars`.
 
 ## Volgende stappen en grenzen
 
+Voor een uitsluitend lezende Cloudflare-toegangsdiagnose: selecteer de PR-branch,
+bevestig `STAGE-OFFICE-BANK`, zet alleen `check_cloudflare_access=true` en laat de
+bank- en versietestopties uit. De workflow slaat serverstaging en deployments dan
+over. De diagnose doet alleen GETs op tokenverificatie voor gebruiker/account,
+accountmetadata en de settings-/versions-/deployments-endpoints van de bestaande
+Worker. Ze logt alleen status, booleans en numerieke API-foutcodes; nooit token-,
+account- of settingswaarden. De gebruikers- en accounttokenroutes zijn alternatieven.
+Een ontbrekend algemeen account-read recht blokkeert niet als Worker-toegang werkt.
+Een geslaagde diagnostic-job betekent dat de controle uitgevoerd is; lees de
+expliciete `CLOUDFLARE_ACCESS_DIAGNOSIS` voor gereedheid en oorzaak.
+
+Bronnen: https://developers.cloudflare.com/fundamentals/api/troubleshooting/
+en https://developers.cloudflare.com/api/resources/accounts/subresources/tokens/methods/verify/
+
 De stagingworkflow checkt de immutable `github.sha` van de gekozen workflowbranch
 uit. Selecteer voor deze PR de branch `finance-moneybird-bank-api-20261106`, met
 bevestiging `STAGE-OFFICE-BANK`. Er is geen merge nodig voor deze test.

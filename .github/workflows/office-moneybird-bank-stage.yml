@@ -14,11 +14,15 @@ on:
         description: Temporarily test API version at 0 percent, current version at 100 percent, then restore
         type: boolean
         default: false
+      check_cloudflare_access:
+        description: Read-only token, account and Worker API diagnosis; no staging or deployment
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   stage:
-    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' }}
+    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' && (!inputs.check_cloudflare_access || inputs.check_live_bank || inputs.check_worker_version) }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -100,6 +104,26 @@ jobs:
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
           php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php
           REMOTE
+
+  cloudflare-access-read:
+    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' && inputs.check_cloudflare_access }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate read-only diagnostic
+        run: node --test integration-api/scripts/cloudflare-access-check.test.mjs
+      - name: Read Cloudflare token status and Worker access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node integration-api/scripts/cloudflare-access-check.mjs
 
   bank-version-read:
     needs: stage

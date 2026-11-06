@@ -2,7 +2,7 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { exclude: [...configDefaults.exclude, 'scripts/bank-version-acceptance.test.mjs'] },
+  test: { exclude: [...configDefaults.exclude, 'scripts/*.test.mjs'] },
   plugins: [
     cloudflareTest({
         remoteBindings: false,
