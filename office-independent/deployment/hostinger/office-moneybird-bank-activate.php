@@ -26,9 +26,21 @@ function bankLoad(string $file): array {
   return $config;
 }
 function bankDb(array $config): PDO {
-  if (!preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', $config['OFFICE_INTAKE_PDO_DSN'] ?? '')
-      || ($config['OFFICE_INTAKE_DB_USER'] ?? '') !== 'u213420663_office_test') throw new RuntimeException('Wrong test database');
+  $dsnMatches=preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', $config['OFFICE_INTAKE_PDO_DSN'] ?? '')===1;
+  $userMatches=($config['OFFICE_INTAKE_DB_USER'] ?? '')==='u213420663_office_test';
+  if (!defined('OFFICE_BANK_ACTIVATION_LIBRARY_ONLY')) echo 'OFFICE_BANK_TEST_DSN_SCOPE_MATCH='.(int)$dsnMatches."\nOFFICE_BANK_TEST_USER_SCOPE_MATCH=".(int)$userMatches."\n";
+  if (!$dsnMatches || !$userMatches) throw new RuntimeException('Wrong test database');
   return new PDO($config['OFFICE_INTAKE_PDO_DSN'], $config['OFFICE_INTAKE_DB_USER'], $config['OFFICE_INTAKE_DB_PASSWORD'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+}
+function bankJohn(PDO $db): string {
+  $columns=$db->query('SHOW COLUMNS FROM office_operator_accounts')->fetchAll(PDO::FETCH_COLUMN);
+  $condition=in_array('username',$columns,true) ? '(CAST(a.id AS CHAR)=? OR LOWER(a.username)=?)' : 'CAST(a.id AS CHAR)=?';
+  $q=$db->prepare("SELECT DISTINCT CAST(a.id AS CHAR) FROM office_operator_accounts a INNER JOIN office_module_permissions r ON r.operator_id=a.id AND r.module='finance' AND r.permission='read' WHERE a.active=1 AND ".$condition);
+  $q->execute(in_array('username',$columns,true) ? ['john.boon','john.boon'] : ['john.boon']);
+  $ids=$q->fetchAll(PDO::FETCH_COLUMN);
+  echo 'OFFICE_BANK_JOHN_FINANCE_IDENTITY_VERIFIED='.(int)(count($ids)===1)."\n";
+  if (count($ids)!==1 || !is_string($ids[0]) || $ids[0]==='' || strlen($ids[0])>128) throw new RuntimeException('Authorized John account not unambiguous');
+  return $ids[0];
 }
 if (defined('OFFICE_BANK_ACTIVATION_LIBRARY_ONLY')) return;
 $stage = dirname(__DIR__, 2);
@@ -42,7 +54,7 @@ $journal = null;
 $phase = 'scope';
 $restore = static function(array $j) use ($base, $configFile, $stage, $paths): void {
   if (($j['config'] ?? '') !== $configFile || !str_starts_with($j['root'] ?? '', $base . '/release-') || !str_ends_with($j['root'], '/private')
-      || realpath($j['root']) !== $j['root'] || array_keys($j['files'] ?? []) !== $paths) throw new RuntimeException('Invalid restoration scope');
+      || realpath($j['root']) !== $j['root'] || array_keys($j['files'] ?? []) !== $paths || !is_string($j['operator_id']??null) || $j['operator_id']==='' || strlen($j['operator_id'])>128) throw new RuntimeException('Invalid restoration scope');
   foreach ($j['files'] as $path=>$row) {
     $file = $j['root'] . '/' . $path;
     if (!is_file($file) || is_link($file) || !in_array(hash_file('sha256',$file),[$row['before'],$row['after']],true)) throw new RuntimeException('Concurrent file change');
@@ -52,7 +64,7 @@ $restore = static function(array $j) use ($base, $configFile, $stage, $paths): v
   foreach ($j['files'] as $path=>$row) bankRestore($j['root'].'/'.$path, $row['before'], $row['after'], file_get_contents($stage.'/activation-backup/'.$path), $row['mode']);
   if (!$j['grant_existed']) {
     $restoreDb = bankDb(bankLoad($stage . '/activation-backup/config.php'));
-    $restoreDb->prepare("DELETE FROM office_module_permissions WHERE operator_id=? AND module='finance' AND permission='bank_read'")->execute(['john.boon']);
+    $restoreDb->prepare("DELETE FROM office_module_permissions WHERE operator_id=? AND module='finance' AND permission='bank_read'")->execute([$j['operator_id']]);
   }
   echo "OFFICE_BANK_ACTIVATION_RESTORED=1\n";
 };
@@ -76,13 +88,13 @@ try {
   }
   if (!isset($expected[$configFile])) throw new RuntimeException('Configuration not checked');
   foreach ($paths as $path) if (!isset($expected[$root.'/'.$path]) || !is_file($stage.'/activation-preview/'.$path)) throw new RuntimeException('Missing checked component');
-  $phase='operator';
+  $phase='database_scope';
   $db = bankDb($config);
-  $q=$db->prepare("SELECT a.id FROM office_operator_accounts a INNER JOIN office_module_permissions r ON r.operator_id=a.id AND r.module='finance' AND r.permission='read' WHERE a.id=? AND a.active=1");
-  $q->execute(['john.boon']);
-  if ($q->fetchAll(PDO::FETCH_COLUMN) !== ['john.boon']) throw new RuntimeException('Authorized John account not unambiguous');
+  $phase='operator_identity';
+  $operatorId=bankJohn($db);
+  $phase='bank_access_scope';
   $q=$db->prepare("SELECT COUNT(*) FROM office_module_permissions b INNER JOIN office_operator_accounts a ON a.id=b.operator_id WHERE b.module='finance' AND b.permission='bank_read' AND a.active=1 AND a.id<>?");
-  $q->execute(['john.boon']);
+  $q->execute([$operatorId]);
   if ((int)$q->fetchColumn() !== 0) throw new RuntimeException('Other bank access requires review');
   echo "OFFICE_BANK_ACTIVATION_PREFLIGHT_OK=1\n";
   if ($mode === '--check') exit;
@@ -105,9 +117,9 @@ try {
   foreach (['OFFICE_MONEYBIRD_BANK_READ_ENABLED'=>'enabled','OFFICE_MONEYBIRD_BANK_API_URL'=>'https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data','OFFICE_INTEGRATION_SHARED_SECRET'=>$secret] as $key=>$value) $wrapper.='$config['.var_export($key,true).'] = '.var_export($value,true).";\n";
   $wrapper.="return \$config;\n";
   $db->beginTransaction();
-  $db->prepare("SELECT id FROM office_operator_accounts WHERE id=? AND active=1 FOR UPDATE")->execute(['john.boon']);
-  $q=$db->prepare("SELECT permission FROM office_module_permissions WHERE operator_id=? AND module='finance' AND permission='bank_read' FOR UPDATE"); $q->execute(['john.boon']);
-  $journal=['root'=>$root,'config'=>$configFile,'config_before'=>$expected[$configFile],'config_after'=>hash('sha256',$wrapper),'grant_existed'=>$q->fetchColumn()!==false,'files'=>[]];
+  $db->prepare("SELECT id FROM office_operator_accounts WHERE id=? AND active=1 FOR UPDATE")->execute([$operatorId]);
+  $q=$db->prepare("SELECT permission FROM office_module_permissions WHERE operator_id=? AND module='finance' AND permission='bank_read' FOR UPDATE"); $q->execute([$operatorId]);
+  $journal=['operator_id'=>$operatorId,'root'=>$root,'config'=>$configFile,'config_before'=>$expected[$configFile],'config_after'=>hash('sha256',$wrapper),'grant_existed'=>$q->fetchColumn()!==false,'files'=>[]];
   foreach ($paths as $path) {
     $backup=$stage.'/activation-backup/'.$path; if (!is_dir(dirname($backup))) mkdir(dirname($backup),0700,true);
     copy($root.'/'.$path,$backup); chmod($backup,0600);
@@ -122,7 +134,7 @@ try {
   $phase='config';
   bankReplace($configFile,$journal['config_before'],$wrapper,0600);
   $phase='grant';
-  if (!$journal['grant_existed']) $db->prepare("INSERT INTO office_module_permissions (operator_id,module,permission) VALUES (?,'finance','bank_read')")->execute(['john.boon']);
+  if (!$journal['grant_existed']) $db->prepare("INSERT INTO office_module_permissions (operator_id,module,permission) VALUES (?,'finance','bank_read')")->execute([$operatorId]);
   $activeConfig=$config;
   $activeConfig['OFFICE_MONEYBIRD_BANK_READ_ENABLED']='enabled';
   $activeConfig['OFFICE_MONEYBIRD_BANK_API_URL']='https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data';
@@ -131,7 +143,7 @@ try {
   require_once $root.'/src/Finance/OfficeFinanceAccess.php';
   require_once $root.'/src/Finance/OfficeMoneybirdBankSnapshot.php';
   require_once $root.'/src/Finance/OfficeMoneybirdBankApiClient.php';
-  if (!(new \Brebo\Office\Finance\OfficeFinanceAccess($db,'john.boon'))->allowsBankRead()) throw new RuntimeException('Bank access verification failed');
+  if (!(new \Brebo\Office\Finance\OfficeFinanceAccess($db,$operatorId))->allowsBankRead()) throw new RuntimeException('Bank access verification failed');
   $phase='bank_get';
   $snapshot=\Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
   $phase='view';

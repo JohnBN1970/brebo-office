@@ -2,6 +2,27 @@
 declare(strict_types=1);
 define('OFFICE_BANK_ACTIVATION_LIBRARY_ONLY', true);
 require dirname(__DIR__) . '/deployment/hostinger/office-moneybird-bank-activate.php';
+final class BankIdentitySqlite extends PDO {
+  public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false {
+    if ($query==='SHOW COLUMNS FROM office_operator_accounts') return parent::query("SELECT 'id' UNION ALL SELECT 'username' UNION ALL SELECT 'active'");
+    return parent::query($query);
+  }
+}
+$db=new BankIdentitySqlite('sqlite::memory:');
+$db->exec('CREATE TABLE office_operator_accounts (id TEXT PRIMARY KEY, username TEXT, active INTEGER)');
+$db->exec('CREATE TABLE office_module_permissions (operator_id TEXT, module TEXT, permission TEXT)');
+$db->exec("INSERT INTO office_operator_accounts VALUES ('17','john.boon',1),('0','someone.else',1)");
+$db->exec("INSERT INTO office_module_permissions VALUES ('17','finance','read'),('0','finance','read')");
+if (bankJohn($db)!=='17') throw new RuntimeException('Username was confused with operator ID');
+$db->exec("INSERT INTO office_operator_accounts VALUES ('john.boon','other',1)");
+$db->exec("INSERT INTO office_module_permissions VALUES ('john.boon','finance','read')");
+$rejected=false;
+try { bankJohn($db); } catch (RuntimeException $expected) { $rejected=true; }
+if (!$rejected) throw new RuntimeException('Ambiguous identity accepted');
+$db->exec("DELETE FROM office_module_permissions");
+$rejected=false;
+try { bankJohn($db); } catch (RuntimeException $expected) { $rejected=true; }
+if (!$rejected) throw new RuntimeException('Missing Finance read accepted');
 $file = tempnam(sys_get_temp_dir(), 'bank-atomic-');
 try {
   file_put_contents($file, 'original');
