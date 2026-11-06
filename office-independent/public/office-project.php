@@ -390,6 +390,15 @@ if ($canManage
     $calcId = filter_var($scope['calc_calculation_id'] ?? null, FILTER_VALIDATE_INT);
     if (is_int($calcId) && $calcId > 0) $launchIds[$calcId] = true;
   }
+  // A linked scope is not proof of Calc permission. Verify each link
+  // against the same access service used by the POST launch issuer.
+  require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcLaunchAccess.php';
+  $calcLaunchAccess = new \Brebo\Office\Calculation\OfficeCalcLaunchAccess($db);
+  foreach (array_keys($launchIds) as $calcId) {
+    if (!$calcLaunchAccess->canLaunch((int)$operator->operatorId, (int)$projectId, (int)$calcId)) {
+      unset($launchIds[$calcId]);
+    }
+  }
   if ($launchIds !== []) {
     $calcLaunchHtml = '<section class="project-panel"><h2>Calculatie openen</h2>'
       . '<p>Open een bestaande calculatie vanuit dit project.</p>';
