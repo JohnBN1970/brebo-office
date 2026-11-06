@@ -31,12 +31,24 @@ if [ "$ready" = 1 ]; then
   if ! command -v patch >/dev/null; then
     ready=0
     echo BANK_PLAN_PATCH_TOOL_AVAILABLE=0
-  elif (cd "$candidate" && patch --batch --forward --fuzz=0 --dry-run -p1 < "$stage/deployment/hostinger/office-moneybird-bank-office.patch") >/dev/null 2>&1; then
-    (cd "$candidate" && patch --batch --forward --fuzz=0 -p1 < "$stage/deployment/hostinger/office-moneybird-bank-office.patch") >/dev/null 2>&1
-    echo BANK_PLAN_CURRENT_RELEASE_PATCH_COMPATIBLE=1
   else
-    ready=0
-    echo BANK_PLAN_CURRENT_RELEASE_PATCH_COMPATIBLE=0
+    for path in "${files[@]:0:5}"; do
+      change="$candidate/change.patch"
+      awk -v target="--- a/$path" '/^--- a\// { keep=($0==target) } keep { print }' "$stage/deployment/hostinger/office-moneybird-bank-office.patch" > "$change"
+      test -s "$change"
+      if cmp -s "$candidate/$path" "$stage/$path"; then
+        echo "BANK_PLAN_ALREADY_CURRENT=$path"
+      elif (cd "$candidate" && patch --batch --forward --fuzz=0 --dry-run -p1 < "$change") >/dev/null 2>&1; then
+        (cd "$candidate" && patch --batch --forward --fuzz=0 -p1 < "$change") >/dev/null 2>&1
+        echo "BANK_PLAN_PATCH_PREPARED=$path"
+      elif (cd "$candidate" && patch --batch --reverse --fuzz=0 --dry-run -p1 < "$change") >/dev/null 2>&1; then
+        echo "BANK_PLAN_PATCH_ALREADY_PRESENT=$path"
+      else
+        ready=0
+        echo "BANK_PLAN_PATCH_CONFLICT=$path"
+      fi
+    done
+    echo "BANK_PLAN_CURRENT_RELEASE_PATCH_COMPATIBLE=$ready"
   fi
 fi
 if [ "$ready" = 1 ]; then
