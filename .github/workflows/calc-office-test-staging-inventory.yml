@@ -52,11 +52,6 @@ jobs:
           echo "CALC_AUDIT_MODE=READ_ONLY"
           for file in "$HOME/domains/brebobv.nl/public_html/office-test/index.php" "$base/office-test/index.php"; do
             if [ -f "$file" ]; then
-              echo "ROUTER_REALPATH=$(readlink -f "$file" 2>/dev/null || echo unresolved)"
-              echo "ROUTER_TARGET_RELEASE=$(grep -oE 'office_calc_test/release-[[:alnum:]_-]+/private' "$file" | head -n 1 || true)"
-              echo "ROUTER_MTIME=$(date -r "$file" +%Y-%m-%dT%H:%M:%S%z || true)"
-            fi
-            if [ -f "$file" ]; then
               echo "ROUTER_FOUND=$file"
               if grep -q 'calc-werkbank' "$file"; then echo "ROUTER_CALC_WORKBENCH=present"; else echo "ROUTER_CALC_WORKBENCH=missing"; fi
               if grep -q 'calculation-grants/validate' "$file"; then echo "ROUTER_CALC_GRANT=present"; else echo "ROUTER_CALC_GRANT=missing"; fi
@@ -73,16 +68,6 @@ jobs:
             if [ -f "$conf" ]; then
               echo "REWRITE_FILE_PRESENT=$conf"
               if grep -q 'calc-app' "$conf"; then echo "CALC_PROXY_REFERENCE=present"; else echo "CALC_PROXY_REFERENCE=missing"; fi
-            fi
-          done
-          echo "CALC_ENTRYPOINT_DISCOVERY"
-          for endpoint in "$HOME/domains/brebobv.nl/public_html/calc-app" "$HOME/domains/brebobv.nl/public_html/office-test/calc-app"; do
-            if [ -e "$endpoint" ]; then echo "CALC_ENTRYPOINT_PRESENT=$endpoint"; else echo "CALC_ENTRYPOINT_MISSING=$endpoint"; fi
-          done
-          for f in "$base"/release-*/private/public/office-home.php; do
-            [ -f "$f" ] || continue
-            if grep -q 'OFFICE_CALC_BROWSER_HANDOFF_ENABLED' "$f"; then
-              echo "CALC_DASHBOARD_FLAG_PRESENT=$(basename "$(dirname "$(dirname "$f")")")"
             fi
           done
           echo "CALC_AUDIT_COMPLETE"
