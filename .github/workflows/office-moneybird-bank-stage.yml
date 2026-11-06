@@ -34,9 +34,59 @@ on:
         description: Upgrade balances only; Worker and two PHP files, no Office config or permission changes
         type: boolean
         default: false
+      install_finance_overview:
+        description: Install Finance overview in Office-test only; two PHP files, no config, database or Worker changes
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
+  finance-overview:
+    if: ${{ inputs.confirmation == 'INSTALL-FINANCE-OVERVIEW' && inputs.install_finance_overview && !inputs.activate_office_bank && !inputs.upgrade_booked_balances && !inputs.check_live_bank && !inputs.check_worker_version && !inputs.check_cloudflare_access && !inputs.check_office_account }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    concurrency:
+      group: office-test-finance-overview
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Test overview and reviewed patch
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          php -l office-independent/public/office-finance.php
+          php -l office-independent/src/Finance/OfficeFinanceView.php
+          php -l office-independent/deployment/hostinger/office-finance-overview-install.php
+          php office-independent/tests/OfficeFinanceBankViewTest.php
+          php office-independent/tests/OfficeFinanceOverviewTest.php
+          php office-independent/tests/OfficeFinanceOverviewInstallTest.php
+      - name: Install reviewed overview in Office-test
+        run: |
+          set -euo pipefail
+          for key in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!key}"; done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_overview_key
+          chmod 600 ~/.ssh/office_overview_key
+          stage="office-finance-overview-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage/deployment/hostinger ~/$stage/tests"
+          cd office-independent
+          files=(deployment/hostinger/office-finance-overview-install.php deployment/hostinger/office-finance-overview-changes.json deployment/hostinger/office-moneybird-bank-activate.php tests/OfficeFinanceBankViewTest.php tests/OfficeFinanceOverviewTest.php)
+          sha256sum "${files[@]}" > "$RUNNER_TEMP/overview.sha256"
+          tar -czf "$RUNNER_TEMP/overview.tar.gz" "${files[@]}"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -P "$DEPLOY_PORT" "$RUNNER_TEMP/overview.tar.gz" "$RUNNER_TEMP/overview.sha256" "$remote:$stage/"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -p "$DEPLOY_PORT" "$remote" "cd ~/$stage && tar -xzf overview.tar.gz && sha256sum -c overview.sha256 && php deployment/hostinger/office-finance-overview-install.php --apply"
+      - name: Remove local deployment key
+        if: always()
+        run: rm -f ~/.ssh/office_overview_key
   stage:
     if: ${{ ((inputs.confirmation == 'STAGE-OFFICE-BANK' && !inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'ACTIVATE-OFFICE-BANK' && inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'UPGRADE-OFFICE-BALANCES' && inputs.upgrade_booked_balances && !inputs.activate_office_bank)) && (!inputs.check_cloudflare_access || inputs.check_live_bank || inputs.check_worker_version || inputs.activate_office_bank) }}
     runs-on: ubuntu-latest
