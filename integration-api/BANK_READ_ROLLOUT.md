@@ -54,19 +54,30 @@ De bestaande deploy gebruikt `--keep-vars`.
 
 Selecteer `activate_office_bank` en bevestig exact `ACTIVATE-OFFICE-BANK` uitsluitend
 na toestemming voor API-promotie, testconfiguratie en het bankleesrecht voor
-`john.boon`. Gewone staging blijft `STAGE-OFFICE-BANK` zonder activeringsoptie.
+het geauthenticeerde Office-account. Gewone staging blijft `STAGE-OFFICE-BANK` zonder activeringsoptie.
 De workflow controleert dat gedeelde Worker-bron/configuratie in develop sinds
 de bankbasis niet gewijzigd is, maakt een nieuwe proefkopie van de huidige
 testrelease en controleert doelhashes en bestaande Finance-leestoegang.
 Pas na geslaagde 0%-acceptatie wordt de geaccepteerde kandidaat 100% actief.
 Een tweede bank-GET zonder versieheader moet daarna slagen.
 
+
+De eigen account-ID kan via `check_office_account` worden gecontroleerd. Deze
+optie publiceert uitsluitend een tijdelijke GET-pagina onder Office-test; een
+bestaande geldige Office-sessie is verplicht. De pagina toont alleen het eigen
+account-ID en de bestaande Finance-leestoegang. Geen financiële data, tokens of
+andere accounts. De SHA-256 van `office-bank-account` + newline + dit account-ID
+wordt als `account_fingerprint` bij activering meegegeven. De server zoekt daarmee
+precies één actieve Finance-lezer op zonder diens ID in workflowlogs op te nemen.
+De eigen controlepagina wordt na geslaagde activering verwijderd, uitsluitend als
+haar hash nog gelijk is aan de geplaatste bron.
+
 De server plaatst uitsluitend de vijf gecontroleerde bankbestanden. Hij bewaart
 private back-ups, vervangt bestanden atomair en weigert tussentijdse wijzigingen.
 De testconfiguratie krijgt een private overlay met endpoint, bankflag en het
 bestaande API-integratiegeheim. Een afwijkend bestaand geheim/endpoint wordt niet
 overschreven. Alleen `finance/bank_read` voor de reeds actieve Finance-lezer
-`john.boon` kan worden toegevoegd, binnen een transactie. Geen facturen of andere
+het geauthenticeerde account kan worden toegevoegd, binnen een transactie. Geen facturen of andere
 rechten worden gewijzigd. Echte bank-GET en toegestane/geweigerde weergave worden
 op de server gecontroleerd voordat die transactie wordt bevestigd.
 

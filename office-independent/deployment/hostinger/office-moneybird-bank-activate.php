@@ -32,12 +32,18 @@ function bankDb(array $config): PDO {
   if (!$dsnMatches || !$userMatches) throw new RuntimeException('Wrong test database');
   return new PDO($config['OFFICE_INTAKE_PDO_DSN'], $config['OFFICE_INTAKE_DB_USER'], $config['OFFICE_INTAKE_DB_PASSWORD'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
 }
-function bankJohn(PDO $db): string {
+function bankJohn(PDO $db, string $fingerprint = ''): string {
+  if ($fingerprint!=='') {
+    if (!preg_match('/^[a-f0-9]{64}$/D',$fingerprint)) throw new RuntimeException('Invalid account fingerprint');
+    $ids=$db->query("SELECT DISTINCT CAST(a.id AS CHAR) FROM office_operator_accounts a INNER JOIN office_module_permissions r ON r.operator_id=a.id AND r.module='finance' AND r.permission='read' WHERE a.active=1")->fetchAll(PDO::FETCH_COLUMN);
+    $ids=array_values(array_filter($ids,static fn($id)=>is_string($id)&&hash_equals($fingerprint,hash('sha256',"office-bank-account\n".$id))));
+  } else {
   $columns=$db->query('SHOW COLUMNS FROM office_operator_accounts')->fetchAll(PDO::FETCH_COLUMN);
   $condition=in_array('username',$columns,true) ? '(CAST(a.id AS CHAR)=? OR LOWER(a.username)=?)' : 'CAST(a.id AS CHAR)=?';
   $q=$db->prepare("SELECT DISTINCT CAST(a.id AS CHAR) FROM office_operator_accounts a INNER JOIN office_module_permissions r ON r.operator_id=a.id AND r.module='finance' AND r.permission='read' WHERE a.active=1 AND ".$condition);
   $q->execute(in_array('username',$columns,true) ? ['john.boon','john.boon'] : ['john.boon']);
   $ids=$q->fetchAll(PDO::FETCH_COLUMN);
+  }
   echo 'OFFICE_BANK_JOHN_FINANCE_IDENTITY_VERIFIED='.(int)(count($ids)===1)."\n";
   if (count($ids)!==1 || !is_string($ids[0]) || $ids[0]==='' || strlen($ids[0])>128) throw new RuntimeException('Authorized John account not unambiguous');
   return $ids[0];
@@ -91,7 +97,9 @@ try {
   $phase='database_scope';
   $db = bankDb($config);
   $phase='operator_identity';
-  $operatorId=bankJohn($db);
+  $fingerprint=(string)getenv('OFFICE_BANK_ACCOUNT_FINGERPRINT');
+  if (!preg_match('/^[a-f0-9]{64}$/D',$fingerprint)) throw new RuntimeException('Authenticated account proof missing');
+  $operatorId=bankJohn($db,$fingerprint);
   $phase='bank_access_scope';
   $q=$db->prepare("SELECT COUNT(*) FROM office_module_permissions b INNER JOIN office_operator_accounts a ON a.id=b.operator_id WHERE b.module='finance' AND b.permission='bank_read' AND a.active=1 AND a.id<>?");
   $q->execute([$operatorId]);
@@ -158,6 +166,8 @@ try {
   if (str_contains(\Brebo\Office\Finance\OfficeFinanceView::render($data,'payments'),'aria-label="Bankgegevens"')) throw new RuntimeException('Bank panel authorization failed');
   unset($html,$snapshot,$data,$secret,$wrapper);
   $db->commit();
+  $accountCheck=dirname($base).'/public_html/office-test/bank-account-check.php';
+  if (is_file($accountCheck) && !is_link($accountCheck) && hash_file('sha256',$accountCheck)===hash_file('sha256',__DIR__.'/office-moneybird-bank-account-check.php')) unlink($accountCheck);
   echo "OFFICE_BANK_SIGNED_GET_OK=1\nOFFICE_BANK_AUTHORIZED_RENDER_OK=1\nOFFICE_BANK_UNAUTHORIZED_RENDER_HIDDEN=1\nOFFICE_BANK_ACTIVATION_OK=1\n";
 } catch (Throwable $error) {
   if ($db instanceof PDO && $db->inTransaction()) $db->rollBack();

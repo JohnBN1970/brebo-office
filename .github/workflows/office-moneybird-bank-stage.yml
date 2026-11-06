@@ -19,9 +19,17 @@ on:
         type: boolean
         default: false
       activate_office_bank:
-        description: Activate accepted bank API and Office-test panel for john.boon; preserve invoice flows
+        description: Activate accepted bank API and Office-test panel for the verified account; preserve invoice flows
         type: boolean
         default: false
+      check_office_account:
+        description: Publish temporary authenticated self-account check on Office-test; no permission changes
+        type: boolean
+        default: false
+      account_fingerprint:
+        description: SHA-256 fingerprint of the authenticated Office account for activation
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -35,6 +43,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       BANK_PREFLIGHT_LIVE_READ: ${{ inputs.check_live_bank && '1' || '0' }}
+      BANK_ACCOUNT_CHECK: ${{ inputs.check_office_account && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,8 +69,10 @@ jobs:
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
           php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-activate.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-account-check.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-account-install.php
           php office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php
-          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-preview-hooks.php deployment/hostinger/office-moneybird-bank-activate.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
+          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-preview-hooks.php deployment/hostinger/office-moneybird-bank-activate.php deployment/hostinger/office-moneybird-bank-account-check.php deployment/hostinger/office-moneybird-bank-account-install.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -94,12 +105,14 @@ jobs:
             office-independent/deployment/hostinger/office-moneybird-bank-plan.sh \
             office-independent/deployment/hostinger/office-moneybird-bank-office.patch \
             office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php \
-            office-independent/deployment/hostinger/office-moneybird-bank-activate.php "$remote:$stage/deployment/hostinger/"
+            office-independent/deployment/hostinger/office-moneybird-bank-activate.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-account-check.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-account-install.php "$remote:$stage/deployment/hostinger/"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             "$RUNNER_TEMP/office-bank-stage.sha256" "$remote:$stage/EXPECTED_SHA256"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/public/office-finance.php "$remote:$stage/public/"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' SOURCE_SHA='$GITHUB_SHA' BANK_PREFLIGHT_LIVE_READ='$BANK_PREFLIGHT_LIVE_READ' bash -se" <<'REMOTE'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' SOURCE_SHA='$GITHUB_SHA' BANK_PREFLIGHT_LIVE_READ='$BANK_PREFLIGHT_LIVE_READ' BANK_ACCOUNT_CHECK='$BANK_ACCOUNT_CHECK' bash -se" <<'REMOTE'
           set -euo pipefail
           stage="$HOME/$STAGE"
           test -d "$stage" && test ! -L "$stage"
@@ -116,6 +129,7 @@ jobs:
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
           php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php
           bash deployment/hostinger/office-moneybird-bank-plan.sh
+          if [ "$BANK_ACCOUNT_CHECK" = 1 ]; then php -d display_errors=0 deployment/hostinger/office-moneybird-bank-account-install.php; fi
           REMOTE
 
   cloudflare-access-read:
@@ -184,13 +198,15 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          ACCOUNT_FINGERPRINT: ${{ inputs.account_fingerprint }}
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_bank_activate_key
           chmod 600 ~/.ssh/office_bank_activate_key
+          [[ "$ACCOUNT_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
           stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && php -d display_errors=0 deployment/hostinger/office-moneybird-bank-activate.php --check"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && OFFICE_BANK_ACCOUNT_FINGERPRINT='$ACCOUNT_FINGERPRINT' php -d display_errors=0 deployment/hostinger/office-moneybird-bank-activate.php --check"
       - name: Record current active Worker deployment
         id: baseline
         run: npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-before.json"
@@ -256,10 +272,12 @@ jobs:
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
+          ACCOUNT_FINGERPRINT: ${{ inputs.account_fingerprint }}
         run: |
           set -euo pipefail
+          [[ "$ACCOUNT_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
           stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          printf '%s' "$BREBO_SHARED_SECRET" | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && php -d display_errors=0 deployment/hostinger/office-moneybird-bank-activate.php --apply"
+          printf '%s' "$BREBO_SHARED_SECRET" | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && OFFICE_BANK_ACCOUNT_FINGERPRINT='$ACCOUNT_FINGERPRINT' php -d display_errors=0 deployment/hostinger/office-moneybird-bank-activate.php --apply"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && BANK_PREFLIGHT_LIVE_READ=1 php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php > bank-activated-preflight.log && grep -qx 'BANK_READ_PREFLIGHT_GO=1' bank-activated-preflight.log && echo OFFICE_BANK_POST_CONFIG_PREFLIGHT_OK=1"
       - name: Retain accepted activation or restore baseline on failure
         if: ${{ always() && steps.plan.outcome == 'success' }}

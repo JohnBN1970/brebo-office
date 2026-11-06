@@ -19,6 +19,10 @@ $db->exec("INSERT INTO office_module_permissions VALUES ('john.boon','finance','
 $rejected=false;
 try { bankJohn($db); } catch (RuntimeException $expected) { $rejected=true; }
 if (!$rejected) throw new RuntimeException('Ambiguous identity accepted');
+if (bankJohn($db,hash('sha256',"office-bank-account\n17"))!=='17') throw new RuntimeException('Authenticated fingerprint did not select the exact account');
+$rejected=false;
+try { bankJohn($db,str_repeat('a',64)); } catch (RuntimeException $expected) { $rejected=true; }
+if (!$rejected) throw new RuntimeException('Unknown account fingerprint accepted');
 $db->exec("DELETE FROM office_module_permissions");
 $rejected=false;
 try { bankJohn($db); } catch (RuntimeException $expected) { $rejected=true; }
