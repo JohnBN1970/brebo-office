@@ -75,7 +75,7 @@ function keys(value, allowed) {
 
 export function validateBankPayload(value) {
   if (!keys(value, ['status','request_id','provider','bank']) || value.status !== 'ok' || value.provider !== 'moneybird'
-      || !keys(value.bank, ['balances_available','period','accounts','transactions'])) throw new Error('Invalid bank-only response.');
+      || !keys(value.bank, ['balances_available','period','accounts','transactions','booked_balances'])) throw new Error('Invalid bank-only response.');
   const bank = value.bank;
   if (bank.balances_available !== false || bank.period !== 'this_month' || !Array.isArray(bank.accounts)
       || !Array.isArray(bank.transactions) || bank.transactions.length > 100) throw new Error('Unverified bank scope.');
@@ -95,7 +95,31 @@ export function validateBankPayload(value) {
         || typeof row.message !== 'string') throw new Error('Invalid bank mutation evidence.');
     mutations.add(row.id);
   }
-  return { accounts: bank.accounts.length, transactions: bank.transactions.length, period: bank.period, balances_available: false };
+  const result = { accounts: bank.accounts.length, transactions: bank.transactions.length, period: bank.period, balances_available: false };
+  if (Object.hasOwn(bank, 'booked_balances')) {
+    const report = bank.booked_balances;
+    let count = 0;
+    if (report !== null) {
+      if (!keys(report, ['source','period','retrieved_at','accounts']) || report.source !== 'moneybird_bank_balance_report'
+          || report.period !== 'this_month' || typeof report.retrieved_at !== 'string'
+          || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(report.retrieved_at)
+          || Number.isNaN(Date.parse(report.retrieved_at)) || !Array.isArray(report.accounts)) throw new Error('Unverified booked balance report.');
+      const seen = new Set();
+      for (const row of report.accounts) {
+        if (!keys(row, ['financial_account_id','amount']) || !accounts.has(row.financial_account_id) || seen.has(row.financial_account_id)
+            || typeof row.amount !== 'string' || !/^-?\d{1,30}(?:\.\d{1,4})?$/.test(row.amount)) throw new Error('Invalid booked balance evidence.');
+        seen.add(row.financial_account_id);
+      }
+      count = report.accounts.length;
+    }
+    result.booked_balances_available = report !== null;
+    result.booked_balance_accounts = count;
+  }
+  return result;
+}
+
+export function requireBookedBalanceEvidence(result, required = false) {
+  if (required && result.booked_balances_available !== true) throw new Error('Moneybird booked balance report is not available; refusing balance activation.');
 }
 
 export async function checkBankVersion(baseUrl, secret, fetcher = fetch, versionId) {
@@ -170,7 +194,8 @@ async function main() {
   } else if (mode === 'activation-traffic-state') {
     console.log(activationTrafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))));
   } else if (mode === 'check-promoted') {
-    await checkPromotedBank(JSON.parse(await readFile(first,'utf8')), JSON.parse(await readFile(second,'utf8')), process.env.BREBO_SHARED_SECRET);
+    const result = await checkPromotedBank(JSON.parse(await readFile(first,'utf8')), JSON.parse(await readFile(second,'utf8')), process.env.BREBO_SHARED_SECRET);
+    requireBookedBalanceEvidence(result,process.env.BANK_REQUIRE_BOOKED_BALANCES === '1');
     console.log('BANK_ACTIVE_ROUTE_ACCEPTANCE_OK=1');
   } else if (mode === 'traffic-state') {
     console.log(trafficState(JSON.parse(await readFile(first,'utf8')),JSON.parse(await readFile(second,'utf8'))));
@@ -184,10 +209,12 @@ async function main() {
     const plan = JSON.parse(await readFile(first,'utf8'));
     validatePlan(plan);
     const result = await checkBankVersion('https://'+productionHost,process.env.BREBO_SHARED_SECRET,fetch,plan.candidate_version_id);
+    requireBookedBalanceEvidence(result,process.env.BANK_REQUIRE_BOOKED_BALANCES === '1');
     console.log(JSON.stringify(result));
     console.log('BANK_VERSION_READ_ACCEPTANCE_OK=1');
   } else if (mode === 'check') {
     const result = await checkBankVersion((await readFile(first,'utf8')).trim(), process.env.BREBO_SHARED_SECRET);
+    requireBookedBalanceEvidence(result,process.env.BANK_REQUIRE_BOOKED_BALANCES === '1');
     console.log(JSON.stringify(result));
     console.log('BANK_VERSION_READ_ACCEPTANCE_OK=1');
   } else throw new Error('Unknown bank acceptance mode.');

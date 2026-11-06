@@ -72,7 +72,7 @@ jobs:
           php -l office-independent/deployment/hostinger/office-moneybird-bank-account-check.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-account-install.php
           php office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php
-          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-preview-hooks.php deployment/hostinger/office-moneybird-bank-activate.php deployment/hostinger/office-moneybird-bank-account-check.php deployment/hostinger/office-moneybird-bank-account-install.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
+          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-previous.sha256 deployment/hostinger/office-moneybird-bank-preview-hooks.php deployment/hostinger/office-moneybird-bank-activate.php deployment/hostinger/office-moneybird-bank-account-check.php deployment/hostinger/office-moneybird-bank-account-install.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -104,6 +104,7 @@ jobs:
             office-independent/deployment/hostinger/office-moneybird-bank-preflight.php \
             office-independent/deployment/hostinger/office-moneybird-bank-plan.sh \
             office-independent/deployment/hostinger/office-moneybird-bank-office.patch \
+            office-independent/deployment/hostinger/office-moneybird-bank-previous.sha256 \
             office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php \
             office-independent/deployment/hostinger/office-moneybird-bank-activate.php \
             office-independent/deployment/hostinger/office-moneybird-bank-account-check.php \
@@ -215,7 +216,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! npx --no-install wrangler versions upload --keep-vars \
-            --var MONEYBIRD_BANK_READ_ENABLED:enabled \
+            --var MONEYBIRD_BANK_READ_ENABLED:enabled --var MONEYBIRD_BANK_BOOKED_BALANCE_ENABLED:enabled \
             --tag bank-read-1636 --message "Read-only bank acceptance $GITHUB_SHA" \
             > "$RUNNER_TEMP/bank-version-upload.log" 2>&1; then
             node scripts/bank-version-acceptance.mjs upload-error "$RUNNER_TEMP/bank-version-upload.log"
@@ -247,6 +248,7 @@ jobs:
           node scripts/bank-version-acceptance.mjs verify-zero "$RUNNER_TEMP/bank-zero-current.json" "$RUNNER_TEMP/bank-zero-plan.json"
       - name: Verify bank-only response with signed GET
         env:
+          BANK_REQUIRE_BOOKED_BALANCES: '1'
           BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
         run: node scripts/bank-version-acceptance.mjs check-zero "$RUNNER_TEMP/bank-zero-plan.json"
       - name: Promote only the accepted bank version
@@ -262,6 +264,7 @@ jobs:
       - name: Verify permanent bank route without version override
         if: ${{ inputs.activate_office_bank }}
         env:
+          BANK_REQUIRE_BOOKED_BALANCES: '1'
           BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
         run: node scripts/bank-version-acceptance.mjs check-promoted "$RUNNER_TEMP/bank-promoted.json" "$RUNNER_TEMP/bank-zero-plan.json"
       - name: Activate Office-test bank configuration and John read grant

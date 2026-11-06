@@ -12,7 +12,7 @@ final class OfficeMoneybirdBankSnapshot {
 
   /**
    * @param array<string,mixed> $payload
-   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool,period:string}
+   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool,period:string,booked_balances?:array|null}
    */
   public static function fromIntegrationApi(array $payload): array {
     if (($payload['status'] ?? null) !== 'ok' || ($payload['provider'] ?? null) !== 'moneybird') {
@@ -49,7 +49,26 @@ final class OfficeMoneybirdBankSnapshot {
         'matching_status'=>'unverified',
       ];
     }
-    return ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false,'period'=>'this_month'];
+    $result = ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false,'period'=>'this_month'];
+    if (array_key_exists('booked_balances', $bank)) {
+      $report = $bank['booked_balances'];
+      $result['booked_balances'] = null;
+      if ($report !== null) {
+        if (!is_array($report) || ($report['source'] ?? '') !== 'moneybird_bank_balance_report'
+            || ($report['period'] ?? '') !== 'this_month' || !is_string($report['retrieved_at'] ?? null)
+            || !preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/D', $report['retrieved_at'])
+            || !is_array($report['accounts'] ?? null)) throw new \InvalidArgumentException('Invalid booked balance report');
+        $rows=[];
+        foreach ($report['accounts'] as $row) {
+          if (!is_array($row) || !is_string($row['financial_account_id'] ?? null) || !isset($accounts[$row['financial_account_id']])
+              || isset($rows[$row['financial_account_id']]) || !is_string($row['amount'] ?? null)
+              || !preg_match('/^-?\\d{1,30}(?:\\.\\d{1,4})?$/D', $row['amount'])) throw new \InvalidArgumentException('Invalid booked balance evidence');
+          $rows[$row['financial_account_id']]=['financial_account_id'=>$row['financial_account_id'],'amount'=>$row['amount']];
+        }
+        $result['booked_balances']=['source'=>'moneybird_bank_balance_report','period'=>'this_month','retrieved_at'=>$report['retrieved_at'],'accounts'=>array_values($rows)];
+      }
+    }
+    return $result;
   }
 }
 

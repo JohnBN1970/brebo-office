@@ -51,6 +51,13 @@ NEW
   $source = file_get_contents($file);
   [$old, $new] = $hooks[$relative];
   if (substr_count($source, $new) === 1) exit(0);
+  $withDependencies = $new;
+  if ($relative === 'public/office-finance.php') {
+    $withDependencies = str_replace("    \$data['bank_read_allowed'] =", "    require_once dirname(__DIR__) . '/src/Finance/OfficeMoneybirdBankSnapshot.php';\n    require_once dirname(__DIR__) . '/src/Finance/OfficeMoneybirdBankApiClient.php';\n    \$data['bank_read_allowed'] =", $new);
+  } else {
+    $withDependencies = str_replace("      \$html .= OfficeFinanceBankPanel::render", "      require_once __DIR__ . '/OfficeFinanceBankPanel.php';\n      \$html .= OfficeFinanceBankPanel::render", $new);
+  }
+  if (substr_count($source, $withDependencies) === 1) exit(0);
   if (substr_count($source, $old) === 1) {
     $updated = str_replace($old, $new, $source, $count);
   } else {

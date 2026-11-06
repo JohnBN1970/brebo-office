@@ -168,6 +168,7 @@ try {
   if (!(new \Brebo\Office\Finance\OfficeFinanceAccess($db,$operatorId))->allowsBankRead()) throw new RuntimeException('Bank access verification failed');
   $phase='bank_get';
   $snapshot=\Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
+  if (!is_array($snapshot['booked_balances']??null) || ($snapshot['booked_balances']['source']??'')!=='moneybird_bank_balance_report') throw new RuntimeException('Booked report not available on Office server');
   $phase='view';
   require_once $root.'/src/Intake/OfficeMount.php';
   require_once $root.'/src/Finance/OfficeFinanceBankPanel.php';
@@ -175,6 +176,7 @@ try {
   $counts=array_fill_keys(array_keys(\Brebo\Office\Finance\OfficeFinanceView::QUEUES),0);
   $data=['counts'=>$counts,'amounts_inc_vat'=>$counts,'queues'=>array_fill_keys(array_keys($counts),[]),'generated_at'=>time(),'bank_read_allowed'=>true,'bank_snapshot'=>$snapshot];
   $html=\Brebo\Office\Finance\OfficeFinanceView::render($data,'payments');
+  if (!str_contains($html,'Rapport opgevraagd:') || !str_contains($html,'Geen door de bank bevestigd actueel of beschikbaar saldo')) throw new RuntimeException('Booked balance provenance not rendered');
   if (!str_contains($html,'aria-label="Bankgegevens"')) throw new RuntimeException('Bank panel not rendered');
   $data['bank_read_allowed']=false;
   if (str_contains(\Brebo\Office\Finance\OfficeFinanceView::render($data,'payments'),'aria-label="Bankgegevens"')) throw new RuntimeException('Bank panel authorization failed');

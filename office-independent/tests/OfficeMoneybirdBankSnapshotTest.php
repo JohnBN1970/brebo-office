@@ -33,3 +33,22 @@ try {
   throw new RuntimeException('Balance claim accepted');
 } catch (InvalidArgumentException $expected) {}
 echo "OFFICE_MONEYBIRD_BANK_SNAPSHOT_OK\n";
+
+$with=$payload;
+$with['bank']['booked_balances']=['source'=>'moneybird_bank_balance_report','period'=>'this_month','retrieved_at'=>'2026-11-06T12:00:00.000Z','accounts'=>[['financial_account_id'=>'502980359672039351','amount'=>'-12345678901234567890.1200']]];
+$booked=OfficeMoneybirdBankSnapshot::fromIntegrationApi($with);
+if ($booked['balances_available']!==false || $booked['booked_balances']['accounts'][0]['amount']!=='-12345678901234567890.1200') throw new RuntimeException('Booked amount precision or provenance lost');
+foreach (['source','period','amount','account','duplicate'] as $kind) {
+  $bad=$with;
+  if ($kind==='source') $bad['bank']['booked_balances']['source']='bank_confirmed';
+  if ($kind==='period') $bad['bank']['booked_balances']['period']='this_year';
+  if ($kind==='amount') $bad['bank']['booked_balances']['accounts'][0]['amount']=12.34;
+  if ($kind==='account') $bad['bank']['booked_balances']['accounts'][0]['financial_account_id']='999';
+  if ($kind==='duplicate') $bad['bank']['booked_balances']['accounts'][]=$bad['bank']['booked_balances']['accounts'][0];
+  $rejected=false;
+  try { OfficeMoneybirdBankSnapshot::fromIntegrationApi($bad); } catch (InvalidArgumentException $expected) { $rejected=true; }
+  if (!$rejected) throw new RuntimeException('Invalid booked report accepted');
+}
+$with['bank']['booked_balances']=null;
+if (OfficeMoneybirdBankSnapshot::fromIntegrationApi($with)['booked_balances']!==null) throw new RuntimeException('Missing report did not remain unavailable');
+echo "OFFICE_BOOKED_BALANCE_SNAPSHOT_OK\n";

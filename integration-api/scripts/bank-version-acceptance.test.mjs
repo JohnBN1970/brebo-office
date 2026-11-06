@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload, zeroTrafficPlan, trafficState, activationTrafficState, checkPromotedBank } from './bank-version-acceptance.mjs';
+import { checkBankVersion, deploymentFingerprint, extractVersionUrl, validateBankPayload, zeroTrafficPlan, trafficState, activationTrafficState, checkPromotedBank, requireBookedBalanceEvidence } from './bank-version-acceptance.mjs';
 
 const versionUrl = 'https://12345678-brebo-integration-api.john-boon.workers.dev';
 const baselineId='11111111-1111-4111-8111-111111111111';
@@ -111,4 +111,20 @@ test('waits for a promoted route to replace a transient 404 before signing', asy
     return Response.json(valid(),{headers:{'Cache-Control':'no-store'}});
   });
   assert.equal(calls,3);
+});
+
+test('validates only explicit booked report amounts and retains the bank-balance distinction',()=>{
+  const p=valid();
+  p.bank.booked_balances={source:'moneybird_bank_balance_report',period:'this_month',retrieved_at:'2026-11-06T12:00:00.000Z',accounts:[{financial_account_id:'123',amount:'-12345678901234567890.1200'}]};
+  const result=validateBankPayload(p);
+  assert.equal(result.balances_available,false);
+  assert.equal(result.booked_balances_available,true);
+  assert.equal(result.booked_balance_accounts,1);
+  requireBookedBalanceEvidence(result,true);
+  assert.throws(()=>requireBookedBalanceEvidence(validateBankPayload(valid()),true));
+  for(const change of [q=>q.bank.booked_balances.source='bank_confirmed',q=>q.bank.booked_balances.accounts[0].amount=12.34,q=>q.bank.booked_balances.accounts[0].financial_account_id='999',q=>q.bank.booked_balances.accounts.push(q.bank.booked_balances.accounts[0])]) {
+    const q=structuredClone(p);change(q);assert.throws(()=>validateBankPayload(q));
+  }
+  p.bank.booked_balances=null;
+  assert.equal(validateBankPayload(p).booked_balances_available,false);
 });

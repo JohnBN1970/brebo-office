@@ -1,10 +1,18 @@
 import { MoneybirdResponseError } from "./moneybird";
 
 export class MoneybirdBankResponseError extends MoneybirdResponseError {
-  constructor(status: number, readonly stage: 'accounts' | 'transactions') { super(status); }
+  constructor(status: number, readonly stage: 'accounts' | 'transactions' | 'booked_balances') { super(status); }
+}
+
+export interface MoneybirdBookedBalances {
+  source: "moneybird_bank_balance_report";
+  period: "this_month";
+  retrieved_at: string;
+  accounts: Array<{ financial_account_id: string; amount: string }>;
 }
 
 export interface MoneybirdBankData {
+  booked_balances?: MoneybirdBookedBalances | null;
   balances_available: false;
   period: "this_month";
   accounts: Array<{ id: string; name: string; identifier: string; currency: string }>;
@@ -29,6 +37,9 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
     accounts.push({ id, name: text(row.name), identifier: text(row.identifier), currency: row.currency });
   }
 
+  const bookedPromise = (env as Env & { MONEYBIRD_BANK_BOOKED_BALANCE_ENABLED?: string }).MONEYBIRD_BANK_BOOKED_BALANCE_ENABLED === 'enabled'
+    ? bookedBalances(base, env, accountIds) : undefined;
+
   // Moneybird rejects lists over 100; never paginate or silently truncate this endpoint.
   const filter = encodeURIComponent("period:this_month,state:all");
   const mutationsRaw = await bankJson(`${base}/financial_mutations.json?filter=${filter}`, env, 'transactions');
@@ -45,10 +56,31 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
     mutationIds.add(id);
     transactions.push({ id, financial_account_id: accountId, amount: row.amount, date: row.date, message: text(row.message) });
   }
-  return { balances_available: false, period: "this_month", accounts, transactions };
+  const result: MoneybirdBankData = { balances_available: false, period: "this_month", accounts, transactions };
+  if (bookedPromise) result.booked_balances = await bookedPromise;
+  return result;
 }
 
-async function bankJson(url: string, env: Env, stage: 'accounts' | 'transactions'): Promise<unknown> {
+async function bookedBalances(base: string, env: Env, bankIds: Set<string>): Promise<MoneybirdBookedBalances | null> {
+  try {
+    const raw = record(await bankJson(`${base}/reports/bank_balance.json?period=this_month`, env, 'booked_balances'));
+    if (!Array.isArray(raw.financial_accounts)) throw invalidResponse();
+    const accounts: MoneybirdBookedBalances['accounts'] = [];
+    const seen = new Set<string>();
+    for (const candidate of raw.financial_accounts) {
+      const row = record(candidate);
+      const id = identifier(row.financial_account_id);
+      if (!bankIds.has(id)) continue;
+      if (seen.has(id) || row.type !== 'BankAccount' || typeof row.balance !== 'string' || !/^-?\d{1,30}(?:\.\d{1,4})?$/.test(row.balance)) throw invalidResponse();
+      seen.add(id);
+      accounts.push({ financial_account_id: id, amount: row.balance });
+    }
+    // Missing rows are not turned into zero balances. Ignore the mixed-account total.
+    return { source:'moneybird_bank_balance_report', period:'this_month', retrieved_at:new Date().toISOString(), accounts };
+  } catch { return null; } // A report failure must not hide working account/mutation reads.
+}
+
+async function bankJson(url: string, env: Env, stage: 'accounts' | 'transactions' | 'booked_balances'): Promise<unknown> {
   const response = await fetch(url, {
     // Workers supports manual redirects; reject all non-2xx below without forwarding credentials.
     method: "GET", redirect: "manual", signal: AbortSignal.timeout(4000),

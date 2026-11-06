@@ -19,6 +19,7 @@ try {
   file_put_contents($controller, "<?php\n// Keep current target hotfix.\n" . $anchor . "\n");
   if ($run('public/office-finance.php') !== 0) throw new RuntimeException('Missing hook not prepared');
   $prepared = file_get_contents($controller);
+  if ($run('public/office-finance.php')!==0 || file_get_contents($controller)!==$prepared) throw new RuntimeException('Prepared hook was not recognized on repeat');
   foreach (['Keep current target hotfix.', 'allowsBankRead()', "getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED')", 'OfficeMount::isTest()', 'require_once'] as $required) {
     if (!str_contains($prepared, $required)) throw new RuntimeException('Guard, dependency or unrelated change lost');
   }

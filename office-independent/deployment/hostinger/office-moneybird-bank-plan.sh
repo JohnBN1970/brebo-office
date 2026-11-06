@@ -38,6 +38,9 @@ if [ "$ready" = 1 ]; then
       test -s "$change"
       if cmp -s "$candidate/$path" "$stage/$path"; then
         echo "BANK_PLAN_ALREADY_CURRENT=$path"
+      elif awk -v target="$path" '$2==target { print $1 }' "$stage/deployment/hostinger/office-moneybird-bank-previous.sha256" | { read -r expected_hash && test "$(sha256sum "$candidate/$path" | cut -d' ' -f1)" = "$expected_hash"; }; then
+        cp "$stage/$path" "$candidate/$path"
+        echo "BANK_PLAN_REVIEWED_BALANCE_UPGRADE=$path"
       elif (cd "$candidate" && patch --batch --forward --fuzz=0 --dry-run -p1 < "$change") >/dev/null 2>&1; then
         (cd "$candidate" && patch --batch --forward --fuzz=0 -p1 < "$change") >/dev/null 2>&1
         echo "BANK_PLAN_PATCH_PREPARED=$path"

@@ -185,3 +185,28 @@ de echte bankaanvraag en sessie/autorisatie op de doelserver niet zijn geaccepte
 
 Terugval: zet alleen `MONEYBIRD_BANK_READ_ENABLED` en/of de Office-bankflag uit.
 Er zijn geen datamigraties of herstelacties op facturen nodig voor deze bankroute.
+
+## Boekhoudkundige saldi volgens Moneybird
+
+De afzonderlijke Worker-flag `MONEYBIRD_BANK_BOOKED_BALANCE_ENABLED=enabled`
+voegt één bank-GET toe: `/reports/bank_balance.json?period=this_month`, parallel
+met de mutatieaanvraag na validatie van de actieve bankrekeningen. Deze route
+vereist volgens Moneybird alleen scope `bank` en importeert geen facturen.
+Het rapport betreft geboekte eindsaldi voor de gevraagde periode, uitdrukkelijk
+geen door de bank gerapporteerd actueel/beschikbaar saldo.
+Bron: https://developer.moneybird.com/api/reports#bank_balance
+
+Daarom blijft `balances_available:false` de beschikbaarheid van geverifieerde
+actuele banksaldi beschrijven. Het optionele `booked_balances` heeft uitsluitend
+`source:moneybird_bank_balance_report`, `period:this_month`, `retrieved_at` (UTC),
+en `accounts:[{financial_account_id,amount}]`. Bedragen blijven decimale strings;
+alleen actieve BankAccount-IDs worden doorgegeven. Het rapporttotaal wordt niet
+overgenomen omdat het ook andere rekeningtypen kan omvatten. Ontbrekende rijen
+worden niet als nul ingevuld. Bij rapportfouten blijft bank-/mutatie-inzage werken
+met `booked_balances:null`. Activering vereist een geldige echte rapportrespons.
+
+Office toont de kolom 'Boekhoudkundig saldo Moneybird', het ophaaltijdstip in
+Europe/Amsterdam en de expliciete beperking dat dit geen bankbevestigde actuele
+stand is. Ontbrekende saldi blijven 'Niet aangeleverd'. De proefkopie kan de
+vooraf gecontroleerde vorige versies van uitsluitend paneel/snapshot vervangen;
+een afwijkende doelhash blokkeert het vervangen van die bestanden.
