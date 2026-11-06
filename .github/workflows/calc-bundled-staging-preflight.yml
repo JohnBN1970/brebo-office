@@ -1,0 +1,92 @@
+name: Calc bundled staging preflight
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-bundled-staging-preflight.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-BUNDLE for one read-only staging check
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate workflow contract
+        run: |
+          set -euo pipefail
+          grep -q 'AUDIT-CALC-BUNDLE' .github/workflows/calc-bundled-staging-preflight.yml
+          grep -q 'CALC_BUNDLE_READ_ONLY' .github/workflows/calc-bundled-staging-preflight.yml
+      - name: Configure SSH
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE' }}
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_bundle
+          chmod 600 ~/.ssh/id_calc_bundle
+      - name: One-pass read-only router, release, Calc runtime and rewrite preflight
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE' }}
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_bundle -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          web="$HOME/domains/brebobv.nl/public_html"
+          router="$web/office-test/index.php"
+          echo CALC_BUNDLE_READ_ONLY=1
+          echo SECTION=ROUTER
+          if [ -f "$router" ]; then
+            echo ROUTER=present
+            echo "ROUTER_MODIFIED=$(date -r "$router" +%Y-%m-%dT%H:%M:%S%z)"
+            echo "ROUTER_RELEASE_LITERAL=$(grep -oE 'office_calc_test/release-[[:alnum:]_-]+/private' "$router" | head -n 1 || true)"
+            for route in calc-werkbank calculation-grants/validate calc/start calculation-context; do
+              if grep -Fq "$route" "$router"; then echo "ROUTER_ROUTE_$route=present"; else echo "ROUTER_ROUTE_$route=missing"; fi
+            done
+          else echo ROUTER=missing; fi
+          echo SECTION=RELEASE
+          for rel in "$base"/release-*/private; do
+            [ -d "$rel" ] || continue
+            name=$(basename "$(dirname "$rel")")
+            present=0
+            for f in public/office-calc-launch.php public/office-calc-browser-handoff.php public/office-calc-grant-validate.php src/Calculation/OfficeCalcLaunchIssuer.php; do
+              [ ! -f "$rel/$f" ] || present=$((present+1))
+            done
+            echo "RELEASE=$name CALC_BRIDGE_FILES=$present/4"
+          done
+          echo SECTION=REWRITE
+          for file in "$web/.htaccess" "$web/office-test/.htaccess"; do
+            if [ -f "$file" ]; then
+              echo "REWRITE=$(basename "$(dirname "$file")") present"
+              for term in calc-app calculation-grants/validate api/workbench; do
+                if grep -Fq "$term" "$file"; then echo "REWRITE_$term=present"; else echo "REWRITE_$term=missing"; fi
+              done
+            fi
+          done
+          echo SECTION=CALC_RUNTIME
+          for path in "$web/calc-app" "$web/office-test/calc-app" "$base/calc-app" "$HOME/domains/brebobv.nl/calc-app"; do
+            if [ -e "$path" ]; then echo "CALC_PATH=$path present"; else echo "CALC_PATH=$path missing"; fi
+          done
+          echo SECTION=CONFIG_KEYS
+          config="$base/config/config.php"
+          if [ -f "$config" ]; then
+            echo CONFIG=present
+            for key in OFFICE_PRIVATE_ROOT OFFICE_BASE_PATH OFFICE_CALC_ENABLED OFFICE_CALC_LAUNCH_ENABLED OFFICE_CALC_BROWSER_HANDOFF_ENABLED OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED OFFICE_CALC_SESSION_GRANTS_ENABLED OFFICE_CALC_GRANT_VALIDATION_ENABLED OFFICE_CALC_SHARED_SECRET; do
+              if grep -Fq "$key" "$config"; then echo "CONFIG_KEY_$key=mentioned"; else echo "CONFIG_KEY_$key=not_found"; fi
+            done
+          else echo CONFIG=missing; fi
+          echo SECTION=PHP
+          php -r 'echo "PHP_VERSION=".PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION.PHP_EOL; echo "PDO_MYSQL=".(extension_loaded("pdo_mysql")?"present":"missing").PHP_EOL;'
+          echo CALC_BUNDLE_COMPLETE
+          REMOTE
