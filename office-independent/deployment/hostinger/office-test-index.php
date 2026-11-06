@@ -27,8 +27,16 @@ foreach ($config as $key => $value) {
   }
   putenv($key . '=' . $value);
 }
-$root = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';
-$private = realpath($root);
+$base = '/home/u213420663/domains/brebobv.nl/office_calc_test';
+$root = getenv('OFFICE_PRIVATE_ROOT');
+$private = is_string($root) && $root !== '' ? realpath($root) : false;
+$baseReal = realpath($base);
+if (!is_string($root) || $private === false || $baseReal === false
+  || !str_starts_with($private, $baseReal . DIRECTORY_SEPARATOR)
+  || !preg_match('~/release-[^/]+/private$~D', $private)) {
+  http_response_code(503);
+  exit('Testomgeving niet beschikbaar.');
+}
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowedHost = getenv('OFFICE_PUBLIC_HOST');
@@ -90,6 +98,30 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Browser handoff never puts signed credentials in query strings.
+if ($path === '/office-test/calc-werkbank') {
+  require $private . '/public/office-calc-browser-handoff.php';
+  exit;
+}
+// Launch endpoint is POST-only and remains disabled unless every flag is enabled.
+if ($path === '/office-test/calc/start') {
+  require $private . '/public/office-calc-launch.php';
+  exit;
+}
+// Calc grant validation is an opt-in, signed machine-to-machine endpoint.
+// The /api/... alias only works if the webserver rewrites it to this test router.
+if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
+  || $path === '/api/workbench/v1/calculation-grants/validate') {
+  require $private . '/public/office-calc-grant-validate.php';
+  exit;
+}
+// Calc uses a signed GET path for Office-owned project context.
+// The /api alias requires an explicit webserver rewrite to this isolated router.
+if (is_string($path)
+  && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)) {
+  require $private . '/public/office-calc-project-context.php';
+  exit;
+}
 // Machine-to-machine intake is opt-in and never exposed by default.
 if ($path === '/office-test/api/intake/v1/receive') {
   if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
