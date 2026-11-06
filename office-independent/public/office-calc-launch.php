@@ -15,6 +15,7 @@ $deny = static function(int $status): never {
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
     || getenv('OFFICE_CALC_ENABLED') !== 'enabled'
     || getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled'
+    || getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') !== 'enabled'
     || getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') !== 'enabled'
     || getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') !== 'enabled') {
     $deny(404);
