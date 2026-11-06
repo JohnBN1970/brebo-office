@@ -16,7 +16,9 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
   const accountIds = new Set<string>();
   for (const candidate of accountsRaw) {
     const row = record(candidate);
-    if (row.type !== "BankAccount" || row.active === false) continue;
+    if (row.type !== "BankAccount") continue;
+    if (typeof row.active !== "boolean") throw invalidResponse();
+    if (row.active !== true) continue;
     const id = identifier(row.id);
     if (typeof row.currency !== "string" || !/^[A-Z]{3}$/.test(row.currency) || accountIds.has(id)) throw invalidResponse();
     accountIds.add(id);

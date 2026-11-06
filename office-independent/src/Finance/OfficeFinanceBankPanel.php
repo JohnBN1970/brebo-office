@@ -12,10 +12,12 @@ final class OfficeFinanceBankPanel {
     if ($snapshot === null) {
       return $html . '<p>Bankgegevens nog niet verbonden. Geen saldo beschikbaar.</p></section>';
     }
-    if (($snapshot['provider'] ?? null) !== 'moneybird' || ($snapshot['balances_available'] ?? null) !== false) {
+    if (($snapshot['provider'] ?? null) !== 'moneybird' || ($snapshot['balances_available'] ?? null) !== false
+        || ($snapshot['period'] ?? null) !== 'this_month') {
       throw new \InvalidArgumentException('Unverified bank snapshot');
     }
     $html .= '<p class="muted">Alleen lezen · Saldi niet geverifieerd · Geen automatische betalingsbevestiging.</p>';
+    $html .= '<p>Bankmutaties: deze maand volgens Moneybird. Geen volledig historisch overzicht.</p>';
     $html .= '<h3>Bankrekeningen</h3><div class="table"><table><thead><tr><th>Rekening</th><th>Identificatie</th><th>Valuta</th><th>Saldo</th></tr></thead><tbody>';
     foreach (($snapshot['accounts'] ?? []) as $account) {
       $html .= '<tr><td>'.self::e($account['name'] ?? '').'</td><td>'.self::e($account['identifier'] ?? '').'</td><td>'.self::e($account['currency'] ?? '').'</td><td>Niet beschikbaar</td></tr>';
@@ -27,3 +29,4 @@ final class OfficeFinanceBankPanel {
     return $html . '</tbody></table></div></section>';
   }
 }
+

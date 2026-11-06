@@ -7,8 +7,13 @@ on:
       - 'office-independent/src/Finance/OfficeFinanceBankPanel.php'
       - 'office-independent/src/Finance/OfficeMoneybirdBankApiClient.php'
       - 'office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php'
+      - 'office-independent/src/Finance/OfficeFinanceAccess.php'
       - 'office-independent/tests/OfficeFinanceBankPanelTest.php'
       - 'office-independent/tests/OfficeMoneybirdBankApiClientTest.php'
+      - 'office-independent/tests/OfficeMoneybirdBankSnapshotTest.php'
+      - 'office-independent/tests/OfficeFinanceBankAccessTest.php'
+      - 'office-independent/tests/OfficeFinanceBankViewTest.php'
+      - '.github/workflows/office-finance-bank-panel-check.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,3 +28,8 @@ jobs:
           for file in office-independent/public/office-finance.php office-independent/src/Finance/OfficeFinanceView.php office-independent/src/Finance/OfficeFinanceBankPanel.php office-independent/src/Finance/OfficeMoneybirdBankApiClient.php office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php office-independent/tests/OfficeFinanceBankPanelTest.php office-independent/tests/OfficeMoneybirdBankApiClientTest.php; do php -l "$file"; done
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
+          php -l office-independent/src/Finance/OfficeFinanceAccess.php
+          php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php office-independent/tests/OfficeFinanceBankAccessTest.php
+          php office-independent/tests/OfficeFinanceBankViewTest.php
+

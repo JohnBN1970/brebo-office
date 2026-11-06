@@ -28,11 +28,15 @@ jobs:
           set -euo pipefail
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
           php -l office-independent/src/Finance/OfficeFinanceBankPanel.php
+          php -l office-independent/src/Finance/OfficeFinanceAccess.php
           php -l office-independent/src/Finance/OfficeMoneybirdBankApiClient.php
           php -l office-independent/src/Finance/OfficeFinanceView.php
           php -l office-independent/public/office-finance.php
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
+          php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php office-independent/tests/OfficeFinanceBankAccessTest.php
+          php office-independent/tests/OfficeFinanceBankViewTest.php
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -51,6 +55,7 @@ jobs:
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
             office-independent/src/Finance/OfficeFinanceBankPanel.php \
+            office-independent/src/Finance/OfficeFinanceAccess.php \
             office-independent/src/Finance/OfficeMoneybirdBankApiClient.php \
             office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/Finance/"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
@@ -65,3 +70,4 @@ jobs:
           echo "BANK_STAGE_SHA256_END"
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
           REMOTE
+

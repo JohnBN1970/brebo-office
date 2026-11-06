@@ -12,14 +12,14 @@ final class OfficeMoneybirdBankSnapshot {
 
   /**
    * @param array<string,mixed> $payload
-   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool}
+   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool,period:string}
    */
   public static function fromIntegrationApi(array $payload): array {
     if (($payload['status'] ?? null) !== 'ok' || ($payload['provider'] ?? null) !== 'moneybird') {
       throw new \InvalidArgumentException('Invalid bank snapshot provider');
     }
     $bank = $payload['bank'] ?? null;
-    if (!is_array($bank) || ($bank['balances_available'] ?? null) !== false
+    if (!is_array($bank) || ($bank['balances_available'] ?? null) !== false || ($bank['period'] ?? null) !== 'this_month'
       || !is_array($bank['accounts'] ?? null) || !is_array($bank['transactions'] ?? null)) {
       throw new \InvalidArgumentException('Incomplete bank snapshot');
     }
@@ -49,6 +49,7 @@ final class OfficeMoneybirdBankSnapshot {
         'matching_status'=>'unverified',
       ];
     }
-    return ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false];
+    return ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false,'period'=>'this_month'];
   }
 }
+

@@ -44,6 +44,7 @@ https://developer.moneybird.com/api/financial-mutations/ (gecontroleerd 6 novemb
 | Office-test | `OFFICE_MONEYBIRD_BANK_API_URL` | `https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data` |
 | Office-test | `OFFICE_INTEGRATION_SHARED_SECRET` | Hetzelfde geheim als `BREBO_SHARED_SECRET` |
 | Office-test | PHP-cURL | Beschikbaar, naast bestaande Finance-configuratie/autorisatie |
+| Office-test ACL | `finance/read` én `finance/bank_read` | Beide expliciet toegekend aan een actieve Office-operator |
 
 Geen geheimen opnemen in Git, screenshots, logs of responsebodies. Deze wijziging
 zet geen configuratie aan. De bestaande deploy gebruikt `--keep-vars`.
@@ -58,15 +59,21 @@ zet geen configuratie aan. De bestaande deploy gebruikt `--keep-vars`.
 3. Na afzonderlijke deploymentbeslissing: voer op de server een gesigneerde GET uit
    en controleer uitsluitend status, schema, periode en aantallen. Log geen bankdata.
    Verifieer ook 401 bij ongeldige HMAC en de expliciete configuratiestatus.
-4. Vóór paneelactivering: geef de periode `this_month` zichtbaar door in de Office
-   snapshot en het paneel. Het bestaande paneel bewaart/toont deze metadata nog niet.
-   Controleer Finance-autorisatie voor bankgegevens en test de volledige weergave
-   met een bevoegde en onbevoegde gebruiker.
+4. Snapshot en paneel eisen nu `period:this_month` en tonen expliciet dat de
+   mutaties van deze maand zijn, zonder volledige historie te claimen. Een
+   ontbrekende of andere periode wordt geweigerd. Bankgegevens worden alleen op
+   het test-Betaalcentrum getoond aan actieve operators met beide expliciete grants
+   `finance/read` en `finance/bank_read`. De bankaanvraag vindt pas na die controle
+   plaats. Gewone Finance-, CRM- of projecttoegang is onvoldoende. Er worden geen
+   grants automatisch toegekend en er is geen schemawijziging nodig.
+   Tests controleren grantcombinaties, intrekken van rechten, ongeldige periodes
+   en de volledige Finance-weergave voor toegestane/geweigerde paneeltoegang.
+   Verifieer vóór activering ook de sessie/autorisatie op de doelserver.
 5. Controleer dat factuurverzending ongewijzigd werkt. Inventariseer bestaande
    Moneybird-factuurimport apart; deze bankroute schakelt die niet uit.
 
 GO: broncodecontrole en geïsoleerde staging. NO-GO: Office-paneelactivering zolang
-de echte bankaanvraag, periodeweergave en toegangscontrole niet zijn geaccepteerd.
+de echte bankaanvraag en sessie/autorisatie op de doelserver niet zijn geaccepteerd.
 
 Terugval: zet alleen `MONEYBIRD_BANK_READ_ENABLED` en/of de Office-bankflag uit.
 Er zijn geen datamigraties of herstelacties op facturen nodig voor deze bankroute.
