@@ -1,0 +1,62 @@
+name: Calc Office-test read-only staging inventory
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-STAGING to inspect Office-test without changes
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    if: ${{ inputs.confirmation == 'AUDIT-CALC-STAGING' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_audit
+          chmod 600 ~/.ssh/id_calc_audit
+      - name: Read-only Office-test Calc route and proxy inventory
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          echo "CALC_AUDIT_MODE=READ_ONLY"
+          for file in "$HOME/domains/brebobv.nl/public_html/office-test/index.php" "$base/office-test/index.php"; do
+            if [ -f "$file" ]; then
+              echo "ROUTER_FOUND=$file"
+              if grep -q 'calc-werkbank' "$file"; then echo "ROUTER_CALC_WORKBENCH=present"; else echo "ROUTER_CALC_WORKBENCH=missing"; fi
+              if grep -q 'calculation-grants/validate' "$file"; then echo "ROUTER_CALC_GRANT=present"; else echo "ROUTER_CALC_GRANT=missing"; fi
+            fi
+          done
+          for release in "$base"/release-*/private; do
+            [ -d "$release" ] || continue
+            echo "RELEASE_CANDIDATE=$(basename "$(dirname "$release")")"
+            for f in public/office-calc-launch.php public/office-calc-browser-handoff.php public/office-calc-grant-validate.php src/Calculation/OfficeCalcLaunchIssuer.php; do
+              if [ -f "$release/$f" ]; then echo "CALC_FILE_PRESENT=$f"; else echo "CALC_FILE_MISSING=$f"; fi
+            done
+          done
+          for conf in "$HOME/domains/brebobv.nl/public_html/.htaccess" "$HOME/domains/brebobv.nl/public_html/office-test/.htaccess"; do
+            if [ -f "$conf" ]; then
+              echo "REWRITE_FILE_PRESENT=$conf"
+              if grep -q 'calc-app' "$conf"; then echo "CALC_PROXY_REFERENCE=present"; else echo "CALC_PROXY_REFERENCE=missing"; fi
+            fi
+          done
+          echo "CALC_AUDIT_COMPLETE"
+          REMOTE
