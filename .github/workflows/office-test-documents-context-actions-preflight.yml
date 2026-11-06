@@ -1,0 +1,53 @@
+name: Office-test Documents contextual actions preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active pages and document authorization read-only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_INVALID_RELEASE; exit 20;; esac
+          test -d "$active" && test ! -L "$active"
+          for file in "$active/public/office-project.php" "$active/public/office-personnel.php" "$active/public/office-documents.php"; do
+            test -f "$file" && test ! -L "$file" || { echo ABORT_MISSING_PAGE; exit 21; }
+            php -l "$file"
+            echo "PAGE=${file#"$active"/}"
+            echo "LINES=$(wc -l < "$file")"
+            echo "SHA256=$(sha256sum "$file" | cut -d' ' -f1)"
+            echo "DOCUMENT_ACTION_REFERENCES"
+            grep -nE 'OfficeNewDocumentMenu|office-documents|documenten/nieuw|project-related-actions|medewerker-detail|person_id|documentScope|canManage|canRead' "$file" | head -n 65 | cut -c1-200 || true
+          done
+          echo "DOCUMENTS_ACCESS_COMPONENTS"
+          find "$active/src/Documents" -maxdepth 1 -type f -name '*.php' -printf '%f\n' | sort | head -n 70
+          for file in "$active/src/Documents/OfficeNewDocumentMenu.php" "$active/src/Documents/OfficeDocumentRegistry.php"; do
+            if test -f "$file"; then
+              echo "COMPONENT=${file#"$active"/}"
+              php -l "$file"
+              grep -nE 'personnel|person_id|project_id|building_id|context|canRead|canManage|authoriz|permission' "$file" | head -n 65 | cut -c1-200 || true
+            fi
+          done
+          echo DOCUMENTS_CONTEXT_ACTION_PREFLIGHT_READONLY_PASS
+          REMOTE
