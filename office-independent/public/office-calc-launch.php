@@ -24,6 +24,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Allow: POST');
     $deny(405);
 }
+// Reject oversized, ambiguous or non-form browser requests before reading input.
+$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+$contentLength = $_SERVER['CONTENT_LENGTH'] ?? null;
+if (!is_string($contentType)
+    || !preg_match('/^application\/x-www-form-urlencoded(?:\s*;\s*charset=UTF-8)?$/iD', $contentType)
+    || !is_string($contentLength)
+    || !preg_match('/^[0-9]{1,5}$/D', $contentLength)
+    || (int)$contentLength < 1 || (int)$contentLength > 2048) {
+    $deny(415);
+}
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowedHost = getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($host) || !is_string($allowedHost) || $allowedHost === ''
