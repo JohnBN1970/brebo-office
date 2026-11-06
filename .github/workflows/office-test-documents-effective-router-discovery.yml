@@ -1,0 +1,55 @@
+name: Office-test effective Documents route discovery
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Discover effective routing without changing server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          echo "ACTIVE_RELEASE_RESOLVED"
+          for dir in "$root" "$root/public" "$root/office-test" "$HOME/domains/brebobv.nl/public_html" "$active" "$active/public"; do
+            if test -d "$dir"; then
+              echo "DIRECTORY=${dir#"$HOME"/}"
+              for name in index.php .htaccess router.php; do
+                path="$dir/$name"
+                if test -f "$path"; then
+                  echo "ROUTER_CANDIDATE=${path#"$HOME"/}"
+                  echo "SHA256=$(sha256sum "$path" | cut -d' ' -f1)"
+                  grep -nE 'documenten|office-documents|office_route|office-test|RewriteRule' "$path" | cut -c1-180 | head -n 35 || true
+                fi
+              done
+            fi
+          done
+          echo DOCUMENTS_RELATED_FILES
+          find "$active/src/Documents" "$active/public" -maxdepth 1 -type f \( -iname '*document*' -o -iname '*router*' \) -printf '%P\n' | sort | head -n 70
+          for path in "$active/public/office-documents.php" "$active/src/Documents/OfficeNewDocumentMenu.php" "$active/src/Intake/OfficeMount.php"; do
+            if test -f "$path"; then
+              echo "INSPECT=${path#"$active"/}"
+              grep -nE 'require_once|OfficeNewDocumentMenu|route\(|action=|href=|form|documentScope|context' "$path" | cut -c1-190 | head -n 65 || true
+            fi
+          done
+          echo EFFECTIVE_ROUTE_DISCOVERY_READONLY_COMPLETE
+          REMOTE
