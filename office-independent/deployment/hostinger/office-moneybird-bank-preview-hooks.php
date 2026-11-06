@@ -51,7 +51,26 @@ NEW
   $source = file_get_contents($file);
   [$old, $new] = $hooks[$relative];
   if (substr_count($source, $new) === 1) exit(0);
-  if (substr_count($source, $old) !== 1) exit(1);
-  $updated = str_replace($old, $new, $source, $count);
+  if (substr_count($source, $old) === 1) {
+    $updated = str_replace($old, $new, $source, $count);
+  } else {
+    // An older target may have no bank hook. Add only at a unique known anchor.
+    // Any existing bank implementation that differs requires manual reconciliation.
+    if (str_contains($source, 'bank_read_allowed') || str_contains($source, 'bank_snapshot')
+        || str_contains($source, 'OfficeMoneybirdBankApiClient') || str_contains($source, 'OfficeFinanceBankPanel')) exit(1);
+    $anchors = [
+      'public/office-finance.php' => "  \$queue = is_string(\$_GET['queue'] ?? null) ? \$_GET['queue'] : '';",
+      'src/Finance/OfficeFinanceView.php' => "    if (\$view === 'dossier') {",
+    ];
+    $anchor = $anchors[$relative];
+    if (substr_count($source, $anchor) !== 1) exit(1);
+    // The current target bootstrap need not know these newly connected bank classes.
+    if ($relative === 'public/office-finance.php') {
+      $new = str_replace("    \$data['bank_read_allowed'] =", "    require_once dirname(__DIR__) . '/src/Finance/OfficeMoneybirdBankSnapshot.php';\n    require_once dirname(__DIR__) . '/src/Finance/OfficeMoneybirdBankApiClient.php';\n    \$data['bank_read_allowed'] =", $new);
+    } else {
+      $new = str_replace("      \$html .= OfficeFinanceBankPanel::render", "      require_once __DIR__ . '/OfficeFinanceBankPanel.php';\n      \$html .= OfficeFinanceBankPanel::render", $new);
+    }
+    $updated = str_replace($anchor, $new . "\n\n" . $anchor, $source, $count);
+  }
   if ($count !== 1 || file_put_contents($file, $updated, LOCK_EX) !== strlen($updated)) exit(1);
 } catch (Throwable $ignored) { exit(1); }

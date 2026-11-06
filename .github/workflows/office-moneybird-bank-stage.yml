@@ -53,6 +53,8 @@ jobs:
           php office-independent/tests/OfficeFinanceBankAccessTest.php
           php office-independent/tests/OfficeFinanceBankViewTest.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
+          php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
           (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-preview-hooks.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
