@@ -101,7 +101,7 @@ $pdokStorageMissing = [];
 if ($detail) {
   try {
     require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingPdokLocationRepository.php';
-    $pdokStorageFields = (new \\Brebo\\Office\\Buildings\\OfficeBuildingPdokLocationRepository($db))->readiness();
+    $pdokStorageFields = (new \Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository($db))->readiness();
     $pdokStorageMissing = array_keys(array_filter($pdokStorageFields, static fn(bool $ready): bool => !$ready));
     $pdokStorageReady = $pdokStorageMissing === [];
   } catch (Throwable $pdokReadinessError) {
