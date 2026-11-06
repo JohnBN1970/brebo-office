@@ -2,6 +2,7 @@ import { analyzeRequestSchema } from "./contracts";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
+import { getMoneybirdBankData } from "./moneybird-bank";
 export { ReplayGuard } from "./replay-guard";
 export { UsageGuard } from "./usage-guard";
 export { SalesInvoiceDispatchGuard } from "./sales-invoice-dispatch-guard";
@@ -21,6 +22,8 @@ export default {
         response = await authenticatedHealth(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/connection" && request.method === "GET") {
         response = await accountingConnection(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/accounting/bank-data") {
+        response = await accountingBankData(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/purchase-invoices" && request.method === "GET") {
         response = await accountingPurchaseInvoices(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "GET") {
@@ -40,6 +43,7 @@ export default {
       response = errorResponse(500, "internal_error", "Internal service error.", requestId);
     }
 
+    if (url.pathname === "/v1/accounting/bank-data") response.headers.set("Cache-Control", "no-store, private");
     console.log(JSON.stringify({ event: "request_completed", request_hash: await sha256Hex(requestId), endpoint: url.pathname, status: response.status, duration_ms: Date.now() - startedAt, worker_version: env.WORKER_VERSION }));
     return response;
   },
@@ -49,6 +53,27 @@ async function authenticatedHealth(request: Request, env: Env, path: string, req
   const auth = await authenticate(request, env, path, "", requestId);
   if (auth) return auth;
   return Response.json({ status: "healthy", api_version: env.API_VERSION, worker_version: env.WORKER_VERSION });
+}
+
+async function accountingBankData(request: Request, env: Env & { MONEYBIRD_BANK_READ_ENABLED?: string }, path: string, requestId: string): Promise<Response> {
+  if (typeof env.BREBO_SHARED_SECRET !== "string" || env.BREBO_SHARED_SECRET.length < 24) {
+    return errorResponse(503, "bank_not_configured", "Bank provider configuration is incomplete.", requestId);
+  }
+  const auth = await authenticate(request, env, path, "", requestId);
+  if (auth) return auth;
+  if (request.method !== "GET") return errorResponse(405, "method_not_allowed", "Bank data is read-only.", requestId, { Allow: "GET" });
+  if (new URL(request.url).search !== "") return errorResponse(400, "invalid_request", "Bank data does not accept query parameters.", requestId);
+  if (env.MONEYBIRD_BANK_READ_ENABLED !== "enabled") return errorResponse(503, "bank_read_disabled", "Bank read is not enabled.", requestId);
+  if (!env.MONEYBIRD_ACCESS_TOKEN || !/^\d+$/.test(env.MONEYBIRD_ADMINISTRATION_ID ?? "")) {
+    return errorResponse(503, "bank_not_configured", "Bank provider configuration is incomplete.", requestId);
+  }
+  try {
+    const bank = await getMoneybirdBankData(env);
+    return Response.json({ status: "ok", request_id: requestId, provider: "moneybird", bank });
+  } catch {
+    // Never log provider payloads, account numbers, bank descriptions or credentials.
+    return errorResponse(502, "bank_read_failed", "Bank provider read failed.", requestId);
+  }
 }
 
 async function accountingConnection(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
@@ -236,3 +261,4 @@ async function readBoundedBody(request: Request, maxBytes: number): Promise<stri
 function errorResponse(status: number, code: string, message: string, requestId: string, headers?: HeadersInit): Response { return Response.json({ status: "error", request_id: safeRequestId(requestId), error: { code, message } }, headers ? { status, headers } : { status }); }
 function safeRequestId(value: string): string { return UUID_V4.test(value) ? value : "00000000-0000-4000-8000-000000000000"; }
 function numberSetting(value: string, fallback: number): number { const parsed = Number.parseInt(value, 10); return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback; }
+
