@@ -15,17 +15,20 @@ try {
   if ($web===false || $domainReal===false || !str_starts_with($web,$domainReal.'/') || !is_file($web.'/index.php')) throw new RuntimeException('Wrong web scope');
   $phase='install';
   $source=__DIR__.'/office-moneybird-bank-account-check.php';
-  $target=$web.'/bank-account-check.php';
+  if (!preg_match('/^office-bank-staging-(\d+)-(\d+)$/D',basename(dirname(__DIR__,2)),$run)) throw new RuntimeException('Invalid run');
+  $name='bank-account-check-'.$run[1].'-'.$run[2].'.php';
+  $target=$web.'/'.$name;
   if (file_exists($target) || is_link($target)) {
     if (!is_file($target) || is_link($target) || hash_file('sha256',$target)!==hash_file('sha256',$source)) throw new RuntimeException('Unknown target file');
   } else {
-    $temp=tempnam($web,'.bank-account-');
+    $phase='create';
+    $body=file_get_contents($source);
+    $out=fopen($target,'x');
+    if ($out===false) throw new RuntimeException('Cannot create check');
     try {
-      $body=file_get_contents($source);
-      if (file_put_contents($temp,$body,LOCK_EX)!==strlen($body)) throw new RuntimeException('Incomplete check');
-      chmod($temp,0644);
-      if (!link($temp,$target)) throw new RuntimeException('Target changed');
-    } finally { if (is_file($temp)) unlink($temp); }
+      if (fwrite($out,$body)!==strlen($body)) throw new RuntimeException('Incomplete check');
+    } finally { fclose($out); }
+    chmod($target,0644);
   }
-  echo "OFFICE_BANK_SELF_ACCOUNT_CHECK_READY=1\n";
+  echo "OFFICE_BANK_SELF_ACCOUNT_CHECK_READY=1\nOFFICE_BANK_SELF_ACCOUNT_CHECK_PATH=/office-test/".$name."\n";
 } catch (Throwable $ignored) { echo "OFFICE_BANK_SELF_ACCOUNT_CHECK_READY=0\nOFFICE_BANK_SELF_ACCOUNT_CHECK_FAILED_PHASE=".$phase."\n"; exit(1); }

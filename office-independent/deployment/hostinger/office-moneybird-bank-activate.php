@@ -166,8 +166,9 @@ try {
   if (str_contains(\Brebo\Office\Finance\OfficeFinanceView::render($data,'payments'),'aria-label="Bankgegevens"')) throw new RuntimeException('Bank panel authorization failed');
   unset($html,$snapshot,$data,$secret,$wrapper);
   $db->commit();
-  $accountCheck=dirname($base).'/public_html/office-test/bank-account-check.php';
-  if (is_file($accountCheck) && !is_link($accountCheck) && hash_file('sha256',$accountCheck)===hash_file('sha256',__DIR__.'/office-moneybird-bank-account-check.php')) unlink($accountCheck);
+  foreach (glob(dirname($base).'/public_html/office-test/bank-account-check-*-*.php') ?: [] as $accountCheck) {
+    if (preg_match('/^bank-account-check-\d+-\d+\.php$/D',basename($accountCheck)) && is_file($accountCheck) && !is_link($accountCheck) && hash_file('sha256',$accountCheck)===hash_file('sha256',__DIR__.'/office-moneybird-bank-account-check.php')) unlink($accountCheck);
+  }
   echo "OFFICE_BANK_SIGNED_GET_OK=1\nOFFICE_BANK_AUTHORIZED_RENDER_OK=1\nOFFICE_BANK_UNAUTHORIZED_RENDER_HIDDEN=1\nOFFICE_BANK_ACTIVATION_OK=1\n";
 } catch (Throwable $error) {
   if ($db instanceof PDO && $db->inTransaction()) $db->rollBack();
