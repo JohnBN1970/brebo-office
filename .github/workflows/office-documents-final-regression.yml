@@ -1,0 +1,55 @@
+name: Verify all Office-test Documents integrations
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-final-regression.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Verify deployed links and document creation contract
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          failed=0
+          for name in office-documents.php office-project.php office-projects.php crm-workspace.php office-finance.php office-personnel.php office-buildings.php; do
+            target="$active/public/$name"
+            if ! test -f "$target"; then echo "MISSING=$name"; failed=1; continue; fi
+            if php -l "$target" >/dev/null; then echo "LINT_OK=$name"; else echo "LINT_FAIL=$name"; failed=1; fi
+          done
+          for spec in 'office-documents.php:office-document-context-navigation' 'office-project.php:BREBO_PROJECT_V3_DOCUMENTS_LINK_20261106' 'office-projects.php:BREBO_PROJECT_OVERVIEW_DOCUMENTS_LINK_20261106' 'crm-workspace.php:BREBO_CRM_DOCUMENTS_LINK_20261106' 'office-finance.php:BREBO_FINANCE_DOCUMENTS_LINK_20261106' 'office-personnel.php:/office-test/documenten' 'office-buildings.php:/office-test/documenten'; do
+            file="${spec%%:*}"; marker="${spec#*:}"
+            if grep -Fq "$marker" "$active/public/$file"; then echo "LINK_OK=$file"; else echo "LINK_MISSING=$file"; failed=1; fi
+          done
+          for name in OfficeDocumentTypes.php OfficeNewDocumentMenu.php; do
+            file="$active/src/Documents/$name"
+            if test -f "$file" && php -l "$file" >/dev/null; then echo "DOCUMENT_COMPONENT_OK=$name"; else echo "DOCUMENT_COMPONENT_FAIL=$name"; failed=1; fi
+          done
+          for route in documenten projecten crm/relaties gebouwen personeel/medewerkers finance inspecties; do
+            code="$(curl -k -s -o /dev/null -w '%{http_code}' --max-time 12 "https://brebobv.nl/office-test/$route" || true)"
+            echo "HTTP=$route:$code"
+            case "$code" in 200|302|401|403) ;; *) failed=1;; esac
+          done
+          if test "$failed" -ne 0; then echo DOCUMENTS_REGRESSION_FAIL; exit 30; fi
+          echo DOCUMENTS_REGRESSION_PASS
+          REMOTE
