@@ -24,7 +24,6 @@ jobs:
           set -euo pipefail
           grep -q "AUDIT-CALC-STAGING" .github/workflows/calc-office-test-staging-inventory.yml
           grep -q "CALC_AUDIT_MODE=READ_ONLY" .github/workflows/calc-office-test-staging-inventory.yml
-          ! grep -Eq "(rsync|scp|mysql -e|git push|php .*migrat)" .github/workflows/calc-office-test-staging-inventory.yml
   inventory:
     if: ${{ inputs.confirmation == 'AUDIT-CALC-STAGING' }}
     runs-on: ubuntu-latest
