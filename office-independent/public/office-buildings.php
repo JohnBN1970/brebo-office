@@ -95,6 +95,20 @@ if ($detail) {
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
+// PDOK persistence readiness is advisory only; never block the building page.
+$pdokStorageReady = false;
+$pdokStorageMissing = [];
+if ($detail) {
+  try {
+    require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingPdokLocationRepository.php';
+    $pdokStorageFields = (new \\Brebo\\Office\\Buildings\\OfficeBuildingPdokLocationRepository($db))->readiness();
+    $pdokStorageMissing = array_keys(array_filter($pdokStorageFields, static fn(bool $ready): bool => !$ready));
+    $pdokStorageReady = $pdokStorageMissing === [];
+  } catch (Throwable $pdokReadinessError) {
+    error_log('Office buildings: PDOK storage readiness unavailable');
+    $pdokStorageMissing = ['schema-inspectie'];
+  }
+}
 // PDOK lookup is read-only and intentionally isolated from the building query.
 // Do not use PDOK availability as a prerequisite for showing an authorized building.
 $pdokResults = [];
@@ -140,6 +154,11 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if ($detail) {
   echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
   echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
+  if ($pdokStorageReady) {
+    echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
+  } else {
+    echo '<p role="status">Permanente BAG-opslag nog niet beschikbaar: ontbrekende velden of controle: ' . $h(implode(', ', $pdokStorageMissing)) . '.</p>';
+  }
   echo '<form method="get" action="/office-test/gebouwen"><input type="hidden" name="id" value="' . (int)$buildingId . '"><label for="pdok-q">Adres zoeken</label> <input id="pdok-q" name="pdok_q" maxlength="160" required value="' . $h($pdokQuery !== '' ? $pdokQuery : trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '" style="padding:9px;width:min(500px,80%)"> <button type="submit" style="padding:9px">Zoeken in BAG</button></form>';
   if ($pdokNotice !== '') echo '<p role="status">' . $h($pdokNotice) . '</p>';
   $selectedIndex = filter_input(INPUT_GET, 'pdok_choice', FILTER_VALIDATE_INT);
