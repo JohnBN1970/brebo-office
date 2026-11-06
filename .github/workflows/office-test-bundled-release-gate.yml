@@ -1,0 +1,69 @@
+name: Office-test bundled release gate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate GitHub module sources
+        run: |
+          set -euo pipefail
+          for area in Documents Finance Inzet Crm Buildings Project; do
+            find "office-independent/src/$area" -maxdepth 1 -type f -name '*.php' -print0 | xargs -0 -r -n 1 php -l >/dev/null
+            echo "SOURCE_SYNTAX_OK=$area"
+          done
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Read-only active release gate
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$root/config/config.php"
+          test -f "$config" || exit 20
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$root"/release-*/private) ;; *) echo INVALID_ACTIVE_ROOT; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || exit 22
+          echo "ACTIVE_RELEASE=${active%/private}"
+          for path in public/office-project.php public/office-projects.php public/office-personnel.php src/Project/OfficeProjectDetailV3View.php; do
+            test -f "$active/$path" || { echo "CRITICAL_MISSING=$path"; exit 23; }
+            php -l "$active/$path" >/dev/null || exit 24
+            echo "CRITICAL_PRESENT=$path"
+          done
+          project="$active/public/office-project.php"
+          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
+            grep -Fq "$marker" "$project" || { echo "V3_MARKER_MISSING=$marker"; exit 25; }
+            echo "V3_MARKER_OK=$marker"
+          done
+          for entry in \
+            Documents/OfficeDocumentAccessGate.php \
+            Documents/OfficeDocumentRegistry.php \
+            Documents/OfficePrivateFileStorage.php \
+            Documents/OfficeProjectDocumentService.php \
+            Finance/OfficeFinanceBankPanel.php \
+            Finance/OfficeMoneybirdBankApiClient.php \
+            Finance/OfficeMoneybirdBankSnapshot.php; do
+            if test -f "$active/src/$entry"; then
+              php -l "$active/src/$entry" >/dev/null || exit 26
+              echo "ALREADY_PRESENT=$entry"
+            else
+              echo "NEEDS_STAGING=$entry"
+            fi
+          done
+          echo BUNDLED_RELEASE_GATE_READONLY_COMPLETE
+          REMOTE
