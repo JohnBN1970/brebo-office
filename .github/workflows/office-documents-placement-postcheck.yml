@@ -1,0 +1,70 @@
+name: Verify Documents placement after layout deployment
+on:
+  push:
+    branches:
+      - feature/office-inspection-foundation-20261103
+    paths:
+      - '.github/workflows/office-documents-placement-postcheck.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Validate all final positions and PHP syntax
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$base/config/config.php")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 20;; esac
+          export DOC_ACTIVE="$active"
+          python3 - <<'PY'
+          import os,subprocess
+          from pathlib import Path
+          root=Path(os.environ['DOC_ACTIVE'])/'public'
+          names=['office-projects.php','crm-workspace.php','office-buildings.php','office-personnel.php','office-finance.php','office-project.php','office-documents.php']
+          for name in names:
+              p=root/name;s=p.read_text()
+              r=subprocess.run(['php','-l',str(p)],capture_output=True,text=True)
+              if r.returncode: raise RuntimeError('PHP_LINT_FAIL='+name)
+              print('PHP_LINT_OK='+name)
+          p=(root/'office-projects.php').read_text()
+          assert p.count('href="/office-test/documenten"')==1 and 'Documentenoverzicht openen' not in p
+          assert '<a class="office-tab" href="/office-test/documenten">Documenten</a>' in p
+          print('PROJECT_TABS_OK')
+          p=(root/'crm-workspace.php').read_text()
+          assert p.count('BREBO_CRM_DOCUMENTS_LINK_20261106')==1
+          assert 'Relaties &amp; CRM</a><a href="/office-test/documenten">Documenten</a>' in p
+          print('CRM_NAV_OK')
+          p=(root/'office-buildings.php').read_text()
+          assert '<th>Documenten</th>' not in p and '<td><a href="/office-test/documenten">Documenten</a></td>' not in p
+          assert '<p><a href="/office-test/documenten">Documentenoverzicht</a></p>' in p
+          print('BUILDINGS_NO_DUPLICATE_OK')
+          p=(root/'office-personnel.php').read_text()
+          assert '<h1>Personeel · Medewerkers</h1><p><a href="/office-test/documenten">Documentenoverzicht</a></p>' in p
+          assert p.count('Documentenoverzicht')==1
+          print('PERSONNEL_HEADER_OK')
+          p=(root/'office-finance.php').read_text()
+          assert "preg_replace('/(<h1\\b[^>]*>.*?<\\/h1>)/is'" in p
+          assert "str_replace('</main>', $documentsLink" not in p
+          print('FINANCE_HEADING_INJECTION_CODE_OK')
+          p=(root/'office-project.php').read_text()
+          assert 'BREBO_PROJECT_V3_DOCUMENTS_LINK_20261106' in p
+          print('PROJECT_DETAIL_NAV_OK')
+          print('DOCUMENTS_PLACEMENT_POSTCHECK_PASS')
+          PY
+          REMOTE
