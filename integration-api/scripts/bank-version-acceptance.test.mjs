@@ -72,3 +72,10 @@ test('allows the production URL only with a validated per-request version overri
   assert.equal(calls.length,2);
   assert(calls.every(call=>call.method==='GET'&&call.headers['Cloudflare-Workers-Version-Overrides']===`brebo-integration-api="${candidateId}"`));
 });
+test('reports only whitelisted provider failure metadata, never error text or credentials',async()=>{
+  let calls=0;
+  await assert.rejects(checkBankVersion(versionUrl,'secret'.repeat(6),async()=>{
+    calls++;
+    return calls===1?new Response('',{status:401}):Response.json({error:{category:'provider_http_error',provider_status:403,stage:'accounts',message:'PRIVATE-ERROR-MARKER'}},{status:502});
+  }),error=>error.message.includes('provider_status=403')&&error.message.includes('stage=accounts')&&error.message.includes('category=provider_http_error')&&!error.message.includes('PRIVATE-ERROR-MARKER'));
+});

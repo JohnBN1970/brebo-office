@@ -88,5 +88,6 @@ describe("authenticated bank route through the deployed router", () => {
     const body = await response.text();
     expect(body).toContain("bank_read_failed");
     expect(body).not.toMatch(/private-provider-token|private-bank-description/);
+    if (kind === 'provider') expect(JSON.parse(body).error).toMatchObject({ category:'provider_http_error', provider_status:403, stage:'accounts' });
   });
 });

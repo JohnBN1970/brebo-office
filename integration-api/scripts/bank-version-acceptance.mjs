@@ -112,8 +112,14 @@ export async function checkBankVersion(baseUrl, secret, fetcher = fetch, version
     'X-BREBO-Signature':'v1='+createHmac('sha256',secret).update(canonical).digest('hex') };
   const signed = await fetcher(url, { method:'GET', redirect:'error', signal:AbortSignal.timeout(15000), headers });
   if (signed.status !== 200) {
-    await signed.body?.cancel();
-    throw new Error(`Signed bank request returned HTTP ${signed.status}; no bank data logged.`);
+    let failure;
+    try { failure = await signed.json(); } catch { /* Do not echo untrusted response text. */ }
+    const category = ['invalid_bank_response','provider_http_error','bank_transport_error'].includes(failure?.error?.category)
+      ? failure.error.category : 'unavailable';
+    const status = Number.isInteger(failure?.error?.provider_status) && failure.error.provider_status>=100 && failure.error.provider_status<=599
+      ? failure.error.provider_status : 'unavailable';
+    const stage = ['accounts','transactions'].includes(failure?.error?.stage) ? failure.error.stage : 'unavailable';
+    throw new Error(`Signed bank request returned HTTP ${signed.status}; category=${category}; provider_status=${status}; stage=${stage}; no bank data logged.`);
   }
   if (!signed.headers.get('cache-control')?.includes('no-store')) throw new Error('Bank response must disable caching.');
   let payload;

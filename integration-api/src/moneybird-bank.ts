@@ -1,5 +1,9 @@
 import { MoneybirdResponseError } from "./moneybird";
 
+export class MoneybirdBankResponseError extends MoneybirdResponseError {
+  constructor(status: number, readonly stage: 'accounts' | 'transactions') { super(status); }
+}
+
 export interface MoneybirdBankData {
   balances_available: false;
   period: "this_month";
@@ -10,7 +14,7 @@ export interface MoneybirdBankData {
 /** Bank evidence only. No invoices, payment matching, writes or inferred balances. */
 export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData> {
   const base = `https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`;
-  const accountsRaw = await bankJson(`${base}/financial_accounts.json`, env);
+  const accountsRaw = await bankJson(`${base}/financial_accounts.json`, env, 'accounts');
   if (!Array.isArray(accountsRaw)) throw invalidResponse();
   const accounts: MoneybirdBankData["accounts"] = [];
   const accountIds = new Set<string>();
@@ -27,7 +31,7 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
 
   // Moneybird rejects lists over 100; never paginate or silently truncate this endpoint.
   const filter = encodeURIComponent("period:this_month,state:all");
-  const mutationsRaw = await bankJson(`${base}/financial_mutations.json?filter=${filter}`, env);
+  const mutationsRaw = await bankJson(`${base}/financial_mutations.json?filter=${filter}`, env, 'transactions');
   if (!Array.isArray(mutationsRaw) || mutationsRaw.length > 100) throw invalidResponse();
   const transactions: MoneybirdBankData["transactions"] = [];
   const mutationIds = new Set<string>();
@@ -44,12 +48,12 @@ export async function getMoneybirdBankData(env: Env): Promise<MoneybirdBankData>
   return { balances_available: false, period: "this_month", accounts, transactions };
 }
 
-async function bankJson(url: string, env: Env): Promise<unknown> {
+async function bankJson(url: string, env: Env, stage: 'accounts' | 'transactions'): Promise<unknown> {
   const response = await fetch(url, {
     method: "GET", redirect: "error", signal: AbortSignal.timeout(4000),
     headers: { Authorization: `Bearer ${env.MONEYBIRD_ACCESS_TOKEN}`, Accept: "application/json" },
   });
-  if (!response.ok) throw new MoneybirdResponseError(response.status);
+  if (!response.ok) throw new MoneybirdBankResponseError(response.status, stage);
   try { return await response.json(); } catch { throw invalidResponse(); }
 }
 function record(value: unknown): Record<string, unknown> {

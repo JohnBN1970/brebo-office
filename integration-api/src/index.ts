@@ -2,7 +2,7 @@ import { analyzeRequestSchema } from "./contracts";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
-import { getMoneybirdBankData } from "./moneybird-bank";
+import { getMoneybirdBankData, MoneybirdBankResponseError } from "./moneybird-bank";
 export { ReplayGuard } from "./replay-guard";
 export { UsageGuard } from "./usage-guard";
 export { SalesInvoiceDispatchGuard } from "./sales-invoice-dispatch-guard";
@@ -70,9 +70,15 @@ async function accountingBankData(request: Request, env: Env & { MONEYBIRD_BANK_
   try {
     const bank = await getMoneybirdBankData(env);
     return Response.json({ status: "ok", request_id: requestId, provider: "moneybird", bank });
-  } catch {
+  } catch (error) {
     // Never log provider payloads, account numbers, bank descriptions or credentials.
-    return errorResponse(502, "bank_read_failed", "Bank provider read failed.", requestId);
+    const details = error instanceof MoneybirdResponseError
+      ? { category: error.message === "Invalid Moneybird bank response." ? "invalid_bank_response" : "provider_http_error", provider_status: error.status }
+      : { category: "bank_transport_error" };
+    return Response.json({ status:"error", request_id:safeRequestId(requestId), error:{
+      code:"bank_read_failed", message:"Bank provider read failed.", ...details,
+      ...(error instanceof MoneybirdBankResponseError ? { stage:error.stage } : {}),
+    } }, { status:502 });
   }
 }
 
