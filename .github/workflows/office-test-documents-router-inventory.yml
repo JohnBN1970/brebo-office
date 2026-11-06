@@ -1,0 +1,43 @@
+name: Office-test Documents router inventory
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active router read-only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) exit 21 ;; esac
+          test -d "$active" && test ! -L "$active"
+          for path in "$root/index.php" "$root/.htaccess" "$active/public/index.php" "$active/public/.htaccess" "$active/public/office-documents.php" "$active/src/Intake/OfficeMount.php"; do
+            if test -f "$path" && test ! -L "$path"; then
+              echo "FILE=${path#"$root"/}"
+              echo "SHA256=$(sha256sum "$path" | cut -d' ' -f1)"
+              if [[ "$path" == *.php ]]; then php -l "$path" >/dev/null && echo PHP_SYNTAX_OK; fi
+              grep -nE 'office-documents|documenten|office-project|office_route|REQUEST_URI|RewriteRule' "$path" | cut -c1-220 || true
+            else
+              echo "NOT_REGULAR=${path#"$root"/}"
+            fi
+          done
+          echo ROUTER_INVENTORY_COMPLETE_NO_CHANGES
+          REMOTE
