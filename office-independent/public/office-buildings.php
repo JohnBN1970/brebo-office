@@ -49,12 +49,11 @@ try {
   $statement = $db->prepare(
     "SELECT b.id, b.name AS building_name, b.address_line AS street_address, b.postal_code, b.city,
             COUNT(DISTINCT pb.project_id) AS project_count,
-            COUNT(DISTINCT CASE WHEN z.active = 1 THEN z.id END) AS active_zone_count
+            0 AS active_zone_count
        FROM office_buildings b
        INNER JOIN office_project_buildings pb ON pb.building_id = b.id
        INNER JOIN office_project_memberships m ON m.project_id = pb.project_id
        INNER JOIN office_operator_accounts a ON a.id = m.operator_id AND a.active = 1
-       LEFT JOIN office_building_zones z ON z.building_id = b.id
       WHERE m.operator_id = ?
         AND m.permission IN ('read','manage')
       GROUP BY b.id, b.name, b.address_line, b.postal_code, b.city
@@ -62,6 +61,26 @@ try {
   );
   $statement->execute([$operator->operatorId]);
   $buildings = $statement->fetchAll(PDO::FETCH_ASSOC);
+  // Zone counts are optional: missing or unready zone schema must not hide buildings.
+  if ($buildings !== []) {
+    try {
+      $zoneIds = array_map(static fn(array $building): int => (int)$building['id'], $buildings);
+      $placeholders = implode(',', array_fill(0, count($zoneIds), '?'));
+      $zoneStatement = $db->prepare(
+        "SELECT building_id, COUNT(*) AS zone_count FROM office_building_zones
+         WHERE active = 1 AND building_id IN ($placeholders) GROUP BY building_id"
+      );
+      $zoneStatement->execute($zoneIds);
+      $counts = $zoneStatement->fetchAll(PDO::FETCH_KEY_PAIR);
+      foreach ($buildings as &$building) {
+        $building['active_zone_count'] = (int)($counts[$building['id']] ?? 0);
+      }
+      unset($building);
+    } catch (PDOException $zoneException) {
+      // The building listing remains available even before zone schema rollout.
+      error_log('Office buildings: zone counts unavailable: ' . $zoneException->getCode());
+    }
+  }
 } catch (Throwable $exception) {
   http_response_code(503);
   exit('Gebouwenoverzicht tijdelijk niet beschikbaar.');
