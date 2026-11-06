@@ -168,7 +168,7 @@ if ($creating && !$detailPage) {
   }
 }
 if ($detailPage && !$creating && is_int($selected) && isset($people[$selected])) {
-  echo '<p><a href="/office-test/personeel/medewerkers">← Terug naar medewerkers</a></p><div id="medewerker-detail"></div>';
+  echo '<p><a href="/office-test/personeel/medewerkers">← Terug naar medewerkers</a></p><p><a href="/office-test/documenten/nieuw?person_id=' . (int)$selected . '">Nieuw document voor medewerker</a></p><div id="medewerker-detail"></div>';
   if (!$detailsEnabled) echo \Brebo\Office\Inzet\OfficePersonnelProfileForm::render($selected, (string)$people[$selected]['display_name'], (string)($people[$selected]['personnel_number'] ?? ''), (bool)$people[$selected]['active']);
   if ($detailsEnabled) {
     try {
