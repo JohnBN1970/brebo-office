@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 render inspection read-only
+name: Office-test Projectdetail V3 Documents visible tab integration
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect live V3 visible tabs without modifying server
+      - name: Safely integrate Documents into live project tabs
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -42,35 +42,61 @@ jobs:
           grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$project" || { echo ABORT_ACCESS_CHECK_MISSING; exit 23; }
           grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$docs" || { echo ABORT_DOCUMENTS_ACCESS_CHECK_MISSING; exit 24; }
           grep -Fq 'OfficeNewDocumentMenu::render' "$docs" || { echo ABORT_DOCUMENTS_MENU_MISSING; exit 25; }
-          # Read-only analysis of the ACTIVE V3 page, not repository copy.
           PROJECT="$project" python3 - <<'PY'
-          import os, pathlib, re, hashlib
-          source = pathlib.Path(os.environ["PROJECT"]).read_text()
-          print("LIVE_V3_SHA256=" + hashlib.sha256(source.encode()).hexdigest())
-          keys = [
-              ("tabs_array", r"\$tabs\s*="),
-              ("tab_labels", r"'financieel'\s*=>\s*'Financieel'"),
-              ("nav_render", r"\$dossierNav\b"),
-              ("nav_html", r"office-dossier-nav"),
-              ("office_tabs", r"office-tabs"),
-              ("project_gegevens", r"project-gegevens"),
-              ("project_documents_tab", r"brebo-project-documents-tab"),
-              ("project_documents_action", r"brebo-project-documents-action"),
-              ("financial_label", r"Financieel"),
-              ("project_detail_output", r"\becho\b"),
-          ]
-          for name, pattern in keys:
-              hits = list(re.finditer(pattern, source))
-              print("V3_RENDER_" + name.upper() + "_COUNT=" + str(len(hits)))
-              print("V3_RENDER_" + name.upper() + "_LINES=" + ",".join(str(source.count(chr(10), 0, m.start()) + 1) for m in hits[:15]))
-          # Report only sanitized structure from matching lines: never raw
-          # page source, paths, data, names or tokens.
-          for i, line in enumerate(source.splitlines(), 1):
-              if any(x in line for x in ("$tabs =", "$dossierNav =", "$dossierNav .=", "office-dossier-nav", "office-tabs")):
-                  print("V3_STRUCT_LINE=" + str(i) + " flags=" + ",".join(
-                      x for x in ("tabs", "dossierNav", "office-dossier-nav", "office-tabs", "financieel", "echo", "print")
-                      if x in line
-                  ) + " length=" + str(len(line)))
+          import os, pathlib, hashlib, datetime, subprocess, sys, re
+          p = pathlib.Path(os.environ["PROJECT"])
+          raw = p.read_bytes()
+          expected = "22f25293947cd0801b44ab2e0c80b272a4aab25d95ac1ff3ee586f2d6e9e188b"
+          if hashlib.sha256(raw).hexdigest() != expected:
+              sys.exit("ABORT_LIVE_V3_SHA_CHANGED")
+          source = raw.decode("utf-8")
+          if source.count("brebo-project-documents-tab") != 1:
+              sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
+          if source.count("brebo-project-documents-action") != 1:
+              sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
+          # The visible tab list comes from the $tabs array.
+          # Insert a documents tab into that same array, then render
+          # it as a direct link to the central project documents context.
+          item = "'financieel' => 'Financieel'"
+          if source.count(item) != 1:
+              sys.exit("ABORT_FINANCIAL_TAB_ARRAY_ANCHOR_MISMATCH")
+          if "'documenten' => 'Documenten'" in source:
+              print("ALREADY_INSTALLED")
+              sys.exit(0)
+          tabs_expr = source.split(item, 1)[0].rfind("$tabs")
+          if tabs_expr < 0 or len(source) - tabs_expr < 50:
+              sys.exit("ABORT_TABS_ARRAY_NOT_FOUND")
+          anchor = "foreach ($tabs as $key => $label) {"
+          if source.count(anchor) != 1:
+              sys.exit("ABORT_TAB_RENDER_LOOP_MISMATCH")
+          # The existing document link is already constructed in the active
+          # V3; move it into the tab loop by adding a sixth entry, while
+          # keeping the tab loop's active tab semantics intact.
+          source = source.replace(item, item + ", 'documenten' => 'Documenten'", 1)
+          # The central Documents page is opened via the already verified
+          # runtime basePath() method. Do NOT invoke route('documenten').
+          link_line = "  $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current=\"page\" ' : '') . 'href=\"' . $escape($projectUrl . '&tab=' . $key) . '\">' . $escape($label) . '</a>';"
+          if source.count(link_line) == 1:
+              replacement = "  if ($key === 'documenten') { $dossierNav .= '<a href=\"' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId) . '\">Documenten</a>'; continue; }" + chr(10) + link_line
+              source = source.replace(link_line, replacement, 1)
+          else:
+              sys.exit("ABORT_ACTIVE_TAB_LOOP_LINK_MISMATCH")
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup = p.with_name(p.name + ".documents-visible-tabs-backup-" + stamp)
+          tmp = p.with_name(p.name + ".documents-visible-tabs-tmp-" + stamp)
+          backup.write_bytes(raw)
+          backup.chmod(0o600)
+          tmp.write_bytes(source.encode("utf-8"))
+          tmp.chmod(p.stat().st_mode & 0o777)
+          lint = subprocess.run(["php", "-l", str(tmp)], text=True, capture_output=True)
+          if lint.returncode:
+              tmp.unlink(missing_ok=True)
+              print(lint.stdout + lint.stderr)
+              sys.exit("ABORT_PHP_LINT")
+          os.replace(tmp, p)
+          print("V3_DOCUMENTS_TAB_RENDER_INSERTED")
+          print("BACKUP_CREATED=" + backup.name)
           PY
-          echo OFFICE_TEST_PROJECT_RENDER_DIAGNOSTIC_PASS
+          php -l "$project"
+          echo OFFICE_TEST_PROJECT_DOCUMENTS_RENDER_SERVER_PASS
           REMOTE
