@@ -40,9 +40,10 @@ final class OfficeFinanceSalesOverview {
     }catch(\PDOException){/* Native invoices stay readable when the contract source is absent. */}
     require_once __DIR__.'/OfficeFinanceCostReadiness.php';
     $result['costs']=OfficeFinanceCostReadiness::read($db,$operatorId,$projectId,$today);
+    if($projectId===null&&getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'){require_once __DIR__.'/Center/Report.php';$result['center']=(new \Brebo\Office\Finance\Center\Report($db,$operatorId))->read($today);}
     return $result;
   }
-  private static function money(int $cents): string {return '€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}
+  private static function money(int $cents): string {$sign=$cents<0?'-':'';$cents=abs($cents);return $sign.'€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}
   public static function cards(array $sales,string $salesUrl): string {
     $e=static fn(mixed $v): string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');$ok=($sales['available']??false)===true;
     $definitions=[
@@ -51,17 +52,20 @@ final class OfficeFinanceSalesOverview {
       ['Vervallen verkoopfacturen','overdue_gross_cents','Openstaande bedragen waarvan de vervaldatum is verstreken, inclusief btw.'],
       ['Conceptfacturen','draft_gross_cents','Nog niet verzonden. Inclusief btw; geen omzet of ontvangen betaling.'],
       ['Te factureren','unbilled_net_cents','Resterende aanneemsom van vrijgegeven EUR-contracten, exclusief btw. Concepten blijven hierin opgenomen. Meerwerk buiten deze contracten is niet inbegrepen.'],
-      ['Brutomarge',null,'Voor een volledige brutomarge ontbreken nog gewaardeerde arbeidskosten en complete geboekte directe kosten.'],
-      ['Bedrijfsresultaat YTD',null,'Voor bedrijfsresultaat ontbreken nog complete geboekte arbeidskosten en bedrijfskosten.'],
+      ['Brutomarge','gross_margin_cents','Managementmarge na geboekte directe kosten en gewaardeerde goedgekeurde uren; bevestig eerst de complete kostengrondslag.'],
+      ['Bedrijfsresultaat YTD','operating_result_cents','Managementresultaat na geboekte directe kosten, arbeid en overhead; bevestig eerst de complete kostengrondslag.'],
     ];$html='';
+    foreach(['gross_margin_cents','operating_result_cents'] as $metric)if(isset($sales['center'][$metric]))$sales[$metric]=$sales['center'][$metric];
     foreach($definitions as [$label,$key,$reason]){
       $value=$ok&&$key!==null&&isset($sales[$key])?self::money((int)$sales[$key]):'Niet beschikbaar';
       if(!$ok&&$key!==null)$reason='Office-verkoopadministratie is nog niet beschikbaar.';
       if($ok&&$key==='unbilled_net_cents'&&($sales['contracts_complete']??false)!==true)$reason='Contractbron ontbreekt of eerdere termijnfacturen zijn nog niet volledig gekoppeld.';
-      $html.='<div class="card"><span>'.$e($label).'</span><strong>'.$e($value).'</strong><small>'.$e($reason).'</small>'.($key!==null?'<p><a href="'.$e($salesUrl.($key==='unbilled_net_cents'?'?terms=1':'')).'">'.($key==='unbilled_net_cents'?'Naar termijnfacturen':'Naar verkoopfacturen').'</a></p>':'').'</div>';
+      if(in_array($key,['gross_margin_cents','operating_result_cents'],true)&&isset($sales['center'][$key]))$reason='Bevestigde kostengrondslag tot en met '.$sales['as_of'].'. Exclusief btw.';
+      $metricUrl=in_array($key,['gross_margin_cents','operating_result_cents'],true)?'/office-test/finance/administratie?tab=review':$salesUrl.($key==='unbilled_net_cents'?'?terms=1':'');
+      $html.='<div class="card"><span>'.$e($label).'</span><strong>'.$e($value).'</strong><small>'.$e($reason).'</small>'.($key!==null?'<p><a href="'.$e($metricUrl).'">'.(in_array($key,['gross_margin_cents','operating_result_cents'],true)?'Naar administratiecontrole':($key==='unbilled_net_cents'?'Naar termijnfacturen':'Naar verkoopfacturen')).'</a></p>':'').'</div>';
     }
     require_once __DIR__.'/OfficeFinanceCostReadiness.php';
-    $html.=OfficeFinanceCostReadiness::cards($sales['costs']??[]);
+    $html.=OfficeFinanceCostReadiness::cards(($sales['costs']??[])+['complete'=>(bool)($sales['center']['cost_review_ready']??false)]);
     if($ok){$html.='<div class="card"><span>Ouderdom vervallen facturen</span>';foreach($sales['ageing'] as $bucket=>$cents)$html.='<p>'.$e($bucket).' dagen: '.$e(self::money((int)$cents)).'</p>';$html.='<small>Inclusief btw; stand '.$e($sales['as_of']).'. Geregistreerd betaald over alle factuurjaren: '.$e(self::money((int)$sales['paid_gross_cents'])).'.</small></div>';}
     return $html;
   }

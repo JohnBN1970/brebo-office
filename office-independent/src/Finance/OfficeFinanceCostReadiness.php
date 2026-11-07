@@ -37,11 +37,13 @@ final class OfficeFinanceCostReadiness {
     $e=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');$ok=($cost['available']??false)===true;
     $h='';foreach(['Geboekte inkoopkosten YTD'=>'booked','Inkoopconcepten YTD'=>'draft'] as $label=>$key){$h.='<div class="card"><span>'.$label.'</span><strong>'.($ok?$e(self::money((int)$cost[$key.'_net_cents'])):'Niet beschikbaar').'</strong><small>'.($key==='draft'?'Nog te beoordelen; niet meegenomen als geboekte kosten.':'Eigen Office-facturen met status geboekt; exclusief btw.').'</small></div>';}
     if($ok&&(int)$cost['unusable_count']>0)$h.='<div class="card"><span>Kostencontrole</span><strong>'.(int)$cost['unusable_count'].' niet meegenomen</strong><small>Controleer status, valuta en aansluiting tussen factuurkop en regels.</small></div>';
+    if(($cost['complete']??false)===true)return $h.'<div class="card"><span>Kostenbasis voor resultaat</span><strong>Bevestigd</strong><small>Gebaseerd op de gecontroleerde boekingen en gewaardeerde uren.</small></div>';
     return $h.'<div class="card"><span>Kostenbasis voor resultaat</span><strong>Onvolledig</strong><small>Gewaardeerde arbeidskosten en geboekte bedrijfskosten ontbreken nog. Inkoopconcepten en oude factuurkoppen tellen niet als geboekte kosten.</small></div>';
   }
   public static function cashCards(array $sales): string {
     $h='';$ok=($sales['available']??false)===true;
     foreach([30,60,90] as $days){$value=$ok&&isset($sales['receipts_by_days'][$days])?self::money((int)$sales['receipts_by_days'][$days]):'Niet beschikbaar';$h.='<div class="card"><span>'.$days.' dagen</span><strong>'.htmlspecialchars($value,ENT_QUOTES,'UTF-8').'</strong><small>Openstaande verkoopfacturen met vervaldatum tot deze horizon, inclusief btw en achterstanden. Cumulatief; geen garantie van ontvangst.</small></div>';}
+    if(!empty($sales['center']['forecast']))return $h.'<p class="muted">Dit is de ontvangstenplanning. De liquiditeitsprognose hieronder bevat ook uitgaande betalingen en bevestigde beginsaldi.</p>';
     return $h.'<p class="muted">Dit is een ontvangstenplanning. Voor een volledig liquiditeitssaldo ontbreken nog een gedateerd beginsaldo per gewone/G-rekening en de uitgaande betaalplanning. Conceptfacturen en ongedateerde contractbedragen zijn niet meegerekend.</p>';
   }
 }

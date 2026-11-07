@@ -402,6 +402,11 @@ try {
     if ($dossierId === false) {
       throw new \OutOfBoundsException();
     }
+    if($method==='GET'&&getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'){
+      require_once dirname(__DIR__).'/src/Finance/Center/Ledger.php';
+      $q=$db->prepare("SELECT id FROM office_finance_postings WHERE source_kind='purchase' AND source_id=? AND status='booked'");$q->execute([(int)$dossierId]);$booking=$q->fetchColumn();
+      if($booking!==false){(new \Brebo\Office\Finance\Center\Ledger($db,$operator->operatorId))->get((int)$booking);header('Location: /office-test/finance/administratie?tab=purchases&posting='.(int)$booking,true,302);exit;}
+    }
     $data['registered_dossier'] =
       (new \Brebo\Office\Finance\OfficeFinanceDraftRegister($db))
       ->findVisible($operator->operatorId, (int)$dossierId);

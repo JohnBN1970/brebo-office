@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Brebo\Office\Sales;
 require_once __DIR__.'/OfficeSalesBilling.php';
+require_once __DIR__.'/OfficeSalesApproval.php';
 final class OfficeSalesView {
   private static function e(mixed $v): string {return htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function money(int $cents): string {return '€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}
@@ -15,6 +16,10 @@ final class OfficeSalesView {
   const status = document.getElementById('sales-lines-status');
   if (!body || !add) return;
   let next = body.rows.length;
+  const debtor=document.querySelector('[name="relation_id"]'),project=document.querySelector('select[name="office_project_id"]'),contact=document.querySelector('[name="contact_id"]'),preview=document.getElementById('sales-party-preview');
+  const party=()=>{try{return JSON.parse(debtor.selectedOptions[0]?.dataset.party||'{}');}catch{return {};}};
+  const fillParty=(selected)=>{if(!debtor||!contact||!preview)return;const c=party();contact.replaceChildren(new Option('Geen contactpersoon','0'));for(const p of c.contacts||[])contact.add(new Option((p.given_name+' '+p.family_name).trim(),String(p.id)));contact.value=String(selected||c.contact_id||0);if(!contact.value)contact.value='0';preview.replaceChildren();for(const line of [c.legal_name||c.display_name,c.street,[c.postal_code,c.city].filter(Boolean).join(' '),c.email]){if(!line)continue;const p=document.createElement('p');p.textContent=line;preview.append(p);}};
+  if(debtor&&contact){debtor.addEventListener('change',()=>fillParty());if(project)project.addEventListener('change',()=>{let b={};try{b=JSON.parse(project.selectedOptions[0]?.dataset.billing||'{}');}catch{}debtor.value=String(b.relation_id||'');fillParty(b.contact_id);if(!b.relation_id&&preview)preview.textContent='Leg de factuurdebiteur bij het project vast of kies deze hier.';});fillParty(contact.dataset.selected);}
   const invoiceDate=document.getElementById('sales-invoice-date'),paymentDays=document.getElementById('sales-payment-days'),dueDate=document.getElementById('sales-due-date');
   const updateDueDate=()=>{
     const raw=paymentDays.value,date=invoiceDate.value;
@@ -139,7 +144,7 @@ CSS;
   }
   public static function render(array $rows,?array $invoice,array $customers,array $projects,array $history,string $csrf,bool $canWrite,bool $canSend,string $today,string $error='',bool $new=false,bool $canRemind=false,array $receipts=[],string $scriptNonce='',?array $draftPreview=null,array $terms=[],bool $termSelector=false): string {
     $e=self::e(...);$money=self::money(...);$base='/office-test/finance/verkoop';$editor=$invoice!==null||$new||$draftPreview!==null;
-    $h='<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verkoopfacturen · BREBO Office</title><style>'.self::styles().'</style></head><body><main><nav class="sales-nav" aria-label="Finance"><a href="/office-test/finance">Finance-overzicht</a><a href="'.$base.'">Verkoopfacturen</a><a href="/office-test/finance/betaalcentrum">Betaalcentrum</a></nav><header class="sales-heading"><div><p class="eyebrow">BREBO Office · Verkoop</p><h1>'.($editor?($new?'Nieuwe verkoopfactuur':'Verkoopfactuur'):'Verkoopfacturen').'</h1></div>'.($editor?'<a class="button secondary" href="'.$base.'">Terug naar overzicht</a>':($canWrite?'<div><a class="button" href="'.$base.'?terms=1">Factuur uit termijn</a> <a class="button secondary" href="'.$base.'?new=1">+ Losse factuur</a></div>':'')).'</header>';
+    $h='<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verkoopfacturen · BREBO Office</title><style>'.self::styles().'</style></head><body><main><nav class="sales-nav" aria-label="Finance"><a href="/office-test/finance">Finance-overzicht</a><a href="'.$base.'">Verkoopfacturen</a><a href="/office-test/finance/betaalcentrum">Betaalcentrum</a>'.(OfficeSalesApproval::enabled()?'<a href="/office-test/finance/administratie">Administratie</a>':'').'</nav><header class="sales-heading"><div><p class="eyebrow">BREBO Office · Verkoop</p><h1>'.($editor?($new?'Nieuwe verkoopfactuur':'Verkoopfactuur'):'Verkoopfacturen').'</h1></div>'.($editor?'<a class="button secondary" href="'.$base.'">Terug naar overzicht</a>':($canWrite?'<div><a class="button" href="'.$base.'?terms=1">Factuur uit termijn</a> <a class="button secondary" href="'.$base.'?new=1">+ Losse factuur</a></div>':'')).'</header>';
     if($error!=='')$h.='<p class="error" role="alert">'.$e($error).'</p>';
     if($editor){
       $row=$draftPreview??$invoice??['id'=>0,'revision'=>0,'status'=>'draft','invoice_date'=>$today,'due_date'=>(new \DateTimeImmutable($today))->modify('+14 days')->format('Y-m-d'),'relation_id'=>'','office_project_id'=>'','reference'=>'','lines_json'=>'[]','net_cents'=>0,'vat_cents'=>0,'gross_cents'=>0];
@@ -148,8 +153,9 @@ CSS;
       $h.='<div class="sales-workspace"><article class="invoice-paper" aria-label="Factuurdocument">';
       if($editable)$h.='<form id="sales-draft" method="post">'.self::hidden($row,$csrf,'save').'<input type="hidden" name="source_term_id" value="'.(int)($row['source_term_id']??0).'">';
       $h.='<header class="paper-heading">'.self::logo().'<div class="issuer"><p><strong>BREBO Bouw en Advies B.V.</strong><br>Plaza 25A<br>4782 SL Moerdijk</p><p>085 - 500 38 38<br>info@brebobv.nl<br>brebobv.nl</p><p>KvK: 92123139<br>BTW: NL865894607.B01<br>IBAN: NL19 ABNA 0894 3515 67</p></div></header><div class="invoice-customer">';
-      if($editable){$h.='<label>Debiteur<select name="relation_id" required><option value="">Kies debiteur</option>';foreach($customers as $c)$h.='<option value="'.(int)$c['id'].'" '.((string)$c['id']===(string)$row['relation_id']?'selected':'').'>'.$e($c['display_name']).'</option>';$h.='</select></label>';}
-      if($customer!==null)$h.='<p><strong>'.$e($customer['legal_name']?:$customer['display_name']).'</strong></p><p>'.$e($customer['street']).'<br>'.$e($customer['postal_code'].' '.$customer['city']).'</p>';
+      if($editable){$h.='<label>Debiteur<select name="relation_id" required><option value="">Kies debiteur</option>';foreach($customers as $c)$h.='<option data-party="'.$e(json_encode($c,JSON_THROW_ON_ERROR)).'" value="'.(int)$c['id'].'" '.((string)$c['id']===(string)$row['relation_id']?'selected':'').'>'.$e($c['display_name']).'</option>';$h.='</select></label>';}
+      if($editable){$selectedContact=$row['_contact_input']??($customer['contact_id']??0);$h.='<label>Contactpersoon<select name="contact_id" data-selected="'.$e($selectedContact).'"><option value="0">Geen contactpersoon</option></select></label><div id="sales-party-preview" aria-live="polite"></div>';}
+      if($customer!==null)$h.='<p><strong>'.$e($customer['legal_name']?:$customer['display_name']).'</strong></p><p>'.(!empty($customer['contact_name'])?'T.a.v. '.$e($customer['contact_name']).'<br>':'').$e($customer['street']).'<br>'.$e($customer['postal_code'].' '.$customer['city']).'</p>';
       else $h.='<p class="small">Kies een debiteur voor het factuuradres.</p>';
       $h.='</div><h2 class="invoice-title">'.$e($row['invoice_number']??((int)$row['id']>0?'Concept #'.$row['id']:'Conceptfactuur')).'</h2>';
       if($editable){
@@ -157,7 +163,7 @@ CSS;
         try{$from=\DateTimeImmutable::createFromFormat('!Y-m-d',(string)$row['invoice_date'],new \DateTimeZone('UTC'));$to=\DateTimeImmutable::createFromFormat('!Y-m-d',(string)$row['due_date'],new \DateTimeZone('UTC'));if($from&&$to)$days=$from->diff($to)->format('%r%a');}catch(\Throwable){}
         $days=(string)($row['_payment_days_input']??$days);
         $h.='<fieldset class="edit-block"><legend>Factuurgegevens</legend><div class="invoice-meta"><div><label>Project<select name="office_project_id"'.($source!==null?' disabled':'').'><option value="">Losse factuur</option>';
-        foreach($projects as $p)$h.='<option value="'.(int)$p['id'].'" '.((string)$p['id']===(string)$row['office_project_id']?'selected':'').'>'.$e($p['title']).'</option>';
+        foreach($projects as $p)$h.='<option data-billing="'.$e(json_encode($p['billing']??[],JSON_THROW_ON_ERROR)).'" value="'.(int)$p['id'].'" '.((string)$p['id']===(string)$row['office_project_id']?'selected':'').'>'.$e($p['title']).'</option>';
         $h.='</select></label><label>Uw kenmerk / referentie<input name="reference" maxlength="255" value="'.$e($row['reference']).'"></label></div><div><label>Factuurdatum<input id="sales-invoice-date" type="date" name="invoice_date" required value="'.$e($row['invoice_date']).'"></label><label>Betalingstermijn (dagen)<input id="sales-payment-days" type="number" name="payment_days" min="0" max="3650" step="1" required value="'.$e($days).'"></label><label>Vervaldatum<input id="sales-due-date" type="date" name="due_date" readonly required value="'.$e($row['due_date']).'"></label></div></div></fieldset>';
         if($source!==null)$h.='<input type="hidden" name="office_project_id" value="'.(int)$row['office_project_id'].'">';
       }else {$context=OfficeSalesBilling::documentContext($row);$h.='<div class="invoice-meta"><div>'.($context['project']!==''?'<p>Project: '.$e($context['project']).'</p>':'').($context['contract']!==''?'<p>Contract: '.$e($context['contract']).'</p>':'').($row['reference']!==''?'<p>Uw kenmerk: '.$e($row['reference']).'</p>':'').'</div><div><p>Factuurdatum: '.$e($row['invoice_date']).'</p><p>Vervaldatum: '.$e($row['due_date']).'</p></div></div>';}
@@ -220,7 +226,14 @@ CSS;
   }
   private static function actions(array $row,array $customer,string $csrf,bool $canWrite,bool $canSend,bool $canRemind,string $status,string $today): string {
     $e=self::e(...);$money=self::money(...);$h='';
-    if($canWrite&&in_array($status,['draft','overdue'],true)){
+    if($canWrite&&$status==='draft'&&OfficeSalesApproval::enabled()&&!isset($row['_unsaved'])){
+      $a=$row['_approval']??null;$message=$a['message']??"Geachte heer/mevrouw,\n\nHierbij ontvangt u onze factuur.\n\nMet kleurrijke groet,\nBREBO Bouw en Advies B.V.";
+      $h.='<h3>Goedkeuring en verzending</h3><p>'.($a?($a['state']==='approved'?'Concept goedgekeurd.':'Wacht op goedkeuring.'):'Vraag goedkeuring voor deze opgeslagen conceptversie.').'</p>';
+      if($a){$h.='<p>Ontvanger: '.$e($a['recipient']).'</p><p style="white-space:pre-wrap">'.$e($a['message']).'</p>';if($a['state']==='pending')$h.='<form method="post">'.self::hidden($row,$csrf,'approve').'<label><input type="checkbox" name="confirmed" value="yes" required> Factuur, ontvanger en bericht gecontroleerd</label><button>Concept goedkeuren</button></form>';elseif($canSend)$h.='<form method="post">'.self::hidden($row,$csrf,'invoice').'<input type="hidden" name="recipient" value="'.$e($a['recipient']).'"><input type="hidden" name="message" value="'.$e($a['message']).'"><label><input type="checkbox" name="confirmed" value="yes" required> Goedgekeurde factuur nu per e-mail verzenden</label><button>Factuur verzenden</button></form>';}
+      if(!$canSend)$h.='<p>Verzenden wordt beschikbaar nadat de verzendkoppeling en btw-koppeling zijn gecontroleerd.</p>';
+      $h.='<details><summary>'.($a?'Ontvanger of bericht aanpassen':'Goedkeuring aanvragen').'</summary><form method="post">'.self::hidden($row,$csrf,'request_approval').'<label>Factuur e-mailadres<input type="email" name="recipient" required value="'.$e($a['recipient']??$customer['email']).'"></label><label>Bericht<textarea name="message" maxlength="10000" required>'.$e($message).'</textarea></label><button>Ter goedkeuring aanbieden</button></form></details>';
+    }
+    if($canWrite&&in_array($status,['draft','overdue'],true)&&!($status==='draft'&&OfficeSalesApproval::enabled())){
       $operation=$status==='draft'?'invoice':'reminder';$caption=$operation==='invoice'?'Factuur verzenden':'Herinnering versturen';
       if(!$canSend||($operation==='reminder'&&!$canRemind))$h.='<p>Verzenden wordt beschikbaar nadat de verzendkoppeling en btw-koppeling zijn gecontroleerd.</p>';
       else{
@@ -230,7 +243,7 @@ CSS;
     }
     if($canWrite&&in_array($status,['sent','overdue','partially_paid'],true)){
       $outstanding=(int)$row['gross_cents']-(int)$row['paid_cents'];
-      $h.='<details><summary>Ontvangst vastleggen</summary><p>Leg alleen een bedrag vast dat je in de bankadministratie hebt gecontroleerd.</p><form method="post">'.self::hidden($row,$csrf,'receipt').'<label>Ontvangen bedrag<input name="receipt_amount" inputmode="decimal" required value="'.intdiv($outstanding,100).'.'.sprintf('%02d',$outstanding%100).'"></label><label>Ontvangstdatum<input type="date" name="receipt_date" required value="'.$e($today).'"></label><label>Bankreferentie<input name="evidence_reference" maxlength="128" required></label><label><input type="checkbox" name="confirmed" value="yes" required> Ontvangst en factuur gecontroleerd in de bankadministratie</label><button>Ontvangst vastleggen</button></form></details>';
+      $h.='<details><summary>Ontvangst vastleggen</summary><p>Leg alleen een bedrag vast dat je in de bankadministratie hebt gecontroleerd.</p><form method="post">'.self::hidden($row,$csrf,'receipt').'<label>Ontvangen bedrag<input name="receipt_amount" inputmode="decimal" required value="'.intdiv($outstanding,100).'.'.sprintf('%02d',$outstanding%100).'"></label><label>Ontvangstdatum<input type="date" name="receipt_date" required value="'.$e($today).'"></label>'.(OfficeSalesApproval::enabled()?'<label>Rekeningsoort<select name="account_bucket"><option value="regular">Gewone rekening</option><option value="g">G-rekening</option></select></label>':'').'<label>Bankreferentie<input name="evidence_reference" maxlength="128" required></label><label><input type="checkbox" name="confirmed" value="yes" required> Ontvangst en factuur gecontroleerd in de bankadministratie</label><button>Ontvangst vastleggen</button></form></details>';
     }
     return $h;
   }

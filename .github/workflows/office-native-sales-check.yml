@@ -5,6 +5,8 @@ on:
       - 'office-independent/src/Sales/**'
       - 'office-independent/public/office-sales.php'
       - 'office-independent/tests/OfficeSales*'
+      - 'office-independent/src/Finance/Center/**'
+      - 'office-independent/tests/OfficeFinanceParty*'
       - '.github/workflows/office-native-sales-check.yml'
   workflow_dispatch:
 permissions:
@@ -19,6 +21,7 @@ jobs:
           set -euo pipefail
           find office-independent/src/Sales -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l office-independent/public/office-sales.php
+          php office-independent/tests/OfficeFinanceCenterTest.php --sales-fixture "$RUNNER_TEMP/finance-party.html"
           php office-independent/tests/OfficeSalesServiceTest.php
           php office-independent/tests/OfficeSalesBillingTest.php --fixture "$RUNNER_TEMP/term-layout.html"
           php office-independent/tests/OfficeSalesPdfTest.php --layout-fixture "$RUNNER_TEMP/sales-layout.html"
@@ -29,3 +32,4 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/sales-dom" --no-save --ignore-scripts jsdom@26.1.0
           SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeSalesEditorDomTest.cjs "$RUNNER_TEMP/sales-layout.html" "$RUNNER_TEMP/term-layout.html"
+          SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeFinancePartyDomTest.cjs "$RUNNER_TEMP/finance-party.html"

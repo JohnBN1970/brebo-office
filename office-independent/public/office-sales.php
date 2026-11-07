@@ -46,9 +46,16 @@ try {
         if (!is_array($input['lines']??null)) throw new InvalidArgumentException('Factuurregels ontbreken.');
         $input['lines']=array_values(array_filter($input['lines'],static fn($l): bool => !is_array($l) || trim((string)($l['description']??''))!=='' || trim((string)($l['price']??''))!==''));
         $id=$service->save($input,$id===0?null:$id,$revision);
+      } elseif (in_array($action,['request_approval','approve'],true)) {
+        if($id<1)throw new DomainException('Sla eerst het concept op.');
+        if($action==='request_approval')$service->requestApproval($id,$revision,(string)($_POST['recipient']??''),(string)($_POST['message']??''));
+        else{if(($_POST['confirmed']??'')!=='yes')throw new DomainException('Goedkeuring niet bevestigd.');$service->approve($id,$revision);}
       } elseif ($action==='receipt') {
         if (($_POST['confirmed']??'')!=='yes' || $id<1) throw new DomainException('Ontvangst niet bevestigd.');
-        $service->recordReceipt($id,$revision,(string)($_POST['receipt_amount']??''),(string)($_POST['receipt_date']??''),(string)($_POST['evidence_reference']??''),$today);
+        if(\Brebo\Office\Sales\OfficeSalesApproval::enabled()){
+          require_once dirname(__DIR__).'/src/Finance/Center/Ledger.php';
+          (new \Brebo\Office\Finance\Center\Ledger($db,$operator->operatorId))->payment('sale',$id,$revision,(string)($_POST['receipt_amount']??''),(string)($_POST['receipt_date']??''),(string)($_POST['evidence_reference']??''),(string)($_POST['account_bucket']??''),$today);
+        }else $service->recordReceipt($id,$revision,(string)($_POST['receipt_amount']??''),(string)($_POST['receipt_date']??''),(string)($_POST['evidence_reference']??''),$today);
       } elseif (in_array($action,['invoice','reminder'],true)) {
         if (!$canSend || ($action==='reminder' && getenv('OFFICE_SALES_REMINDERS_ENABLED')!=='enabled') || ($_POST['confirmed']??'')!=='yes' || $id<1) throw new DomainException('Verzending nog niet beschikbaar of niet bevestigd.');
         $delivery=$service->prepare($id,$revision,$action,(string)($_POST['recipient']??''),(string)($_POST['message']??''),$taxMap,$today);
@@ -83,6 +90,7 @@ try {
     if($source===false)throw new DomainException('Termijn niet beschikbaar.');
     $draftPreview=$invoice??($source>0?$service->termDraft($source,$today):\Brebo\Office\Sales\OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>'','office_project_id'=>'','invoice_date'=>$today,'due_date'=>$today,'reference'=>'','lines_json'=>'[]','net_cents'=>0,'vat_cents'=>0,'gross_cents'=>0]));
     foreach(['relation_id','office_project_id','invoice_date','due_date','reference'] as $field)$draftPreview[$field]=$s($_POST[$field]??'');
+    $draftPreview['_contact_input']=$s($_POST['contact_id']??'');
     $draftPreview['_payment_days_input']=$s($_POST['payment_days']??'');
     $draftPreview['price_mode']=in_array($_POST['price_mode']??'',['incl','excl'],true)?$_POST['price_mode']:'excl';
     foreach(['labor_amount'=>'_labor_input','g_percent'=>'_g_percent_input','term_percent'=>'_term_percent_input','g_iban'=>'g_iban'] as $field=>$target)$draftPreview[$target]=$s($_POST[$field]??'');

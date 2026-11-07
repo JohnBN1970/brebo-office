@@ -1,0 +1,80 @@
+{
+  "public/office-crm-relation-manage.php": [
+    {
+      "before": "'email'=>254,'phone'",
+      "after": "'email'=>254,'invoice_email'=>254,'offer_email'=>254,'billing_street'=>255,'billing_postal_code'=>32,'billing_city'=>128,'billing_country_code'=>2,'phone'"
+    },
+    {
+      "before": "'email'=>'E-mail','phone'",
+      "after": "'email'=>'Algemene e-mail','invoice_email'=>'Factuur e-mail','offer_email'=>'Offerte e-mail','billing_street'=>'Factuuradres: straat en huisnummer','billing_postal_code'=>'Factuuradres: postcode','billing_city'=>'Factuuradres: plaats','billing_country_code'=>'Factuuradres: landcode','phone'"
+    },
+    {
+      "before": "  if (($relation['email']??'')!==''&&!filter_var($relation['email'],FILTER_VALIDATE_EMAIL)) $errors[]='Ongeldig e-mailadres.';",
+      "after": "  foreach(['email','invoice_email','offer_email'] as $emailField)if(($relation[$emailField]??'')!==''&&(!filter_var($relation[$emailField],FILTER_VALIDATE_EMAIL)||preg_match('/[\\r\\n]/',$relation[$emailField])))$errors[]='Ongeldig e-mailadres bij '.$labels[$emailField];\n  $relation['billing_country_code']=strtoupper((string)($relation['billing_country_code']??''));\n  if($relation['billing_country_code']!==''&&!preg_match('/^[A-Z]{2}$/D',$relation['billing_country_code']))$errors[]='Factuuradres: landcode moet twee hoofdletters zijn.';"
+    }
+  ],
+  "src/Finance/OfficeFinanceSalesOverview.php": [
+    {
+      "before": "    return $result;",
+      "after": "    if($projectId===null&&getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'){require_once __DIR__.'/Center/Report.php';$result['center']=(new \\Brebo\\Office\\Finance\\Center\\Report($db,$operatorId))->read($today);}\n    return $result;"
+    },
+    {
+      "before": "['Brutomarge',null,'Voor een volledige brutomarge ontbreken nog gewaardeerde arbeidskosten en complete geboekte directe kosten.']",
+      "after": "['Brutomarge','gross_margin_cents','Managementmarge na geboekte directe kosten en gewaardeerde goedgekeurde uren; bevestig eerst de complete kostengrondslag.']"
+    },
+    {
+      "before": "['Bedrijfsresultaat YTD',null,'Voor bedrijfsresultaat ontbreken nog complete geboekte arbeidskosten en bedrijfskosten.']",
+      "after": "['Bedrijfsresultaat YTD','operating_result_cents','Managementresultaat na geboekte directe kosten, arbeid en overhead; bevestig eerst de complete kostengrondslag.']"
+    },
+    {
+      "before": "    foreach($definitions as [$label,$key,$reason]){",
+      "after": "    foreach(['gross_margin_cents','operating_result_cents'] as $metric)if(isset($sales['center'][$metric]))$sales[$metric]=$sales['center'][$metric];\n    foreach($definitions as [$label,$key,$reason]){"
+    },
+    {
+      "before": "      $html.='<div class=\"card\"><span>'.$e($label)",
+      "after": "      if(in_array($key,['gross_margin_cents','operating_result_cents'],true)&&isset($sales['center'][$key]))$reason='Bevestigde kostengrondslag tot en met '.$sales['as_of'].'. Exclusief btw.';\n      $metricUrl=in_array($key,['gross_margin_cents','operating_result_cents'],true)?'/office-test/finance/administratie?tab=review':$salesUrl.($key==='unbilled_net_cents'?'?terms=1':'');\n      $html.='<div class=\"card\"><span>'.$e($label)"
+    },
+    {
+      "before": "$e($salesUrl.($key==='unbilled_net_cents'?'?terms=1':''))",
+      "after": "$e($metricUrl)"
+    },
+    {
+      "before": "($key==='unbilled_net_cents'?'Naar termijnfacturen':'Naar verkoopfacturen')",
+      "after": "(in_array($key,['gross_margin_cents','operating_result_cents'],true)?'Naar administratiecontrole':($key==='unbilled_net_cents'?'Naar termijnfacturen':'Naar verkoopfacturen'))"
+    },
+    {
+      "before": "private static function money(int $cents): string {return '€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}",
+      "after": "private static function money(int $cents): string {$sign=$cents<0?'-':'';$cents=abs($cents);return $sign.'€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}"
+    },
+    {
+      "before": "OfficeFinanceCostReadiness::cards($sales['costs']??[])",
+      "after": "OfficeFinanceCostReadiness::cards(($sales['costs']??[])+['complete'=>(bool)($sales['center']['cost_review_ready']??false)])"
+    }
+  ],
+  "src/Finance/OfficeFinanceView.php": [
+    {
+      "before": "    return $html . '</div></section>';",
+      "after": "    $center=$data['sales_overview']['center']??null;\n    if(is_array($center)){$html.='</div><h3>Liquiditeitsprognose</h3><div class=\"cards\">';if($center['forecast']){foreach($center['forecast']['horizons'] as $days=>$forecast)$html.='<div class=\"card\"><span>'.(int)$days.' dagen</span><strong>'.$e(\\Brebo\\Office\\Finance\\Center\\Amounts::money((int)$forecast['ending']['regular'])).'</strong><small>Gewone rekeningen. G-rekeningen afzonderlijk: '.$e(\\Brebo\\Office\\Finance\\Center\\Amounts::money((int)$forecast['ending']['g'])).'.</small></div>';}else{$html.='<div class=\"card\"><span>Saldo en betaalplanning aanvullen</span><ul>';foreach(array_unique($center['forecast_reasons']) as $reason)$html.='<li>'.$e($reason).'</li>';$html.='</ul></div>';}$html.='<div class=\"card\"><a href=\"/office-test/finance/administratie\">Financiële administratie openen</a></div>';}\n    return $html . '</div></section>';"
+    },
+    {
+      "before": "<a href=\"'.$newInvoice.'\">Nieuwe inkoopfactuur</a>",
+      "after": "<a href=\"'.$newInvoice.'\">Nieuwe inkoopfactuur</a>'.(getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'?'<a href=\"/office-test/finance/administratie\">Administratie</a>':'').'"
+    }
+  ],
+  "public/office-finance.php": [
+    {
+      "before": "    $data['registered_dossier'] =\n      (new \\Brebo\\Office\\Finance\\OfficeFinanceDraftRegister($db))",
+      "after": "    if($method==='GET'&&getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'){\n      require_once dirname(__DIR__).'/src/Finance/Center/Ledger.php';\n      $q=$db->prepare(\"SELECT id FROM office_finance_postings WHERE source_kind='purchase' AND source_id=? AND status='booked'\");$q->execute([(int)$dossierId]);$booking=$q->fetchColumn();\n      if($booking!==false){(new \\Brebo\\Office\\Finance\\Center\\Ledger($db,$operator->operatorId))->get((int)$booking);header('Location: /office-test/finance/administratie?tab=purchases&posting='.(int)$booking,true,302);exit;}\n    }\n    $data['registered_dossier'] =\n      (new \\Brebo\\Office\\Finance\\OfficeFinanceDraftRegister($db))"
+    }
+  ],
+  "src/Finance/OfficeFinanceCostReadiness.php": [
+    {
+      "before": "    return $h.'<div class=\"card\"><span>Kostenbasis voor resultaat</span><strong>Onvolledig</strong>",
+      "after": "    if(($cost['complete']??false)===true)return $h.'<div class=\"card\"><span>Kostenbasis voor resultaat</span><strong>Bevestigd</strong><small>Gebaseerd op de gecontroleerde boekingen en gewaardeerde uren.</small></div>';\n    return $h.'<div class=\"card\"><span>Kostenbasis voor resultaat</span><strong>Onvolledig</strong>"
+    },
+    {
+      "before": "    return $h.'<p class=\"muted\">Dit is een ontvangstenplanning.",
+      "after": "    if(!empty($sales['center']['forecast']))return $h.'<p class=\"muted\">Dit is de ontvangstenplanning. De liquiditeitsprognose hieronder bevat ook uitgaande betalingen en bevestigde beginsaldi.</p>';\n    return $h.'<p class=\"muted\">Dit is een ontvangstenplanning."
+    }
+  ]
+}

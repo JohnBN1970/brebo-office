@@ -63,7 +63,7 @@ final class OfficeSalesPdf {
     foreach($company as [$text,$y,$bold])$this->text(0,$y,$text,9,$bold,561);
     if($first) {
       $customer=json_decode($invoice['customer_json'],true,32,JSON_THROW_ON_ERROR);
-      $address=array_filter([(string)($customer['legal_name']?:$customer['display_name']),(string)$customer['street'],trim($customer['postal_code'].' '.$customer['city']),(string)($customer['country_code']??'')]);
+      $address=array_filter([(string)($customer['legal_name']?:$customer['display_name']),(!empty($customer['contact_name'])?'T.a.v. '.$customer['contact_name']:''),(string)$customer['street'],trim($customer['postal_code'].' '.$customer['city']),(string)($customer['country_code']??'')]);
       $ay=191;$firstAddress=true;
       foreach($address as $part)foreach(self::wrap($part,290) as $line){$this->text(35,$ay,$line,10,$firstAddress);$ay+=15;$firstAddress=false;}
       $this->y=max(291,$ay+32);

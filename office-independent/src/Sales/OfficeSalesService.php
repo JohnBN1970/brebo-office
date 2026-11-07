@@ -3,6 +3,8 @@ declare(strict_types=1);
 namespace Brebo\Office\Sales;
 use PDO;
 require_once __DIR__.'/OfficeSalesBilling.php';
+require_once __DIR__.'/OfficeSalesApproval.php';
+require_once __DIR__.'/OfficeSalesParties.php';
 
 /** Office owns customer snapshots, lines, totals and history. No invoice imports. */
 final class OfficeSalesService {
@@ -26,12 +28,12 @@ final class OfficeSalesService {
   public function projects(): array {
     $this->authorize();
     $q=$this->db->prepare("SELECT DISTINCT p.id,p.title FROM office_projects p JOIN office_project_memberships m ON m.project_id=p.id WHERE m.operator_id=? AND m.permission IN ('read','manage') ORDER BY p.title");
-    $q->execute([$this->operatorId]); return $q->fetchAll(PDO::FETCH_ASSOC);
+    $q->execute([$this->operatorId]);$rows=$q->fetchAll(PDO::FETCH_ASSOC);foreach($rows as &$p)$p['billing']=OfficeSalesParties::billing($this->db,(int)$p['id']);return $rows;
   }
 
   public function customers(): array {
     $this->authorize();
-    return $this->db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name")->fetchAll(PDO::FETCH_ASSOC);
+    $rows=$this->db->query("SELECT * FROM office_crm_relations WHERE status='active' ORDER BY display_name")->fetchAll(PDO::FETCH_ASSOC);$result=[];foreach($rows as $row){$c=OfficeSalesParties::snapshot($this->db,$row,0);$c['contacts']=OfficeSalesParties::contacts($this->db,(int)$row['id']);$result[]=$c;}return $result;
   }
 
   public function list(): array {
@@ -46,7 +48,7 @@ final class OfficeSalesService {
     $row=$q->fetch(PDO::FETCH_ASSOC);
     if (!$row || ($row['office_project_id']===null && (string)$row['operator_id']!==$this->operatorId)) throw new \DomainException('Factuur niet beschikbaar.');
     $this->project($row['office_project_id']===null ? null : (int)$row['office_project_id']);
-    return OfficeSalesBilling::defaults($row);
+    $row=OfficeSalesBilling::defaults($row);if(OfficeSalesApproval::enabled()){$q=$this->db->prepare('SELECT * FROM office_finance_sales_approvals WHERE invoice_id=?');$q->execute([$id]);$approval=$q->fetch(PDO::FETCH_ASSOC);if($approval&&(int)$approval['invoice_revision']===(int)$row['revision']&&hash_equals($approval['content_hash'],OfficeSalesApproval::hash($row)))$row['_approval']=$approval;}return $row;
   }
 
   public static function totals(array $lines,string $mode='excl'): array {return OfficeSalesBilling::totals($lines,$mode);}
@@ -87,9 +89,9 @@ final class OfficeSalesService {
   }
 
   public function termDraft(int $termId,string $today): array {
-    $term=$this->sourceTerm($termId);$percent=$term['percentage']===null?'':(string)$term['percentage'];$amount=OfficeSalesBilling::termAmount($term,$percent);
+    $term=$this->sourceTerm($termId);$billing=OfficeSalesParties::billing($this->db,(int)$term['office_project_id']);$percent=$term['percentage']===null?'':(string)$term['percentage'];$amount=OfficeSalesBilling::termAmount($term,$percent);
     $line=['description'=>'Termijn '.$term['term_number'].' - '.$term['description'],'quantity'=>'1','price'=>OfficeSalesBilling::decimal($amount['net_cents']),'vat'=>'21'];$totals=self::totals([$line]);
-    return OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>'','office_project_id'=>(int)$term['office_project_id'],'invoice_date'=>$today,'due_date'=>$term['due_date']?:((new \DateTimeImmutable($today))->modify('+14 days')->format('Y-m-d')),'reference'=>'','lines_json'=>json_encode($totals['lines'],JSON_THROW_ON_ERROR),'net_cents'=>$totals['net_cents'],'vat_cents'=>$totals['vat_cents'],'gross_cents'=>$totals['gross_cents'],'source_term_id'=>$termId,'source_contract_id'=>(int)$term['contract_id'],'term_percent_units'=>$amount['term_percent_units'],'source_snapshot'=>json_encode($term,JSON_THROW_ON_ERROR),'summary_json'=>json_encode($this->contractSummary($term,null,$totals['net_cents'],$totals['gross_cents'],$amount['term_percent_units']),JSON_THROW_ON_ERROR)]);
+    return OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>$billing['relation_id'],'_contact_input'=>$billing['contact_id'],'office_project_id'=>(int)$term['office_project_id'],'invoice_date'=>$today,'due_date'=>$term['due_date']?:((new \DateTimeImmutable($today))->modify('+14 days')->format('Y-m-d')),'reference'=>'','lines_json'=>json_encode($totals['lines'],JSON_THROW_ON_ERROR),'net_cents'=>$totals['net_cents'],'vat_cents'=>$totals['vat_cents'],'gross_cents'=>$totals['gross_cents'],'source_term_id'=>$termId,'source_contract_id'=>(int)$term['contract_id'],'term_percent_units'=>$amount['term_percent_units'],'source_snapshot'=>json_encode($term,JSON_THROW_ON_ERROR),'summary_json'=>json_encode($this->contractSummary($term,null,$totals['net_cents'],$totals['gross_cents'],$amount['term_percent_units']),JSON_THROW_ON_ERROR)]);
   }
 
   private static function date(string $date): string {
@@ -109,7 +111,7 @@ final class OfficeSalesService {
     if($source!==null){if($project!==(int)$source['office_project_id'])throw new \DomainException('De termijn hoort bij een ander project.');$project=(int)$source['office_project_id'];}
     $this->project($project);
     $customerId=filter_var($input['relation_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($customerId===false)throw new \InvalidArgumentException('Kies een relatie.');
-    $q=$this->db->prepare("SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE id=? AND status='active'");$q->execute([$customerId]);$customer=$q->fetch(PDO::FETCH_ASSOC);if(!$customer)throw new \InvalidArgumentException('Relatie niet beschikbaar.');
+    $q=$this->db->prepare("SELECT * FROM office_crm_relations WHERE id=? AND status='active'");$q->execute([$customerId]);$customer=$q->fetch(PDO::FETCH_ASSOC);if(!$customer)throw new \InvalidArgumentException('Relatie niet beschikbaar.');$customer=OfficeSalesParties::snapshot($this->db,$customer,$input['contact_id']??0);
     if($project!==null){$q=$this->db->prepare('SELECT title FROM office_projects WHERE id=?');$q->execute([$project]);$title=$q->fetchColumn();if($title===false)throw new \DomainException('Project niet beschikbaar.');$customer['_office_project']=['id'=>$project,'title'=>(string)$title];}
     $date=self::date((string)($input['invoice_date']??''));$due=array_key_exists('payment_days',$input)?OfficeSalesBilling::dueDate($date,$input['payment_days']):self::date((string)($input['due_date']??''));if($due<$date)throw new \InvalidArgumentException('Vervaldatum ligt voor factuurdatum.');
     $reference=trim((string)($input['reference']??''));if(strlen($reference)>255||preg_match('/[\x00-\x1f]/',$reference))throw new \InvalidArgumentException('Ongeldige referentie.');
@@ -196,6 +198,11 @@ final class OfficeSalesService {
         foreach (['id','contact_id','workflow_id','document_style_id','identity_id'] as $field) if (!is_string($provider[$field]??null) || !preg_match('/^\d+$/D',$provider[$field])) throw new \DomainException('Verzendbewijs voor deze factuur is onvolledig.');
         $payload=['reminder'=>array_intersect_key($provider,array_flip(['id','contact_id','workflow_id','document_style_id','identity_id']))+['email_address'=>$recipient,'reminder_text'=>$message]];
       }
+      if($operation==='invoice'&&OfficeSalesApproval::enabled()){
+        if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){$q=$this->db->prepare('SELECT id FROM office_finance_sales_invoice WHERE id=? FOR UPDATE');$q->execute([$id]);}
+        $current=$this->get($id,true);$approval=$current['_approval']??null;
+        if((int)$current['revision']!==$revision||!$approval||$approval['state']!=='approved'||$approval['recipient']!==$recipient||$approval['message']!==$message)throw new \DomainException('Keur eerst deze conceptversie met dit e-mailadres en bericht goed.');
+      }
       $key='office-sales-'.$operation.'-'.bin2hex(random_bytes(24)); $payload['idempotency_key']=$key;
       if (strlen(json_encode($payload,JSON_THROW_ON_ERROR))>30000) throw new \InvalidArgumentException('Verzendopdracht te groot; verkort de omschrijvingen of het bericht.');
       $q=$this->db->prepare('UPDATE office_finance_sales_invoice SET status=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status=?');
@@ -253,8 +260,9 @@ final class OfficeSalesService {
     $reference=trim($reference); $amount=str_replace(',','.',$amount);
     if ($date>$today || $reference==='' || strlen($reference)>128 || preg_match('/[\x00-\x1f]/',$reference) || !preg_match('/^\d{1,10}(?:\.\d{1,2})?$/D',$amount)) throw new \InvalidArgumentException('Controleer ontvangstdatum, bedrag en bankreferentie.');
     [$a,$b]=array_pad(explode('.',$amount),2,''); $cents=(int)$a*100+(int)str_pad($b,2,'0');
-    $this->db->beginTransaction();
+    $ownsTransaction=!$this->db->inTransaction();if($ownsTransaction)$this->db->beginTransaction();
     try {
+      if(OfficeSalesApproval::enabled()){$q=$this->db->prepare('SELECT 1 FROM office_finance_cash_records WHERE bank_reference=? LIMIT 1');$q->execute([$reference]);if($q->fetchColumn())throw new \DomainException('Bankreferentie is al verwerkt.');}
       $row=$this->get($id,true);
       if ($row['status']!=='sent' || (int)$row['revision']!==$revision || $date<$row['invoice_date'] || $cents<=0 || $cents>(int)$row['gross_cents']-(int)$row['paid_cents']) throw new \DomainException('Ontvangst past niet bij de actuele openstaande factuur.');
       $q=$this->db->prepare("UPDATE office_finance_sales_invoice SET paid_cents=paid_cents+?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='sent'");
@@ -262,14 +270,30 @@ final class OfficeSalesService {
       if ($q->rowCount()!==1) throw new \DomainException('Factuur gewijzigd; controleer opnieuw.');
       $this->db->prepare('INSERT INTO office_finance_sales_receipt (invoice_id,amount_cents,receipt_date,evidence_reference,operator_id,created_at) VALUES (?,?,?,?,?,?)')->execute([$id,$cents,$date,$reference,$this->operatorId,gmdate('c')]);
       $this->audit($id,'manual_receipt_recorded',['amount_cents'=>$cents,'receipt_date'=>$date,'evidence_reference'=>$reference]);
-      $this->db->commit();
-    } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+      if($ownsTransaction)$this->db->commit();
+    } catch (\Throwable $e) { if($ownsTransaction&&$this->db->inTransaction())$this->db->rollBack(); throw $e; }
   }
 
   public function receipts(int $id): array {
     $this->get($id);
     $q=$this->db->prepare('SELECT amount_cents,receipt_date,evidence_reference,operator_id FROM office_finance_sales_receipt WHERE invoice_id=? ORDER BY id');
     $q->execute([$id]); return $q->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  public function requestApproval(int $id,int $revision,string $recipient,string $message): void {
+    $this->authorize(true);if(!OfficeSalesApproval::enabled())throw new \DomainException('Goedkeuringsstap nog niet actief.');OfficeSalesApproval::recipient($recipient,$message);$this->db->beginTransaction();
+    try{if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){$q=$this->db->prepare('SELECT id FROM office_finance_sales_invoice WHERE id=? FOR UPDATE');$q->execute([$id]);}$row=$this->get($id,true);if($row['status']!=='draft'||(int)$row['revision']!==$revision||(int)$row['gross_cents']<=0)throw new \DomainException('Controleer de actuele conceptfactuur.');
+      $q=$this->db->prepare('SELECT invoice_id FROM office_finance_sales_approvals WHERE invoice_id=?');$q->execute([$id]);$exists=$q->fetchColumn();$values=[$revision,'pending',$this->operatorId,null,$recipient,$message,OfficeSalesApproval::hash($row),gmdate('c'),null];
+      if($exists!==false)$this->db->prepare('UPDATE office_finance_sales_approvals SET invoice_revision=?,state=?,requested_by=?,approved_by=?,recipient=?,message=?,content_hash=?,created_at=?,approved_at=? WHERE invoice_id=?')->execute([...$values,$id]);else $this->db->prepare('INSERT INTO office_finance_sales_approvals(invoice_revision,state,requested_by,approved_by,recipient,message,content_hash,created_at,approved_at,invoice_id) VALUES(?,?,?,?,?,?,?,?,?,?)')->execute([...$values,$id]);
+      $this->audit($id,'approval_requested',['recipient'=>$recipient,'revision'=>$revision]);$this->db->commit();
+    }catch(\Throwable $e){$this->db->rollBack();throw $e;}
+  }
+  public function approve(int $id,int $revision): void {
+    $this->authorize(true);if(!OfficeSalesApproval::enabled())throw new \DomainException('Goedkeuringsstap nog niet actief.');$this->db->beginTransaction();try{
+      if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){$q=$this->db->prepare('SELECT id FROM office_finance_sales_invoice WHERE id=? FOR UPDATE');$q->execute([$id]);}$row=$this->get($id,true);$a=$row['_approval']??null;if($row['status']!=='draft'||(int)$row['revision']!==$revision||!$a||$a['state']!=='pending')throw new \DomainException('Geen actuele goedkeuringsaanvraag.');
+      if(getenv('OFFICE_FINANCE_DUAL_APPROVAL_ENABLED')==='enabled'&&(string)$a['requested_by']===$this->operatorId)throw new \DomainException('Een tweede bevoegde medewerker moet deze factuur goedkeuren.');
+      $this->db->prepare("UPDATE office_finance_sales_approvals SET state='approved',approved_by=?,approved_at=? WHERE invoice_id=? AND invoice_revision=? AND state='pending'")->execute([$this->operatorId,gmdate('c'),$id,$revision]);$this->audit($id,'invoice_approved',['revision'=>$revision,'recipient'=>$a['recipient']]);$this->db->commit();
+    }catch(\Throwable $e){$this->db->rollBack();throw $e;}
   }
 
   private function audit(int $id, string $event, array $detail): void {
