@@ -38,33 +38,16 @@ final class OfficeCalcSessionGrantCompatibility
             $result = (new OfficeCalcSessionGrantRepository($this->db))->findActive(
                 $reference, $actorId, $projectId, $calculationId, $now
             );
-            // Installed Office-test returns ?array, not boolean. Accept only a
-            // non-empty record whose identity matches the requested grant.
-            // Current project/calculation ACL is rechecked by the caller.
-            if (!is_array($result) || $result === []) {
+            // The installed repository performs its own scoped grant query,
+            // returning only the associated Office session hash on success.
+            // Do not accept other record shapes or a malformed session hash.
+            // The caller must additionally enforce current Office ACL.
+            if (!is_array($result) || count($result) !== 1
+                || !isset($result['office_session_hash'])
+                || !is_string($result['office_session_hash'])) {
                 return false;
             }
-            $expected = [
-                'reference' => $reference,
-                'actor_id' => $actorId,
-                'project_id' => $projectId,
-                'calculation_id' => $calculationId,
-            ];
-            foreach ($expected as $field => $value) {
-                if (!array_key_exists($field, $result)) {
-                    return false;
-                }
-                if ($field === 'reference') {
-                    if (!is_string($result[$field]) || !hash_equals($value, $result[$field])) {
-                        return false;
-                    }
-                } elseif (!is_int($result[$field]) && !(is_string($result[$field]) && ctype_digit($result[$field]))) {
-                    return false;
-                } elseif ((string) $result[$field] !== (string) $value) {
-                    return false;
-                }
-            }
-            return true;
+            return preg_match('/^[a-f0-9]{64}$/D', $result['office_session_hash']) === 1;
         } catch (Throwable) {
             return false;
         }
