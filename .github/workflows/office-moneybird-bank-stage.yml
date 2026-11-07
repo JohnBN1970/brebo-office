@@ -3,12 +3,55 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type STAGE-OFFICE-BANK
+        description: STAGE-OFFICE-BANK, CHECK-OFFICE-SALES or ACTIVATE-OFFICE-SALES
         required: true
         type: string
 permissions:
   contents: read
 jobs:
+  sales-activate:
+    if: ${{ inputs.confirmation == 'ACTIVATE-OFFICE-SALES' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    concurrency:
+      group: office-test-finance-sales
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate native sales source
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeSalesServiceTest.php
+          php -l office-independent/deployment/hostinger/office-sales-activate.php
+          find office-independent/src/Sales -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l office-independent/public/office-sales.php
+      - name: Activate drafts only in isolated Office-test
+        run: |
+          set -euo pipefail
+          for key in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do test -n "${!key}"; done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/sales_activate_key
+          chmod 600 ~/.ssh/sales_activate_key
+          stage="office-sales-stage-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage"
+          cd office-independent
+          files=(src/Sales/OfficeSalesSchema.php src/Sales/OfficeSalesService.php src/Sales/OfficeSalesView.php src/Sales/OfficeSalesTransport.php public/office-sales.php deployment/hostinger/office-sales-activate.php)
+          sha256sum "${files[@]}" > "$RUNNER_TEMP/sales.sha256"
+          tar -czf "$RUNNER_TEMP/sales.tar.gz" "${files[@]}"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -P "$DEPLOY_PORT" "$RUNNER_TEMP/sales.tar.gz" "$RUNNER_TEMP/sales.sha256" "$remote:$stage/"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -p "$DEPLOY_PORT" "$remote" "cd ~/$stage && tar -xzf sales.tar.gz && sha256sum -c sales.sha256 && php deployment/hostinger/office-sales-activate.php --activate-drafts-only"
+      - name: Remove local SSH key
+        if: always()
+        run: rm -f ~/.ssh/sales_activate_key
   sales-preflight:
     if: ${{ inputs.confirmation == 'CHECK-OFFICE-SALES' }}
     runs-on: ubuntu-latest
