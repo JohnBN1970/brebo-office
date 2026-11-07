@@ -28,6 +28,11 @@ try {
   foreach (['src/Sales/OfficeSalesService.php','public/office-sales.php'] as $file) echo 'SALES_FILE_'.str_replace(['/','.'],['_','_'],$file).'_PRESENT='.(int)is_file($root.'/'.$file)."\n";
   $router=dirname($base).'/public_html/office-test/index.php';
   if (is_file($router) && !is_link($router)) echo 'SALES_ROUTE_PRESENT='.(int)str_contains(file_get_contents($router),"'/office-test/finance/verkoop'")."\n";
+  if (is_file($router) && !is_link($router)) {
+    foreach (file($router,FILE_IGNORE_NEW_LINES) as $line) {
+      if (str_contains($line,"office-finance.php") && strlen($line)<1000) echo 'SALES_FINANCE_ROUTER_SOURCE='.trim($line)."\n";
+    }
+  }
   $db->rollBack();
   if (hash_file('sha256',$path)!==$hash) throw new RuntimeException('Configuration changed');
   echo "SALES_PREFLIGHT_READ_ONLY_OK=1\n";
