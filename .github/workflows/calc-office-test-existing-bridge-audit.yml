@@ -1,0 +1,75 @@
+name: Calc Office-test bridge compatibility inventory
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-EXISTING to inspect existing Calc PHP file hashes without changes
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate manual confirmation and configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          test "$value" = AUDIT-CALC-EXISTING
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_existing
+          chmod 600 ~/.ssh/id_calc_existing
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - name: Build local Calc bridge SHA256 manifest
+        run: |
+          set -euo pipefail
+          cd office-independent
+          find public -maxdepth 1 -type f -name 'office-calc-*.php' -print > /tmp/calc-bridge-files
+          find src/Calculation -maxdepth 1 -type f -name '*.php' -print >> /tmp/calc-bridge-files
+          sort -u /tmp/calc-bridge-files > /tmp/calc-bridge-sorted
+          test "$(wc -l < /tmp/calc-bridge-sorted)" -ge 10
+          xargs -d '\n' sha256sum < /tmp/calc-bridge-sorted > /tmp/calc-bridge-expected.sha256
+          echo 'CALC_EXPECTED_SHA256_MANIFEST_READY=YES'
+      - name: Read-only compare with configured Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_existing -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          $root = is_array($config) ? ($config['OFFICE_PRIVATE_ROOT'] ?? '') : '';
+          if (!is_string($root) || $root === '') exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_AUDIT=BLOCKED_PRIVATE_ROOT'; exit 1;; esac
+          test -d "$root/public" && test -d "$root/src"
+          echo 'CALC_AUDIT_TARGET=CONFIGURED_PRIVATE_ROOT'
+          for f in "$root"/public/office-calc-*.php "$root"/src/Calculation/*.php; do
+            test -f "$f" || continue
+            relative="${f#"$root"/}"
+            echo "CALC_EXISTING_FILE=$relative"
+            echo "CALC_EXISTING_SHA256=$(sha256sum "$f" | cut -d ' ' -f 1)"
+            php -l "$f" >/dev/null && echo 'CALC_EXISTING_PHP_SYNTAX=PASS' || echo 'CALC_EXISTING_PHP_SYNTAX=FAIL'
+          done
+          echo 'CALC_AUDIT_MODE=READ_ONLY'
+          REMOTE
+          echo 'CALC_SOURCE_MANIFEST_BEGIN'
+          sed -n '1,30p' /tmp/calc-bridge-expected.sha256
+          echo 'CALC_SOURCE_MANIFEST_END'
