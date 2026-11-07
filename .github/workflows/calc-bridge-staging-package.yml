@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${{ github.event_name }}" = pull_request || test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
-          mkdir -p staging-calc-bridge/public staging-calc-bridge/src/Calculation
+          mkdir -p staging-calc-bridge/public staging-calc-bridge/src/Calculation staging-calc-bridge/deployment/hostinger/sql
           for file in office-independent/public/office-calc-*.php; do
             test -f "$file"
             php -l "$file"
@@ -37,9 +37,13 @@ jobs:
             php -l "$file"
             cp "$file" staging-calc-bridge/src/Calculation/
           done
+          for file in office-independent/deployment/hostinger/sql/office-calc-*.sql; do
+            test -f "$file"
+            cp "$file" staging-calc-bridge/deployment/hostinger/sql/
+          done
           (
             cd staging-calc-bridge
-            find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+            find public src deployment -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
           echo 'CALC_BRIDGE_ARTIFACT_ONLY=PASS' >> "$GITHUB_STEP_SUMMARY"
