@@ -196,7 +196,7 @@ if ($detail) {
     require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingAddressReadRepository.php';
     // Building access was established above. Resident permissions are separate
     // and deliberately NOT inferred from project read/manage access.
-    $addressResult = (new \\Brebo\\Office\\Buildings\\OfficeBuildingAddressReadRepository($db))
+    $addressResult = (new \Brebo\Office\Buildings\OfficeBuildingAddressReadRepository($db))
       ->listForBuilding((int)$buildingId, false);
     if (!$addressResult['available']) {
       echo '<p>De adressenregistratie is nog niet geactiveerd.</p>';
