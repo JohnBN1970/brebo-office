@@ -18,7 +18,8 @@ jobs:
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
-          test "$CONFIRMATION" = CREATE-CALC-STAGING-BACKUP
+          confirmation="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$confirmation" = CREATE-CALC-STAGING-BACKUP
           test -n "$KEY"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_backup
