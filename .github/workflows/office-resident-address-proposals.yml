@@ -5,6 +5,7 @@ on:
     paths:
       - 'office-independent/src/Buildings/OfficeResidentAddress*.php'
       - 'office-independent/src/Buildings/OfficeBuildingColumnResolver.php'
+      - 'office-independent/src/Buildings/OfficeIntakeBuildingResolver.php'
       - 'office-independent/public/office-buildings.php'
       - 'office-independent/tests/OfficeResidentAddress*Test.php'
       - 'office-independent/tests/OfficeBuildingColumnResolverTest.php'
@@ -30,6 +31,7 @@ jobs:
         run: |
           php -l office-independent/public/office-buildings.php
           php -l office-independent/src/Buildings/OfficeBuildingColumnResolver.php
+          php -l office-independent/src/Buildings/OfficeIntakeBuildingResolver.php
           php -l office-independent/tests/OfficeBuildingColumnResolverTest.php
           php -l office-independent/src/Buildings/OfficeBuildingAddressReadRepository.php
           php -l office-independent/src/Buildings/OfficeResidentAddressUploadGuard.php
