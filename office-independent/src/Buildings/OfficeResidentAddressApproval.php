@@ -8,14 +8,14 @@ use RuntimeException;
 
 /**
  * Explicit review-only approval gate. No implicit user permissions or writes.
- * Caller must authenticate and authorize the actor for the target building.
+ * Caller must authenticate actor; callback must verify management access to the actual target building.
  * Database tables must already exist after separately approved migration.
  */
 final class OfficeResidentAddressApproval {
   public function __construct(private readonly PDO $db) {}
 
-  public function approve(int $proposalId, int $addressId, string $actorId, bool $canManageBuilding): array {
-    if (!$canManageBuilding || trim($actorId) === '') {
+  public function approve(int $proposalId, int $addressId, string $actorId, callable $canManageBuilding): array {
+    if (trim($actorId) === '') {
       throw new RuntimeException('Not authorized to approve resident data');
     }
     if ($proposalId < 1 || $addressId < 1) throw new \InvalidArgumentException('Invalid identity');
@@ -36,6 +36,9 @@ final class OfficeResidentAddressApproval {
       $stmt->execute([$addressId]);
       $address = $stmt->fetch(PDO::FETCH_ASSOC);
       if (!$address) throw new RuntimeException('Target address not found');
+      if ($canManageBuilding($actorId, (string)$address['building_id']) !== true) {
+        throw new RuntimeException('Not authorized for target building');
+      }
       if ($proposal['candidate_building_id'] !== null
         && (string)$proposal['candidate_building_id'] !== (string)$address['building_id']) {
         throw new RuntimeException('Building mismatch');
