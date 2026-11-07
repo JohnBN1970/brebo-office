@@ -27,7 +27,7 @@ final class OfficeResidentAddressMaterializer {
       if (!$proposal || $proposal['status'] !== 'approved') throw new RuntimeException('Proposal is not approved');
       $addressId = (int)($proposal['candidate_address_id'] ?? 0);
       if ($addressId < 1) throw new RuntimeException('Approved address missing');
-      $query = $this->db->prepare('SELECT id, building_id FROM office_building_addresses WHERE id = ?');
+      $query = $this->db->prepare('SELECT id, building_id FROM office_building_addresses WHERE id = ? FOR UPDATE');
       $query->execute([$addressId]);
       $address = $query->fetch(PDO::FETCH_ASSOC);
       if (!$address || (string)$address['building_id'] !== (string)$proposal['candidate_building_id']) {
