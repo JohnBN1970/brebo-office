@@ -1,0 +1,46 @@
+name: Calc bridge isolated staging package
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type PACKAGE-CALC-BRIDGE to build a non-deploying review artifact
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: Build isolated Calc bridge artifact without deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ github.event_name }}" = pull_request || test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
+          mkdir -p staging-calc-bridge/public staging-calc-bridge/src/Calculation
+          for file in office-independent/public/office-calc-*.php; do
+            test -f "$file"
+            php -l "$file"
+            cp "$file" staging-calc-bridge/public/
+          done
+          for file in office-independent/src/Calculation/*.php; do
+            test -f "$file"
+            php -l "$file"
+            cp "$file" staging-calc-bridge/src/Calculation/
+          done
+          (
+            cd staging-calc-bridge
+            find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+          echo 'CALC_BRIDGE_ARTIFACT_ONLY=PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No server, router, proxy, flags, or database was changed.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calc-bridge-isolated-${{ github.sha }}
+          path: staging-calc-bridge/
+          retention-days: 7
