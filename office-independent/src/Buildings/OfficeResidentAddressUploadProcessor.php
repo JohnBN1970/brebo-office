@@ -30,14 +30,13 @@ final class OfficeResidentAddressUploadProcessor {
     if (trim($actorId) === '' || trim($documentId) === '') {
       throw new \DomainException('Authenticated actor and document identity required');
     }
+    // Authorize resident PII before invoking the external scanner.
+    if ($canViewResidentData($actorId, $buildingId, $documentId) !== true) {
+      throw new \DomainException('Resident data access denied');
+    }
     // Scanner must return exactly true. Unavailable/failed scanner fails closed.
     if ($scanUploadedFile($validated['path'], $validated['filename']) !== true) {
       throw new \RuntimeException('Upload scanner did not approve file');
-    }
-    // Building management is not resident-data permission. Require a separate
-    // grant scoped to this actor, building and document, failing closed.
-    if ($canViewResidentData($actorId, $buildingId, $documentId) !== true) {
-      throw new \DomainException('Resident data access denied');
     }
     // The source is the verified PHP upload tmp path; do not move into a web root.
     return OfficeResidentAddressReviewPage::preview(
