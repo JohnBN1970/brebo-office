@@ -16,7 +16,7 @@ describe('Authenticated sales reminder route',()=>{
   afterEach(()=>vi.unstubAllGlobals());
   it('is disabled by default and authenticates before provider access',async()=>{
     const provider=vi.fn();vi.stubGlobal('fetch',provider);
-    expect((await core.fetch(await request(command()),{...configured,MONEYBIRD_REMINDERS_ENABLED:undefined})).status).toBe(404);
+    expect((await core.fetch(await request(command()),{...configured,MONEYBIRD_REMINDERS_ENABLED:'disabled'})).status).toBe(404);
     expect((await core.fetch(await request(command(),false),configured)).status).toBe(401);
     expect(provider).not.toHaveBeenCalled();
   });
