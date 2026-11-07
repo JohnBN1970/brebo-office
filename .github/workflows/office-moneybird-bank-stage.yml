@@ -9,6 +9,41 @@ on:
 permissions:
   contents: read
 jobs:
+  sales-preflight:
+    if: ${{ inputs.confirmation == 'CHECK-OFFICE-SALES' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check source and existing access without mutation
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/office-sales-preflight.php
+          php office-independent/tests/OfficeSalesServiceTest.php
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/sales_preflight_key
+          chmod 600 ~/.ssh/sales_preflight_key
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_preflight_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'php' < office-independent/deployment/hostinger/office-sales-preflight.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Inspect active Worker and existing Moneybird access
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
+        run: node integration-api/scripts/sales-activation-preflight.mjs
+      - name: Remove local SSH key
+        if: always()
+        run: rm -f ~/.ssh/sales_preflight_key
   stage:
     if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' }}
     runs-on: ubuntu-latest
