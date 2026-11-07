@@ -150,10 +150,11 @@ if ($detail && isset($_GET['pdok_q'])) {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}.building-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}.building-map{grid-column:1;grid-row:1}.building-details{grid-column:2;grid-row:1}.building-addresses,.building-dossier{margin-top:20px}.building-addresses details,.building-dossier details{padding:14px 0;border-top:1px solid #dbe1e8}.building-addresses summary,.building-dossier summary{cursor:pointer;font-weight:600}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:750px){.building-detail-grid{grid-template-columns:1fr}.building-map,.building-details{grid-column:1;grid-row:auto}section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
-  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
-  echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
+  echo '<div class="building-detail-grid">';
+  echo '<section class="building-details"><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  echo '<section class="building-map"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
   if ($pdokStorageReady) {
     echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
   } else {
@@ -188,7 +189,11 @@ if ($detail) {
     ]);
     echo '<figure style="margin:20px 0 0"><img src="' . $h($mapUrl) . '" alt="PDOK-luchtfoto rondom het geselecteerde BAG-zoekresultaat" style="max-width:100%;height:auto;border-radius:8px"><figcaption>PDOK-luchtfoto bij geselecteerd BAG-adres (nog niet gekoppeld aan gebouw).</figcaption></figure>';
   }
-  echo '</section>';
+  echo '</section></div>';
+  echo '<section class="building-addresses"><h2>Adressen en bewoners</h2>';
+  echo '<p>Een gebouw kan meerdere adressen bevatten. Bewonersgegevens horen bij het afzonderlijke adres, niet bij het gebouw.</p>';
+  echo '<details><summary>Adressen bekijken</summary><p>De adressenregistratie is nog niet geactiveerd. Er worden geen bewonersgegevens getoond of gewijzigd.</p></details></section>';
+  echo '<section class="building-dossier"><h2>Gebouwdossier</h2><details><summary>Projecten</summary><p>' . (int)$selectedBuilding['project_count'] . ' gekoppelde projecten.</p></details><details><summary>Rapporten</summary><p>Documentkoppeling volgt.</p></details><details><summary>Documenten</summary><p>Documentkoppeling volgt.</p></details><details><summary>Tekeningen</summary><p>Documentkoppeling volgt.</p></details><details><summary>Gebouwzones</summary><p>' . (int)$selectedBuilding['active_zone_count'] . ' actieve zones.</p></details></section>';
   echo '</main></body></html>';
   exit;
 }
