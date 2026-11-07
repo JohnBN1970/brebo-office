@@ -29,7 +29,9 @@ final class OfficeCalcSessionGrantCompatibility
             return false;
         }
         try {
-            require_once __DIR__ . '/OfficeCalcSessionGrantRepository.php';
+            if (!class_exists(OfficeCalcSessionGrantRepository::class, false)) {
+                require_once __DIR__ . '/OfficeCalcSessionGrantRepository.php';
+            }
             if (!method_exists(OfficeCalcSessionGrantRepository::class, 'findActive')) {
                 return false;
             }
