@@ -9,7 +9,7 @@ require_once __DIR__ . '/OfficeBuildingPdokLocationRepository.php';
 final class OfficeBuildingPdokSaveAction {
   public function __construct(private OfficeBuildingPdokLocationRepository $repository, private OfficeBuildingPdokClient $client) {}
 
-  public function execute(int $operatorId, int $buildingId, string $sessionSecret, string $mount, string $publicHost, array $server, array $post, int $now): void {
+  public function execute(string $operatorId, int $buildingId, string $sessionSecret, string $mount, string $publicHost, array $server, array $post, int $now): void {
     OfficeBuildingPdokRequestGuard::verify($server, $post['csrf'] ?? null, $sessionSecret, $buildingId, $mount, $publicHost, $now);
     if (($post['action'] ?? null) !== 'save_bag' || !is_string($post['pdok_id'] ?? null)) throw new \InvalidArgumentException('invalid_pdok_action');
     // Refuse unauthorized calls before requesting external data; repository
