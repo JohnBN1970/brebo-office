@@ -65,8 +65,12 @@ jobs:
               sys.exit(0)
           # Ensure the matching label belongs to the project tabs array.
           import re
-          tab_arrays = list(re.finditer(r"\\$tabs\\s*=\\s*\\[[^;]*\\];", source, re.S))
-          if len(tab_arrays) != 1 or item not in tab_arrays[0].group():
+          # Active V3 uses a project-tab variable whose exact name may differ
+          # from the repository template; avoid a brittle guessed name.
+          tab_arrays = list(re.finditer(r"\\$[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*\\[[^;]*\\];", source, re.S))
+          candidates = [m for m in tab_arrays if item in m.group()]
+          if len(candidates) != 1:
+              print("TAB_ARRAY_MATCHES=" + str(len(candidates)), flush=True)
               sys.exit("ABORT_TABS_ARRAY_NOT_FOUND")
           anchor = "foreach ($tabs as $key => $label) {"
           if source.count(anchor) != 1:
