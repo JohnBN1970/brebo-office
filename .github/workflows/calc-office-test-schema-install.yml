@@ -48,12 +48,14 @@ jobs:
               exit 1
             fi
           done
-          tar -C "$root" -cf - office-calc-calculations-access.sql office-calc-session-grants.sql office-calc-signed-request-ids.sql | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          remote_dir=".calc-schema-migration-$GITHUB_RUN_ID"
+          tar -C "$root" -cf - office-calc-calculations-access.sql office-calc-session-grants.sql office-calc-signed-request-ids.sql | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$USER@$HOST" "umask 077; mkdir -m 700 -p \"\$HOME/$remote_dir\" && tar -C \"\$HOME/$remote_dir\" -xf -"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$USER@$HOST" "CALC_MIGRATION_DIR=\"\$HOME/$remote_dir\" bash -s" <<'REMOTE'
           set -euo pipefail
           umask 077
-          tmpdir=$(mktemp -d)
+          tmpdir="$CALC_MIGRATION_DIR"
+          case "$tmpdir" in "$HOME"/.calc-schema-migration-*) ;; *) echo 'CALC_SCHEMA=BLOCKED_INVALID_TEMP_DIR'; exit 1;; esac
           trap 'rm -rf "$tmpdir"' EXIT
-          tar -C "$tmpdir" -xf -
           config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
           test -f "$config"
           # Require a fresh verified backup from this workflow family (within 24h).
