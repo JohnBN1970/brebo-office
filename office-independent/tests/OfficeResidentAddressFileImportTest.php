@@ -13,7 +13,7 @@ try {
   try { Import::propose($file,'adreslijst.pdf','document-42'); }
   catch (InvalidArgumentException $e) { $blocked=true; }
   if (!$blocked) throw new RuntimeException('Unsupported file extension accepted');
-  file_put_contents($file, "PK\\x03\\x04fakezip");
+  file_put_contents($file, pack('H*', '504b0304') . 'fakezip');
   $blocked=false;
   try { Import::propose($file,'adreslijst.csv','document-42'); }
   catch (InvalidArgumentException $e) { $blocked=true; }
