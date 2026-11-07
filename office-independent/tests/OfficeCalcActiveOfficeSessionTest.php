@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+// Runs with an isolated in-memory database; no staging or production data is read.
 require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcActiveOfficeSession.php';
 
 use Brebo\Office\Calculation\OfficeCalcActiveOfficeSession;
