@@ -15,8 +15,10 @@ try {
   if(is_link($configFile)||realpath($configFile)!==$configFile)throw new RuntimeException('Unsafe test configuration');
   $configHash=hash_file('sha256',$configFile);$config=require $configFile;$root=$config['OFFICE_PRIVATE_ROOT']??'';
   if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test'||!is_string($root)||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private')||realpath($root)!==$root||($config['OFFICE_SALES_ENABLED']??'')!=='enabled'||($config['OFFICE_SALES_SCHEMA_VERIFIED']??'')!=='enabled')throw new RuntimeException('Wrong test scope');
-  $expected=['public/office-sales.php'=>'fcc9e8faa37568d3465ad43e58d50251bc9471db','src/Sales/OfficeSalesView.php'=>'fdaa27066490f8d4d60c0d478a34c4402d2987ae'];
-  $new=['src/Sales/brebo-logo-web.json'];
+  $expected=['public/office-sales.php'=>'1de487596c4643ba5d062af5345d7bac78c14253','src/Sales/OfficeSalesView.php'=>'e785678d0785f4c7ed18b4072ad6e8aa55b66291'];
+  $new=[];
+  $webFile=$root.'/src/Sales/brebo-logo-web.json';
+  if(is_link($webFile)||!is_file($webFile)||hash_file('sha256',$webFile)!==hash_file('sha256',$stage.'/src/Sales/brebo-logo-web.json'))throw new RuntimeException('Installed brand asset differs');
   $phase='reviewed_sources';
   foreach($expected as $path=>$blob){
     $file=$root.'/'.$path;

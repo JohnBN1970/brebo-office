@@ -9,6 +9,7 @@ const document = dom.window.document;
 const body = document.getElementById('sales-lines');
 const field = (row, suffix) => row.querySelector('[name$="[' + suffix + ']"]');
 const set = (row, suffix, value) => { const input = field(row, suffix);input.value=value;input.dispatchEvent(new dom.window.Event('input', {bubbles:true})); };
+assert.equal(dom.window.getComputedStyle(document.querySelector('input[type=hidden]')).display, 'none');
 assert.equal(body.rows.length, 1);
 set(body.rows[0], 'description', 'Opname');set(body.rows[0], 'quantity', '1,125');set(body.rows[0], 'price', '100,00');
 assert.equal(document.getElementById('sales-gross').textContent, '€ 136,13');
