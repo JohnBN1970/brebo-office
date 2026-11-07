@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 Documents main-line guard
+name: Office-test Projectdetail V3 Documents visible navigation rollout
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Validate project main HTML insertion preconditions
+      - name: Safely render existing Documents navigation in project main output
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,22 +54,48 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # In the live page the project navigation builder is known and
-          # ends before PHP outputs the full HTML at line 970. The existing
-          # $dossierNav holds the correct project-aware Documents URL but is
-          # never used. Insert it directly before the HTML is rendered.
+          # Run #42350282237 confirmed the output expression:
+          # the unique line 992 contains the closing nav plus opening main,
+          # with 2 single quotes, zero double quotes and 3 PHP variables.
+          # Add existing $dossierNav into that HTML output expression.
           lines = source.splitlines(keepends=True)
-          targets = [i for i, line in enumerate(lines) if "<main" in line and "</nav" in line]
+          targets = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line]
           if targets != [991]:
               sys.exit("ABORT_MAIN_NAV_ANCHOR_MISMATCH")
-          main_line = lines[991]
-          if main_line.count("<main") != 1 or main_line.count("</nav") != 1:
-              sys.exit("ABORT_MAIN_NAV_LINE_CHANGED")
-          # Avoid guessing PHP output quoting. Anchor to the unique PHP
-          # closing nav literal, once fully verified in the live source.
-          print("MAIN_LINE_QUOTE_COUNTS=" + ",".join(str(main_line.count(q)) for q in ("'", '"', "$", " . ")), flush=True)
-          print("MAIN_LINE_TOKENS=" + ",".join(k for k in ("<nav", "</nav>", "<main", "$dossierNav", "<?php", "?>") if k in main_line), flush=True)
-          print("ABORT_NEED_EXACT_ECHO_LINE", flush=True)
+          old = lines[991]
+          if old.count("<main") != 1 or old.count("</nav>") != 1:
+              sys.exit("ABORT_MAIN_NAV_PATTERN_CHANGED")
+          if (old.count("'"), old.count('"'), old.count("$")) != (2, 0, 3):
+              sys.exit("ABORT_MAIN_NAV_QUOTE_STYLE_CHANGED")
+          if source.count("$dossierNav") != 6:
+              sys.exit("ABORT_DOSSIER_NAV_STATE_CHANGED")
+          if "brebo-project-documents-tab" not in source:
+              sys.exit("ABORT_DOCS_NAV_NOT_CONSTRUCTED")
+          # This is a PHP string concat expression and the line is bounded
+          # by the existing nav-closing literal and main-opening literal.
+          # Keep the existing layout and append the prebuilt nav to the
+          # output just before <main>. We do not change authorization.
+          needle = "</nav><main"
+          if old.count(needle) != 1:
+              sys.exit("ABORT_NAV_MAIN_NOT_ADJACENT")
+          new = old.replace(needle, "</nav>' . $dossierNav . '<main", 1)
+          candidate = source.replace(old, new, 1)
+          # Lint a temporary copy before installing, and retain backup.
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup = p.with_name(p.name + ".documents-visible-render-backup-" + stamp)
+          tmp = p.with_name(p.name + ".documents-visible-render-tmp-" + stamp)
+          backup.write_bytes(raw)
+          backup.chmod(0o600)
+          tmp.write_bytes(candidate.encode("utf-8"))
+          tmp.chmod(p.stat().st_mode & 0o777)
+          lint = subprocess.run(["php", "-l", str(tmp)], text=True, capture_output=True)
+          if lint.returncode:
+              tmp.unlink(missing_ok=True)
+              print(lint.stdout + lint.stderr, flush=True)
+              sys.exit("ABORT_PHP_LINT")
+          os.replace(tmp, p)
+          print("PROJECT_V3_DOCUMENTS_RENDERED", flush=True)
+          print("BACKUP_CREATED=" + backup.name, flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
