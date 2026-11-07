@@ -5,8 +5,8 @@ ini_set('display_errors','0'); umask(0077);
 $changed=false; $before=''; $after=''; $file=''; $mode=0;
 function salesRouteStatus(string $path): int {
   $curl=curl_init('https://brebobv.nl'.$path);
-  curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>20]);
-  try { if(curl_exec($curl)===false)throw new RuntimeException('HTTP verification unavailable');return (int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE); } finally { curl_close($curl); }
+  curl_setopt_array($curl,[CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>20,CURLOPT_HTTPHEADER=>['Cache-Control: no-cache']]);
+  try { $body=curl_exec($curl);if($body===false)throw new RuntimeException('HTTP verification unavailable');$status=(int)curl_getinfo($curl,CURLINFO_RESPONSE_CODE);if($status===404)echo 'OFFICE_SALES_404_LAYER='.(str_contains($body,'Testpagina niet gevonden')?'router':(str_contains($body,'This Page Does Not Exist')?'webserver':'unknown'))."\n";return $status; } finally { curl_close($curl); }
 }
 function salesRouteReplace(string $file,string $expected,string $bytes,int $mode): void {
   if(is_link($file)||realpath($file)!==$file||hash_file('sha256',$file)!==$expected)throw new RuntimeException('Concurrent rewrite change');
@@ -33,7 +33,7 @@ try {
   if(!in_array($financeBefore,[200,302,403],true))throw new RuntimeException('Existing Finance unavailable');
   if(file_put_contents($stage.'/sales-rewrite-before.htaccess',$before,LOCK_EX)!==strlen($before)||hash_file('sha256',$stage.'/sales-rewrite-before.htaccess')!==hash('sha256',$before))throw new RuntimeException('Backup failed');
   salesRouteReplace($file,hash('sha256',$before),$after,$mode);$changed=true;
-  $sales=salesRouteStatus('/office-test/finance/verkoop');$financeAfter=salesRouteStatus('/office-test/finance');
+  $sales=salesRouteStatus('/office-test/finance/verkoop?office_sales_check='.rawurlencode(basename($stage)));$financeAfter=salesRouteStatus('/office-test/finance');
   echo 'OFFICE_SALES_HTTP_STATUS='.$sales."\nOFFICE_FINANCE_HTTP_STATUS=".$financeAfter."\n";
   if(!in_array($sales,[200,302,403],true)||$financeAfter!==$financeBefore)throw new RuntimeException('Route verification failed');
   echo "OFFICE_SALES_REWRITE_ACTIVE=1\nOFFICE_SALES_CONFIG_UNCHANGED=1\nOFFICE_SALES_NO_DATABASE_WRITES=1\n";
