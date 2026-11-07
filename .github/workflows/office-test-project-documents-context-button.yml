@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 navigation guard diagnostics
+name: Office-test Projectdetail V3 Documenten actual rendering check
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect V3 navigation structure checks separately
+      - name: Inspect rendered Documenten anchor context read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -46,44 +46,33 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          # Projectdetail V3: change the actual visible <nav> block, not
-          # the unused $dossierNav or the second injected link in <main>.
+          # The installed URL is in the rendered HTML, but not in the
+          # user's observed navigation. Probe the exact rendered PHP
+          # expression and CSS selectors before making any live edit.
           source = raw.decode("utf-8")
           expected = "742529945249e360f54222f38f83976636b49bd1aaf874acc206b77008230b25"
           if hashlib.sha256(raw).hexdigest() != expected:
               sys.exit("ABORT_LIVE_V3_SHA_CHANGED")
-          if source.count("brebo-project-documents-visible-tab") != 1:
-              sys.exit("ABORT_DOCS_LINK_NOT_UNIQUE")
-          if source.count("OfficeNativeProjectAccess($db))->canRead") != 1:
-              sys.exit("ABORT_PROJECT_ACCESS_CHECK_CHANGED")
           lines = source.splitlines(keepends=True)
-          # Inspect each location separately: the previous combined guard
-          # failed despite the earlier confirmed live SHA, obscuring which
-          # assertion was incorrect. This operation is read-only.
-          checks = {
-              "MIN_LENGTH": len(lines) >= 995,
-              "NAV_OPEN_988": len(lines) >= 988 and "<nav" in lines[987],
-              "OVERVIEW_989": len(lines) >= 989 and "Overzicht" in lines[988],
-              "LINK_991": len(lines) >= 991 and "href=" in lines[990],
-              "NAV_CLOSE_992": len(lines) >= 992 and "</nav>" in lines[991],
-              "DOCS_LINK_992": len(lines) >= 992 and "brebo-project-documents-visible-tab" in lines[991],
-          }
-          for key, value in checks.items():
-              print("STRUCT_CHECK_" + key + "=" + str(value), flush=True)
-          # Existing rendered tab strip is lines 988-992. It is generated
-          # as a PHP HTML concatenation. The inserted Documents link was
-          # already added to the same line as </nav>, but was not visible
-          # in the user's screenshot; this requires verifying CSS/layout.
-          # Do not duplicate links or mutate the active page blindly.
+          if len(lines) < 992 or source.count("brebo-project-documents-visible-tab") != 1:
+              sys.exit("ABORT_RENDER_STRUCTURE_CHANGED")
           nav = "".join(lines[987:992])
-          print("VISIBLE_NAV_DOCS_CLASS=" + str("brebo-project-documents-visible-tab" in nav), flush=True)
-          print("VISIBLE_NAV_DOCS_LABEL=" + str("Documenten" in nav), flush=True)
-          print("VISIBLE_NAV_DOCS_IN_CLOSE_LINE=" + str("brebo-project-documents-visible-tab" in lines[991]), flush=True)
-          print("VISIBLE_NAV_LINE_LENGTH=" + str(len(lines[991])), flush=True)
-          # Probe the page CSS selector names, not the contents or user data.
-          for token in ("office-dossier-nav", "project-tab", "project-tabs", "project-nav", "display:none", "overflow:hidden", "overflow-x", "flex-wrap", "white-space:nowrap"):
-              print("VISIBLE_NAV_CSS_" + re.sub(r"[^A-Za-z0-9]","_",token) + "=" + str(source.count(token)), flush=True)
-          print("READ_ONLY_VISIBLE_NAV_CSS_CHECK_PASS", flush=True)
+          print("NAV_SOURCE_LINE_COUNT=" + str(len(lines)), flush=True)
+          print("NAV_LINK_IN_OUTPUT_EXPR=" + str("brebo-project-documents-visible-tab" in nav), flush=True)
+          print("NAV_LINK_CLASS_RULE_COUNT=" + str(len(re.findall(r"\.brebo-project-documents-visible-tab\b", source))), flush=True)
+          print("NAV_CSS_OVERFLOW_X_COUNT=" + str(source.count("overflow-x")), flush=True)
+          print("NAV_CSS_FLEX_WRAP_COUNT=" + str(source.count("flex-wrap")), flush=True)
+          print("NAV_CLOSE_EXPR_QUOTE_COUNT=" + str(lines[991].count("'")), flush=True)
+          # Detect whether the injected anchor falls in the same PHP
+          # string expression or a nested escaped string.
+          line = lines[991]
+          pos = line.find("brebo-project-documents-visible-tab")
+          prefix = line[:pos]
+          suffix = line[pos:]
+          for name, token in (("ANCHOR_PHP_DOT", " . "), ("ANCHOR_ESCAPE_CALL", "$escape("), ("ANCHOR_LINK_HREF", "href="), ("ANCHOR_NAV_END", "</nav>")):
+              print("NAV_PREFIX_" + name + "=" + str(prefix.count(token)), flush=True)
+              print("NAV_SUFFIX_" + name + "=" + str(suffix.count(token)), flush=True)
+          print("READ_ONLY_RENDER_POSITION_CHECK_PASS", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
