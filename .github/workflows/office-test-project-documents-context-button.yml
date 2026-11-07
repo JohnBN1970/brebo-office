@@ -54,35 +54,22 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # Exact active-V3 anchor is the unique literal navigation close
-          # immediately preceding <main on line 992. Extend the output
-          # there, leaving the five existing tabs and PHP variables intact.
+          # In the live page the project navigation builder is known and
+          # ends before PHP outputs the full HTML at line 970. The existing
+          # $dossierNav holds the correct project-aware Documents URL but is
+          # never used. Insert it directly before the HTML is rendered.
           lines = source.splitlines(keepends=True)
           targets = [i for i, line in enumerate(lines) if "<main" in line and "</nav" in line]
           if targets != [991]:
               sys.exit("ABORT_MAIN_NAV_ANCHOR_MISMATCH")
-          i = targets[0]
-          main_line = lines[i]
-          if main_line.count("</nav") != 1 or main_line.count("<main") != 1:
-              sys.exit("ABORT_COMPLEX_MAIN_ANCHOR")
-          if source.count("$dossierNav") != 6:
-              sys.exit("ABORT_UNEXPECTED_DOSSIER_NAV")
-          if "brebo-documents-visible-nav-v1" in source:
-              print("ALREADY_INSTALLED", flush=True)
-              sys.exit(0)
-          # Inject a minimal project-scoped link using an already escaped
-          # PHP URL produced by the existing V3 navigation builder.
-          # Use a separate literal PHP statement before the HTML output,
-          # avoiding changes to PHP string quoting or nav tab iteration.
-          snippet = "$projectDocumentsVisibleUrl = \\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/documenten?project_id=' . (int) $projectId;" + chr(10)
-          if snippet in source:
-              sys.exit("ABORT_DOCUMENTS_VISIBLE_URL_ALREADY_DEFINED")
-          # The page uses a single PHP echo for its HTML and different
-          # quoting conventions; changing that expression without full
-          # context risks another HTTP 500. Fail closed rather than guess.
-          print("RENDER_MAIN_QUOTE_STYLE=" + ",".join(str(main_line.count(q)) for q in ("'", '"', "$", " . ")), flush=True)
-          print("RENDER_MAIN_NAV_MAIN_ORDER=" + str(main_line.find("</nav") < main_line.find("<main")), flush=True)
-          print("ABORT_REQUIRES_RENDER_EXPR_REVIEW", flush=True)
+          main_line = lines[991]
+          if main_line.count("<main") != 1 or main_line.count("</nav") != 1:
+              sys.exit("ABORT_MAIN_NAV_LINE_CHANGED")
+          # Avoid guessing PHP output quoting. Anchor to the unique PHP
+          # closing nav literal, once fully verified in the live source.
+          print("MAIN_LINE_QUOTE_COUNTS=" + ",".join(str(main_line.count(q)) for q in ("'", '"', "$", " . ")), flush=True)
+          print("MAIN_LINE_TOKENS=" + ",".join(k for k in ("<nav", "</nav>", "<main", "$dossierNav", "<?php", "?>") if k in main_line), flush=True)
+          print("ABORT_NEED_EXACT_ECHO_LINE", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
