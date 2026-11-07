@@ -12,6 +12,17 @@ try {
       || !preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$config['OFFICE_INTAKE_PDO_DSN']??'') || ($config['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test') throw new RuntimeException('Wrong test scope');
   $db=new PDO($config['OFFICE_INTAKE_PDO_DSN'],$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
   $db->exec('SET SESSION TRANSACTION READ ONLY'); $db->beginTransaction();
+  foreach (['office_projects','office_project_contracts','office_project_terms','office_office_project_contracts','office_office_project_terms'] as $table) {
+    $q=$db->prepare('SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');$q->execute([$table]);
+    echo 'SALES_TERM_SOURCE_'.$table.'_FIELDS='.implode(',',array_map(static fn(array $r): string=>$r['COLUMN_NAME'].':'.$r['DATA_TYPE'],$q->fetchAll(PDO::FETCH_ASSOC)))."\n";
+  }
+  foreach (['OfficeProjectTermRepository','OfficeProjectTermService','OfficeProjectContractRepository','OfficeProjectContractService'] as $class) {
+    $source=$root.'/src/Project/'.$class.'.php';
+    if (is_file($source)&&!is_link($source)) {
+      echo 'SALES_PROJECT_SOURCE_'.$class.'_SHA256='.hash_file('sha256',$source)."\n";
+      foreach(file($source,FILE_IGNORE_NEW_LINES) as $line)if(preg_match('/office_project_terms|office_project_contracts|labou?r|arbeid|g_account|g_rekening|\$prefix/i',$line)&&strlen($line)<1000)echo 'SALES_PROJECT_SOURCE_RULE='.trim($line)."\n";
+    }
+  }
   foreach (['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit','office_finance_sales_receipt','office_crm_relations','office_crm_external_identities'] as $table) {
     $q=$db->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?'); $q->execute([$table]);
     echo 'SALES_TABLE_'.$table.'_PRESENT='.(int)((int)$q->fetchColumn()>0)."\n";
