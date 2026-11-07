@@ -66,11 +66,26 @@ jobs:
           base="$HOME/domains/brebobv.nl/office_calc_test"
           router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
           test -f "$router"
-          release=$(grep -oE 'release-[[:alnum:]_-]+/private' "$router" | head -n 1 || true)
-          if [ -z "$release" ]; then echo 'CALC_STAGE=BLOCKED_ACTIVE_RELEASE_UNKNOWN'; exit 1; fi
-          target="$base/$release"
+          # Never infer a release from a path regex, release directory order or mtime.
+          # Resolve only a unique, absolute private release root present in the actual public router.
+          candidates=$(mktemp)
+          trap 'rm -f "$candidates"; rm -rf "$stage"' EXIT
+          for private in "$base"/release-*/private; do
+            test -d "$private/public" && test -d "$private/src" || continue
+            release_name=$(basename "$(dirname "$private")")
+            if grep -Fq "$release_name" "$router"; then
+              printf '%s\\n' "$private" >> "$candidates"
+            fi
+          done
+          count_candidates=$(wc -l < "$candidates" | tr -d ' ')
+          if [ "$count_candidates" -ne 1 ]; then
+            echo "CALC_STAGE=BLOCKED_RELEASE_AMBIGUOUS_OR_UNKNOWN"
+            echo "CALC_STAGE_RELEASE_CANDIDATES=$count_candidates"
+            exit 1
+          fi
+          target=$(cat "$candidates")
           case "$target" in "$base"/release-*/private) ;; *) echo 'CALC_STAGE=BLOCKED_TARGET'; exit 1;; esac
-          test -d "$target/public" && test -d "$target/src"
+          echo 'CALC_STAGE_RELEASE_RESOLUTION=UNIQUE_ROUTER_REFERENCE'
           # Never overwrite pre-existing files. No router, .htaccess, env, flags or existing PHP changed.
           for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
             test -f "$source"
