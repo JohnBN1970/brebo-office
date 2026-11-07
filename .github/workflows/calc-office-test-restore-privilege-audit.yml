@@ -1,0 +1,79 @@
+name: Calc isolated restore database privilege audit (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-CREATE-DB to check CREATE DATABASE privileges without changing anything
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation and configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          confirmation="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$confirmation" = AUDIT-CALC-CREATE-DB
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_privilege_audit
+          chmod 600 ~/.ssh/id_calc_privilege_audit
+      - name: Inspect effective CREATE DATABASE grants without modifying database
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_privilege_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          if [ ! -f "$config" ]; then echo 'CALC_RESTORE_PRIVILEGE_AUDIT=BLOCKED_CONFIG_MISSING'; exit 1; fi
+          OFFICE_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $config = require getenv('OFFICE_CONFIG_PATH');
+              if (!is_array($config)) throw new RuntimeException('config');
+              $get = static function (string $key) use ($config): string {
+                  $env = getenv($key);
+                  if (is_string($env) && $env !== '') return $env;
+                  $value = $config[$key] ?? '';
+                  return is_string($value) ? $value : '';
+              };
+              $dsn = $get('OFFICE_INTAKE_PDO_DSN');
+              if (!str_starts_with($dsn, 'mysql:')) throw new RuntimeException('dsn');
+              $db = new PDO($dsn, $get('OFFICE_INTAKE_DB_USER'), $get('OFFICE_INTAKE_DB_PASSWORD'), [
+                  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_EMULATE_PREPARES => false,
+              ]);
+              $grants = $db->query('SHOW GRANTS FOR CURRENT_USER()')->fetchAll(PDO::FETCH_COLUMN);
+              $globalCreate = false;
+              $scopedCreate = false;
+              $createUser = false;
+              foreach ($grants as $grant) {
+                  // Never print grant strings; they may expose account names or details.
+                  if (!is_string($grant)) continue;
+                  if (preg_match('/GRANT (?:ALL PRIVILEGES|[^;]*\\bCREATE\\b[^;]*) ON \\*\\.\\*/i', $grant)) $globalCreate = true;
+                  if (preg_match('/GRANT (?:ALL PRIVILEGES|[^;]*\\bCREATE\\b[^;]*) ON (?!\\*\\.\\*)/i', $grant)) $scopedCreate = true;
+                  if (preg_match('/\\bCREATE USER\\b/i', $grant)) $createUser = true;
+              }
+              echo 'CALC_CREATE_DATABASE_GLOBAL_GRANT=' . ($globalCreate ? 'YES' : 'NO') . "\n";
+              echo 'CALC_CREATE_DATABASE_SCOPED_GRANT=' . ($scopedCreate ? 'YES' : 'NO') . "\n";
+              echo 'CALC_CREATE_USER_GRANT=' . ($createUser ? 'YES' : 'NO') . "\n";
+              echo "CALC_RESTORE_DATABASE_CREATED=NO\n";
+              echo "CALC_LIVE_DATABASE_MODIFIED=NO\n";
+              echo 'CALC_RESTORE_PRIVILEGE_AUDIT=' . ($globalCreate ? 'POTENTIALLY_AVAILABLE_NEEDS_TARGET_VALIDATION' : 'NO_GLOBAL_CREATE_GRANT') . "\n";
+          } catch (Throwable $e) {
+              echo "CALC_RESTORE_PRIVILEGE_AUDIT=BLOCKED_QUERY_OR_CONNECTION\n";
+              exit(1);
+          }
+          PHP
+          REMOTE
