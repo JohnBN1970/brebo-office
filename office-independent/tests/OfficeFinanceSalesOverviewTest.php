@@ -30,6 +30,7 @@ $q=$db->prepare("INSERT INTO office_finance_sales_invoice VALUES(?,NULL,1,'2026-
 $writes=$db->query('SELECT total_changes()')->fetchColumn();$all=Overview::read($db,'1',null,'2026-11-07');
 overviewCheck($all['ytd_net_cents']===30000,'YTD excludes drafts, unknown delivery and other years or future dates');
 overviewCheck($all['outstanding_gross_cents']===94700&&$all['overdue_gross_cents']===46300,'Actual receipts deducted from issued amounts');
+overviewCheck($all['receipts_by_days']===[30=>46300,60=>94700,90=>94700],'Cash horizons use due date and actual remaining receipts; drafts excluded');
 overviewCheck($all['paid_gross_cents']===26300&&$all['draft_gross_cents']===90750&&$all['draft_count']===251,'All records counted beyond list limit');
 overviewCheck($all['ageing']['31–60']===10000&&$all['ageing']['90+']===36300,'Ageing uses calendar days past due date');
 overviewCheck($all['unbilled_net_cents']===70000&&$all['contracts_complete']===true,'Draft not subtracted from remaining contract work');

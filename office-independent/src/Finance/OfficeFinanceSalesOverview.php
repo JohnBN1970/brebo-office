@@ -16,13 +16,14 @@ final class OfficeFinanceSalesOverview {
     // Aggregate every accessible record, rather than the 200-item sales list.
     $issued="i.invoice_number IS NOT NULL AND i.invoice_number<>'' AND i.status IN ('sent','reminder_sending','reconciliation_required')";
     $q=$db->prepare("SELECT i.invoice_date,i.due_date,i.net_cents,i.gross_cents,i.paid_cents,i.status,i.invoice_number FROM office_finance_sales_invoice i WHERE $where");$q->execute($args);
-    $result=['available'=>true,'as_of'=>$today,'year'=>substr($today,0,4),'ytd_net_cents'=>0,'outstanding_gross_cents'=>0,'overdue_gross_cents'=>0,'paid_gross_cents'=>0,'draft_gross_cents'=>0,'draft_count'=>0,'outstanding_count'=>0,'overdue_count'=>0,'unbilled_net_cents'=>null,'contracts_complete'=>false,'ageing'=>['1–30'=>0,'31–60'=>0,'61–90'=>0,'90+'=>0]];
+    $result=['receipts_by_days'=>[30=>0,60=>0,90=>0],'available'=>true,'as_of'=>$today,'year'=>substr($today,0,4),'ytd_net_cents'=>0,'outstanding_gross_cents'=>0,'overdue_gross_cents'=>0,'paid_gross_cents'=>0,'draft_gross_cents'=>0,'draft_count'=>0,'outstanding_count'=>0,'overdue_count'=>0,'unbilled_net_cents'=>null,'contracts_complete'=>false,'ageing'=>['1–30'=>0,'31–60'=>0,'61–90'=>0,'90+'=>0]];
     while($i=$q->fetch(PDO::FETCH_ASSOC)){
       if($i['status']==='draft'){$result['draft_gross_cents']+=(int)$i['gross_cents'];$result['draft_count']++;continue;}
       if(($i['invoice_number']??'')===''||!in_array($i['status'],['sent','reminder_sending','reconciliation_required'],true))continue;
       if(substr($i['invoice_date'],0,4)===$result['year']&&$i['invoice_date']<=$today)$result['ytd_net_cents']+=(int)$i['net_cents'];
       $result['paid_gross_cents']+=(int)$i['paid_cents'];$open=max(0,(int)$i['gross_cents']-(int)$i['paid_cents']);
       if($open===0)continue;$result['outstanding_gross_cents']+=$open;$result['outstanding_count']++;
+      foreach([30,60,90] as $days)if($i['due_date']<=$date->modify('+'.$days.' days')->format('Y-m-d'))$result['receipts_by_days'][$days]+=$open;
       if($i['due_date']<$today){$result['overdue_gross_cents']+=$open;$result['overdue_count']++;$age=(int)$date->diff(new \DateTimeImmutable($i['due_date'],new \DateTimeZone('UTC')))->days;$bucket=$age<=30?'1–30':($age<=60?'31–60':($age<=90?'61–90':'90+'));$result['ageing'][$bucket]+=$open;}
     }
     try{
@@ -37,6 +38,8 @@ final class OfficeFinanceSalesOverview {
       }
       $result['contracts_complete']=$complete;if($complete)$result['unbilled_net_cents']=$total;
     }catch(\PDOException){/* Native invoices stay readable when the contract source is absent. */}
+    require_once __DIR__.'/OfficeFinanceCostReadiness.php';
+    $result['costs']=OfficeFinanceCostReadiness::read($db,$operatorId,$projectId,$today);
     return $result;
   }
   private static function money(int $cents): string {return '€ '.number_format(intdiv($cents,100),0,',','.').','.sprintf('%02d',$cents%100);}
@@ -48,8 +51,8 @@ final class OfficeFinanceSalesOverview {
       ['Vervallen verkoopfacturen','overdue_gross_cents','Openstaande bedragen waarvan de vervaldatum is verstreken, inclusief btw.'],
       ['Conceptfacturen','draft_gross_cents','Nog niet verzonden. Inclusief btw; geen omzet of ontvangen betaling.'],
       ['Te factureren','unbilled_net_cents','Resterende aanneemsom van vrijgegeven EUR-contracten, exclusief btw. Concepten blijven hierin opgenomen. Meerwerk buiten deze contracten is niet inbegrepen.'],
-      ['Brutomarge',null,'Omzet en bijbehorende directe kosten uit BREBO nog niet aangesloten.'],
-      ['Bedrijfsresultaat YTD',null,'Geboekte opbrengsten en bedrijfskosten uit BREBO nog niet aangesloten.'],
+      ['Brutomarge',null,'Voor een volledige brutomarge ontbreken nog gewaardeerde arbeidskosten en complete geboekte directe kosten.'],
+      ['Bedrijfsresultaat YTD',null,'Voor bedrijfsresultaat ontbreken nog complete geboekte arbeidskosten en bedrijfskosten.'],
     ];$html='';
     foreach($definitions as [$label,$key,$reason]){
       $value=$ok&&$key!==null&&isset($sales[$key])?self::money((int)$sales[$key]):'Niet beschikbaar';
@@ -57,6 +60,8 @@ final class OfficeFinanceSalesOverview {
       if($ok&&$key==='unbilled_net_cents'&&($sales['contracts_complete']??false)!==true)$reason='Contractbron ontbreekt of eerdere termijnfacturen zijn nog niet volledig gekoppeld.';
       $html.='<div class="card"><span>'.$e($label).'</span><strong>'.$e($value).'</strong><small>'.$e($reason).'</small>'.($key!==null?'<p><a href="'.$e($salesUrl.($key==='unbilled_net_cents'?'?terms=1':'')).'">'.($key==='unbilled_net_cents'?'Naar termijnfacturen':'Naar verkoopfacturen').'</a></p>':'').'</div>';
     }
+    require_once __DIR__.'/OfficeFinanceCostReadiness.php';
+    $html.=OfficeFinanceCostReadiness::cards($sales['costs']??[]);
     if($ok){$html.='<div class="card"><span>Ouderdom vervallen facturen</span>';foreach($sales['ageing'] as $bucket=>$cents)$html.='<p>'.$e($bucket).' dagen: '.$e(self::money((int)$cents)).'</p>';$html.='<small>Inclusief btw; stand '.$e($sales['as_of']).'. Geregistreerd betaald over alle factuurjaren: '.$e(self::money((int)$sales['paid_gross_cents'])).'.</small></div>';}
     return $html;
   }

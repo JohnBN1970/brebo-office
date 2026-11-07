@@ -33,10 +33,9 @@ final class OfficeFinanceView {
       $snapshot = $data['bank_snapshot'] ?? null;
       $html .= '<div class="card"><span>Bankpositie</span><strong>'.(is_array($snapshot) ? 'Per rekening' : 'Niet beschikbaar').'</strong><small>Boekhoudkundig saldo volgens Moneybird; geen bankbevestigd beschikbaar saldo.</small><p><a href="'.$e($url('finance/betaalcentrum')).'">Bekijk rekeningen en bankmutaties</a></p></div>';
     }
-    $html .= '</div><h3>Liquiditeitsprognose</h3><div class="cards">';
-    foreach ([30, 60, 90] as $days) {
-      $html .= '<div class="card"><span>'.$days.' dagen</span><strong>Niet beschikbaar</strong><small>Vereist complete beginsaldi, rekeningrollen en geregistreerde toekomstige ontvangsten en betalingen uit BREBO.</small></div>';
-    }
+    $html .= '</div><h3>Ontvangstenplanning 30 / 60 / 90 dagen</h3><div class="cards">';
+    require_once __DIR__.'/OfficeFinanceCostReadiness.php';
+    $html .= OfficeFinanceCostReadiness::cashCards($data['sales_overview'] ?? []);
     return $html . '</div></section>';
   }
 
