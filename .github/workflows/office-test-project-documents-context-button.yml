@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 real navigation renderer check
+name: Office-test Projectdetail V3 visible tab and CSS verification
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect five tabs in rendered HTML output read-only
+      - name: Verify Documenten in actual visible nav and CSS
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -46,23 +46,35 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          # The visible tabs are produced by a different HTML output
-          # expression from the unused dossierNav constructed at 611-623.
-          # Insert the Documents link into the actual visible nav block.
+          # Projectdetail V3: change the actual visible <nav> block, not
+          # the unused $dossierNav or the second injected link in <main>.
           source = raw.decode("utf-8")
           expected = "742529945249e360f54222f38f83976636b49bd1aaf874acc206b77008230b25"
           if hashlib.sha256(raw).hexdigest() != expected:
               sys.exit("ABORT_LIVE_V3_SHA_CHANGED")
           if source.count("brebo-project-documents-visible-tab") != 1:
-              sys.exit("ABORT_PREVIOUS_DOCS_LINK_NOT_FOUND")
+              sys.exit("ABORT_DOCS_LINK_NOT_UNIQUE")
+          if source.count("OfficeNativeProjectAccess($db))->canRead") != 1:
+              sys.exit("ABORT_PROJECT_ACCESS_CHECK_CHANGED")
           lines = source.splitlines(keepends=True)
-          # Inspect real tab HTML near the end of the rendered HTML.
-          print("CANDIDATES_FOR_VISIBLE_TAB_BAR", flush=True)
-          for i in range(975, min(996,len(lines))):
-              line = lines[i]
-              labels = [x for x in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel", "Documenten", "nav", "class=", "href=", "$escape", "$projectUrl", "$activeTab", "'") if x in line]
-              print("VISIBLE_HTML_LINE=" + str(i+1) + " HAS=" + ",".join(labels) + " LEN=" + str(len(line)), flush=True)
-          print("VISIBLE_HTML_ANCHOR_INSPECTION_PASS", flush=True)
+          if len(lines) < 995 or "<nav" not in lines[987] or "Overzicht" not in lines[988] or "href=" not in lines[990] or "</nav>" not in lines[991]:
+              sys.exit("ABORT_ACTUAL_VISIBLE_NAV_STRUCTURE_CHANGED")
+          if "brebo-project-documents-visible-tab" not in lines[991]:
+              sys.exit("ABORT_EXISTING_DOCS_LINK_UNEXPECTED_LINE")
+          # Existing rendered tab strip is lines 988-992. It is generated
+          # as a PHP HTML concatenation. The inserted Documents link was
+          # already added to the same line as </nav>, but was not visible
+          # in the user's screenshot; this requires verifying CSS/layout.
+          # Do not duplicate links or mutate the active page blindly.
+          nav = "".join(lines[987:992])
+          print("VISIBLE_NAV_DOCS_CLASS=" + str("brebo-project-documents-visible-tab" in nav), flush=True)
+          print("VISIBLE_NAV_DOCS_LABEL=" + str("Documenten" in nav), flush=True)
+          print("VISIBLE_NAV_DOCS_IN_CLOSE_LINE=" + str("brebo-project-documents-visible-tab" in lines[991]), flush=True)
+          print("VISIBLE_NAV_LINE_LENGTH=" + str(len(lines[991])), flush=True)
+          # Probe the page CSS selector names, not the contents or user data.
+          for token in ("office-dossier-nav", "project-tab", "project-tabs", "project-nav", "display:none", "overflow:hidden", "overflow-x", "flex-wrap", "white-space:nowrap"):
+              print("VISIBLE_NAV_CSS_" + re.sub(r"[^A-Za-z0-9]","_",token) + "=" + str(source.count(token)), flush=True)
+          print("READ_ONLY_VISIBLE_NAV_CSS_CHECK_PASS", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
