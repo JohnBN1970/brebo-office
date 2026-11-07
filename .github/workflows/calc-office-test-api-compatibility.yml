@@ -1,0 +1,93 @@
+name: Calc Office-test API compatibility (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type COMPARE-CALC-API to compare existing Calc PHP method contracts without changes
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate request and SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          test "$value" = COMPARE-CALC-API
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_api
+          chmod 600 ~/.ssh/id_calc_api
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - name: Compare methods and call sites on active Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          echo 'CALC_SOURCE_METHODS_BEGIN'
+          php -r '
+          foreach (["OfficeCalcLaunchToken.php","OfficeCalcSessionGrantRepository.php","OfficeCalcLaunchIssuer.php"] as $name) {
+            $p="office-independent/src/Calculation/".$name;
+            require_once $p;
+            $cls="Brebo\\Office\\Calculation\\".substr($name,0,-4);
+            $r=new ReflectionClass($cls);
+            foreach($r->getMethods(ReflectionMethod::IS_PUBLIC) as $m) {
+              if($m->getDeclaringClass()->getName()!==$cls)continue;
+              $params=[];
+              foreach($m->getParameters() as $arg) {
+                $params[]=$arg->getName().":".($arg->getType()?(string)$arg->getType():"mixed").($arg->isOptional()?"?":"!");
+              }
+              echo $name."::".$m->getName()."(".implode(",",$params).")\n";
+            }
+          }'
+          echo 'CALC_SOURCE_METHODS_END'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_api -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_API_AUDIT=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          echo 'CALC_INSTALLED_METHODS_BEGIN'
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $root=getenv('CALC_ACTIVE_ROOT');
+          foreach (['OfficeCalcLaunchToken.php','OfficeCalcSessionGrantRepository.php','OfficeCalcLaunchIssuer.php'] as $name) {
+              $p=$root.'/src/Calculation/'.$name;
+              if(!is_file($p)){echo $name.":MISSING\n";continue;}
+              // Tokenize without executing any application PHP.
+              $tokens=token_get_all(file_get_contents($p));
+              $methods=[];
+              foreach($tokens as $i=>$t){
+                  if(!is_array($t)||$t[0]!==T_FUNCTION)continue;
+                  $j=$i+1;
+                  while(isset($tokens[$j]) && ((is_array($tokens[$j])&&$tokens[$j][0]===T_WHITESPACE)||$tokens[$j]==='&'))$j++;
+                  if(isset($tokens[$j])&&is_array($tokens[$j])&&$tokens[$j][0]===T_STRING)$methods[]=$tokens[$j][1];
+              }
+              echo $name.':METHODS='.implode(',',array_unique($methods))."\n";
+              echo $name.':SHA256='.hash_file('sha256',$p)."\n";
+          }
+          PHP
+          echo 'CALC_INSTALLED_METHODS_END'
+          echo 'CALC_API_AUDIT=READ_ONLY'
+          REMOTE
