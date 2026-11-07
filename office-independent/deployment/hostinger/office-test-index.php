@@ -27,7 +27,15 @@ foreach ($config as $key => $value) {
   }
   putenv($key . '=' . $value);
 }
-$root = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';
+// Resolve the isolated Office-test release from its verified configuration.
+// Never pin a stale release or accept an arbitrary path outside the test tree.
+$root = getenv('OFFICE_PRIVATE_ROOT');
+$testRoot = '/home/u213420663/domains/brebobv.nl/office_calc_test/';
+if (!is_string($root)
+  || !preg_match('~^' . preg_quote($testRoot, '~') . 'release-[a-zA-Z0-9_-]+/private$~D', $root)) {
+  http_response_code(503);
+  exit('Ongeldige testrelease.');
+}
 $private = realpath($root);
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 $host = $_SERVER['HTTP_HOST'] ?? '';
