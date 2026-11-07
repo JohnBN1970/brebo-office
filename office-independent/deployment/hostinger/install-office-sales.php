@@ -15,7 +15,7 @@ try {
   $db=new PDO($config['OFFICE_INTAKE_PDO_DSN'],$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
   $locked=(int)$db->query("SELECT GET_LOCK('office-native-sales-install',0)")->fetchColumn();
   if ($locked!==1) throw new RuntimeException('Another installation is running');
-  $tables=['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit'];
+  $tables=['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit','office_finance_sales_receipt'];
   foreach ($tables as $table) {
     $q=$db->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');$q->execute([$table]);
     if ((int)$q->fetchColumn()!==0) throw new RuntimeException('Existing sales schema requires reconciliation; nothing overwritten');

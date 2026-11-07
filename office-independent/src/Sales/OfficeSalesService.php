@@ -145,6 +145,7 @@ final class OfficeSalesService {
         $payload=['reminder'=>array_intersect_key($provider,array_flip(['id','contact_id','workflow_id','document_style_id','identity_id']))+['email_address'=>$recipient,'reminder_text'=>$message]];
       }
       $key='office-sales-'.$operation.'-'.bin2hex(random_bytes(24)); $payload['idempotency_key']=$key;
+      if (strlen(json_encode($payload,JSON_THROW_ON_ERROR))>30000) throw new \InvalidArgumentException('Verzendopdracht te groot; verkort de omschrijvingen of het bericht.');
       $q=$this->db->prepare('UPDATE office_finance_sales_invoice SET status=?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status=?');
       $q->execute([$operation==='invoice' ? 'sending' : 'reminder_sending',gmdate('c'),$id,$revision,$row['status']]);
       if ($q->rowCount()!==1) throw new \DomainException('Verzending al gestart of factuur gewijzigd.');
@@ -190,6 +191,32 @@ final class OfficeSalesService {
   public function history(int $id): array {
     $this->get($id);
     $q=$this->db->prepare('SELECT operation,status,recipient,message,created_at,completed_at FROM office_finance_sales_delivery WHERE invoice_id=? ORDER BY id DESC');
+    $q->execute([$id]); return $q->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  /** Operator-recorded receipt with evidence; never a bank transfer or inferred payment. */
+  public function recordReceipt(int $id, int $revision, string $amount, string $date, string $reference, string $today): void {
+    $this->authorize(true);
+    self::date($date); self::date($today);
+    $reference=trim($reference); $amount=str_replace(',','.',$amount);
+    if ($date>$today || $reference==='' || strlen($reference)>128 || preg_match('/[\x00-\x1f]/',$reference) || !preg_match('/^\d{1,10}(?:\.\d{1,2})?$/D',$amount)) throw new \InvalidArgumentException('Controleer ontvangstdatum, bedrag en bankreferentie.');
+    [$a,$b]=array_pad(explode('.',$amount),2,''); $cents=(int)$a*100+(int)str_pad($b,2,'0');
+    $this->db->beginTransaction();
+    try {
+      $row=$this->get($id,true);
+      if ($row['status']!=='sent' || (int)$row['revision']!==$revision || $date<$row['invoice_date'] || $cents<=0 || $cents>(int)$row['gross_cents']-(int)$row['paid_cents']) throw new \DomainException('Ontvangst past niet bij de actuele openstaande factuur.');
+      $q=$this->db->prepare("UPDATE office_finance_sales_invoice SET paid_cents=paid_cents+?,revision=revision+1,updated_at=? WHERE id=? AND revision=? AND status='sent'");
+      $q->execute([$cents,gmdate('c'),$id,$revision]);
+      if ($q->rowCount()!==1) throw new \DomainException('Factuur gewijzigd; controleer opnieuw.');
+      $this->db->prepare('INSERT INTO office_finance_sales_receipt (invoice_id,amount_cents,receipt_date,evidence_reference,operator_id,created_at) VALUES (?,?,?,?,?,?)')->execute([$id,$cents,$date,$reference,$this->operatorId,gmdate('c')]);
+      $this->audit($id,'manual_receipt_recorded',['amount_cents'=>$cents,'receipt_date'=>$date,'evidence_reference'=>$reference]);
+      $this->db->commit();
+    } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+  }
+
+  public function receipts(int $id): array {
+    $this->get($id);
+    $q=$this->db->prepare('SELECT amount_cents,receipt_date,evidence_reference,operator_id FROM office_finance_sales_receipt WHERE invoice_id=? ORDER BY id');
     $q->execute([$id]); return $q->fetchAll(PDO::FETCH_ASSOC);
   }
 

@@ -45,6 +45,9 @@ try {
         if (!is_array($input['lines']??null)) throw new InvalidArgumentException('Factuurregels ontbreken.');
         $input['lines']=array_values(array_filter($input['lines'],static fn($l): bool => !is_array($l) || trim((string)($l['description']??''))!=='' || trim((string)($l['price']??''))!==''));
         $id=$service->save($input,$id===0?null:$id,$revision);
+      } elseif ($action==='receipt') {
+        if (($_POST['confirmed']??'')!=='yes' || $id<1) throw new DomainException('Ontvangst niet bevestigd.');
+        $service->recordReceipt($id,$revision,(string)($_POST['receipt_amount']??''),(string)($_POST['receipt_date']??''),(string)($_POST['evidence_reference']??''),$today);
       } elseif (in_array($action,['invoice','reminder'],true)) {
         if (!$canSend || ($action==='reminder' && getenv('OFFICE_SALES_REMINDERS_ENABLED')!=='enabled') || ($_POST['confirmed']??'')!=='yes' || $id<1) throw new DomainException('Verzending nog niet beschikbaar of niet bevestigd.');
         $delivery=$service->prepare($id,$revision,$action,(string)($_POST['recipient']??''),(string)($_POST['message']??''),$taxMap,$today);
@@ -57,7 +60,7 @@ try {
   $id=isset($_GET['id']) ? filter_var($_GET['id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
   if ($id===false) throw new DomainException('Factuur niet beschikbaar.');
   $invoice=$id===null?null:$service->get($id);
-  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,isset($_GET['new']),getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled');
+  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,isset($_GET['new']),getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled',$id===null?[]:$service->receipts($id));
   header('Content-Type: text/html; charset=utf-8'); echo $html;
 } catch (DomainException $e) { http_response_code(403); exit('Geen toegang tot deze verkoopfactuur.'); }
   catch (Throwable $e) { http_response_code(503); exit('Verkoopfacturen zijn tijdelijk niet beschikbaar.'); }

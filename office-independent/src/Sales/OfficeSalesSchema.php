@@ -31,6 +31,12 @@ final class OfficeSalesSchema {
         id $id, invoice_id BIGINT NOT NULL, operator_id VARCHAR(128) NOT NULL,
         event VARCHAR(48) NOT NULL, detail_json TEXT NOT NULL, created_at VARCHAR(32) NOT NULL
       )$tail",
+      "CREATE TABLE office_finance_sales_receipt (
+        id $id, invoice_id BIGINT NOT NULL, amount_cents BIGINT NOT NULL,
+        receipt_date VARCHAR(10) NOT NULL, evidence_reference VARCHAR(128) NOT NULL,
+        operator_id VARCHAR(128) NOT NULL, created_at VARCHAR(32) NOT NULL,
+        UNIQUE (invoice_id,evidence_reference)
+      )$tail",
     ];
   }
 }
