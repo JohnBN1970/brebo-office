@@ -1,0 +1,56 @@
+name: Calc Office-test bridge release gate
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type VERIFY-CALC-BRIDGE to run integration contracts before any deployment
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm requested verification
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$value" = VERIFY-CALC-BRIDGE
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: PHP syntax of bridge and affected routes
+        run: |
+          set -euo pipefail
+          for f in office-independent/src/Calculation/*.php office-independent/public/office-calc-*.php office-independent/public/office-home.php office-independent/public/office-project.php office-independent/deployment/hostinger/office-test-index.php; do
+            test -f "$f"
+            php -l "$f"
+          done
+      - name: Execute Calc bridge security and contract tests
+        run: |
+          set -euo pipefail
+          for f in office-independent/tests/OfficeCalc*Test.php; do
+            test -f "$f"
+            echo "TEST=$(basename "$f")"
+            php "$f"
+          done
+      - name: Verify explicit staging-only and no-implicit-grant contracts
+        run: |
+          set -euo pipefail
+          test -f office-independent/public/office-calc-launch.php
+          test -f office-independent/public/office-calc-browser-handoff.php
+          test -f office-independent/public/office-calc-grant-validate.php
+          test -f office-independent/deployment/hostinger/sql/office-calc-calculations-access.sql
+          if grep -Eiq '^[[:space:]]*(INSERT|REPLACE|UPDATE|DELETE|DROP|ALTER|GRANT)[[:space:]]' office-independent/deployment/hostinger/sql/office-calc-calculations-access.sql; then
+            echo 'CALC_RELEASE_GATE=BLOCKED_UNEXPECTED_MIGRATION'; exit 1
+          fi
+          echo 'CALC_RELEASE_GATE=CONTRACTS_PASS'
+          echo 'CALC_BRIDGE_DEPLOYED=NO'
+          echo 'CALC_FEATURE_FLAGS_ENABLED=NO'
