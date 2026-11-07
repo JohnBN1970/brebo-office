@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_backup -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
-          set -eu
+          set -euo pipefail
           umask 077
           base="$HOME/domains/brebobv.nl/office_calc_test"
           config="$base/config/config.php"
