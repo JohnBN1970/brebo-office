@@ -27,9 +27,9 @@ if (!str_contains($router, "getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled'")
     || !str_contains($router, "getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled'")) {
     throw new RuntimeException('Calc routes do not fail closed');
 }
-if (!str_contains($router, "$root = getenv('OFFICE_PRIVATE_ROOT');")
+if (!str_contains($router, '$root = getenv(\'OFFICE_PRIVATE_ROOT\');')
     || !str_contains($router, 'preg_quote($testRoot')
-    || str_contains($router, "$root = '/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private';")) {
+    || str_contains($router, '$root = \'/home/u213420663/domains/brebobv.nl/office_calc_test/release-next/private\';')) {
     throw new RuntimeException('Calc router must resolve a validated active Office-test release');
 }
 if (!str_contains($home, 'OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED')) {
