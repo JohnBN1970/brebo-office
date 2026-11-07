@@ -1,0 +1,33 @@
+name: Office resident address proposals
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Buildings/OfficeResidentAddress*.php'
+      - 'office-independent/tests/OfficeResidentAddress*Test.php'
+      - '.github/workflows/office-resident-address-proposals.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proposals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring
+      - name: Syntax
+        run: |
+          php -l office-independent/src/Buildings/OfficeResidentAddressProposal.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressBatch.php
+          php -l office-independent/tests/OfficeResidentAddressProposalTest.php
+          php -l office-independent/tests/OfficeResidentAddressBatchTest.php
+      - name: Tests
+        run: |
+          php office-independent/tests/OfficeResidentAddressProposalTest.php
+          php office-independent/tests/OfficeResidentAddressBatchTest.php
