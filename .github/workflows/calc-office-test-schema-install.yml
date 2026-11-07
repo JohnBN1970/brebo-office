@@ -67,7 +67,24 @@ jobs:
           test -n "$backup"
           test "$(date +%s)" -lt "$(( $(stat -c %Y "$backup") + 86400 ))"
           gzip -t "$backup"
-          echo 'CALC_SCHEMA_BACKUP=FRESH_GZIP_PASS'
+          # A gzip checksum is NOT proof that a database can be restored.
+          # Require a separately verified isolated restore of this exact archive.
+          proof="$backup.restore-verified"
+          if [ ! -f "$proof" ]; then
+            echo 'CALC_SCHEMA=BLOCKED_NO_VERIFIED_ISOLATED_RESTORE'
+            exit 1
+          fi
+          backup_sha=$(sha256sum "$backup" | cut -d ' ' -f 1)
+          proof_sha=$(cat "$proof")
+          if [ "$proof_sha" != "$backup_sha" ]; then
+            echo 'CALC_SCHEMA=BLOCKED_RESTORE_PROOF_MISMATCH'
+            exit 1
+          fi
+          if [ "$(stat -c %a "$proof")" != 600 ]; then
+            echo 'CALC_SCHEMA=BLOCKED_RESTORE_PROOF_PERMISSIONS'
+            exit 1
+          fi
+          echo 'CALC_SCHEMA_BACKUP=FRESH_RESTORE_PROOF_MATCH'
           OFFICE_CONFIG_PATH="$config" MIGRATION_DIR="$tmpdir" php <<'PHP'
           <?php
           declare(strict_types=1);
