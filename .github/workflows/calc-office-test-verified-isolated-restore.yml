@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type RESTORE-CALC-ISOLATED (restores to an empty calc_restore_* database only)
+        description: Type RESTORE-CALC-ISOLATED (restores to an empty Hostinger calc_restore database only)
         required: true
         type: string
 permissions:
@@ -32,7 +32,8 @@ jobs:
           for key in SSH_KEY SSH_HOST SSH_PORT SSH_USER RESTORE_HOST RESTORE_NAME RESTORE_USER RESTORE_PASSWORD; do
             test -n "${!key}" || { echo "CALC_RESTORE=BLOCKED_MISSING_$key"; exit 1; }
           done
-          case "$RESTORE_NAME" in calc_restore|*_calc_restore) ;; *) echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1;; esac
+          test "$RESTORE_NAME" = u213420663_calc_restore || { echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1; }
+          test "$RESTORE_HOST" = localhost || { echo 'CALC_RESTORE=BLOCKED_NONLOCAL_HOST'; exit 1; }
           case "$RESTORE_NAME" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
           sudo apt-get update -qq && sudo apt-get install -y -qq default-mysql-client >/dev/null
           command -v mysql >/dev/null
@@ -44,14 +45,16 @@ jobs:
           sql=$(mktemp)
           trap 'rm -f "$options" "$archive" "$sql" ~/.ssh/id_calc_restore' EXIT
           chmod 600 "$options" "$archive" "$sql"
+          # Forward local MySQL port securely to the Hostinger server via existing SSH access.
+          ssh -f -N -o ExitOnForwardFailure=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_restore -p "$SSH_PORT" -L 127.0.0.1:33077:127.0.0.1:3306 "$SSH_USER@$SSH_HOST"
           RESTORE_OPTIONS="$options" python3 - <<'PY'
           import os
           def esc(s):
               return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n','').replace('\r','') + '"'
           with open(os.environ['RESTORE_OPTIONS'], 'w') as f:
               f.write('[client]\n')
-              for key, env in [('host','RESTORE_HOST'),('user','RESTORE_USER'),('password','RESTORE_PASSWORD')]:
-                  f.write(key + '=' + esc(os.environ[env]) + '\n')
+              for key, value in [('host','127.0.0.1'),('port','33077'),('protocol','tcp'),('user',os.environ['RESTORE_USER']),('password',os.environ['RESTORE_PASSWORD'])]:
+                  f.write(key + '=' + esc(value) + '\n')
           PY
           # Target must exist already, and must contain no tables.
           count=$(mysql --defaults-extra-file="$options" --batch --skip-column-names --database="$RESTORE_NAME" -e 'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')
