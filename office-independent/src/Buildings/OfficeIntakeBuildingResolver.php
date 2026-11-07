@@ -38,7 +38,7 @@ final class OfficeIntakeBuildingResolver
         $addressColumn = in_array('street_address', $fieldNames, true) ? 'street_address'
             : (in_array('address_line', $fieldNames, true) ? 'address_line' : null);
         if ($addressColumn === null) {
-            throw new \\RuntimeException('Building address field unavailable');
+            throw new \RuntimeException('Building address field unavailable');
         }
         $query = $this->db->prepare(
             "SELECT id, {$addressColumn} AS address_line, postal_code, city FROM office_buildings "
