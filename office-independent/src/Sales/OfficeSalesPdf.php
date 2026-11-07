@@ -42,69 +42,85 @@ final class OfficeSalesPdf {
     }
     return $result?:[''];
   }
+  private function logo(float $x,float $top,float $width): void {
+    $height=$width*0.3;
+    $this->page.=sprintf("q %.2F 0 0 %.2F %.2F %.2F cm /Logo Do Q\n",$width,$height,$x,842-$top-$height);
+  }
+  private static function date(string $date): string {return (new \DateTimeImmutable($date))->format('d-m-Y');}
   private function heading(array $invoice,bool $first): void {
     if($this->page!=='')$this->pages[]=$this->page;
     $this->page="0.12 g\n";
     $draft=($invoice['invoice_number']??'')==='';
-    $this->text(42,44,'BREBO',22,true);
-    $this->text(42,62,'Bouw en Advies B.V.',10);
-    $this->text(42,78,'Plaza 25A - 4782 SL Moerdijk',9);
-    $this->text(355,46,$draft?'CONCEPTFACTUUR':'FACTUUR',17,true);
-    $this->text(355,65,$draft?'Concept #'.$invoice['id']:(string)$invoice['invoice_number'],11);
+    $this->logo(35,43,172.5);
+    $company=[['BREBO Bouw en Advies B.V.',56,true],['Plaza 25A',72,false],['4782 SL Moerdijk',88,false],['085 - 500 38 38',119,false],['info@brebobv.nl',135,false],['brebobv.nl',151,false],['KvK: 92123139',182,false],['BTW: NL865894607.B01',198,false],['IBAN: NL19 ABNA 0894 3515 67',214,false]];
+    foreach($company as [$text,$y,$bold])$this->text(0,$y,$text,9,$bold,561);
     if($first) {
       $customer=json_decode($invoice['customer_json'],true,32,JSON_THROW_ON_ERROR);
       $address=array_filter([(string)($customer['legal_name']?:$customer['display_name']),(string)$customer['street'],trim($customer['postal_code'].' '.$customer['city']),(string)($customer['country_code']??'')]);
-      $ay=119;
-      foreach($address as $part)foreach(self::wrap($part,280) as $line){$this->text(42,$ay,$line);$ay+=13;}
-      $this->text(355,119,'Factuurdatum: '.$invoice['invoice_date']);
-      $this->text(355,137,'Vervaldatum: '.$invoice['due_date']);
-      $this->y=max(192,$ay+18);
-      if(($invoice['reference']??'')!=='')foreach(self::wrap('Referentie: '.$invoice['reference'],505) as $line){$this->text(42,$this->y,$line);$this->y+=13;}
-      if($draft){$this->text(42,$this->y+8,'Concept - nog niet verzonden. Geen betaalverzoek.',10,true);$this->y+=27;}
-    } else {$this->y=105;}
+      $ay=191;$firstAddress=true;
+      foreach($address as $part)foreach(self::wrap($part,290) as $line){$this->text(35,$ay,$line,10,$firstAddress);$ay+=15;$firstAddress=false;}
+      $this->y=max(291,$ay+32);
+      $this->text(35,$this->y,$draft?'CONCEPTFACTUUR #'.$invoice['id']:'Factuur: '.$invoice['invoice_number'],12,true);
+      $this->y+=19;
+      $this->text(399,$this->y,'Factuurdatum:',9,true);
+      $this->text(0,$this->y,self::date($invoice['invoice_date']),9,false,561);
+      $this->text(399,$this->y+17,'Vervaldatum:',9,true);
+      $this->text(0,$this->y+17,self::date($invoice['due_date']),9,false,561);
+      $refY=$this->y;
+      if(($invoice['reference']??'')!=='')foreach(self::wrap('Project / referentie: '.$invoice['reference'],340,9) as $line){$this->text(35,$refY,$line,9);$refY+=13;}
+      $this->y=max($this->y+56,$refY+24);
+      if($draft){$this->text(35,$this->y-12,'Concept - nog niet verzonden. Geen betaalverzoek.',9);}
+    } else {$this->y=260;}
     $this->tableHead();
   }
   private function tableHead(): void {
-    $this->rule($this->y);$this->y+=18;
-    foreach([[42,'Omschrijving'],[331,'Aantal'],[393,'Prijs'],[456,'Btw'],[503,'Bedrag']] as [$x,$label])$this->text($x,$this->y,$label,9,true);
-    $this->y+=10;$this->rule($this->y);$this->y+=19;
+    foreach([[69,'Omschrijving'],[327,'Bedrag'],[421,'Totaal'],[525,'BTW']] as [$x,$label])$this->text($x,$this->y,$label,9,true);
+    $this->y+=6;$this->rule($this->y);$this->y+=17;
   }
   private static function money(int $cents): string {return '€ '.number_format($cents/100,2,',','.');}
   public static function render(array $invoice): string {
     $pdf=new self();$pdf->heading($invoice,true);
     $lines=json_decode($invoice['lines_json'],true,32,JSON_THROW_ON_ERROR);$tax=[];
     foreach($lines as $line) {
-      $wrapped=self::wrap((string)$line['description'],274);
+      $wrapped=self::wrap((string)$line['description'],244);
       if($pdf->y+count($wrapped)*13+12>735)$pdf->heading($invoice,false);
       $first=true;
       foreach($wrapped as $description) {
         if($pdf->y>735)$pdf->heading($invoice,false);
-        $pdf->text(42,$pdf->y,$description);
+        $pdf->text(69,$pdf->y,$description);
         if($first){
-          $pdf->text(331,$pdf->y,(string)$line['quantity'],9);
+          $pdf->text(42,$pdf->y,(string)$line['quantity'].'x',9);
           $price=(string)$line['price'];[$euros,$fraction]=array_pad(explode('.',$price),2,'');
           $priceCents=(int)$euros*100+(int)str_pad($fraction,2,'0');
-          $pdf->text(0,$pdf->y,self::money($priceCents),9,false,445);
-          $pdf->text(456,$pdf->y,$line['vat'].'%',9);
-          $pdf->text(0,$pdf->y,self::money((int)$line['net_cents']),9,false,553);$first=false;
+          $pdf->text(0,$pdf->y,self::money($priceCents),9,false,368);
+          $pdf->text(0,$pdf->y,'BTW '.$line['vat'].'%',9,false,553);
+          $pdf->text(0,$pdf->y,self::money((int)$line['net_cents']),9,false,458);$first=false;
         }
         $pdf->y+=13;
       }
-      $pdf->y+=10;$pdf->rule($pdf->y-4);
+      $pdf->y+=10;
       $rate=(string)$line['vat'];$tax[$rate]=($tax[$rate]??0)+(int)$line['vat_cents'];
     }
     if($pdf->y+90+count($tax)*20>750)$pdf->heading($invoice,false);
     $pdf->y+=21;
-    $pdf->text(340,$pdf->y,'Subtotaal excl. btw');$pdf->text(0,$pdf->y,self::money((int)$invoice['net_cents']),10,false,553);
-    foreach($tax as $rate=>$amount){$pdf->y+=20;$pdf->text(340,$pdf->y,'Btw '.$rate.'%');$pdf->text(0,$pdf->y,self::money($amount),10,false,553);}
-    $pdf->y+=25;$pdf->text(340,$pdf->y,'Totaal incl. btw',11,true);$pdf->text(0,$pdf->y,self::money((int)$invoice['gross_cents']),11,false,553);
+    $pdf->text(0,$pdf->y,'Subtotaal excl. BTW',10,false,368);$pdf->text(0,$pdf->y,self::money((int)$invoice['net_cents']),10,false,458);
+    foreach($tax as $rate=>$amount){$pdf->y+=20;$pdf->text(0,$pdf->y,'BTW '.$rate.'%',10,false,368);$pdf->text(0,$pdf->y,self::money($amount),10,false,458);}
+    $pdf->y+=25;$pdf->rule($pdf->y-15);$pdf->text(0,$pdf->y,'Totaal',11,true,368);$pdf->text(0,$pdf->y,self::money((int)$invoice['gross_cents']),11,false,458);
+    if(($invoice['invoice_number']??'')!==''){
+      if($pdf->y+100>750)$pdf->heading($invoice,false);
+      $pdf->y+=45;$pdf->text(35,$pdf->y,'Afsluiting:',10,true);$pdf->y+=19;
+      foreach(self::wrap('Wij verzoeken u het bedrag voor vervaldatum van deze factuur over te maken op rekeningnummer NL19 ABNA 0894 3515 67 onder vermelding van factuurnummer '.$invoice['invoice_number'],520,9) as $line){$pdf->text(35,$pdf->y,$line,9);$pdf->y+=15;}
+    }
     $pdf->pages[]=$pdf->page;
-    $objects=[1=>'<< /Type /Catalog /Pages 2 0 R >>',2=>'',3=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',4=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];$kids=[];$count=count($pdf->pages);
+    $objects=[1=>'<< /Type /Catalog /Pages 2 0 R >>',2=>'',3=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',4=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];$logo=json_decode(file_get_contents(__DIR__.'/brebo-logo.rgb.json'),true,8,JSON_THROW_ON_ERROR);
+    $image=base64_decode($logo['data'],true);if($image===false)throw new \RuntimeException('Invalid logo');
+    $objects[5]='<< /Type /XObject /Subtype /Image /Width '.(int)$logo['width'].' /Height '.(int)$logo['height'].' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length '.strlen($image)." >>\nstream\n".$image."\nendstream";
+    $kids=[];$count=count($pdf->pages);
     foreach($pdf->pages as $index=>$content){
-      $pdf->page='';$pdf->text(42,806,'BREBO Office - '.(($invoice['invoice_number']??'')===''?'Concept':'Administratieve afdruk'),8);
-      $pdf->text(0,806,($index+1).' / '.$count,8,false,553);$content.=$pdf->page;
-      $pageId=5+$index*2;$streamId=$pageId+1;$kids[]=$pageId.' 0 R';
-      $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '.$streamId.' 0 R >>';
+      $pdf->page='';$pdf->text(159,796,'Op onze facturen zijn onze algemene voorwaarden van toepassing.',8);$pdf->logo(496,805,65);
+      if($count>1)$pdf->text(35,817,($index+1).' / '.$count,8);$content.=$pdf->page;
+      $pageId=6+$index*2;$streamId=$pageId+1;$kids[]=$pageId.' 0 R';
+      $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Logo 5 0 R >> >> /Contents '.$streamId.' 0 R >>';
       $objects[$streamId]='<< /Length '.strlen($content)." >>\nstream\n".$content.'endstream';
     }
     $objects[2]='<< /Type /Pages /Kids ['.implode(' ',$kids).'] /Count '.$count.' >>';
