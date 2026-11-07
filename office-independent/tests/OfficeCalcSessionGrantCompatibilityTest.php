@@ -19,24 +19,24 @@ namespace {
     $pdo = (new \ReflectionClass(\PDO::class))->newInstanceWithoutConstructor();
     $adapter = new \Brebo\Office\Calculation\OfficeCalcSessionGrantCompatibility($pdo);
     $validRef = str_repeat('a', 64);
-    $active = ['reference'=>$validRef, 'actor_id'=>1, 'project_id'=>2, 'calculation_id'=>3];
+    $active = ['office_session_hash'=>str_repeat('b',64)];
     $cases = [
         ['invalid reference', 'bad', 1, 2, 3, 100, $active, false, 0],
         ['invalid actor', $validRef, 0, 2, 3, 100, $active, false, 0],
         ['invalid project', $validRef, 1, 0, 3, 100, $active, false, 0],
         ['invalid calculation', $validRef, 1, 2, 0, 100, $active, false, 0],
         ['invalid clock', $validRef, 1, 2, 3, 0, $active, false, 0],
-        ['nullable return denied', $validRef, 1, 2, 3, 100, null, false, 1],
-        ['valid array accepted', $validRef, 1, 2, 3, 100, $active, true, 1],
-        ['mysql string id accepted', $validRef, 1, 2, 3, 100, ['reference'=>$validRef,'actor_id'=>'1','project_id'=>'2','calculation_id'=>'3'], true, 1],
-        ['boolean return denied', $validRef, 1, 2, 3, 100, true, false, 1],
+        ['null grant denied', $validRef, 1, 2, 3, 100, null, false, 1],
+        ['valid one-key hash accepted', $validRef, 1, 2, 3, 100, $active, true, 1],
+        ['boolean denied', $validRef, 1, 2, 3, 100, true, false, 1],
         ['empty array denied', $validRef, 1, 2, 3, 100, [], false, 1],
-        ['missing identity denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef], false, 1],
-        ['wrong actor denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef,'actor_id'=>99,'project_id'=>2,'calculation_id'=>3], false, 1],
-        ['wrong project denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef,'actor_id'=>1,'project_id'=>99,'calculation_id'=>3], false, 1],
-        ['wrong calculation denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef,'actor_id'=>1,'project_id'=>2,'calculation_id'=>99], false, 1],
-        ['wrong reference denied', $validRef, 1, 2, 3, 100, ['reference'=>str_repeat('b',64),'actor_id'=>1,'project_id'=>2,'calculation_id'=>3], false, 1],
-        ['non numeric actor denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef,'actor_id'=>'1e0','project_id'=>2,'calculation_id'=>3], false, 1],
+        ['missing key denied', $validRef, 1, 2, 3, 100, ['reference'=>$validRef], false, 1],
+        ['additional key denied', $validRef, 1, 2, 3, 100, $active+['actor_id'=>1], false, 1],
+        ['empty hash denied', $validRef, 1, 2, 3, 100, ['office_session_hash'=>''], false, 1],
+        ['short hash denied', $validRef, 1, 2, 3, 100, ['office_session_hash'=>'abc'], false, 1],
+        ['uppercase hash denied', $validRef, 1, 2, 3, 100, ['office_session_hash'=>str_repeat('B',64)], false, 1],
+        ['nonhex hash denied', $validRef, 1, 2, 3, 100, ['office_session_hash'=>str_repeat('z',64)], false, 1],
+        ['nonstring hash denied', $validRef, 1, 2, 3, 100, ['office_session_hash'=>123], false, 1],
     ];
     foreach ($cases as [$label, $ref, $actor, $project, $calculation, $now, $result, $expected, $calls]) {
         \Brebo\Office\Calculation\OfficeCalcSessionGrantRepository::$result = $result;
