@@ -47,7 +47,7 @@ try {
     exit;
   }
   require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingColumnResolver.php';
-  $buildingColumns = \\Brebo\\Office\\Buildings\\OfficeBuildingColumnResolver::columns($db);
+  $buildingColumns = \Brebo\Office\Buildings\OfficeBuildingColumnResolver::columns($db);
   $nameColumn = $buildingColumns['name'];
   $addressColumn = $buildingColumns['address'];
   $statement = $db->prepare(
