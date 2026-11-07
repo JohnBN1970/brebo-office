@@ -33,6 +33,9 @@ final class OfficeProjectDetailV3View
             $html .= '<a href="' . $e($base . '&tab=' . rawurlencode($key)) . '"'
                 . ($tab === $key ? ' aria-current="page"' : '') . '>' . $e($label) . '</a>';
         }
+        // Contextual Documents entry is an external destination, not a sixth
+        // content pane; keep it inside the existing project tab strip.
+        $html .= '<a href="' . $e(rtrim($basePath, '/') . '/documenten?project_id=' . $projectId) . '">Documenten</a>';
         $html .= '</nav><main class="project-v3-content">';
         if ($tab === 'overzicht' && !isset($sections['overzicht'])) {
             $html .= '<section aria-label="Projectdashboard"><h2>Projectdashboard</h2>'
