@@ -31,6 +31,15 @@ try {
   if (is_file($router) && !is_link($router)) {
     echo 'SALES_MODULAR_ROUTER_PRESENT='.(int)str_contains(file_get_contents($router),"\$moduleRoot = \$private . '/modules';")."\n";
   }
+  if (($config['OFFICE_SALES_ENABLED']??'')==='enabled') {
+    $db->query('SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE 1=0');
+    require_once $root.'/src/Sales/OfficeSalesService.php';
+    require_once $root.'/src/Sales/OfficeSalesView.php';
+    $service=new \Brebo\Office\Sales\OfficeSalesService($db,'1');
+    $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),null,$service->customers(),$service->projects(),[],str_repeat('a',64),true,false,date('Y-m-d'),'',true,false,[]);
+    if (!str_contains($html,'relation_id') || !str_contains($html,'Verkoopfacturen')) throw new RuntimeException('Sales form render failed');
+    echo "SALES_RUNTIME_FORM_READ_ONLY_OK=1\n";
+  }
   $db->rollBack();
   if (hash_file('sha256',$path)!==$hash) throw new RuntimeException('Configuration changed');
   echo "SALES_PREFLIGHT_READ_ONLY_OK=1\n";
