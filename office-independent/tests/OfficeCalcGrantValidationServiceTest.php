@@ -35,7 +35,7 @@ $now = 1793960000;
 $expiry = gmdate('Y-m-d H:i:s', $now + 3600);
 $ref = str_repeat('a', 64);
 $sessionHash = str_repeat('b', 64);
-$db->prepare('INSERT INTO office_operator_sessions VALUES (?, '1', NULL, ?)')->execute([$sessionHash, $expiry]);
+$db->prepare('INSERT INTO office_operator_sessions VALUES (?, ?, NULL, ?)')->execute([$sessionHash, '1', $expiry]);
 $db->exec('INSERT INTO office_operator_accounts VALUES (1, 1)');
 $db->exec('INSERT INTO office_projects VALUES (2)');
 $db->exec("INSERT INTO office_project_memberships VALUES (1, 2, 'manage')");
