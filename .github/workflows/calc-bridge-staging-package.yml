@@ -36,7 +36,7 @@ jobs:
           done
           (
             cd staging-calc-bridge
-            find . -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+            find public src -type f -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
           echo 'CALC_BRIDGE_ARTIFACT_ONLY=PASS' >> "$GITHUB_STEP_SUMMARY"
