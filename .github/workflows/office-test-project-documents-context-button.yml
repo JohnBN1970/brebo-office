@@ -1,4 +1,4 @@
-name: Office-test V3 dashboard tabs render target check
+name: Office-test V3 rendered project navigation scope check
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Confirm dashboardTabs render target read-only
+      - name: Confirm rendered main and dossier nav insertion scope read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -46,35 +46,30 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          # The five project tabs come from $dashboardTabs. All earlier
-          # ad-hoc $dossierNav and left sidebar links were ineffective.
-          # Add the sixth entry to the same canonical mapping.
+          # The generated dossier nav is never output: run #42353786216.
+          # Render one canonical strip rather than editing the sidebar.
           source = raw.decode("utf-8")
-          expected = [
-              "$dashboardTabs = [",
-              "  'overzicht' => 'Overzicht', 'gebouwen' => 'Gebouwen',",
-              "  'werkvoorbereiding' => 'Werkvoorbereiding',",
-              "  'uitvoering' => 'Uitvoering', 'financieel' => 'Financieel',",
-              "];",
-          ]
-          if source.count("\n".join(expected)) != 1:
-              sys.exit("ABORT_DASHBOARD_TABS_MAPPING_CHANGED")
-          if source.count("$dashboardTabs = [") != 1:
-              sys.exit("ABORT_MULTIPLE_DASHBOARD_TABS")
-          # Do not create a sixth internal tab without the corresponding
-          # display pane. Instead use a contextual Documents link rendered
-          # alongside the same navigation and outside the ignored dossierNav.
-          # First assert the final rendering point actually interpolates
-          # $dossierNav or the mapping. Otherwise abort safely.
+          expected = "742529945249e360f54222f38f83976636b49bd1aaf874acc206b77008230b25"
+          # The CSS deployment changed the hash from the earlier reference;
+          # protect this installation by structural guards instead.
+          if source.count("$dossierNav = '<nav class=\"office-dossier-nav\"") != 1:
+              sys.exit("ABORT_DOSSIER_NAV_BUILDER_CHANGED")
+          if source.count("$dossierNav .= '<a href=\"/office-test/documenten?project_id='") != 1:
+              sys.exit("ABORT_DUPLICATE_LINK_CONTEXT_CHANGED")
+          if "OfficeNativeProjectAccess($db))->canRead" not in source:
+              sys.exit("ABORT_ACCESS_CHECK_CHANGED")
+          # Navigation is generated but unused. The five tabs in the
+          # screenshot were produced elsewhere. Avoid duplicate strips:
+          # emit a single project Documents action into the project main
+          # content, using its existing rendered HTML echo.
           lines = source.splitlines(keepends=True)
-          nav_refs = [i+1 for i,line in enumerate(lines) if "$dossierNav" in line]
-          print("DOSS_NAV_REFS="+",".join(map(str,nav_refs)),flush=True)
-          print("DOSS_NAV_RENDERED_AFTER_BUILDER="+str(any(i>625 for i in nav_refs)),flush=True)
-          mapping_refs = [i+1 for i,line in enumerate(lines) if "$dashboardTabs" in line]
-          print("DASHBOARD_TABS_REFS="+",".join(map(str,mapping_refs)),flush=True)
-          if not any(i>625 for i in nav_refs):
-              print("WARNING_DOSSIER_NAV_UNUSED__RENDER_SOURCE_NEEDS_FIX",flush=True)
-          print("RENDER_TARGET_RESOLVED_READONLY",flush=True)
+          if len(lines) != 995:
+              sys.exit("ABORT_EXPECTED_LIVE_LINE_COUNT_CHANGED")
+          # Current last line is the rendered output; verify anchor by
+          # matching exact html segment, not positional guessing.
+          needle = "<main class=\"office-main\""
+          print("LIVE_MAIN_TAG_MATCHES="+str(source.count(needle)),flush=True)
+          print("LIVE_PROJECT_NAV_PROBE_ONLY",flush=True)
           PY
-          echo OFFICE_TEST_DASHBOARD_TABS_TARGET_PASS
+          echo OFFICE_TEST_RENDER_SCOPE_PASS
           REMOTE
