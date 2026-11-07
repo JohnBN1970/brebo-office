@@ -24,16 +24,26 @@ final class OfficeCalcSessionGrantCompatibility
         int $calculationId,
         int $now
     ): bool {
+        return $this->activeSessionHash($reference, $actorId, $projectId, $calculationId, $now) !== null;
+    }
+
+    public function activeSessionHash(
+        string $reference,
+        int $actorId,
+        int $projectId,
+        int $calculationId,
+        int $now
+    ): ?string {
         if (!preg_match('/^[a-f0-9]{64}$/D', $reference)
             || $actorId <= 0 || $projectId <= 0 || $calculationId <= 0 || $now <= 0) {
-            return false;
+            return null;
         }
         try {
             if (!class_exists(OfficeCalcSessionGrantRepository::class, false)) {
                 require_once __DIR__ . '/OfficeCalcSessionGrantRepository.php';
             }
             if (!method_exists(OfficeCalcSessionGrantRepository::class, 'findActive')) {
-                return false;
+                return null;
             }
             $result = (new OfficeCalcSessionGrantRepository($this->db))->findActive(
                 $reference, $actorId, $projectId, $calculationId, $now
@@ -45,11 +55,12 @@ final class OfficeCalcSessionGrantCompatibility
             if (!is_array($result) || count($result) !== 1
                 || !isset($result['office_session_hash'])
                 || !is_string($result['office_session_hash'])) {
-                return false;
+                return null;
             }
-            return preg_match('/^[a-f0-9]{64}$/D', $result['office_session_hash']) === 1;
+            return preg_match('/^[a-f0-9]{64}$/D', $result['office_session_hash']) === 1
+                ? $result['office_session_hash'] : null;
         } catch (Throwable) {
-            return false;
+            return null;
         }
     }
 }
