@@ -116,7 +116,7 @@ if ($detail) {
     }
     require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingPdokSaveAction.php';
     $pdokRepository = new \Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository($db);
-    $pdokCanManage = $pdokRepository->canManage((int)$operator->operatorId, $buildingId);
+    $pdokCanManage = $pdokRepository->canManage((string)$operator->operatorId, $buildingId);
     $pdokCsrf = \Brebo\Office\Buildings\OfficeBuildingPdokRequestGuard::token(
       (string)($_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')] ?? ''),
       $buildingId, \Brebo\Office\Intake\OfficeMount::basePath(), time()
@@ -136,7 +136,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   }
   try {
     (new \Brebo\Office\Buildings\OfficeBuildingPdokSaveAction($pdokRepository, new \Brebo\Office\Buildings\OfficeBuildingPdokClient()))->execute(
-      (int)$operator->operatorId, $buildingId,
+      (string)$operator->operatorId, $buildingId,
       (string)($_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')] ?? ''),
       \Brebo\Office\Intake\OfficeMount::basePath(), $allowedHost, $_SERVER, $_POST, time()
     );
