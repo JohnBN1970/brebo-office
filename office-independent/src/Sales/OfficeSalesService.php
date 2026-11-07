@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Brebo\Office\Sales;
 use PDO;
+require_once __DIR__.'/OfficeSalesBilling.php';
 
 /** Office owns customer snapshots, lines, totals and history. No invoice imports. */
 final class OfficeSalesService {
@@ -35,39 +36,60 @@ final class OfficeSalesService {
 
   public function list(): array {
     $this->authorize();
-    $q=$this->db->prepare("SELECT i.* FROM office_finance_sales_invoice i WHERE (i.office_project_id IS NULL AND i.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_memberships m WHERE m.project_id=i.office_project_id AND m.operator_id=? AND m.permission IN ('read','manage')) ORDER BY i.id DESC LIMIT 200");
-    $q->execute([$this->operatorId,$this->operatorId]); return $q->fetchAll(PDO::FETCH_ASSOC);
+    $q=$this->db->prepare("SELECT i.*,c.price_mode,c.labor_cents,c.g_rate_units,c.g_cents,c.g_iban,c.source_contract_id,c.source_term_id,c.term_percent_units,c.source_snapshot,c.summary_json FROM office_finance_sales_invoice i LEFT JOIN office_finance_sales_context c ON c.invoice_id=i.id WHERE (i.office_project_id IS NULL AND i.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_memberships m WHERE m.project_id=i.office_project_id AND m.operator_id=? AND m.permission IN ('read','manage')) ORDER BY i.id DESC LIMIT 200");
+    $q->execute([$this->operatorId,$this->operatorId]); return array_map(OfficeSalesBilling::defaults(...),$q->fetchAll(PDO::FETCH_ASSOC));
   }
 
   public function get(int $id, bool $write = false): array {
     $this->authorize($write);
-    $q=$this->db->prepare('SELECT * FROM office_finance_sales_invoice WHERE id=?'); $q->execute([$id]);
+    $q=$this->db->prepare('SELECT i.*,c.price_mode,c.labor_cents,c.g_rate_units,c.g_cents,c.g_iban,c.source_contract_id,c.source_term_id,c.term_percent_units,c.source_snapshot,c.summary_json FROM office_finance_sales_invoice i LEFT JOIN office_finance_sales_context c ON c.invoice_id=i.id WHERE i.id=?'); $q->execute([$id]);
     $row=$q->fetch(PDO::FETCH_ASSOC);
     if (!$row || ($row['office_project_id']===null && (string)$row['operator_id']!==$this->operatorId)) throw new \DomainException('Factuur niet beschikbaar.');
     $this->project($row['office_project_id']===null ? null : (int)$row['office_project_id']);
-    return $row;
+    return OfficeSalesBilling::defaults($row);
   }
 
-  public static function totals(array $lines): array {
-    if ($lines===[] || count($lines)>100) throw new \InvalidArgumentException('Vul 1 tot 100 factuurregels in.');
-    $net=0; $vat=0; $clean=[];
-    foreach ($lines as $line) {
-      $description=trim((string)($line['description']??''));
-      $quantity=str_replace(',','.',(string)($line['quantity']??''));
-      $price=str_replace(',','.',(string)($line['price']??''));
-      $rate=(string)($line['vat']??'');
-      if ($description==='' || strlen($description)>1000 || preg_match('/[\x00-\x1f]/',$description)
-          || !preg_match('/^\d{1,6}(?:\.\d{1,3})?$/D',$quantity)
-          || !preg_match('/^\d{1,7}(?:\.\d{1,2})?$/D',$price) || !in_array($rate,['0','9','21'],true)) throw new \InvalidArgumentException('Ongeldige factuurregel.');
-      [$a,$b]=array_pad(explode('.',$quantity),2,''); $units=(int)$a*1000+(int)str_pad($b,3,'0');
-      [$a,$b]=array_pad(explode('.',$price),2,''); $cents=(int)$a*100+(int)str_pad($b,2,'0');
-      if ($units<=0) throw new \InvalidArgumentException('Aantal moet positief zijn.');
-      $amount=intdiv($units*$cents+500,1000); $tax=intdiv($amount*(int)$rate+50,100);
-      $net+=$amount; $vat+=$tax;
-      if ($net+$vat>999999999999) throw new \InvalidArgumentException('Factuurtotaal te groot.');
-      $clean[]=['description'=>$description,'quantity'=>$quantity,'price'=>$price,'vat'=>$rate,'net_cents'=>$amount,'vat_cents'=>$tax];
-    }
-    return ['lines'=>$clean,'net_cents'=>$net,'vat_cents'=>$vat,'gross_cents'=>$net+$vat];
+  public static function totals(array $lines,string $mode='excl'): array {return OfficeSalesBilling::totals($lines,$mode);}
+
+  public function termsAvailable(): bool {
+    $this->authorize();
+    if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite')return (int)$this->db->query("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('office_project_contracts','office_project_terms')")->fetchColumn()===2;
+    return (int)$this->db->query("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_project_contracts','office_project_terms')")->fetchColumn()===2;
+  }
+
+  public function termChoices(): array {
+    if(!$this->termsAvailable())return [];
+    $q=$this->db->prepare("SELECT t.id,t.term_number,t.description,t.percentage,t.amount,t.due_date,c.contract_number,c.office_project_id,p.title AS project_title
+      FROM office_project_terms t JOIN office_project_contracts c ON c.id=t.contract_id JOIN office_projects p ON p.id=c.office_project_id
+      LEFT JOIN office_finance_sales_context x ON x.source_term_id=t.id
+      WHERE x.invoice_id IS NULL AND t.amount>0 AND c.contract_amount>0 AND c.currency='EUR'
+      AND t.status NOT IN ('cancelled','canceled','void','paid','invoiced') AND c.status NOT IN ('cancelled','canceled','void')
+      AND EXISTS(SELECT 1 FROM office_project_memberships m WHERE m.project_id=p.id AND m.operator_id=? AND m.permission IN ('read','manage'))
+      ORDER BY p.title,t.term_number LIMIT 300");$q->execute([$this->operatorId]);return $q->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  public function sourceTerm(int $id,bool $lock=false): array {
+    $this->authorize();if($id<1||!$this->termsAvailable())throw new \DomainException('Termijn niet beschikbaar.');
+    $q=$this->db->prepare("SELECT t.id,t.contract_id,t.term_number,t.description,t.percentage,t.amount,t.status AS term_status,t.due_date,c.office_project_id,c.contract_number,c.contract_amount,c.currency,c.status AS contract_status,p.title AS project_title
+      FROM office_project_terms t JOIN office_project_contracts c ON c.id=t.contract_id JOIN office_projects p ON p.id=c.office_project_id WHERE t.id=?".($lock&&$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''));$q->execute([$id]);$term=$q->fetch(PDO::FETCH_ASSOC);
+    if(!$term)throw new \DomainException('Termijn niet beschikbaar.');$this->project((int)$term['office_project_id']);
+    if($term['currency']!=='EUR'||in_array($term['term_status'],['cancelled','canceled','void','paid','invoiced'],true)||in_array($term['contract_status'],['cancelled','canceled','void'],true))throw new \DomainException('Deze termijn is niet beschikbaar voor een nieuwe factuur.');
+    return $term;
+  }
+
+  public function contractSummary(array $term,?int $id,int $net,int $gross,?int $percent): array {
+    $this->authorize();$this->project((int)$term['office_project_id']);
+    $q=$this->db->prepare("SELECT COALESCE(SUM(i.net_cents),0) AS net,COALESCE(SUM(i.gross_cents),0) AS gross,COALESCE(SUM(i.paid_cents),0) AS paid
+      FROM office_finance_sales_invoice i JOIN office_finance_sales_context x ON x.invoice_id=i.id WHERE x.source_contract_id=? AND i.id<>? AND i.invoice_number IS NOT NULL");$q->execute([$term['contract_id'],$id??0]);$previous=$q->fetch(PDO::FETCH_ASSOC);
+    $q=$this->db->prepare("SELECT COUNT(*) FROM office_project_terms t LEFT JOIN office_finance_sales_context x ON x.source_term_id=t.id WHERE t.contract_id=? AND t.status IN ('paid','invoiced') AND x.invoice_id IS NULL");$q->execute([$term['contract_id']]);$complete=(int)$q->fetchColumn()===0;
+    $contract=OfficeSalesBilling::cents((string)$term['contract_amount']);$open=max(0,(int)$previous['gross']-(int)$previous['paid']);
+    return ['contract_number'=>(string)($term['contract_number']??''),'contract_net_cents'=>$contract,'term_number'=>(int)$term['term_number'],'term_percent_units'=>$percent,'term_net_cents'=>$net,'term_gross_cents'=>$gross,'previous_net_cents'=>(int)$previous['net'],'paid_gross_cents'=>(int)$previous['paid'],'previous_open_gross_cents'=>$open,'due_including_current_gross_cents'=>$open+$gross,'unbilled_after_net_cents'=>max(0,$contract-(int)$previous['net']-$net),'coverage_complete'=>$complete];
+  }
+
+  public function termDraft(int $termId,string $today): array {
+    $term=$this->sourceTerm($termId);$percent=$term['percentage']===null?'':(string)$term['percentage'];$amount=OfficeSalesBilling::termAmount($term,$percent);
+    $line=['description'=>'Termijn '.$term['term_number'].' - '.$term['description'],'quantity'=>'1','price'=>OfficeSalesBilling::decimal($amount['net_cents']),'vat'=>'21'];$totals=self::totals([$line]);
+    return OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>'','office_project_id'=>(int)$term['office_project_id'],'invoice_date'=>$today,'due_date'=>$term['due_date']?:((new \DateTimeImmutable($today))->modify('+14 days')->format('Y-m-d')),'reference'=>trim((string)$term['contract_number'].' · '.$term['project_title']),'lines_json'=>json_encode($totals['lines'],JSON_THROW_ON_ERROR),'net_cents'=>$totals['net_cents'],'vat_cents'=>$totals['vat_cents'],'gross_cents'=>$totals['gross_cents'],'source_term_id'=>$termId,'source_contract_id'=>(int)$term['contract_id'],'term_percent_units'=>$amount['term_percent_units'],'source_snapshot'=>json_encode($term,JSON_THROW_ON_ERROR),'summary_json'=>json_encode($this->contractSummary($term,null,$totals['net_cents'],$totals['gross_cents'],$amount['term_percent_units']),JSON_THROW_ON_ERROR)]);
   }
 
   private static function date(string $date): string {
@@ -76,36 +98,54 @@ final class OfficeSalesService {
     return $date;
   }
 
-  public function save(array $input, ?int $id = null, int $revision = 0): int {
-    $this->authorize(true);
-    $project=($input['office_project_id']??'')==='' ? null : filter_var($input['office_project_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-    if ($project===false) throw new \InvalidArgumentException('Ongeldig project.');
+  public function save(array $input,?int $id=null,int $revision=0): int {
+    $this->authorize(true);$prior=$id===null?null:$this->get($id,true);
+    $termId=filter_var($input['source_term_id']??($prior['source_term_id']??0),FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+    if($termId===false)throw new \InvalidArgumentException('Ongeldige termijn.');
+    if($prior!==null&&(int)($prior['source_term_id']??0)!==$termId)throw new \DomainException('De brontermijn van een opgeslagen factuur kan niet worden gewijzigd.');
+    $source=$termId>0?$this->sourceTerm($termId):null;
+    $project=($input['office_project_id']??'')===''?null:filter_var($input['office_project_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    if($project===false)throw new \InvalidArgumentException('Ongeldig project.');
+    if($source!==null){if($project!==(int)$source['office_project_id'])throw new \DomainException('De termijn hoort bij een ander project.');$project=(int)$source['office_project_id'];}
     $this->project($project);
-    $customerId=filter_var($input['relation_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-    if ($customerId===false) throw new \InvalidArgumentException('Kies een relatie.');
-    $q=$this->db->prepare("SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE id=? AND status='active'");
-    $q->execute([$customerId]); $customer=$q->fetch(PDO::FETCH_ASSOC);
-    if (!$customer) throw new \InvalidArgumentException('Relatie niet beschikbaar.');
-    $date=self::date((string)($input['invoice_date']??'')); $due=self::date((string)($input['due_date']??''));
-    if ($due<$date) throw new \InvalidArgumentException('Vervaldatum ligt voor factuurdatum.');
-    $reference=trim((string)($input['reference']??''));
-    if (strlen($reference)>255 || preg_match('/[\x00-\x1f]/',$reference)) throw new \InvalidArgumentException('Ongeldige referentie.');
-    $totals=self::totals($input['lines']??[]); $now=gmdate('c');
+    $customerId=filter_var($input['relation_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($customerId===false)throw new \InvalidArgumentException('Kies een relatie.');
+    $q=$this->db->prepare("SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE id=? AND status='active'");$q->execute([$customerId]);$customer=$q->fetch(PDO::FETCH_ASSOC);if(!$customer)throw new \InvalidArgumentException('Relatie niet beschikbaar.');
+    $date=self::date((string)($input['invoice_date']??''));$due=self::date((string)($input['due_date']??''));if($due<$date)throw new \InvalidArgumentException('Vervaldatum ligt voor factuurdatum.');
+    $reference=trim((string)($input['reference']??''));if(strlen($reference)>255||preg_match('/[\x00-\x1f]/',$reference))throw new \InvalidArgumentException('Ongeldige referentie.');
+    $mode=(string)($input['price_mode']??($prior['price_mode']??'excl'));$percent=null;$lines=$input['lines']??[];
+    if($source!==null){
+      if($mode!=='excl')throw new \InvalidArgumentException('Termijnen worden berekend over de aanneemsom exclusief btw.');
+      $termAmount=OfficeSalesBilling::termAmount($source,(string)($input['term_percent']??''));$percent=$termAmount['term_percent_units'];
+      if(!is_array($lines)||count($lines)!==1)throw new \InvalidArgumentException('Een termijnfactuur bevat één termijn.');$line=array_values($lines)[0];
+      if(!in_array(str_replace(',','.',(string)($line['quantity']??'')),['1','1.0','1.00','1.000'],true)||OfficeSalesBilling::cents((string)($line['price']??''),7)!==$termAmount['net_cents'])throw new \InvalidArgumentException('Het termijnbedrag is gewijzigd; controleer percentage en bedrag opnieuw.');
+      $lines=[['description'=>'Termijn '.$source['term_number'].' - '.$source['description'],'quantity'=>'1','price'=>OfficeSalesBilling::decimal($termAmount['net_cents']),'vat'=>(string)($line['vat']??'')]];
+    }
+    $totals=self::totals($lines,$mode);$allocation=OfficeSalesBilling::allocation($input,$totals['net_cents'],$totals['gross_cents']);$now=gmdate('c');
     $this->db->beginTransaction();
-    try {
-      $values=[$project,$customerId,json_encode($customer,JSON_THROW_ON_ERROR),$date,$due,$reference,json_encode($totals['lines'],JSON_THROW_ON_ERROR),$totals['net_cents'],$totals['vat_cents'],$totals['gross_cents'],$now];
-      if ($id===null) {
-        $q=$this->db->prepare('INSERT INTO office_finance_sales_invoice (office_project_id,relation_id,customer_json,invoice_date,due_date,reference,lines_json,net_cents,vat_cents,gross_cents,updated_at,operator_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
-        $q->execute([...$values,$this->operatorId,$now]); $id=(int)$this->db->lastInsertId();
-      } else {
-        $row=$this->get($id,true);
-        if ($row['status']!=='draft') throw new \DomainException('Een vrijgegeven factuur is niet wijzigbaar.');
-        $q=$this->db->prepare("UPDATE office_finance_sales_invoice SET office_project_id=?,relation_id=?,customer_json=?,invoice_date=?,due_date=?,reference=?,lines_json=?,net_cents=?,vat_cents=?,gross_cents=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=? AND status='draft'");
-        $q->execute([...$values,$id,$revision]);
-        if ($q->rowCount()!==1) throw new \DomainException('Het concept is inmiddels gewijzigd; laad opnieuw.');
+    try{
+      if($source!==null){
+        if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){
+          $q=$this->db->prepare('SELECT id FROM office_project_contracts WHERE id=? FOR UPDATE');$q->execute([$source['contract_id']]);
+          $q=$this->db->prepare('SELECT id FROM office_project_terms WHERE id=? FOR UPDATE');$q->execute([$termId]);
+        }
+        if($this->sourceTerm($termId,true)!==$source)throw new \DomainException('De termijn is gewijzigd; laad het concept opnieuw.');
+        $q=$this->db->prepare('SELECT COALESCE(SUM(i.net_cents),0) FROM office_finance_sales_invoice i JOIN office_finance_sales_context x ON x.invoice_id=i.id WHERE x.source_contract_id=? AND i.id<>?');$q->execute([$source['contract_id'],$id??0]);
+        if((int)$q->fetchColumn()+$totals['net_cents']>OfficeSalesBilling::cents((string)$source['contract_amount']))throw new \DomainException('De gekoppelde facturen en concepten overschrijden samen de aanneemsom.');
       }
-      $this->audit($id,'draft_saved',[]); $this->db->commit(); return $id;
-    } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+      $values=[$project,$customerId,json_encode($customer,JSON_THROW_ON_ERROR),$date,$due,$reference,json_encode($totals['lines'],JSON_THROW_ON_ERROR),$totals['net_cents'],$totals['vat_cents'],$totals['gross_cents'],$now];
+      if($id===null){
+        $q=$this->db->prepare('INSERT INTO office_finance_sales_invoice (office_project_id,relation_id,customer_json,invoice_date,due_date,reference,lines_json,net_cents,vat_cents,gross_cents,updated_at,operator_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');$q->execute([...$values,$this->operatorId,$now]);$id=(int)$this->db->lastInsertId();
+      }else{
+        $row=$this->get($id,true);if($row['status']!=='draft')throw new \DomainException('Een vrijgegeven factuur is niet wijzigbaar.');
+        $q=$this->db->prepare("UPDATE office_finance_sales_invoice SET office_project_id=?,relation_id=?,customer_json=?,invoice_date=?,due_date=?,reference=?,lines_json=?,net_cents=?,vat_cents=?,gross_cents=?,updated_at=?,revision=revision+1 WHERE id=? AND revision=? AND status='draft'");$q->execute([...$values,$id,$revision]);if($q->rowCount()!==1)throw new \DomainException('Het concept is inmiddels gewijzigd; laad opnieuw.');
+      }
+      $summary=$source===null?null:json_encode($this->contractSummary($source,$id,$totals['net_cents'],$totals['gross_cents'],$percent),JSON_THROW_ON_ERROR);
+      $context=[$mode,$allocation['labor_cents'],$allocation['g_rate_units'],$allocation['g_cents'],$allocation['g_iban'],$source===null?null:(int)$source['contract_id'],$source===null?null:$termId,$percent,$source===null?null:json_encode($source,JSON_THROW_ON_ERROR),$summary];
+      $q=$this->db->prepare('SELECT invoice_id FROM office_finance_sales_context WHERE invoice_id=?');$q->execute([$id]);
+      if($q->fetchColumn()===false){$q=$this->db->prepare('INSERT INTO office_finance_sales_context (price_mode,labor_cents,g_rate_units,g_cents,g_iban,source_contract_id,source_term_id,term_percent_units,source_snapshot,summary_json,invoice_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)');}
+      else{$q=$this->db->prepare('UPDATE office_finance_sales_context SET price_mode=?,labor_cents=?,g_rate_units=?,g_cents=?,g_iban=?,source_contract_id=?,source_term_id=?,term_percent_units=?,source_snapshot=?,summary_json=? WHERE invoice_id=?');}
+      $q->execute([...$context,$id]);$this->audit($id,'draft_saved',['source_term_id'=>$source===null?null:$termId]);$this->db->commit();return $id;
+    }catch(\Throwable $e){$this->db->rollBack();if($source!==null&&$e instanceof \PDOException&&in_array((string)$e->getCode(),['23000','23505','19'],true))throw new \DomainException('Voor deze termijn bestaat al een factuur.');throw $e;}
   }
 
   public static function status(array $row, string $today): string {
@@ -127,6 +167,16 @@ final class OfficeSalesService {
       if ($operation==='invoice' && ($row['status']!=='draft' || (int)$row['gross_cents']<=0)) throw new \DomainException('Alleen een positief concept kan worden verzonden.');
       if ($operation==='reminder' && (self::status($row,$today)!=='overdue' || $row['last_reminder_date']===$today)) throw new \DomainException('Alleen vervallen openstaande facturen kunnen worden herinnerd; maximaal eenmaal per dag.');
       if ($operation==='invoice') {
+        if((int)$row['g_cents']>0&&!OfficeSalesBilling::validGiban((string)$row['g_iban']))throw new \DomainException('Vul eerst het bevestigde G-rekeningnummer in.');
+        if((int)($row['source_term_id']??0)>0){
+          if($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'){$lock=$this->db->prepare('SELECT id FROM office_project_contracts WHERE id=? FOR UPDATE');$lock->execute([$row['source_contract_id']]);}
+          $term=$this->sourceTerm((int)$row['source_term_id'],true);
+          if(json_encode($term,JSON_THROW_ON_ERROR)!==$row['source_snapshot'])throw new \DomainException('De brontermijn is gewijzigd; controleer en sla het concept opnieuw op.');
+          if(!in_array($term['contract_status'],['signed','accepted','approved','active','confirmed'],true))throw new \DomainException('Het contract is nog niet vrijgegeven voor verzending.');
+          $summary=$this->contractSummary($term,$id,(int)$row['net_cents'],(int)$row['gross_cents'],$row['term_percent_units']===null?null:(int)$row['term_percent_units']);
+          if(!$summary['coverage_complete'])throw new \DomainException('Koppel eerdere gefactureerde termijnen voordat deze termijn wordt verzonden.');
+          $this->db->prepare('UPDATE office_finance_sales_context SET summary_json=? WHERE invoice_id=?')->execute([json_encode($summary,JSON_THROW_ON_ERROR),$id]);
+        }
         $q=$this->db->prepare("SELECT external_id FROM office_crm_external_identities WHERE relation_id=? AND provider_code='moneybird'"); $q->execute([$row['relation_id']]);
         $ids=$q->fetchAll(PDO::FETCH_COLUMN);
         if (count($ids)!==1 || !preg_match('/^\d+$/D',(string)$ids[0])) throw new \DomainException('Koppel deze BREBO-relatie eerst aan één Moneybird-contact.');
@@ -138,7 +188,8 @@ final class OfficeSalesService {
           if (!is_string($tax) || !preg_match('/^\d+$/D',$tax)) throw new \DomainException('Btw-koppeling voor Moneybird ontbreekt.');
           $details[]=['description'=>$line['description'],'amount'=>$line['quantity'],'price'=>$line['price'],'tax_rate_id'=>$tax];
         }
-        $payload=['sales_invoice'=>['contact_id'=>(string)$ids[0],'reference'=>'BREBO-'.$id.($row['reference']!=='' ? ' · '.$row['reference'] : ''),'invoice_date'=>$row['invoice_date'],'due_date'=>$row['due_date'],'currency'=>'EUR','prices_are_incl_tax'=>false,'details_attributes'=>$details], 'sending'=>['delivery_method'=>'Email','email_address'=>$recipient,'email_message'=>$message]];
+        $payload=['sales_invoice'=>['contact_id'=>(string)$ids[0],'reference'=>'BREBO-'.$id.($row['reference']!=='' ? ' · '.$row['reference'] : ''),'invoice_date'=>$row['invoice_date'],'due_date'=>$row['due_date'],'currency'=>'EUR','prices_are_incl_tax'=>$row['price_mode']==='incl','details_attributes'=>$details], 'sending'=>['delivery_method'=>'Email','email_address'=>$recipient,'email_message'=>$message]];
+        if((int)$row['g_cents']>0)$payload['sales_invoice']['payment_conditions']='Van dit factuurbedrag: EUR '.OfficeSalesBilling::decimal((int)$row['g_cents']).' naar G-rekening '.$row['g_iban'].' ('.OfficeSalesBilling::percentText((int)$row['g_rate_units']).'% van arbeid EUR '.OfficeSalesBilling::decimal((int)$row['labor_cents']).' exclusief btw), en EUR '.OfficeSalesBilling::decimal((int)$row['gross_cents']-(int)$row['g_cents']).' naar NL19 ABNA 0894 3515 67. Vermeld het factuurnummer.';
       } else {
         $provider=json_decode($row['provider_json']??'null',true,32,JSON_THROW_ON_ERROR);
         foreach (['id','contact_id','workflow_id','document_style_id','identity_id'] as $field) if (!is_string($provider[$field]??null) || !preg_match('/^\d+$/D',$provider[$field])) throw new \DomainException('Verzendbewijs voor deze factuur is onvolledig.');

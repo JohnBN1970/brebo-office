@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Brebo\Office\Sales;
+require_once __DIR__.'/OfficeSalesBilling.php';
 
 /** Additive installation only. Never execute DDL from a web request. */
 final class OfficeSalesSchema {
@@ -37,6 +38,7 @@ final class OfficeSalesSchema {
         operator_id VARCHAR(128) NOT NULL, created_at VARCHAR(32) NOT NULL,
         UNIQUE (invoice_id,evidence_reference)
       )$tail",
+      OfficeSalesBilling::schema($sqlite),
     ];
   }
 }

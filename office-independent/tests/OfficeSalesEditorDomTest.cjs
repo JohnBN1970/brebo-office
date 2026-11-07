@@ -10,6 +10,7 @@ const body = document.getElementById('sales-lines');
 const field = (row, suffix) => row.querySelector('[name$="[' + suffix + ']"]');
 const set = (row, suffix, value) => { const input = field(row, suffix);input.value=value;input.dispatchEvent(new dom.window.Event('input', {bubbles:true})); };
 assert.equal(dom.window.getComputedStyle(document.querySelector('input[type=hidden]')).display, 'none');
+assert.equal(dom.window.getComputedStyle(document.getElementById('sales-g-split')).display,'none');
 assert.equal(body.rows.length, 1);
 set(body.rows[0], 'description', 'Opname');set(body.rows[0], 'quantity', '1,125');set(body.rows[0], 'price', '100,00');
 assert.equal(document.getElementById('sales-gross').textContent, '€ 136,13');
@@ -26,4 +27,20 @@ assert.equal(new Set(names).size, names.length);
 set(body.rows[0], 'price', 'ongeldig');assert.equal(document.getElementById('sales-gross').textContent, '—');
 set(body.rows[0], 'price', '9999999.99');set(body.rows[0], 'quantity', '999999.999');
 assert.equal(document.getElementById('sales-gross').textContent, '—');
+set(body.rows[0],'quantity','1');set(body.rows[0],'vat','21');set(body.rows[0],'price','121.00');
+const mode=document.getElementById('sales-price-mode');mode.value='incl';mode.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+assert.equal(document.getElementById('sales-net').textContent,'€ 100,00');assert.equal(document.getElementById('sales-gross').textContent,'€ 121,00');
+assert.equal(document.querySelector('#sales-tax-21 [data-tax-amount]').textContent,'€ 21,00');
+for(const [id,value] of [['sales-labor','60'],['sales-g-percent','25']]){const field=document.getElementById(id);field.value=value;field.dispatchEvent(new dom.window.Event('input',{bubbles:true}));}
+assert.equal(document.getElementById('sales-g-amount').textContent,'€ 15,00');assert.equal(document.getElementById('sales-ordinary-amount').textContent,'€ 106,00');
+set(body.rows[1],'description','Ander tarief');set(body.rows[1],'quantity','1');set(body.rows[1],'vat','9');set(body.rows[1],'price','109');
+assert.equal(document.getElementById('sales-gross').textContent,'€ 230,00');assert.equal(document.getElementById('sales-vat').textContent,'€ 30,00');assert.equal(document.querySelector('#sales-tax-9 [data-tax-amount]').textContent,'€ 9,00');
+if(process.argv[3]){
+  const termDom=new JSDOM(fs.readFileSync(process.argv[3],'utf8'),{runScripts:'dangerously',virtualConsole:console});const d=termDom.window.document;
+  assert.equal(d.getElementById('sales-gross').textContent,'€ 3.025,00');
+  const percentage=d.getElementById('sales-term-percent');percentage.value='30';percentage.dispatchEvent(new termDom.window.Event('input',{bubbles:true}));
+  assert.equal(d.getElementById('sales-gross').textContent,'€ 3.630,00');assert.equal(d.getElementById('sales-summary-due').textContent,'€ 5.550,00');assert.equal(d.getElementById('sales-summary-unbilled').textContent,'€ 5.000,00');assert.equal(d.getElementById('sales-summary-percent').textContent,'(30%)');
+  assert.equal(d.getElementById('sales-add-line').disabled,true);assert.equal(d.querySelector('[name="lines[0][price]"]').readOnly,true);
+  const form=new termDom.window.FormData(d.getElementById('sales-draft'));assert.deepEqual(form.getAll('office_project_id'),['10']);
+}
 process.stdout.write('OFFICE_SALES_EDITOR_DOM_OK\n');

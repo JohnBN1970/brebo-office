@@ -37,5 +37,5 @@ if(($argv[1]??'')==='--sample')foreach(str_split(base64_encode($pdf),8000) as $p
 
 if(($argv[1]??'')==='--layout-fixture'){
   if(file_put_contents($argv[2],$newHtml)!==strlen($newHtml))throw new RuntimeException('Fixture failed');
-  foreach(str_split(base64_encode($html),8000) as $part)echo 'SALES_LAYOUT_SAMPLE_PART='.$part."\n";
+
 }

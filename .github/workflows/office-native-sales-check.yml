@@ -20,6 +20,7 @@ jobs:
           find office-independent/src/Sales -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l office-independent/public/office-sales.php
           php office-independent/tests/OfficeSalesServiceTest.php
+          php office-independent/tests/OfficeSalesBillingTest.php --fixture "$RUNNER_TEMP/term-layout.html"
           php office-independent/tests/OfficeSalesPdfTest.php --layout-fixture "$RUNNER_TEMP/sales-layout.html"
       - uses: actions/setup-node@v4
         with:
@@ -27,4 +28,4 @@ jobs:
       - name: Check invoice row editor and cent rounding
         run: |
           npm install --prefix "$RUNNER_TEMP/sales-dom" --no-save --ignore-scripts jsdom@26.1.0
-          SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeSalesEditorDomTest.cjs "$RUNNER_TEMP/sales-layout.html"
+          SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeSalesEditorDomTest.cjs "$RUNNER_TEMP/sales-layout.html" "$RUNNER_TEMP/term-layout.html"

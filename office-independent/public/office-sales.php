@@ -33,14 +33,14 @@ try {
   $today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d');
   $taxMap=json_decode(getenv('OFFICE_SALES_MONEYBIRD_TAX_RATES')?:'{}',true);
   $canSend=getenv('OFFICE_SALES_SEND_ENABLED')==='enabled' && function_exists('curl_init') && is_array($taxMap) && strlen(getenv('OFFICE_INTEGRATION_SHARED_SECRET')?:'')>=24;
-  $error='';
+  $error='';$saveFailed=false;$postedId=0;
   if ($method==='POST') {
     if (!$canWrite || !is_string($_POST['csrf']??null) || !hash_equals($csrf,$_POST['csrf'])) { http_response_code(403); exit('Actie geweigerd.'); }
     try {
       $id=filter_var($_POST['id']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
       $revision=filter_var($_POST['revision']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
       if ($id===false || $revision===false) throw new InvalidArgumentException('Ongeldige factuur.');
-      $action=$_POST['action']??'';
+      $postedId=(int)$id;$action=$_POST['action']??'';
       if ($action==='save') {
         $input=$_POST;
         if (!is_array($input['lines']??null)) throw new InvalidArgumentException('Factuurregels ontbreken.');
@@ -55,11 +55,12 @@ try {
         $service->dispatch($delivery,\Brebo\Office\Sales\OfficeSalesTransport::send(...),$today);
       } else throw new InvalidArgumentException('Onbekende actie.');
       header('Location: /office-test/finance/verkoop?id='.$id,true,303); exit;
-    } catch (InvalidArgumentException|DomainException $e) { $error=$e->getMessage(); }
-      catch (RuntimeException $e) { $error='Verzenduitkomst controleren; probeer niet opnieuw. De factuur en de poging blijven vastgelegd.'; }
+    } catch (InvalidArgumentException|DomainException $e) { $error=$e->getMessage();$saveFailed=($_POST['action']??'')==='save'; }
+      catch (RuntimeException $e) { $error=in_array($_POST['action']??'',['invoice','reminder'],true)?'Verzenduitkomst controleren; probeer niet opnieuw. De factuur en de poging blijven vastgelegd.':'Opslaan is niet gelukt. De invoer staat hieronder; probeer later opnieuw.';$saveFailed=($_POST['action']??'')==='save'; }
   }
   $id=isset($_GET['id']) ? filter_var($_GET['id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
   if ($id===false) throw new DomainException('Factuur niet beschikbaar.');
+  if($saveFailed)$id=$postedId>0?$postedId:null;
   $invoice=$id===null?null:$service->get($id);
   if (($_GET['download']??'')==='pdf') {
     if ($method!=='GET' || $invoice===null) throw new DomainException('Factuur niet beschikbaar.');
@@ -70,7 +71,24 @@ try {
     header('Content-Length: '.strlen($pdf));
     echo $pdf; exit;
   }
-  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,isset($_GET['new']),getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled',$id===null?[]:$service->receipts($id),$scriptNonce);
+  $draftPreview=null;$new=isset($_GET['new']);$termSelector=isset($_GET['terms']);
+  if(isset($_GET['from_term'])){
+    if(!$canWrite||$invoice!==null)throw new DomainException('Termijn niet beschikbaar.');
+    $termId=filter_var($_GET['from_term'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($termId===false)throw new DomainException('Termijn niet beschikbaar.');
+    $draftPreview=$service->termDraft($termId,$today);$new=true;
+  }
+  if($saveFailed){
+    $new=$invoice===null;$s=static fn(mixed $v): string=>is_string($v)?$v:'';
+    $source=filter_var($_POST['source_term_id']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+    if($source===false)throw new DomainException('Termijn niet beschikbaar.');
+    $draftPreview=$invoice??($source>0?$service->termDraft($source,$today):\Brebo\Office\Sales\OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>'','office_project_id'=>'','invoice_date'=>$today,'due_date'=>$today,'reference'=>'','lines_json'=>'[]','net_cents'=>0,'vat_cents'=>0,'gross_cents'=>0]));
+    foreach(['relation_id','office_project_id','invoice_date','due_date','reference'] as $field)$draftPreview[$field]=$s($_POST[$field]??'');
+    $draftPreview['price_mode']=in_array($_POST['price_mode']??'',['incl','excl'],true)?$_POST['price_mode']:'excl';
+    foreach(['labor_amount'=>'_labor_input','g_percent'=>'_g_percent_input','term_percent'=>'_term_percent_input','g_iban'=>'g_iban'] as $field=>$target)$draftPreview[$target]=$s($_POST[$field]??'');
+    $lines=[];foreach(array_slice(is_array($_POST['lines']??null)?$_POST['lines']:[],0,100) as $line){if(!is_array($line))continue;$safe=[];foreach(['description','quantity','price','vat'] as $field)$safe[$field]=$s($line[$field]??'');$lines[]=$safe;}
+    $draftPreview['lines_json']=json_encode($lines,JSON_THROW_ON_ERROR);$draftPreview['_unsaved']=true;
+  }
+  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,$new,getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled',$id===null?[]:$service->receipts($id),$scriptNonce,$draftPreview,$termSelector?$service->termChoices():[],$termSelector);
   header('Content-Type: text/html; charset=utf-8'); echo $html;
 } catch (DomainException $e) { http_response_code(403); exit('Geen toegang tot deze verkoopfactuur.'); }
   catch (Throwable $e) { http_response_code(503); exit('Verkoopfacturen zijn tijdelijk niet beschikbaar.'); }

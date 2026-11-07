@@ -44,10 +44,22 @@ try {
   if (is_file($router) && !is_link($router)) {
     echo 'SALES_MODULAR_ROUTER_PRESENT='.(int)str_contains(file_get_contents($router),"\$moduleRoot = \$private . '/modules';")."\n";
   }
+  $runtimeSales=$root.'/src/Sales';
+  $manifest=$root.'/modules/sales/routes.php';
+  if(is_file($manifest)&&!is_link($manifest)){
+    $module=file_get_contents($manifest);
+    if(preg_match("~'(/office-test/finance/verkoop)'\\s*=>\\s*'([a-z][a-z0-9-]*\\.php)'~",$module,$route)){
+      $entry=$root.'/public/'.$route[2];
+      if(is_file($entry)&&!is_link($entry)&&preg_match("~'/src/Sales/(billing-v2-\\d+-\\d+)/~",file_get_contents($entry),$bundle)){
+        $candidate=$root.'/src/Sales/'.$bundle[1];if(realpath($candidate)!==$candidate)throw new RuntimeException('Unsafe billing bundle');$runtimeSales=$candidate;
+      }
+    }
+  }
+  echo 'SALES_ACTIVE_BILLING_V2='.(int)($runtimeSales!==$root.'/src/Sales')."\n";
   if (($config['OFFICE_SALES_ENABLED']??'')==='enabled') {
     $db->query('SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE 1=0');
-    require_once $root.'/src/Sales/OfficeSalesService.php';
-    require_once $root.'/src/Sales/OfficeSalesView.php';
+    require_once $runtimeSales.'/OfficeSalesService.php';
+    require_once $runtimeSales.'/OfficeSalesView.php';
     $service=new \Brebo\Office\Sales\OfficeSalesService($db,'1');
     $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),null,$service->customers(),$service->projects(),[],str_repeat('a',64),true,false,date('Y-m-d'),'',true,false,[]);
     if (!str_contains($html,'relation_id') || !str_contains($html,'Verkoopfacturen')) throw new RuntimeException('Sales form render failed');

@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 namespace Brebo\Office\Sales;
+require_once __DIR__.'/OfficeSalesBilling.php';
 
 /** Local PDF export of the authorized, saved Office invoice; no provider calls. */
 final class OfficeSalesPdf {
   private array $pages=[];
   private string $page='';
   private float $y=0;
+  private bool $inclusive=false;
   private static array $fonts=[];
   private static function fonts(): array {
     if(self::$fonts===[])self::$fonts=json_decode(file_get_contents(__DIR__.'/brebo-fonts.json'),true,16,JSON_THROW_ON_ERROR);
@@ -79,12 +81,12 @@ final class OfficeSalesPdf {
     $this->tableHead();
   }
   private function tableHead(): void {
-    foreach([[69,'Omschrijving'],[327,'Bedrag'],[421,'Totaal'],[525,'BTW']] as [$x,$label])$this->text($x,$this->y,$label,9,true);
+    foreach([[69,'Omschrijving'],[327,$this->inclusive?'Prijs incl.':'Prijs excl.'],[421,'Totaal'],[525,'BTW']] as [$x,$label])$this->text($x,$this->y,$label,9,true);
     $this->y+=6;$this->rule($this->y);$this->y+=17;
   }
   private static function money(int $cents): string {return '€ '.number_format($cents/100,2,',','.');}
   public static function render(array $invoice): string {
-    $pdf=new self();$pdf->heading($invoice,true);
+    $invoice=OfficeSalesBilling::defaults($invoice);$pdf=new self();$pdf->inclusive=$invoice['price_mode']==='incl';$pdf->heading($invoice,true);
     $lines=json_decode($invoice['lines_json'],true,32,JSON_THROW_ON_ERROR);$tax=[];
     foreach($lines as $line) {
       $wrapped=self::wrap((string)$line['description'],244);
@@ -104,17 +106,34 @@ final class OfficeSalesPdf {
         $pdf->y+=13;
       }
       $pdf->y+=10;
-      $rate=(string)$line['vat'];$tax[$rate]=($tax[$rate]??0)+(int)$line['vat_cents'];
+      $rate=(string)$line['vat'];$tax[$rate]??=['net'=>0,'vat'=>0];$tax[$rate]['net']+=(int)$line['net_cents'];$tax[$rate]['vat']+=(int)$line['vat_cents'];
     }
-    if($pdf->y+90+count($tax)*20>750)$pdf->heading($invoice,false);
+    if($pdf->y+110+count($tax)*20>750)$pdf->heading($invoice,false);
     $pdf->y+=21;
     $pdf->text(0,$pdf->y,'Subtotaal excl. BTW',10,false,368);$pdf->text(0,$pdf->y,self::money((int)$invoice['net_cents']),10,false,458);
-    foreach($tax as $rate=>$amount){$pdf->y+=20;$pdf->text(0,$pdf->y,'BTW '.$rate.'%',10,false,368);$pdf->text(0,$pdf->y,self::money($amount),10,false,458);}
+    foreach($tax as $rate=>$amount){$pdf->y+=20;$pdf->text(0,$pdf->y,'BTW '.$rate.'% over '.self::money($amount['net']),9,false,368);$pdf->text(0,$pdf->y,self::money($amount['vat']),10,false,458);}
+    $pdf->y+=20;$pdf->text(0,$pdf->y,'Totaal BTW',10,false,368);$pdf->text(0,$pdf->y,self::money((int)$invoice['vat_cents']),10,false,458);
     $pdf->y+=25;$pdf->rule($pdf->y-15);$pdf->text(0,$pdf->y,'Totaal',11,true,368);$pdf->text(0,$pdf->y,self::money((int)$invoice['gross_cents']),11,false,458);
+    if((int)$invoice['g_cents']>0){
+      if($pdf->y+110>750)$pdf->heading($invoice,false);
+      $pdf->y+=30;$pdf->text(35,$pdf->y,'Verdeling van dit factuurbedrag',10,true);$pdf->y+=18;
+      $pdf->text(35,$pdf->y,'Arbeid excl. btw: '.self::money((int)$invoice['labor_cents']).' - G-rekening '.OfficeSalesBilling::percentText((int)$invoice['g_rate_units']).'%',9);$pdf->y+=18;
+      $pdf->text(35,$pdf->y,'Naar G-rekening: '.self::money((int)$invoice['g_cents']).' - '.($invoice['g_iban']!==''?$invoice['g_iban']:'rekeningnummer nog niet ingevuld'),9);$pdf->y+=18;
+      $pdf->text(35,$pdf->y,'Naar gewone rekening: '.self::money((int)$invoice['gross_cents']-(int)$invoice['g_cents']).' - NL19 ABNA 0894 3515 67',9);
+    }
+    if((int)($invoice['source_term_id']??0)>0&&$invoice['summary_json']!==null){
+      $summary=json_decode($invoice['summary_json'],true,32,JSON_THROW_ON_ERROR);$complete=(bool)$summary['coverage_complete'];
+      if($pdf->y+195>750)$pdf->heading($invoice,false);
+      $pdf->y+=30;$pdf->text(35,$pdf->y,'Aanneemsom en termijnen',10,true);$pdf->y+=20;
+      $values=[['Aanneemsom excl. btw',self::money((int)$summary['contract_net_cents'])],['Deze termijn'.($invoice['term_percent_units']===null?'':' ('.OfficeSalesBilling::percentText((int)$invoice['term_percent_units'],4).'%)').' excl. btw',self::money((int)$invoice['net_cents'])],['Eerder gefactureerd excl. btw',self::money((int)$summary['previous_net_cents'])],['Geregistreerd betaald incl. btw',self::money((int)$summary['paid_gross_cents'])],['Openstaand incl. deze termijn, incl. btw',$complete?self::money((int)$summary['due_including_current_gross_cents']):'Niet volledig beschikbaar'],['Nog te factureren na deze termijn, excl. btw',$complete?self::money((int)$summary['unbilled_after_net_cents']):'Niet volledig beschikbaar']];
+      foreach($values as [$label,$value]){$pdf->text(35,$pdf->y,$label,9);$pdf->text(0,$pdf->y,$value,9,false,553);$pdf->y+=18;}
+      $pdf->text(35,$pdf->y,'Stand van gekoppelde facturen en geregistreerde ontvangsten bij opslaan.',8);
+    }
     if(($invoice['invoice_number']??'')!==''){
       if($pdf->y+100>750)$pdf->heading($invoice,false);
       $pdf->y+=45;$pdf->text(35,$pdf->y,'Afsluiting:',10,true);$pdf->y+=19;
-      foreach(self::wrap('Wij verzoeken u het bedrag voor vervaldatum van deze factuur over te maken op rekeningnummer NL19 ABNA 0894 3515 67 onder vermelding van factuurnummer '.$invoice['invoice_number'],520,9) as $line){$pdf->text(35,$pdf->y,$line,9);$pdf->y+=15;}
+      $closing=(int)$invoice['g_cents']>0?'Betaal '.self::money((int)$invoice['g_cents']).' naar G-rekening '.$invoice['g_iban'].' en '.self::money((int)$invoice['gross_cents']-(int)$invoice['g_cents']).' naar NL19 ABNA 0894 3515 67, voor de vervaldatum onder vermelding van factuurnummer '.$invoice['invoice_number']:'Wij verzoeken u het bedrag voor vervaldatum van deze factuur over te maken op rekeningnummer NL19 ABNA 0894 3515 67 onder vermelding van factuurnummer '.$invoice['invoice_number'];
+      foreach(self::wrap($closing,520,9) as $line){$pdf->text(35,$pdf->y,$line,9);$pdf->y+=15;}
     }
     $pdf->pages[]=$pdf->page;
     $objects=[1=>'<< /Type /Catalog /Pages 2 0 R >>',2=>''];

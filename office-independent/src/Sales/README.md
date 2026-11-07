@@ -30,3 +30,18 @@ De code activeert zichzelf niet. Er zijn geen klantmails of facturen verstuurd d
 De bestaande Office-release, inkoopfacturen, Drupal-verkoopstromen en bankrechten worden niet door deze installatie veranderd. Er is geen achtergrondtaak die zelfstandig herinneringen verstuurt.
 
 De aanvullende workflowkeuze `UPDATE-OFFICE-SALES-UI` plaatst uitsluitend de PDF-uitvoer en regelinvoer in een reeds geactiveerde testmodule. De helper vergelijkt de twee bestaande bestanden met de gecontroleerde revisie, maakt geverifieerde back-ups en controleert de nieuwe uitvoer. Configuratie en database worden niet gewijzigd. De PDF gebruikt de opgeslagen versie; sla wijzigingen eerst op.
+
+
+## Inclusief btw, G-rekening en termijnfacturen
+
+De standaard nieuwe factuur komt uit een beschikbare Office-projecttermijn. Een losse factuur blijft mogelijk. De aanneemsom komt uit het projectcontract. Het invoerbare termijnpercentage berekent deze factuur; het oorspronkelijke termijnschema wordt niet overschreven. De arbeidsprijs van deze factuur exclusief btw is een afzonderlijke, expliciete invoer. Het G-rekeningpercentage geldt uitsluitend over die arbeidsprijs. Er wordt geen arbeidspercentage uit het totale factuurbedrag geschat.
+
+Losse facturen ondersteunen prijsinvoer inclusief of exclusief btw, met een uitsplitsing per tarief. Bij inclusief-btw-invoer wordt eerst het regelbedrag inclusief btw berekend en daarna de btw teruggerekend; de oorspronkelijke eenheidsprijs en modus worden behouden voor het verzendcommando. Termijnbedragen worden berekend over de aanneemsom exclusief btw.
+
+Het contractoverzicht toont de aanneemsom, deze termijn, eerder gefactureerd exclusief btw, geregistreerd betaald inclusief btw, openstaande facturen inclusief deze termijn, en nog te factureren werk exclusief btw. Deze laatste twee bedragen blijven afzonderlijk. Concepten gelden niet als betalingen. Het overzicht is een momentopname bij opslaan of vrijgeven en verschijnt uitsluitend bij gekoppelde termijnfacturen. Eerdere als gefactureerd of betaald gemarkeerde termijnen zonder gekoppelde Office-factuur maken de volledigheid onzeker; dan worden geen volledige resterende bedragen geclaimd.
+
+De extra tabel `office_finance_sales_context` bewaart de prijsmodus, arbeidsbasis, G-verdeling, brontermijn en contractmomentopname. Legacy-facturen zonder context blijven standaard exclusief btw. Een unieke brontermijn voorkomt twee facturen voor dezelfde termijn in deze flow. Concepten reserveren gezamenlijk de aanneemsom; verdere facturatie boven die som wordt geweigerd. Bestaande facturen en termijnen worden niet gemigreerd of overschreven.
+
+`UPGRADE-OFFICE-SALES-BILLING` controleert de huidige bronnen, maakt uitsluitend de aanvullende contexttabel aan en bouwt een complete private versie van de verkoopmodule. Pas na controles wordt alleen het verkooproute-manifest naar die versie omgezet. Daardoor worden oude en nieuwe PHP-klassen niet binnen een verzoek gemengd. De Office-release, configuratie, bankkoppeling en bestaande factuurbedragen blijven behouden. Een bestaande nieuwe tabel of afwijkende bron blokkeert de upgrade voor beoordeling; de helper verwijdert nooit tabellen.
+
+Een G-rekeningnummer moet expliciet zijn ingevuld en op IBAN-formaat zijn gecontroleerd voordat een factuur met G-verdeling wordt vrijgegeven. De software kan niet vaststellen of het rekeningtype door de bank als G-rekening is ingericht. Het afgesproken nummer en percentage worden door de gebruiker bevestigd. De verdeling verschijnt op de eigen PDF en in de uitgaande betalingsinstructie; er wordt geen bankbetaling uitgevoerd.
