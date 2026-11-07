@@ -97,10 +97,18 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Incomplete Calc configuration must never disable unrelated Office-test pages.
+// Each Calc route fails closed independently, including its shared-secret gate.
+$calcBridgeReady = getenv('OFFICE_CALC_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled'
+  && getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') === 'enabled'
+  && strlen((string) getenv('OFFICE_CALC_SHARED_SECRET')) >= 32;
 // Calc routes are intentionally absent from the generic page table.
 // They stay inaccessible until every isolated test gate is explicitly verified.
 if ($path === '/office-test/calc-werkbank' || $path === '/office-test/calc/start') {
-  if (getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled') {
+  if (!$calcBridgeReady || getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled') {
     http_response_code(404);
     exit('Testpagina niet gevonden.');
   }
@@ -110,7 +118,7 @@ if ($path === '/office-test/calc-werkbank' || $path === '/office-test/calc/start
 }
 if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
   || $path === '/api/workbench/v1/calculation-grants/validate') {
-  if (getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled') {
+  if (!$calcBridgeReady) {
     http_response_code(404);
     exit('Testpagina niet gevonden.');
   }
@@ -119,7 +127,7 @@ if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
 }
 if (is_string($path)
   && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)) {
-  if (getenv('OFFICE_CALC_ENABLED') !== 'enabled') {
+  if (!$calcBridgeReady) {
     http_response_code(404);
     exit('Testpagina niet gevonden.');
   }
