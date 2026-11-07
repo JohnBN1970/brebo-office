@@ -43,7 +43,13 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || in_array(strtolower($host), ['office.brebobv.nl', 'www.office.brebobv.nl'], true)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
   || (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled')
-  || getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled') {
+  || (getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'
+      && (getenv('OFFICE_CALC_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') !== 'enabled'
+          || getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') !== 'enabled'
+          || getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled'
+          || strlen((string)getenv('OFFICE_CALC_SHARED_SECRET')) < 32))) {
   http_response_code(503);
   exit('Testomgeving niet beschikbaar.');
 }
@@ -90,6 +96,35 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Calc routes are intentionally absent from the generic page table.
+// They stay inaccessible until every isolated test gate is explicitly verified.
+if ($path === '/office-test/calc-werkbank' || $path === '/office-test/calc/start') {
+  if (getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/' . ($path === '/office-test/calc/start'
+    ? 'office-calc-launch.php' : 'office-calc-browser-handoff.php');
+  exit;
+}
+if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
+  || $path === '/api/workbench/v1/calculation-grants/validate') {
+  if (getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/office-calc-grant-validate.php';
+  exit;
+}
+if (is_string($path)
+  && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)) {
+  if (getenv('OFFICE_CALC_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/office-calc-project-context.php';
+  exit;
+}
 // Machine-to-machine intake is opt-in and never exposed by default.
 if ($path === '/office-test/api/intake/v1/receive') {
   if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
