@@ -10,8 +10,8 @@ $db->exec('ALTER TABLE office_operator_accounts ADD COLUMN can_edit_crm TINYINT 
 $db->exec('CREATE TABLE office_operator_sessions (token_hash CHAR(64) PRIMARY KEY, operator_id VARCHAR(128), expires_at DATETIME, revoked_at DATETIME NULL)');
 $secret=str_repeat('a',64); $reader=str_repeat('b',64);
 $insert=$db->prepare('INSERT INTO office_operator_sessions VALUES (?, ?, ?, NULL)');
-$insert->execute([hash('sha256',$secret),'1',gmdate('Y-m-d H:i:s',time()+3600)]);
-$insert->execute([hash('sha256',$reader),'2',gmdate('Y-m-d H:i:s',time()+3600)]);
+$insert->execute([hash('sha256',$secret),'manager',gmdate('Y-m-d H:i:s',time()+3600)]);
+$insert->execute([hash('sha256',$reader),'reader',gmdate('Y-m-d H:i:s',time()+3600)]);
 $tmp=sys_get_temp_dir().'/pdok-http-'.bin2hex(random_bytes(8));
 mkdir($tmp,0700);
 $page=dirname(__DIR__).'/public/office-buildings.php';
