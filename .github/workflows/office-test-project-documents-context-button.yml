@@ -68,7 +68,7 @@ jobs:
               . '">Projectdocumenten</a> <a href="'
               . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
               . '">Nieuw document</a></div>'"""
-          source = source.replace(marker, insert + " . '" + marker + "'", 1)
+          source = source.replace(marker, insert + " . '" + marker, 1)
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-action-backup-" + suffix)
           tmp = p.with_name(p.name + ".documents-action-" + suffix)
