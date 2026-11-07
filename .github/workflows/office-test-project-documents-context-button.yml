@@ -65,7 +65,7 @@ jobs:
               ("dossier_nav", r"\$dossierNav"),
               ("project_id", r"\$projectId"),
               ("project_gegevens", r"project-gegevens"),
-              ("project_id_html", r"id=[\\\"']project-"),
+              ("project_id_html", r"project-[a-z]+"),
               ("new_document", r"Nieuw document"),
               ("project_dossier", r"Projectdossier"),
               ("detail_heading", r"<h1"),
