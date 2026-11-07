@@ -1,0 +1,85 @@
+name: Calc installed grant mapping detail (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-MAPPING
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation and SSH
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-MAPPING
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_mapping
+          chmod 600 ~/.ssh/id_calc_mapping
+      - name: Inspect installed findActive result expressions
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_mapping -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_MAPPING=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $file=getenv('CALC_ACTIVE_ROOT').'/src/Calculation/OfficeCalcSessionGrantRepository.php';
+          if(!is_file($file))exit(1);
+          $tokens=token_get_all(file_get_contents($file));
+          $start=null;
+          for($i=0;$i<count($tokens);$i++){
+              if(!is_array($tokens[$i])||$tokens[$i][0]!==T_FUNCTION)continue;
+              for($j=$i+1;$j<min($i+9,count($tokens));$j++){
+                  if(is_array($tokens[$j])&&$tokens[$j][0]===T_STRING&&$tokens[$j][1]==='findActive'){$start=$j;break 2;}
+              }
+          }
+          if($start===null){echo "CALC_MAPPING=METHOD_MISSING\n";exit(1);}
+          $pieces=[];$depth=0;$inBody=false;
+          for($i=$start;$i<count($tokens);$i++){
+              $token=$tokens[$i];$v=is_array($token)?$token[1]:$token;
+              if($v==='{'){$depth++;$inBody=true;}
+              if($inBody)$pieces[]=$v;
+              if($v==='}'&&$inBody){$depth--;if($depth===0)break;}
+          }
+          $body=implode('',$pieces);
+          preg_match_all('/\\breturn\\s+(.*?);/s',$body,$returns);
+          foreach($returns[1] as $index=>$expr){
+              $clean=trim(preg_replace('/\\s+/',' ',$expr));
+              if(preg_match('/^null$/i',$clean))$category='NULL';
+              elseif(str_starts_with($clean,'['))$category='ARRAY_LITERAL';
+              elseif(str_contains($clean,'fetchColumn'))$category='FETCH_COLUMN';
+              else $category='OTHER';
+              echo 'CALC_MAPPING_RETURN_'.($index+1).'='.$category."\n";
+          }
+          preg_match_all('/\\x27([a-z_]+)\\x27\\s*=>/',$body,$keys);
+          $allowed=['reference','actor_id','project_id','calculation_id','expires_at','revoked_at','session_hash'];
+          $found=array_values(array_unique(array_intersect($keys[1],$allowed)));
+          echo 'CALC_MAPPING_ARRAY_KEYS='.implode(',',$found)."\n";
+          echo 'CALC_MAPPING_FETCHCOLUMN_COUNT='.substr_count($body,'fetchColumn(')."\n";
+          echo "CALC_MAPPING_AUDIT=READ_ONLY_COMPLETE\n";
+          PHP
+          REMOTE
