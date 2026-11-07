@@ -1,4 +1,4 @@
-name: Office-test V3 private page navigation source inspection
+name: Office-test V3 project dossier tabs source inspection
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect exact private V3 navigation PHP source read-only
+      - name: Inspect project dossier tabs, not left sidebar, read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -48,17 +48,23 @@ jobs:
           raw = p.read_bytes()
           source = raw.decode("utf-8")
           lines = source.splitlines()
-          if len(lines) < 992 or "brebo-project-documents-visible-tab" not in source:
-              sys.exit("ABORT_NAV_NOT_FOUND")
-          # Print only the exact static navigation PHP expressions, no
-          # customer records, credentials, configuration or request values.
-          # This is a private authenticated page; public curl is not useful.
-          for i in range(987,992):
-              line = lines[i]
-              if len(line) > 700 or any(x in line.lower() for x in ("password", "secret", "token", "api_key", "authorization")):
-                  sys.exit("ABORT_UNSAFE_NAV_LINE")
-              print("PRIVATE_NAV_PHP_LINE_" + str(i+1) + "=" + line, flush=True)
-          print("PRIVATE_NAV_SOURCE_INSPECTED",flush=True)
+          # The previous "visible nav" was the LEFT SIDEBAR, not the
+          # project dossier tabs. The actual dossier tabs are generated
+          # around lines 603-623; inspect short, safe PHP fragments.
+          for i in range(600,625):
+              if i >= len(lines): break
+              line=lines[i]
+              if len(line)>650 or any(x in line.lower() for x in ("password","secret","token","api_key","authorization")):
+                  sys.exit("ABORT_UNSAFE_DOSSIER_NAV_LINE")
+              print("DOSSIER_TABS_PHP_LINE_"+str(i+1)+"="+line,flush=True)
+          for i in range(690,715):
+              if i >= len(lines): break
+              line=lines[i]
+              if len(line)>650 or any(x in line.lower() for x in ("password","secret","token","api_key","authorization")):
+                  continue
+              if any(x in line for x in ("$dossierNav","nav","tab","echo","main")):
+                  print("DOSSIER_RENDER_PHP_LINE_"+str(i+1)+"="+line,flush=True)
+          print("ACTUAL_DOSSIER_TABS_SOURCE_INSPECTED",flush=True)
           PY
-          echo OFFICE_TEST_PRIVATE_NAV_INSPECT_PASS
+          echo OFFICE_TEST_DOSSIER_NAV_INSPECT_PASS
           REMOTE
