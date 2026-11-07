@@ -1,0 +1,104 @@
+name: Calc Office-test fresh database backup
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type CREATE-CALC-STAGING-BACKUP to create a new private backup (no schema changes)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = CREATE-CALC-STAGING-BACKUP
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_backup
+          chmod 600 ~/.ssh/id_calc_backup
+      - name: Create private compressed Office-test backup and verify archive
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_backup -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          umask 077
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          if command -v mariadb-dump >/dev/null 2>&1; then dump=mariadb-dump; else dump=mysqldump; fi
+          command -v "$dump" >/dev/null 2>&1
+          command -v gzip >/dev/null 2>&1
+          command -v sha256sum >/dev/null 2>&1
+          dest="$base/backups"
+          mkdir -p "$dest"
+          chmod 700 "$dest"
+          timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+          archive="$dest/office-test-pre-calc-$timestamp.sql.gz"
+          tmp="$archive.partial"
+          opts=$(mktemp)
+          trap 'rm -f "$opts" "$tmp"' EXIT
+          chmod 600 "$opts"
+          OFFICE_CONFIG_PATH="$config" OPTIONS_PATH="$opts" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          if (!is_array($config)) { fwrite(STDERR, "BACKUP_CONFIG_INVALID\n"); exit(1); }
+          $get = static function (string $key) use ($config): string {
+              $v = getenv($key);
+              if (is_string($v) && $v !== '') return $v;
+              $v = $config[$key] ?? '';
+              return is_string($v) ? $v : '';
+          };
+          $dsn = $get('OFFICE_INTAKE_PDO_DSN');
+          if (!str_starts_with($dsn, 'mysql:')) { fwrite(STDERR, "BACKUP_DSN_INVALID\n"); exit(1); }
+          $parts = [];
+          foreach (explode(';', substr($dsn, 6)) as $segment) {
+              if ($segment === '') continue;
+              $pair = explode('=', $segment, 2);
+              if (count($pair) === 2) $parts[trim($pair[0])] = trim($pair[1]);
+          }
+          if (empty($parts['dbname']) || (empty($parts['host']) && empty($parts['unix_socket']))) {
+              fwrite(STDERR, "BACKUP_DSN_UNSUPPORTED\n"); exit(1);
+          }
+          $esc = static fn(string $v): string => '"' . str_replace(['\\', '"', "\n", "\r"], ['\\\\', '\\"', '', ''], $v) . '"';
+          $settings = ['user' => $get('OFFICE_INTAKE_DB_USER'), 'password' => $get('OFFICE_INTAKE_DB_PASSWORD')];
+          foreach (['host','port','socket'] as $k) {
+              $source = $k === 'socket' ? 'unix_socket' : $k;
+              if (!empty($parts[$source])) $settings[$k] = $parts[$source];
+          }
+          $body = "[client]\n";
+          foreach ($settings as $k => $v) $body .= $k . "=" . $esc((string)$v) . "\n";
+          if (file_put_contents(getenv('OPTIONS_PATH'), $body, LOCK_EX) === false) exit(1);
+          // Write only the database name to a second file? Avoid shell interpolation:
+          file_put_contents(getenv('OPTIONS_PATH') . '.dbname', $parts['dbname'], LOCK_EX);
+          PHP
+          trap 'rm -f "$opts" "$opts.dbname" "$tmp"' EXIT
+          dbname=$(cat "$opts.dbname")
+          case "$dbname" in *[!a-zA-Z0-9_]*|'') echo BACKUP_DBNAME_UNSUPPORTED; exit 1;; esac
+          "$dump" --defaults-extra-file="$opts" --single-transaction --quick --skip-lock-tables --no-tablespaces --databases "$dbname" | gzip -c > "$tmp"
+          test -s "$tmp"
+          gzip -t "$tmp"
+          mv "$tmp" "$archive"
+          chmod 600 "$archive"
+          bytes=$(wc -c < "$archive" | tr -d ' ')
+          digest=$(sha256sum "$archive" | cut -d ' ' -f 1)
+          echo "CALC_FRESH_BACKUP=CREATED"
+          echo "BACKUP_BYTES=$bytes"
+          echo "BACKUP_SHA256=$digest"
+          echo "BACKUP_GZIP_INTEGRITY=PASS"
+          echo "BACKUP_LOCATION=PRIVATE_OFFICE_TEST_BACKUPS"
+          echo "BACKUP_RESTORE_VERIFIED=NO"
+          echo "CALC_SCHEMA_INSTALL=BLOCKED_PENDING_ISOLATED_RESTORE"
+          REMOTE
