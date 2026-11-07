@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 exact nav string guard
+name: Office-test Projectdetail V3 Documents visible navigation render
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Check exact main nav string boundaries read-only
+      - name: Safely render prebuilt Documents navigation in live project detail
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,8 +54,9 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # Navigation is generated but never rendered; the only safe target
-          # is the live main HTML line, with exact structure validation.
+          # HTML nav is constructed in $dossierNav, but the actual page
+          # output is a PHP concatenation near line 992. Add the prepared
+          # project-scoped nav at the unique boundary between </nav> and <main>.
           lines = source.splitlines(keepends=True)
           targets = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line]
           if targets != [991]:
@@ -65,16 +66,37 @@ jobs:
               sys.exit("ABORT_MAIN_NAV_PATTERN_CHANGED")
           if (old.count("'"), old.count('"'), old.count("$")) != (2, 0, 3):
               sys.exit("ABORT_MAIN_NAV_QUOTE_STYLE_CHANGED")
-          if source.count("$dossierNav") != 6:
-              sys.exit("ABORT_DOSSIER_NAV_STATE_CHANGED")
-          if "brebo-project-documents-tab" not in source:
-              sys.exit("ABORT_DOCS_NAV_NOT_CONSTRUCTED")
-          # Characterized safe anchor: PHP double navigation close then
-          # main opening, all in one output string. Report whether it
-          # actually exists; don't speculate about quoting on the server.
-          for label, token in (("ADJACENT", "</nav><main"), ("NAV_CLOSE", "</nav>"), ("MAIN_OPEN", "<main"), ("PHP_CONCAT", "' . "), ("ESCAPE_NAV", "$escape")):
-              print("MAIN_ANCHOR_" + label + "=" + str(old.count(token)), flush=True)
-          print("READ_ONLY_EXACT_NAV_ANCHOR_REVIEW", flush=True)
+          if source.count("$dossierNav") != 6 or source.count("brebo-project-documents-tab") != 1:
+              sys.exit("ABORT_DOSSIER_NAV_CHANGED")
+          # Preserve the original output expression and insert its existing
+          # navigation variable immediately before the <main> literal.
+          # The HTML source uses a PHP quote/concat boundary here.
+          if "' . " not in old or old.count("' . ") != 1:
+              sys.exit("ABORT_RENDER_CONCAT_MISMATCH")
+          if old.count("<main") != 1:
+              sys.exit("ABORT_MAIN_LITERAL_MISMATCH")
+          # Replacing a PHP string interior safely: close the literal just
+          # before <main, join the existing nav and reopen the literal.
+          new = old.replace("<main", "' . $dossierNav . '<main", 1)
+          candidate = source.replace(old, new, 1)
+          if candidate.count("$dossierNav") != 7:
+              sys.exit("ABORT_RENDER_NAV_REFERENCE_COUNT")
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          backup = p.with_name(p.name + ".documents-render-backup-" + stamp)
+          temp = p.with_name(p.name + ".documents-render-tmp-" + stamp)
+          temp.write_bytes(candidate.encode("utf-8"))
+          temp.chmod(p.stat().st_mode & 0o777)
+          lint = subprocess.run(["php", "-l", str(temp)], text=True, capture_output=True)
+          if lint.returncode:
+              temp.unlink(missing_ok=True)
+              print("ABORT_RENDER_PHP_LINT", flush=True)
+              print(lint.stderr + lint.stdout, flush=True)
+              sys.exit(31)
+          backup.write_bytes(raw)
+          backup.chmod(0o600)
+          os.replace(temp,p)
+          print("V3_DOCUMENTS_NAV_RENDERED", flush=True)
+          print("BACKUP=" + backup.name, flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
