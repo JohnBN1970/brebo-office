@@ -26,20 +26,26 @@ try {
   foreach (['read','draft_edit'] as $permission) {
     $q=$db->prepare("SELECT 1 FROM office_module_permissions p JOIN office_operator_accounts a ON a.id=p.operator_id WHERE a.id=? AND a.active=1 AND p.module='finance' AND p.permission=?");$q->execute(['1',$permission]);if($q->fetchColumn()===false)throw new RuntimeException('Existing operator permission required');
   }
+  $phase='empty_sales_schema';
   $tables=['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit','office_finance_sales_receipt'];
   foreach ($tables as $table) { $q=$db->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');$q->execute([$table]);if((int)$q->fetchColumn()!==0)throw new RuntimeException('Existing sales schema requires review'); }
+  $phase='new_source_paths';
   $paths=['src/Sales/OfficeSalesSchema.php','src/Sales/OfficeSalesService.php','src/Sales/OfficeSalesTransport.php','src/Sales/OfficeSalesView.php','public/office-sales.php'];
   foreach ($paths as $path) { if (file_exists($root.'/'.$path)||is_link($root.'/'.$path)||!is_file($stage.'/'.$path))throw new RuntimeException('New source path not empty');token_get_all(file_get_contents($stage.'/'.$path),TOKEN_PARSE); }
   if (is_link($root.'/src/Sales') || (is_dir($root.'/src/Sales') && scandir($root.'/src/Sales')!==['.','..'])) throw new RuntimeException('Existing sales directory requires review');
+  $phase='active_file_paths';
   $view=$root.'/src/Finance/OfficeFinanceView.php';
   foreach ([$router,$view] as $file) if (is_link($file)||realpath($file)!==$file)throw new RuntimeException('Unsafe active file');
+  $phase='router_navigation_anchors';
   $oldRouter=file_get_contents($router);$oldView=file_get_contents($view);
   $routeAnchor="  '/office-test/finance' => 'office-finance.php',";
   // Literal PHP source anchor, not a rendered value.
-  $navAnchor="<a href=\"'.\$newInvoice.'\">Nieuwe inkoopfactuur</a></nav>";
+  $navAnchor="<a href=\"'.\$newInvoice.'\">Nieuwe inkoopfactuur</a>";
+  echo 'SALES_ROUTER_ANCHOR_COUNT='.substr_count($oldRouter,$routeAnchor)."\n";
+  echo 'SALES_NAV_ANCHOR_COUNT='.substr_count($oldView,$navAnchor)."\n";
   if (substr_count($oldRouter,$routeAnchor)!==1 || substr_count($oldView,$navAnchor)!==1 || str_contains($oldRouter,"'/office-test/finance/verkoop'"))throw new RuntimeException('Reviewed router/navigation anchor missing');
   $newRouter=str_replace($routeAnchor,$routeAnchor."\n  '/office-test/finance/verkoop' => 'office-sales.php',",$oldRouter);
-  $newView=str_replace($navAnchor,str_replace('</nav>','<a href="/office-test/finance/verkoop">Verkoopfacturen</a></nav>',$navAnchor),$oldView);
+  $newView=str_replace($navAnchor,$navAnchor.'<a href="/office-test/finance/verkoop">Verkoopfacturen</a>',$oldView);
   token_get_all($newRouter,TOKEN_PARSE);token_get_all($newView,TOKEN_PARSE);
   $suffix=basename($stage);$baseConfig=$base.'/config/config-sales-base-'.$suffix.'.php';
   if(file_exists($baseConfig)||is_link($baseConfig))throw new RuntimeException('Backup path exists');
