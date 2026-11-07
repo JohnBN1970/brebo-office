@@ -1,0 +1,73 @@
+name: Calc Office-test existing four-table audit (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-EXISTING-SCHEMA (read only)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH and audit existing Calc tables without changing data
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-EXISTING-SCHEMA
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_schema_audit
+          chmod 600 ~/.ssh/id_calc_schema_audit
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config"
+          OFFICE_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          if (!is_array($config)) exit(1);
+          $get = static function(string $key) use ($config): string {
+              $value = getenv($key);
+              if (is_string($value) && $value !== '') return $value;
+              $value = $config[$key] ?? '';
+              return is_string($value) ? $value : '';
+          };
+          $dsn = $get('OFFICE_INTAKE_PDO_DSN');
+          if (!str_starts_with($dsn, 'mysql:')) exit(1);
+          $db = new PDO($dsn, $get('OFFICE_INTAKE_DB_USER'), $get('OFFICE_INTAKE_DB_PASSWORD'), [
+              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+              PDO::ATTR_EMULATE_PREPARES => false,
+          ]);
+          $tables = ['office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids'];
+          $foundCount = 0;
+          foreach ($tables as $table) {
+              $stmt = $db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+              $stmt->execute([$table]);
+              $exists = (int)$stmt->fetchColumn() === 1;
+              echo $table . '=' . ($exists ? 'PRESENT' : 'MISSING') . "\n";
+              if (!$exists) continue;
+              $foundCount++;
+              $stmt = $db->prepare('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_KEY,EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');
+              $stmt->execute([$table]);
+              foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+                  echo 'COLUMN ' . $table . ' ' . implode(' ', array_values($col)) . "\n";
+              }
+              $stmt = $db->prepare('SELECT INDEX_NAME,COLUMN_NAME,SEQ_IN_INDEX,NON_UNIQUE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX');
+              $stmt->execute([$table]);
+              foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $idx) {
+                  echo 'INDEX ' . $table . ' ' . implode(' ', array_values($idx)) . "\n";
+              }
+          }
+          echo 'CALC_EXISTING_TABLES=' . $foundCount . "/4\n";
+          echo "CALC_SCHEMA_AUDIT=READ_ONLY\n";
+          PHP
+          REMOTE
