@@ -55,6 +55,7 @@ final class OfficeResidentAddressXlsxReader {
           if ($col > 100) throw new \LengthException('Too many worksheet columns');
           $type = $cell->getAttribute('t');
           $v = $cell->getElementsByTagName('v')->item(0);
+          if ($cell->getElementsByTagName('f')->length > 0) throw new \InvalidArgumentException('Formula cells are not accepted');
           if ($type === 'inlineStr') {
             $texts = [];
             foreach ($cell->getElementsByTagName('t') as $t) $texts[] = $t->textContent;
