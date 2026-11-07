@@ -3,7 +3,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+$scriptNonce=base64_encode(random_bytes(18));
+header("Content-Security-Policy: script-src 'nonce-".$scriptNonce."'; default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 header('Referrer-Policy: same-origin');
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) { header('Allow: GET, POST'); http_response_code(405); exit; }
@@ -60,7 +61,16 @@ try {
   $id=isset($_GET['id']) ? filter_var($_GET['id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : null;
   if ($id===false) throw new DomainException('Factuur niet beschikbaar.');
   $invoice=$id===null?null:$service->get($id);
-  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,isset($_GET['new']),getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled',$id===null?[]:$service->receipts($id));
+  if (($_GET['download']??'')==='pdf') {
+    if ($method!=='GET' || $invoice===null) throw new DomainException('Factuur niet beschikbaar.');
+    require_once dirname(__DIR__).'/src/Sales/OfficeSalesPdf.php';
+    $pdf=\Brebo\Office\Sales\OfficeSalesPdf::render($invoice);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="BREBO-factuur-'.(int)$invoice['id'].'.pdf"');
+    header('Content-Length: '.strlen($pdf));
+    echo $pdf; exit;
+  }
+  $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),$invoice,$service->customers(),$service->projects(),$id===null?[]:$service->history($id),$csrf,$canWrite,$canSend,$today,$error,isset($_GET['new']),getenv('OFFICE_SALES_REMINDERS_ENABLED')==='enabled',$id===null?[]:$service->receipts($id),$scriptNonce);
   header('Content-Type: text/html; charset=utf-8'); echo $html;
 } catch (DomainException $e) { http_response_code(403); exit('Geen toegang tot deze verkoopfactuur.'); }
   catch (Throwable $e) { http_response_code(503); exit('Verkoopfacturen zijn tijdelijk niet beschikbaar.'); }

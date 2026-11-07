@@ -20,3 +20,4 @@ jobs:
           find office-independent/src/Sales -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l office-independent/public/office-sales.php
           php office-independent/tests/OfficeSalesServiceTest.php
+          php office-independent/tests/OfficeSalesPdfTest.php --sample
