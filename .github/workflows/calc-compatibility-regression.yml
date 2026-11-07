@@ -12,6 +12,9 @@ on:
     paths:
       - office-independent/src/Calculation/OfficeCalcSessionGrantCompatibility.php
       - office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+      - office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+      - office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
+      - office-independent/src/Calculation/OfficeCalcGrantValidationService.php
       - .github/workflows/calc-compatibility-regression.yml
 permissions:
   contents: read
@@ -31,7 +34,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo
+          extensions: pdo, pdo_sqlite
           coverage: none
       - name: Syntax check and execute isolated compatibility tests
         run: |
@@ -40,5 +43,7 @@ jobs:
           php -l office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
           php -l office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
           php -l office-independent/src/Calculation/OfficeCalcGrantValidationService.php
+          php -l office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
           php office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+          php office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
           echo 'CALC_COMPAT_REGRESSION=PASS'
