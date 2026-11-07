@@ -70,6 +70,29 @@ jobs:
               if grep -q 'calc-app' "$conf"; then echo "CALC_PROXY_REFERENCE=present"; else echo "CALC_PROXY_REFERENCE=missing"; fi
             fi
           done
+          echo "SECTION=CALC_RUNTIME"
+          for runtime in "$HOME/domains/brebobv.nl/public_html/calc-app" "$HOME/domains/brebobv.nl/public_html/office-test/calc-app" "$base/calc-app"; do
+            if [ -d "$runtime" ]; then
+              echo "CALC_RUNTIME_DIRECTORY=present"
+              if [ -f "$runtime/startup.js" ]; then echo "CALC_STARTUP_JS=present"; else echo "CALC_STARTUP_JS=missing"; fi
+              if [ -f "$runtime/package.json" ]; then echo "CALC_PACKAGE_JSON=present"; else echo "CALC_PACKAGE_JSON=missing"; fi
+            else
+              echo "CALC_RUNTIME_DIRECTORY=missing"
+            fi
+          done
+          echo "SECTION=CALC_BRIDGE_PHP_LINT"
+          for release in "$base"/release-*/private; do
+            [ -d "$release" ] || continue
+            for f in public/office-calc-launch.php public/office-calc-browser-handoff.php public/office-calc-grant-validate.php; do
+              if [ -f "$release/$f" ]; then
+                if php -l "$release/$f" >/dev/null 2>&1; then
+                  echo "CALC_BRIDGE_PHP_LINT=pass"
+                else
+                  echo "CALC_BRIDGE_PHP_LINT=fail"
+                fi
+              fi
+            done
+          done
           echo "CALC_AUDIT_COMPLETE"
           REMOTE
       - name: State deployment readiness explicitly
