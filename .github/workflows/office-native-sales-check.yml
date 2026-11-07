@@ -1,0 +1,22 @@
+name: Office native sales checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Sales/**'
+      - 'office-independent/public/office-sales.php'
+      - 'office-independent/tests/OfficeSales*'
+      - '.github/workflows/office-native-sales-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated sales module
+        run: |
+          set -euo pipefail
+          find office-independent/src/Sales -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l office-independent/public/office-sales.php
+          php office-independent/tests/OfficeSalesServiceTest.php
