@@ -1,23 +1,29 @@
 <?php
 declare(strict_types=1);
-// Current Office project page does not advertise a Calc launch URL.
-// Keep it fail-closed until a separately tested, authorized link is implemented.
 $root = dirname(__DIR__);
 $project = file_get_contents($root . '/public/office-project.php');
 $access = file_get_contents($root . '/src/Calculation/OfficeCalcLaunchAccess.php');
 if (!is_string($project) || !is_string($access)) {
     throw new RuntimeException('Missing Calc launch sources');
 }
-if (str_contains($project, '/office-test/calc-werkbank?project_id=')
-    || str_contains($project, '/office-test/calc/start')) {
-    throw new RuntimeException('Project page exposes Calc launch without explicit authorization contract');
-}
-if (!str_contains($project, 'Koppeling geregistreerd; openen nog niet beschikbaar')) {
-    throw new RuntimeException('Calc project link is no longer safely disabled');
+foreach ([
+    'OfficeCalcLaunchAccess.php',
+    'new \\Brebo\\Office\\Calculation\\OfficeCalcLaunchAccess',
+    '->canLaunch((int) $operator->operatorId, (int) $projectId, (int) $calcId)',
+    'unset($launchIds[$calcId])',
+    'OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED',
+    'OFFICE_CALC_SESSION_GRANTS_ENABLED',
+    'OFFICE_CALC_GRANT_VALIDATION_ENABLED',
+    '/office-test/calc-werkbank?project_id=',
+    '$calcLaunchHtml . $scopeHtml',
+] as $required) {
+    if (!str_contains($project, $required)) {
+        throw new RuntimeException('Unsafe or missing Calc project launch guard: ' . $required);
+    }
 }
 foreach (['OfficeNativeProjectAccess', 'office_calc_project_access', 'ca.permission = :permission'] as $required) {
     if (!str_contains($access, $required)) {
-        throw new RuntimeException('Missing Calc launch authorization check: ' . $required);
+        throw new RuntimeException('Missing Calc authorization check: ' . $required);
     }
 }
-echo "CALC_PROJECT_LAUNCH_LINKS_CONTRACT=BLOCKED_SAFE\n";
+echo "CALC_PROJECT_LAUNCH_LINKS_CONTRACT=PASS\n";
