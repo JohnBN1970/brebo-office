@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 Documents visible tab integration
+name: Office-test Projectdetail V3 Documents tab loop diagnostics
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Safely integrate Documents into live project tabs
+      - name: Inspect active V3 navigation loop read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -73,21 +73,22 @@ jobs:
           if '=> ' not in nearby:
               sys.exit('ABORT_TAB_MAPPING_NOT_CONFIRMED')
           print('ACTIVE_V3_FIVE_TAB_MAPPING_CONFIRMED', flush=True)
-          anchor = "foreach ($tabs as $key => $label) {"
-          if source.count(anchor) != 1:
-              sys.exit("ABORT_TAB_RENDER_LOOP_MISMATCH")
-          # The existing document link is already constructed in the active
-          # V3; move it into the tab loop by adding a sixth entry, while
-          # keeping the tab loop's active tab semantics intact.
-          source = source.replace(item, item + ", 'documenten' => 'Documenten'", 1)
-          # The central Documents page is opened via the already verified
-          # runtime basePath() method. Do NOT invoke route('documenten').
-          link_line = "  $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current=\"page\" ' : '') . 'href=\"' . $escape($projectUrl . '&tab=' . $key) . '\">' . $escape($label) . '</a>';"
-          if source.count(link_line) == 1:
-              replacement = "  if ($key === 'documenten') { $dossierNav .= '<a href=\"' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId) . '\">Documenten</a>'; continue; }" + chr(10) + link_line
-              source = source.replace(link_line, replacement, 1)
-          else:
-              sys.exit("ABORT_ACTIVE_TAB_LOOP_LINK_MISMATCH")
+          # Preserve the existing loop and all five existing tabs. Add a sixth
+          # Documenten link to the rendered nav after the loop has completed.
+          # This does not depend on the loop variable names or HTML line layout.
+          marker = "$dossierNav .= '</nav>';"
+          if source.count(marker) != 1:
+              print("ABORT_DOSSIER_NAV_CLOSE_MISMATCH", flush=True)
+              sys.exit(27)
+          # The first patch placed a Documenten link between the foreach and
+          # </nav>. That placement did not show in the browser, so we need to
+          # inspect actual live rendering rather than guessing again.
+          print("ACTIVE_V3_NAV_LOOP_FORMS", flush=True)
+          for term in ("foreach (", "foreach(", "$tabs", "$dossierNav", "brebo-project-documents-tab"):
+              positions = [i + 1 for i, line in enumerate(source.splitlines()) if term in line]
+              print("STRUCT_" + term.replace(" ", "_").replace("$", "").replace("(", "OPEN").replace("-", "_") + "_LINES=" + ",".join(map(str, positions[:24])), flush=True)
+          print("ABORT_NEED_EXACT_NAV_RENDER_LOOP", flush=True)
+          sys.exit(27)
           stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-visible-tabs-backup-" + stamp)
           tmp = p.with_name(p.name + ".documents-visible-tabs-tmp-" + stamp)
