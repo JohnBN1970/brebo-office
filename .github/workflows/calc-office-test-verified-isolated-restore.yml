@@ -34,6 +34,7 @@ jobs:
           done
           case "$RESTORE_NAME" in calc_restore_*) ;; *) echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1;; esac
           case "$RESTORE_NAME" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
+          sudo apt-get update -qq && sudo apt-get install -y -qq default-mysql-client >/dev/null
           command -v mysql >/dev/null
           install -d -m 700 ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_calc_restore
