@@ -1,0 +1,72 @@
+name: Calc Office-test active release discovery (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DISCOVER-CALC-RELEASE (read only; no file changes)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation and configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          confirmation="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          test "$confirmation" = DISCOVER-CALC-RELEASE
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_discover
+          chmod 600 ~/.ssh/id_calc_discover
+      - name: Inspect entrypoint and candidate release shapes without reading credentials
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_discover -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          web="$HOME/domains/brebobv.nl/public_html/office-test"
+          echo 'CALC_DISCOVERY_MODE=READ_ONLY'
+          for router in "$web/index.php" "$base/office-test/index.php" "$base/office-test-index.php"; do
+            if [ -f "$router" ]; then
+              echo "ROUTER_PRESENT=$(basename "$(dirname "$router")")/$(basename "$router")"
+              if [ -L "$router" ]; then echo 'ROUTER_IS_SYMLINK=YES'; else echo 'ROUTER_IS_SYMLINK=NO'; fi
+              if grep -Eq 'release-[A-Za-z0-9_-]+' "$router"; then echo 'ROUTER_HAS_LITERAL_RELEASE=YES'; else echo 'ROUTER_HAS_LITERAL_RELEASE=NO'; fi
+              if grep -Eq '(OFFICE_PRIVATE_ROOT|private_root|release_root|RELEASE_ROOT|require|include)' "$router"; then echo 'ROUTER_HAS_INDIRECT_ROOT_OR_INCLUDE=YES'; else echo 'ROUTER_HAS_INDIRECT_ROOT_OR_INCLUDE=NO'; fi
+              echo "ROUTER_BYTES=$(wc -c < "$router" | tr -d ' ')"
+            fi
+          done
+          for item in "$web" "$base" "$base"/release-*/private; do
+            [ -d "$item" ] || continue
+            case "$item" in
+              "$web") label='web-entrypoint' ;;
+              "$base") label='office-test-base' ;;
+              *) label="release-$(basename "$(dirname "$item")" | sed 's/^release-//')" ;;
+            esac
+            [ -d "$item/public" ] && has_public=YES || has_public=NO
+            [ -d "$item/src" ] && has_src=YES || has_src=NO
+            [ -f "$item/public/office-home.php" ] && has_home=YES || has_home=NO
+            [ -f "$item/public/office-project.php" ] && has_project=YES || has_project=NO
+            echo "DIRECTORY=$label PUBLIC=$has_public SRC=$has_src HOME=$has_home PROJECT=$has_project"
+          done
+          for candidate in "$web"/index.php "$web"/.htaccess "$base"/office-test-index.php "$base"/office-test/index.php; do
+            [ -f "$candidate" ] || continue
+            for needle in 'office_calc_test' 'OFFICE_PRIVATE_ROOT' 'office-test-index.php' 'release-' 'index.php'; do
+              if grep -Fq "$needle" "$candidate"; then
+                echo "ENTRYPOINT_MARKER=$(basename "$(dirname "$candidate")")/$(basename "$candidate"):$needle"
+              fi
+            done
+          done
+          echo 'CALC_DISCOVERY_COMPLETE=YES'
+          echo 'CALC_STAGE=NOT_ATTEMPTED'
+          REMOTE
