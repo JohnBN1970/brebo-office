@@ -25,6 +25,8 @@ jobs:
         run: |
           php -l office-independent/public/office-buildings.php
           php -l office-independent/src/Buildings/OfficeBuildingAddressReadRepository.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressUploadGuard.php
+          php -l office-independent/tests/OfficeResidentAddressUploadGuardTest.php
           php -l office-independent/src/Buildings/OfficeResidentAddressProposal.php
           php -l office-independent/src/Buildings/OfficeResidentAddressBatch.php
           php -l office-independent/src/Buildings/OfficeResidentAddressBuildingMatcher.php
@@ -60,3 +62,4 @@ jobs:
           php office-independent/tests/OfficeResidentAddressFileImportTest.php
           php office-independent/tests/OfficeResidentAddressReviewPresenterTest.php
           php office-independent/tests/OfficeResidentAddressReviewPageTest.php
+          php office-independent/tests/OfficeResidentAddressUploadGuardTest.php
