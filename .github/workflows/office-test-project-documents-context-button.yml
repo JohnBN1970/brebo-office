@@ -1,4 +1,4 @@
-name: Office-test Documents tab runtime-safe rollout
+name: Office-test Projectdetail V3 render inspection read-only
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Install Documenten tab safely with runtime checks
+      - name: Inspect live V3 visible tabs without modifying server
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -42,62 +42,35 @@ jobs:
           grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$project" || { echo ABORT_ACCESS_CHECK_MISSING; exit 23; }
           grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$docs" || { echo ABORT_DOCUMENTS_ACCESS_CHECK_MISSING; exit 24; }
           grep -Fq 'OfficeNewDocumentMenu::render' "$docs" || { echo ABORT_DOCUMENTS_MENU_MISSING; exit 25; }
-          mount="$active/src/Intake/OfficeMount.php"
-          test -f "$mount" && test ! -L "$mount" || { echo ABORT_MOUNT_CLASS_MISSING; exit 26; }
-          php -l "$mount"
-          # The active runtime DOES NOT register the 'documenten' route in OfficeMount::route().
-          # Use the existing basePath() as the working buttons do.
-          grep -Eq 'function[[:space:]]+basePath[[:space:]]*\(' "$mount" || { echo ABORT_BASEPATH_NOT_FOUND; exit 27; }
+          # Read-only analysis of the ACTIVE V3 page, not repository copy.
           PROJECT="$project" python3 - <<'PY'
-          import os, pathlib, hashlib, datetime, subprocess, sys
-          p = pathlib.Path(os.environ["PROJECT"])
-          raw = p.read_bytes()
-          expected = "c6b1036514a7c7a517ad00eb7028a004e6620c42bfaa06901305e59c588eb374"
-          if hashlib.sha256(raw).hexdigest() != expected:
-              sys.exit("ABORT_PROJECT_V3_SHA_CHANGED")
-          source = raw.decode("utf-8")
-          if 'id="brebo-project-documents-action"' not in source:
-              sys.exit("ABORT_PREVIOUS_PROJECT_ACTION_MISSING")
-          if 'id="brebo-project-documents-tab"' in source:
-              print("ALREADY_INSTALLED", flush=True)
-              sys.exit(0)
-          anchor = "$dossierNav .= '</nav>';"
-          if source.count(anchor) != 1:
-              sys.exit("ABORT_NAV_CLOSING_ANCHOR_MISMATCH")
-          if source.count("$dossierNav =") != 1 or source.index("$dossierNav =") > source.index(anchor):
-              sys.exit("ABORT_NAV_INITIALIZATION_MISMATCH")
-          # Keep the project detail controller untouched; insert only one
-          # link in the existing authorized dossier navigation.
-          tab = r"""$dossierNav .= '<a id="brebo-project-documents-tab" href="'
-              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
-              . '">Documenten</a>';"""
-          modified = source.replace(anchor, tab + chr(10) + anchor, 1)
-          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-          backup = p.with_name(p.name + ".documents-tab-runtime-backup-" + stamp)
-          tmp = p.with_name(p.name + ".documents-tab-runtime-tmp-" + stamp)
-          backup.write_bytes(raw)
-          backup.chmod(0o600)
-          tmp.write_bytes(modified.encode("utf-8"))
-          tmp.chmod(p.stat().st_mode & 0o777)
-          lint = subprocess.run(["php", "-l", str(tmp)], capture_output=True, text=True)
-          if lint.returncode:
-              tmp.unlink(missing_ok=True)
-              print(lint.stdout + lint.stderr)
-              sys.exit("ABORT_PHP_LINT")
-          os.replace(tmp, p)
-          print("PROJECT_DOCUMENTS_TAB_INSTALLED_RUNTIME_SAFE", flush=True)
-          print("ROLLBACK_BACKUP=" + backup.name, flush=True)
+          import os, pathlib, re, hashlib
+          source = pathlib.Path(os.environ["PROJECT"]).read_text()
+          print("LIVE_V3_SHA256=" + hashlib.sha256(source.encode()).hexdigest())
+          keys = [
+              ("tabs_array", r"\$tabs\s*="),
+              ("tab_labels", r"'financieel'\s*=>\s*'Financieel'"),
+              ("nav_render", r"\$dossierNav\b"),
+              ("nav_html", r"office-dossier-nav"),
+              ("office_tabs", r"office-tabs"),
+              ("project_gegevens", r"project-gegevens"),
+              ("project_documents_tab", r"brebo-project-documents-tab"),
+              ("project_documents_action", r"brebo-project-documents-action"),
+              ("financial_label", r"Financieel"),
+              ("project_detail_output", r"\becho\b"),
+          ]
+          for name, pattern in keys:
+              hits = list(re.finditer(pattern, source))
+              print("V3_RENDER_" + name.upper() + "_COUNT=" + str(len(hits)))
+              print("V3_RENDER_" + name.upper() + "_LINES=" + ",".join(str(source.count(chr(10), 0, m.start()) + 1) for m in hits[:15]))
+          # Report only sanitized structure from matching lines: never raw
+          # page source, paths, data, names or tokens.
+          for i, line in enumerate(source.splitlines(), 1):
+              if any(x in line for x in ("$tabs =", "$dossierNav =", "$dossierNav .=", "office-dossier-nav", "office-tabs")):
+                  print("V3_STRUCT_LINE=" + str(i) + " flags=" + ",".join(
+                      x for x in ("tabs", "dossierNav", "office-dossier-nav", "office-tabs", "financieel", "echo", "print")
+                      if x in line
+                  ) + " length=" + str(len(line)))
           PY
-          php -l "$project"
-          grep -Fq 'brebo-project-documents-tab' "$project" || { echo ABORT_TAB_NOT_INSTALLED; exit 28; }
-          # Basic public HTTP check is only a routing smoke test; full
-          # authenticated page execution must also be browser-verified.
-          url="https://brebobv.nl/office-test/projecten/detail?id=1"
-          status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)"
-          echo "PROJECT_DETAIL_HTTP_STATUS=$status"
-          if test "$status" = 500 || test "$status" = 000; then
-            echo ABORT_PROJECT_DETAIL_HTTP_PROBE
-            exit 29
-          fi
-          echo OFFICE_TEST_DOCUMENTS_TAB_RUNTIME_SAFE_PASS
+          echo OFFICE_TEST_PROJECT_RENDER_DIAGNOSTIC_PASS
           REMOTE
