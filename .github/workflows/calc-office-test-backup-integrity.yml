@@ -1,0 +1,60 @@
+name: Calc Office-test backup integrity audit (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-BACKUP-INTEGRITY; inspect files only, do not restore
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-BACKUP-INTEGRITY
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_integrity
+          chmod 600 ~/.ssh/id_calc_integrity
+      - name: Read-only backup integrity and freshness check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_integrity -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          dir="$HOME/domains/brebobv.nl/office_calc_test/backups"
+          test -d "$dir"
+          echo 'CALC_BACKUP_INTEGRITY_MODE=READ_ONLY'
+          now=$(date +%s)
+          count=0
+          for file in "$dir"/*.sql "$dir"/*.sql.gz "$dir"/*.dump; do
+            [ -f "$file" ] || continue
+            count=$((count+1))
+            bytes=$(wc -c < "$file" | tr -d ' ')
+            modified=$(stat -c %Y "$file")
+            age_hours=$(( (now - modified) / 3600 ))
+            echo "BACKUP_$count=BYTES:$bytes AGE_HOURS:$age_hours"
+            case "$file" in
+              *.sql.gz)
+                if gzip -t "$file" 2>/dev/null; then echo "BACKUP_${count}_GZIP=PASS"; else echo "BACKUP_${count}_GZIP=FAIL"; fi
+                ;;
+              *.sql) echo "BACKUP_${count}_FORMAT=PLAIN_SQL_UNVERIFIED" ;;
+              *.dump) echo "BACKUP_${count}_FORMAT=DUMP_UNVERIFIED" ;;
+            esac
+            if [ "$bytes" -gt 0 ]; then echo "BACKUP_${count}_NONEMPTY=YES"; else echo "BACKUP_${count}_NONEMPTY=NO"; fi
+          done
+          echo "BACKUP_FILES_INSPECTED=$count"
+          echo 'BACKUP_DATABASE_RESTORE_VERIFIED=NO'
+          echo 'CALC_SCHEMA_INSTALL=BLOCKED_PENDING_ISOLATED_RESTORE'
+          REMOTE
