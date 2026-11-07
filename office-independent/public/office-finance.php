@@ -596,7 +596,8 @@ try {
       ->visible($operator->operatorId, $projectId);
   }
 
-  if ($view === 'payments' && \Brebo\Office\Intake\OfficeMount::isTest()
+  if (in_array($view, ['dashboard', 'payments'], true) && \Brebo\Office\Intake\OfficeMount::isTest()
+      && ($view === 'payments' || $projectId === null)
       && getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED') === 'enabled') {
     $data['bank_read_allowed'] = (new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->allowsBankRead();
     if ($data['bank_read_allowed']) {

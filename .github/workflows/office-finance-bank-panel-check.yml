@@ -13,6 +13,10 @@ on:
       - 'office-independent/tests/OfficeMoneybirdBankSnapshotTest.php'
       - 'office-independent/tests/OfficeFinanceBankAccessTest.php'
       - 'office-independent/tests/OfficeFinanceBankViewTest.php'
+      - 'office-independent/tests/OfficeFinanceOverviewTest.php'
+      - 'office-independent/tests/OfficeFinanceOverviewInstallTest.php'
+      - 'office-independent/deployment/hostinger/office-finance-overview-install.php'
+      - 'office-independent/deployment/hostinger/office-finance-overview-changes.json'
       - '.github/workflows/office-finance-bank-panel-check.yml'
       - '.github/workflows/office-moneybird-bank-stage.yml'
       - 'office-independent/deployment/hostinger/office-moneybird-bank-preflight.php'
@@ -41,6 +45,9 @@ jobs:
           php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php office-independent/tests/OfficeFinanceBankAccessTest.php
           php office-independent/tests/OfficeFinanceBankViewTest.php
+          php office-independent/tests/OfficeFinanceOverviewTest.php
+          php -l office-independent/deployment/hostinger/office-finance-overview-install.php
+          php office-independent/tests/OfficeFinanceOverviewInstallTest.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
           php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
           php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
