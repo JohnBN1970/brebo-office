@@ -57,32 +57,28 @@ jobs:
           if 'id="brebo-project-documents-action"' in source:
               print("ALREADY_INSTALLED", flush=True)
               sys.exit(0)
-          # Inspect only structural PHP/HTML signatures. Never print project
-          # contents, customer names or raw source. Server changes are blocked
-          # until one unambiguous insertion point has been established.
+          # Modify the existing dossier navigation at its unique closing
+          # statement, rather than guessing at the V3 page's HTML layout.
+          # This keeps the existing renderer, tabs, and authorization intact.
           import re
-          tokens = [
-              ("dossier_nav", r"\$dossierNav"),
-              ("project_id", r"\$projectId"),
-              ("project_gegevens", r"project-gegevens"),
-              ("project_id_html", r"project-[a-z]+"),
-              ("new_document", r"Nieuw document"),
-              ("project_dossier", r"Projectdossier"),
-              ("detail_heading", r"<h1"),
-              ("main_open", r"<main"),
-              ("render_echo", r"\becho\b"),
-          ]
-          print("V3_ANCHOR_SIGNATURES " + repr({
-              name: len(list(re.finditer(pattern, source)))
-              for name, pattern in tokens
-          }), flush=True)
-          # Find safe structural anchors in the live version by reporting
-          # line number and limited signature tokens (no source excerpts).
-          for key in ("$dossierNav", "project-gegevens", "project-header", "project-actions", "project-detail"):
-              lines = [i for i, line in enumerate(source.splitlines(), 1) if key in line]
-              print("V3_ANCHOR_LINES_" + key.replace("$", "").replace("-", "_") + "=" + ",".join(map(str, lines[:25])), flush=True)
-          print("ABORT_NEED_EXACT_V3_RENDER_ANCHOR", flush=True)
-          sys.exit(27)
+          pattern = re.compile(r"(?m)^\s*\$dossierNav\s*\.=\s*'</nav>';[ \t]*$")
+          matches = list(pattern.finditer(source))
+          if len(matches) != 1:
+              print("ABORT_DOSSIER_NAV_CLOSE_ANCHOR_MISMATCH count=" + str(len(matches)), flush=True)
+              sys.exit(27)
+          # Existing navigation is rendered only for authorized project detail.
+          # Links use OfficeMount::basePath and URL-encoded project ID.
+          # Single-quoted PHP fragments are escaped correctly in this block.
+          project_links = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
+              . '">Projectdocumenten</a> <a href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
+              . '">Nieuw document</a></div>'"""
+          # Assignment is complete PHP code (outside the original concatenated
+          # HTML), so it cannot break the project's large template expression.
+          snippet = chr(10) + "$dossierNav .= " + project_links + ";"
+          hit = matches[0]
+          source = source[:hit.end()] + snippet + source[hit.end():]
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-action-backup-" + suffix)
           tmp = p.with_name(p.name + ".documents-action-" + suffix)
