@@ -33,6 +33,8 @@ jobs:
           php -l office-independent/tests/OfficeResidentAddressColumnMapperTest.php
           php -l office-independent/src/Buildings/OfficeResidentAddressIntakeAdapter.php
           php -l office-independent/tests/OfficeResidentAddressIntakeAdapterTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressCsvReader.php
+          php -l office-independent/tests/OfficeResidentAddressCsvReaderTest.php
           php -l office-independent/tests/OfficeResidentAddressSchemaTest.php
           php -l office-independent/tests/OfficeResidentAddressProposalTest.php
           php -l office-independent/tests/OfficeResidentAddressBatchTest.php
@@ -43,3 +45,4 @@ jobs:
           php office-independent/tests/OfficeResidentAddressSchemaTest.php
           php office-independent/tests/OfficeResidentAddressColumnMapperTest.php
           php office-independent/tests/OfficeResidentAddressIntakeAdapterTest.php
+          php office-independent/tests/OfficeResidentAddressCsvReaderTest.php
