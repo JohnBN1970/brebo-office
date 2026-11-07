@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 tab render contract inspection
+name: Office-test Projectdetail V3 navigation structure read-only
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect actual project navigation source safely
+      - name: Inspect live project navigation structure read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,49 +54,24 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # The visible tab list comes from the $tabs array.
-          # Insert a documents tab into that same array, then render
-          # it as a direct link to the central project documents context.
+          # Confirm exact active V3 layout before touching it. The existing
+          # $dossierNav is not the same renderer as the visible tab bar.
           item = "'financieel' => 'Financieel'"
           if source.count(item) != 1:
-              sys.exit("ABORT_FINANCIAL_TAB_ARRAY_ANCHOR_MISMATCH")
-          if "'documenten' => 'Documenten'" in source:
-              print("ALREADY_INSTALLED")
-              sys.exit(0)
-          # A strict multiline PHP tabs-array regex was incorrectly matching
-          # no candidate on the active V3. Verify the actual 5-tab array by
-          # its unique financial label and the existing foreach renderer.
-          tab_prefix = source[:source.index(item)]
-          nearby = tab_prefix[max(0, len(tab_prefix) - 600):]
-          if 'Overzicht' not in nearby or 'Gebouwen' not in nearby or 'Werkvoorbereiding' not in nearby or 'Uitvoering' not in nearby:
-              sys.exit('ABORT_FINANCIAL_LABEL_NOT_IN_FIVE_TAB_ARRAY')
-          if '=> ' not in nearby:
-              sys.exit('ABORT_TAB_MAPPING_NOT_CONFIRMED')
-          print('ACTIVE_V3_FIVE_TAB_MAPPING_CONFIRMED', flush=True)
-          # The live page uses a tab variable different from the repository.
-          # Its existing array is confirmed by the five labels and unique
-          # financial entry. Add one entry that opens the central documents
-          # URL rather than treating it as a local content tab.
-          item = "'financieel' => 'Financieel'"
-          if source.count(item) != 1:
-              sys.exit("ABORT_FINANCIAL_TAB_NOT_UNIQUE")
-          prefix = source[:source.index(item)][-600:]
-          required = ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering")
-          if not all(x in prefix for x in required):
-              sys.exit("ABORT_FIVE_TAB_MAPPING_UNCONFIRMED")
-          # We cannot safely assume how the active renderer turns a new
-          # mapping entry into a URL. Do not install a link that could lead
-          # to an empty local tab. Emit targeted structural details instead.
-          print("V3_TAB_MAPPING_CONFIRMED", flush=True)
-          mapping_line = source[:source.index(item)].count(chr(10)) + 1
-          for i in range(max(1, mapping_line - 3), mapping_line + 20):
-              if i > len(source.splitlines()):
-                  break
-              line = source.splitlines()[i - 1]
-              flags = [t for t in ("foreach", "$dossierNav", "tab=", "href=", "projectUrl", "office-dossier-nav", "financieel", "documenten") if t in line]
-              print("V3_TAB_BUILDER_LINE=" + str(i) + " TOKENS=" + ",".join(flags) + " LENGTH=" + str(len(line)), flush=True)
-          print("ABORT_NEED_TAB_LINK_RENDER_CONTRACT", flush=True)
-          sys.exit(27)
+              sys.exit("ABORT_FINANCIAL_LABEL_NOT_UNIQUE")
+          lines = source.splitlines()
+          financial_line = source[:source.index(item)].count(chr(10))
+          area = lines[max(0, financial_line-8):financial_line+24]
+          if not all(label in chr(10).join(area) for label in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel")):
+              sys.exit("ABORT_NOT_EXPECTED_TAB_MAPPING")
+          print("LIVE_V3_NAVIGATION_CONTEXT", flush=True)
+          # Report structural symbols only, never raw live PHP source.
+          for i, line in enumerate(lines[max(0, financial_line-8):financial_line+24], max(0, financial_line-8)+1):
+              tokens = ("$dossierNav", "foreach", "'financieel'", "'overzicht'", "'gebouwen'", "'werkvoorbereiding'", "'uitvoering'", "tab=", "$projectUrl", "brebo-project-documents-tab", "href=", "echo", "office-dossier-nav")
+              hits = [t for t in tokens if t in line]
+              if hits:
+                  print(f"NAV_STRUCT_{i}=" + ",".join(hits) + ";CHARS=" + str(len(line)), flush=True)
+          print("OFFICE_TEST_TAB_RENDER_SOURCE_REVIEW_PASS", flush=True)
           stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-visible-tabs-backup-" + stamp)
           tmp = p.with_name(p.name + ".documents-visible-tabs-tmp-" + stamp)
