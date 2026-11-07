@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 HTML output diagnostics
+name: Office-test Projectdetail V3 render anchor inspection
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Identify actual live HTML tab output read-only
+      - name: Find exact project navigation HTML render anchor read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,26 +54,27 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # Determine whether the navigation string is actually rendered.
-          # Report only counts and line positions, never live source content.
+          # Ensure the actual project content contains the dossier nav.
+          # Previous versions constructed $dossierNav but never rendered it.
+          # Use the existing variable with its escaped, authorized links.
+          if source.count("$dossierNav") != 6:
+              sys.exit("ABORT_DOSSIER_NAV_REFERENCE_COUNT_CHANGED")
+          if source.count("brebo-project-documents-tab") != 1:
+              sys.exit("ABORT_DOCS_TAB_MISSING")
+          # The unique project dossier section is assembled into the
+          # rendered HTML. Inspect the exact safe placeholder before patching.
+          candidates = []
           lines = source.splitlines()
-          for name, pattern in (
-              ("DOSSIER_NAV", r"\$dossierNav\b"),
-              ("NAV_CLASS", r"office-dossier-nav"),
-              ("FINANCIAL_LABEL", r"Financieel"),
-              ("TAB_URL", r"&tab="),
-              ("TAB_CSS", r"project-tabs|project-tab|tab-nav|tabs-nav"),
-              ("PAGE_ECHO", r"\becho\b"),
-              ("PAGE_PRINT", r"\bprint\b"),
-              ("PAGE_RENDER", r"OfficeNavigation::render|OfficeLayout|renderPage"),
-          ):
-              hits = [str(i) for i, line in enumerate(lines, 1) if re.search(pattern, line)]
-              print("LIVE_HTML_" + name + "_COUNT=" + str(len(hits)), flush=True)
-              print("LIVE_HTML_" + name + "_LINES=" + ",".join(hits[:60]), flush=True)
-          # Check whether the dossier nav appears in a later HTML expression.
-          last_nav_line = max((i for i, line in enumerate(lines, 1) if "$dossierNav" in line), default=0)
-          print("DOSSIER_NAV_LAST_REFERENCE=" + str(last_nav_line), flush=True)
-          print("LIVE_V3_HTML_OUTPUT_DIAGNOSTIC_PASS", flush=True)
+          for i, line in enumerate(lines, 1):
+              if i < 620:
+                  continue
+              if any(t in line for t in ("$dossierHtml", "$projectHtml", "$mainContent", "$contentHtml", "echo ", "OfficeNavigation", "<main", "project-page", "project-dossier")):
+                  tokens = [t for t in ("$dossierHtml", "$projectHtml", "$mainContent", "$contentHtml", "echo ", "OfficeNavigation", "<main", "project-page", "project-dossier", "$dossierNav") if t in line]
+                  candidates.append((i,tokens))
+          print("RENDER_CANDIDATE_COUNT=" + str(len(candidates)), flush=True)
+          for i,tokens in candidates[:45]:
+              print("RENDER_CANDIDATE_LINE=" + str(i) + " TOKENS=" + ",".join(tokens), flush=True)
+          print("READ_ONLY_RENDER_ANCHOR_REQUIRED", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
