@@ -5,6 +5,8 @@ BREBO beheert debiteur, adresmomentopname, factuurregels, btw, bedragen, vervald
 ## Beschikbaar
 
 - Losse facturen en facturen bij een toegankelijk Office-project.
+- Begin met één factuurregel; voeg naar behoefte regels toe of verwijder regels, tot maximaal 100.
+- PDF-download van de opgeslagen Office-factuur in BREBO-huisstijl. Concepten blijven herkenbaar als concept; de download verstuurt niets en haalt niets uit Moneybird op.
 - Concept aanmaken en aanpassen met revisiecontrole; regels en bedragen in gehele centen, btw afgerond per regel.
 - Normale 21%, 9% en 0% btw per regel. Verlegd/vrijgesteld en creditfacturen zijn nog niet ondersteund en worden niet als normaal 0% verwerkt.
 - Gecontroleerd verzenden met geadresseerde en bericht; de factuur bevriest voordat de externe aanroep begint.
@@ -26,3 +28,5 @@ De code activeert zichzelf niet. Er zijn geen klantmails of facturen verstuurd d
 7. Controleer een verzending met een eigen testdebiteur en expliciet gekozen ontvanger. Zet pas daarna `OFFICE_SALES_SEND_ENABLED=enabled`. Herinneringen vereisen daarnaast de nieuwe API-route met `MONEYBIRD_REMINDERS_ENABLED=enabled` en `OFFICE_SALES_REMINDERS_ENABLED=enabled`.
 
 De bestaande Office-release, inkoopfacturen, Drupal-verkoopstromen en bankrechten worden niet door deze installatie veranderd. Er is geen achtergrondtaak die zelfstandig herinneringen verstuurt.
+
+De aanvullende workflowkeuze `UPDATE-OFFICE-SALES-UI` plaatst uitsluitend de PDF-uitvoer en regelinvoer in een reeds geactiveerde testmodule. De helper vergelijkt de twee bestaande bestanden met de gecontroleerde revisie, maakt geverifieerde back-ups en controleert de nieuwe uitvoer. Configuratie en database worden niet gewijzigd. De PDF gebruikt de opgeslagen versie; sla wijzigingen eerst op.

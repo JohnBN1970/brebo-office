@@ -40,7 +40,9 @@ try {
   require $root.'/src/Sales/OfficeSalesService.php';require $root.'/src/Sales/OfficeSalesView.php';require $root.'/src/Sales/OfficeSalesPdf.php';
   $html=\Brebo\Office\Sales\OfficeSalesView::render([],null,[],[],[],'check',true,false,date('Y-m-d'),'',true,false,[],'check');
   if(substr_count($html,'name="lines[')!==4||!str_contains($html,'id="sales-add-line"'))throw new RuntimeException('Installed form failed');
-  echo "OFFICE_SALES_PDF_AND_LINES_INSTALLED=1\nOFFICE_SALES_INITIAL_LINE_COUNT=1\nOFFICE_SALES_CONFIG_UNCHANGED=1\nOFFICE_SALES_NO_DATABASE_WRITES=1\n";
+  $sample=['id'=>0,'invoice_number'=>null,'invoice_date'=>'2026-11-07','due_date'=>'2026-11-21','reference'=>'','customer_json'=>json_encode(['legal_name'=>'','display_name'=>'Controle','street'=>'','postal_code'=>'','city'=>'','country_code'=>'NL']),'lines_json'=>json_encode([['description'=>'Controle','quantity'=>'1','price'=>'1.00','vat'=>'21','net_cents'=>100,'vat_cents'=>21]]),'net_cents'=>100,'vat_cents'=>21,'gross_cents'=>121];
+  if(!str_starts_with(\Brebo\Office\Sales\OfficeSalesPdf::render($sample),'%PDF-1.4'))throw new RuntimeException('Installed PDF failed');
+  echo "OFFICE_SALES_PDF_AND_LINES_INSTALLED=1\nOFFICE_SALES_INITIAL_LINE_COUNT=1\nOFFICE_SALES_PDF_RUNTIME_OK=1\nOFFICE_SALES_CONFIG_UNCHANGED=1\nOFFICE_SALES_NO_DATABASE_WRITES=1\n";
 }catch(Throwable $e){
   echo 'OFFICE_SALES_UI_UPDATE_FAILED_PHASE='.$phase."\n";
   try{foreach($journal as $file=>$row){$hash=hash_file('sha256',$file);if($hash===$row['before'])continue;if($hash!==$row['after'])throw new RuntimeException('Concurrent restore');salesUiReplace($file,$row['after'],$row['bytes'],$row['mode']);}foreach($created as $file=>$hash){if(is_file($file)&&hash_file('sha256',$file)===$hash)unlink($file);}echo "OFFICE_SALES_UI_SOURCES_RESTORED=1\n";}catch(Throwable $restore){echo "OFFICE_SALES_UI_RESTORE_REQUIRES_REVIEW=1\n";}
