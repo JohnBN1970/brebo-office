@@ -54,9 +54,8 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # The live V3 main-output line is a PHP string concatenation,
-          # not a literal HTML template. Use a fail-closed guard for the
-          # exact insertion point, with PHP lint before any replacement.
+          # Navigation is generated but never rendered; the only safe target
+          # is the live main HTML line, with exact structure validation.
           lines = source.splitlines(keepends=True)
           targets = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line]
           if targets != [991]:
@@ -70,10 +69,11 @@ jobs:
               sys.exit("ABORT_DOSSIER_NAV_STATE_CHANGED")
           if "brebo-project-documents-tab" not in source:
               sys.exit("ABORT_DOCS_NAV_NOT_CONSTRUCTED")
-          # The exact tokens surrounding the nav-close must be established
-          # before a mutation. Keep this diagnostic read-only on mismatch.
-          for token in ("</nav><main", "</nav>' . ", "</nav>'", " . '<main", " . $", "</nav>"):
-              print("MAIN_ANCHOR_TOKEN_" + str(len(token)) + "=" + str(old.count(token)), flush=True)
+          # Characterized safe anchor: PHP double navigation close then
+          # main opening, all in one output string. Report whether it
+          # actually exists; don't speculate about quoting on the server.
+          for label, token in (("ADJACENT", "</nav><main"), ("NAV_CLOSE", "</nav>"), ("MAIN_OPEN", "<main"), ("PHP_CONCAT", "' . "), ("ESCAPE_NAV", "$escape")):
+              print("MAIN_ANCHOR_" + label + "=" + str(old.count(token)), flush=True)
           print("READ_ONLY_EXACT_NAV_ANCHOR_REVIEW", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
