@@ -63,8 +63,10 @@ jobs:
           if "'documenten' => 'Documenten'" in source:
               print("ALREADY_INSTALLED")
               sys.exit(0)
-          tabs_expr = source.split(item, 1)[0].rfind("$tabs")
-          if tabs_expr < 0 or len(source) - tabs_expr < 50:
+          # Ensure the matching label belongs to the project tabs array.
+          import re
+          tab_arrays = list(re.finditer(r"\\$tabs\\s*=\\s*\\[[^;]*\\];", source, re.S))
+          if len(tab_arrays) != 1 or item not in tab_arrays[0].group():
               sys.exit("ABORT_TABS_ARRAY_NOT_FOUND")
           anchor = "foreach ($tabs as $key => $label) {"
           if source.count(anchor) != 1:
