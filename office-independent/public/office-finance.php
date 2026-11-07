@@ -596,12 +596,27 @@ try {
       ->visible($operator->operatorId, $projectId);
   }
 
-  if ($view === 'payments' && \Brebo\Office\Intake\OfficeMount::isTest()
+  if (in_array($view, ['dashboard', 'payments'], true) && \Brebo\Office\Intake\OfficeMount::isTest()
+      && ($view === 'payments' || $projectId === null)
       && getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED') === 'enabled') {
+    $data['bank_read_allowed'] = (new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->allowsBankRead();
+    if ($data['bank_read_allowed']) {
+      try {
+        $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
+      } catch (\Throwable $bankError) {
+        $data['bank_snapshot'] = null;
+      }
+    }
+  }
+
+  if ($view === 'dashboard' && \Brebo\Office\Intake\OfficeMount::isTest()
+      && getenv('OFFICE_SALES_ENABLED') === 'enabled' && getenv('OFFICE_SALES_SCHEMA_VERIFIED') === 'enabled') {
+    require_once dirname(__DIR__).'/src/Finance/OfficeFinanceSalesOverview.php';
     try {
-      $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
-    } catch (\Throwable $bankError) {
-      $data['bank_snapshot'] = null;
+      $today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d');
+      $data['sales_overview']=\Brebo\Office\Finance\OfficeFinanceSalesOverview::read($db,$operator->operatorId,$projectId,$today);
+    } catch (PDOException $salesSourceError) {
+      $data['sales_overview']=['available'=>false];
     }
   }
 
@@ -621,3 +636,4 @@ try {
 }
 header('Content-Type: text/html; charset=utf-8');
 echo $html;
+

@@ -20,6 +20,26 @@ final class OfficeFinanceView {
     if ($value === null || $value === '' || $value === 0 || $value === '0') return '—';
     return ctype_digit((string)$value) ? gmdate('d-m-Y', (int)$value) : self::e($value);
   }
+
+  /** Read-only management overview; unavailable sources never become zero values. */
+  private static function overview(array $data, callable $url): string {
+    $e = self::e(...);
+    $html = '<section aria-label="Financiële stuurinformatie"><h2>Financieel overzicht</h2><p class="muted">Resultaat en facturen: BREBO Office. Bankgegevens: Moneybird. Alleen jouw toegankelijke financiële gegevens.</p>';
+    $html .= '<div class="cards">';
+    require_once __DIR__.'/OfficeFinanceSalesOverview.php';
+    $html .= OfficeFinanceSalesOverview::cards($data['sales_overview'] ?? [], '/office-test/finance/verkoop');
+    // Bank balances are organisation-wide; never present them as a project balance.
+    if (($data['project'] ?? null) === null && ($data['bank_read_allowed'] ?? false) === true) {
+      $snapshot = $data['bank_snapshot'] ?? null;
+      $html .= '<div class="card"><span>Bankpositie</span><strong>'.(is_array($snapshot) ? 'Per rekening' : 'Niet beschikbaar').'</strong><small>Boekhoudkundig saldo volgens Moneybird; geen bankbevestigd beschikbaar saldo.</small><p><a href="'.$e($url('finance/betaalcentrum')).'">Bekijk rekeningen en bankmutaties</a></p></div>';
+    }
+    $html .= '</div><h3>Liquiditeitsprognose</h3><div class="cards">';
+    foreach ([30, 60, 90] as $days) {
+      $html .= '<div class="card"><span>'.$days.' dagen</span><strong>Niet beschikbaar</strong><small>Vereist complete beginsaldi, rekeningrollen en geregistreerde toekomstige ontvangsten en betalingen uit BREBO.</small></div>';
+    }
+    return $html . '</div></section>';
+  }
+
   public static function render(array $data, string $view = 'dashboard', string $queue = '', int $page = 1, string $search = ''): string {
     $e = self::e(...);
     $project = $data['project'] ?? null;
@@ -34,8 +54,9 @@ final class OfficeFinanceView {
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
-    if (OfficeMount::isTest() && getenv('OFFICE_SALES_ENABLED') === 'enabled') $html .= '<p><a href="/office-test/finance/verkoop">Verkoopfacturen</a></p>';
-    if ($view === 'payments') {
+    if ($view === 'dashboard' && OfficeMount::isTest()) $html .= self::overview($data, $url);
+    if (in_array($view, ['dashboard', 'payments'], true) && OfficeMount::isTest() && ($data['bank_read_allowed'] ?? false) === true
+        && ($view === 'payments' || $project === null)) {
       $html .= OfficeFinanceBankPanel::render($data['bank_snapshot'] ?? null);
     }
     if ($view === 'dossier') {
@@ -475,7 +496,11 @@ JS;
     $count = array_sum($data['counts']);
     $amount = array_sum(array_map('floatval', $data['amounts_inc_vat']));
     $html .= '<p class="muted">Bron: Finance-inkoopfacturen · Peildatum: '.$e(gmdate('d-m-Y H:i', $data['generated_at'])).' UTC · Bedragen inclusief btw.</p>';
+    if (OfficeMount::isTest()) {
+    $html .= '<div class="cards"><div class="card">Open facturen<strong>'.$count.'</strong>'.self::money($amount).'</div><div class="card">Geblokkeerd<strong>'.$data['counts']['blocked'].'</strong>'.self::money($data['amounts_inc_vat']['blocked']).'</div><div class="card"><a href="'.$e($url('finance/betaalcentrum', ['queue'=>'to_approve'])).'">Ter goedkeuring</a><strong>'.$data['counts']['to_approve'].'</strong>'.self::money($data['amounts_inc_vat']['to_approve']).'</div><div class="card"><a href="'.$e($url('finance/betaalcentrum', ['queue'=>'ready_to_pay'])).'">Goedgekeurde vrijgave</a><strong>'.$data['counts']['ready_to_pay'].'</strong>'.self::money($data['amounts_inc_vat']['ready_to_pay']).'<small>Geen bewijs van bankbetaling.</small></div></div>';
+    } else {
     $html .= '<div class="cards"><div class="card">Open facturen<strong>'.$count.'</strong>'.self::money($amount).'</div><div class="card">Geblokkeerd<strong>'.$data['counts']['blocked'].'</strong>'.self::money($data['amounts_inc_vat']['blocked']).'</div><div class="card">Ter goedkeuring<strong>'.$data['counts']['to_approve'].'</strong>'.self::money($data['amounts_inc_vat']['to_approve']).'</div></div>';
+    }
     if ($view !== 'payments') {
       if (isset($data['registered_drafts'])) {
         $html .= '<section><h2>Geregistreerde conceptfacturen</h2>';
@@ -790,3 +815,4 @@ JS;
     return $html . '</tbody></table></div></details><p>Wijzigingen en betalingen zijn hier nog niet beschikbaar.</p></section>';
   }
 }
+

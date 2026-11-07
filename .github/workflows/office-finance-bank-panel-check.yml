@@ -2,6 +2,9 @@ name: Office Finance bank panel checks
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Finance/OfficeFinanceSalesOverview.php'
+      - 'office-independent/tests/OfficeFinanceSalesOverviewTest.php'
+      - 'office-independent/deployment/hostinger/office-finance-sales-overview*'
       - 'office-independent/public/office-finance.php'
       - 'office-independent/src/Finance/OfficeFinanceView.php'
       - 'office-independent/src/Finance/OfficeFinanceBankPanel.php'
@@ -21,5 +24,8 @@ jobs:
         run: |
           set -euo pipefail
           for file in office-independent/public/office-finance.php office-independent/src/Finance/OfficeFinanceView.php office-independent/src/Finance/OfficeFinanceBankPanel.php office-independent/src/Finance/OfficeMoneybirdBankApiClient.php office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php office-independent/tests/OfficeFinanceBankPanelTest.php office-independent/tests/OfficeMoneybirdBankApiClientTest.php; do php -l "$file"; done
+          php -l office-independent/deployment/hostinger/office-finance-sales-overview-install.php
+          php office-independent/tests/OfficeFinanceSalesOverviewTest.php
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
+
