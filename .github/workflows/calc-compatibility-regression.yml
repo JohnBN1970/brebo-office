@@ -13,6 +13,7 @@ on:
       - office-independent/src/Calculation/OfficeCalcSessionGrantCompatibility.php
       - office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
       - office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+      - office-independent/tests/OfficeCalcGrantValidationServiceTest.php
       - office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
       - office-independent/src/Calculation/OfficeCalcGrantValidationService.php
       - .github/workflows/calc-compatibility-regression.yml
@@ -46,4 +47,6 @@ jobs:
           php -l office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
           php office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
           php office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+          php -l office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+          php office-independent/tests/OfficeCalcGrantValidationServiceTest.php
           echo 'CALC_COMPAT_REGRESSION=PASS'
