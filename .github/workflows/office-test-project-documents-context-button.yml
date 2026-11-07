@@ -60,15 +60,30 @@ jobs:
           # The live V3 has a unique dossier header containing this ID.
           # Insert a standalone action block immediately before that header
           # within the already authorized project page.
-          marker = '<div id="project-gegevens">'
+          # Reuse the stable authorized project header: unlike the former
+          # guessed anchor, this exact fragment was present in repo V3.
+          # The active file remains protected by its exact preflight SHA.
+          marker = '<section>\' . $dossierNav . \'<div id="project-gegevens">'
           if source.count(marker) != 1:
-              sys.exit("ABORT_PROJECT_HEADER_ANCHOR_MISMATCH")
-          insert = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
+              # Show only small structural diagnostics (no customer data).
+              import re
+              print("ANCHOR_DIAGNOSTIC_COUNTS " + repr({
+                  "project_gegevens": source.count("project-gegevens"),
+                  "dossier_nav": source.count("$dossierNav"),
+                  "project_identity": source.count("project-identity"),
+                  "render_section": source.count("<section>"),
+              }), flush=True)
+              print("ABORT_PROJECT_HEADER_ANCHOR_MISMATCH", flush=True)
+              sys.exit(27)
+          # Place a single inline HTML block after dossierNav without
+          # editing the existing controller, tabs or permissions.
+          links = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
               . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
               . '">Projectdocumenten</a> <a href="'
               . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
               . '">Nieuw document</a></div>'"""
-          source = source.replace(marker, insert + " . '" + marker, 1)
+          replacement = "'<section>' . $dossierNav . " + links + " . '<div id=\"project-gegevens\">"
+          source = source.replace(marker, replacement, 1)
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-action-backup-" + suffix)
           tmp = p.with_name(p.name + ".documents-action-" + suffix)
