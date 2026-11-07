@@ -7,6 +7,7 @@ on:
       - 'office-independent/public/office-buildings.php'
       - 'office-independent/deployment/hostinger/office-building-pdok*'
       - '.github/workflows/office-building-pdok-tests.yml'
+      - '.github/workflows/office-test-buildings-targeted-repair.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,3 +24,29 @@ jobs:
           set -euo pipefail
           for file in office-independent/src/Buildings/*.php office-independent/tests/OfficeBuildingPdok*.php; do php -l "$file"; done
           php office-independent/tests/OfficeBuildingPdokSchemaMigrationTest.php
+          php -l office-independent/public/office-buildings.php
+          php office-independent/tests/OfficeBuildingPdokSecurityTest.php
+          php -l office-independent/deployment/hostinger/office-building-pdok-migrate.php
+  mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_pdok_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+      - name: Isolated MySQL migration, preservation and authorization
+        env:
+          OFFICE_PDOK_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_pdok_ci;charset=utf8mb4
+        run: php office-independent/tests/OfficeBuildingPdokMySqlTest.php

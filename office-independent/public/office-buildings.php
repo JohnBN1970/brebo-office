@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-// Read-only buildings linked to projects visible to the current Office operator.
+// Buildings linked to projects visible to the authenticated Office operator.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+if (!in_array($_SERVER['REQUEST_METHOD'] ?? '', ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -95,6 +95,11 @@ if ($detail) {
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
+$pdokCanManage = false;
+$pdokSaveEnabled = getenv('OFFICE_BUILDING_PDOK_SAVE_ENABLED') === 'enabled';
+$pdokCsrf = '';
+$pdokRepository = null;
+$pdokSavedLocation = null;
 // PDOK persistence readiness is advisory only; never block the building page.
 $pdokStorageReady = false;
 $pdokStorageMissing = [];
@@ -104,9 +109,46 @@ if ($detail) {
     $pdokStorageFields = (new \Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository($db))->readiness();
     $pdokStorageMissing = array_keys(array_filter($pdokStorageFields, static fn(bool $ready): bool => !$ready));
     $pdokStorageReady = $pdokStorageMissing === [];
+    if ($pdokStorageReady) {
+      $savedQuery = $db->prepare('SELECT bag_id, latitude, longitude FROM office_buildings WHERE id=?');
+      $savedQuery->execute([$buildingId]);
+      $pdokSavedLocation = $savedQuery->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+    require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingPdokSaveAction.php';
+    $pdokRepository = new \Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository($db);
+    $pdokCanManage = $pdokRepository->canManage((int)$operator->operatorId, $buildingId);
+    $pdokCsrf = \Brebo\Office\Buildings\OfficeBuildingPdokRequestGuard::token(
+      (string)($_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')] ?? ''),
+      $buildingId, \Brebo\Office\Intake\OfficeMount::basePath(), time()
+    );
   } catch (Throwable $pdokReadinessError) {
     error_log('Office buildings: PDOK storage readiness unavailable');
+    $pdokStorageReady = false;
+    $pdokCanManage = false;
     $pdokStorageMissing = ['schema-inspectie'];
+  }
+}
+$pdokSaveNotice = '';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+  if (!$pdokSaveEnabled || !$detail || !$pdokStorageReady || !$pdokCanManage || $pdokRepository === null) {
+    http_response_code(403);
+    exit('BAG-opslag niet beschikbaar of geen beheerrecht.');
+  }
+  try {
+    (new \Brebo\Office\Buildings\OfficeBuildingPdokSaveAction($pdokRepository, new \Brebo\Office\Buildings\OfficeBuildingPdokClient()))->execute(
+      (int)$operator->operatorId, $buildingId,
+      (string)($_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')] ?? ''),
+      \Brebo\Office\Intake\OfficeMount::basePath(), $allowedHost, $_SERVER, $_POST, time()
+    );
+    header('Location: ' . \Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . $buildingId . '&bag_saved=1', true, 303);
+    exit;
+  } catch (DomainException | InvalidArgumentException $error) {
+    http_response_code(403);
+    $pdokSaveNotice = 'Opslaan geweigerd. Ververs de pagina en controleer je beheerrechten.';
+  } catch (Throwable $error) {
+    http_response_code(503);
+    error_log('Office buildings: verified BAG save unavailable');
+    $pdokSaveNotice = 'BAG-locatie niet opgeslagen. Probeer opnieuw; de gebouwgegevens en zones blijven beschikbaar.';
   }
 }
 // PDOK lookup is read-only and intentionally isolated from the building query.
@@ -115,32 +157,13 @@ $pdokResults = [];
 $pdokNotice = '';
 $pdokQuery = '';
 if ($detail && isset($_GET['pdok_q'])) {
-  $pdokQuery = trim((string)$_GET['pdok_q']);
+  $pdokQuery = is_string($_GET['pdok_q']) ? trim($_GET['pdok_q']) : '';
   if (strlen($pdokQuery) < 3 || strlen($pdokQuery) > 160) {
     $pdokNotice = 'Vul een adres in van 3 tot 160 tekens.';
   } else {
     try {
-      $url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?' . http_build_query([
-        'q' => $pdokQuery, 'rows' => 10, 'fq' => 'bron:BAG',
-        'fl' => 'id,weergavenaam,type,centroide_ll,postcode,woonplaatsnaam',
-      ]);
-      $context = stream_context_create(['http' => [
-        'timeout' => 5, 'header' => "Accept: application/json\r\nUser-Agent: BREBO-Office/1.0\r\n",
-      ]]);
-      $json = @file_get_contents($url, false, $context);
-      if ($json === false || strlen($json) > 200000) {
-        throw new RuntimeException('pdok_response_unavailable');
-      }
-      $payload = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
-      foreach (($payload['response']['docs'] ?? []) as $doc) {
-        if (!is_array($doc) || !preg_match('/^POINT\\s*\\(\\s*(-?\\d+(?:\\.\\d+)?)\\s+(-?\\d+(?:\\.\\d+)?)\\s*\\)$/i', (string)($doc['centroide_ll'] ?? ''), $m)) {
-          continue;
-        }
-        $lon = (float)$m[1];
-        $lat = (float)$m[2];
-        if ($lat < 50 || $lat > 54 || $lon < 3 || $lon > 8) continue;
-        $pdokResults[] = ['id' => (string)($doc['id'] ?? ''), 'label' => (string)($doc['weergavenaam'] ?? ''), 'lat' => $lat, 'lon' => $lon];
-      }
+      require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingPdokClient.php';
+      $pdokResults = (new \Brebo\Office\Buildings\OfficeBuildingPdokClient())->search($pdokQuery);
       if ($pdokResults === []) $pdokNotice = 'Geen bruikbare BAG-locatie gevonden.';
     } catch (Throwable $pdokError) {
       error_log('Office buildings PDOK lookup unavailable');
@@ -152,10 +175,15 @@ $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUO
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
-  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
-  echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
+  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>BAG-koppeling vereist beheerrecht. Bestaande zones blijven behouden.</p></section>';
+  echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek en controleer een officieel BAG-adres. Alleen met beheerrecht kun je het koppelen.</p>';
+  if ($pdokSaveNotice !== '') echo '<p role="alert">' . $h($pdokSaveNotice) . '</p>';
+  if ($pdokSavedLocation !== null && $pdokSavedLocation['bag_id'] !== null) {
+    echo '<p>Opgeslagen BAG-identificatie: <strong>' . $h($pdokSavedLocation['bag_id']) . '</strong> · '
+      . $h($pdokSavedLocation['latitude']) . ', ' . $h($pdokSavedLocation['longitude']) . '.</p>';
+  }
   if ($pdokStorageReady) {
-    echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
+    echo '<p role="status">Opslagvelden beschikbaar. Koppelen kan na activering en met beheerrecht.</p>';
   } else {
     echo '<p role="status">Permanente BAG-opslag nog niet beschikbaar: ontbrekende velden of controle: ' . $h(implode(', ', $pdokStorageMissing)) . '.</p>';
   }
@@ -174,6 +202,13 @@ if ($detail) {
       echo ' <a href="' . $h($choiceUrl) . '">Toon op kaart</a>';
     }
     echo '</p>';
+    if ($pdokStorageReady && $pdokCanManage && $pdokSaveEnabled) {
+      echo '<form method="post" action="' . $h(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . $buildingId) . '">'
+        . '<input type="hidden" name="action" value="save_bag">'
+        . '<input type="hidden" name="csrf" value="' . $h($pdokCsrf) . '">'
+        . '<input type="hidden" name="pdok_id" value="' . $h($result['id']) . '">'
+        . '<button type="submit">Deze BAG-locatie gebruiken</button></form>';
+    }
   }
   if ($pdokResults !== []) {
     $location = $pdokResults[$selectedIndex];

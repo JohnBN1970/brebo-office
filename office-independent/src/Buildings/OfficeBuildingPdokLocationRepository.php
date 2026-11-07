@@ -9,10 +9,20 @@ use InvalidArgumentException;
 
 /**
  * Persist a verified BAG location on an existing Office building.
- * Not connected to HTTP until the active schema and CSRF/ACL are verified.
+ * HTTP callers use OfficeBuildingPdokSaveAction for CSRF/origin and PDOK lookup.
  */
 final class OfficeBuildingPdokLocationRepository {
   public function __construct(private PDO $db) {}
+
+  public function canManage(int $operatorId, int $buildingId, bool $lock = false): bool {
+    if ($operatorId < 1 || $buildingId < 1) return false;
+    $stmt = $this->db->prepare("SELECT m.operator_id FROM office_project_buildings pb
+      INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
+      INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+      WHERE pb.building_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1" . ($lock ? ' FOR UPDATE' : ''));
+    $stmt->execute([$buildingId, $operatorId]);
+    return $stmt->fetchColumn() !== false;
+  }
 
   /** @return array<string,bool> */
   public function readiness(): array {
@@ -41,9 +51,9 @@ final class OfficeBuildingPdokLocationRepository {
     float $longitude
   ): void {
     if ($operatorId < 1 || $buildingId < 1
-      || !preg_match('/^[a-zA-Z0-9._:-]{1,128}$/D', $bagId)
+      || !preg_match('/^[0-9]{16}$/D', $bagId)
       || trim($address) === '' || strlen($address) > 255
-      || strlen($postalCode) > 32 || strlen($city) > 160
+      || !preg_match('/^[1-9][0-9]{3}[A-Z]{2}$/D', $postalCode) || trim($city) === '' || strlen($city) > 160
       || !is_finite($latitude) || !is_finite($longitude)
       || $latitude < 50 || $latitude > 54 || $longitude < 3 || $longitude > 8) {
       throw new InvalidArgumentException('invalid_pdok_location');
@@ -51,14 +61,10 @@ final class OfficeBuildingPdokLocationRepository {
     if (in_array(false, $this->readiness(), true)) {
       throw new RuntimeException('pdok_building_schema_not_ready');
     }
+    if ($this->db->inTransaction()) throw new RuntimeException('nested_pdok_transaction');
     $this->db->beginTransaction();
     try {
-      $access = $this->db->prepare("SELECT 1 FROM office_project_buildings pb
-        INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
-        INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
-        WHERE pb.building_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1");
-      $access->execute([$buildingId, $operatorId]);
-      if ($access->fetchColumn() === false) {
+      if (!$this->canManage($operatorId, $buildingId, true)) {
         throw new RuntimeException('building_manage_permission_required');
       }
       $stmt = $this->db->prepare("UPDATE office_buildings
