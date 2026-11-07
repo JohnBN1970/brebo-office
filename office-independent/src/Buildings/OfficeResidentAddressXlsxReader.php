@@ -46,8 +46,9 @@ final class OfficeResidentAddressXlsxReader {
       if ($sharedXml !== false) {
         if (strlen($sharedXml) > 8 * 1024 * 1024) throw new \LengthException('Shared strings too large');
         $reader = new XMLReader();
-        $reader->XML($sharedXml, null, LIBXML_NONET);
+        if (!$reader->XML($sharedXml, null, LIBXML_NONET)) throw new \InvalidArgumentException('Invalid shared strings XML');
         while ($reader->read()) {
+          if ($reader->nodeType === XMLReader::DOC_TYPE) throw new \InvalidArgumentException('DTD not allowed in shared strings');
           if ($reader->nodeType === XMLReader::ELEMENT && $reader->localName === 'si') {
             if (count($shared) >= 50000) throw new \LengthException('Too many shared strings');
             $node = $reader->expand();
@@ -61,10 +62,11 @@ final class OfficeResidentAddressXlsxReader {
       $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
       if ($sheet === false || strlen($sheet) > 12 * 1024 * 1024) throw new \InvalidArgumentException('First worksheet unavailable or too large');
       $reader = new XMLReader();
-      $reader->XML($sheet, null, LIBXML_NONET);
+      if (!$reader->XML($sheet, null, LIBXML_NONET)) throw new \InvalidArgumentException('Invalid worksheet XML');
       $headers = null;
       $rows = [];
       while ($reader->read()) {
+        if ($reader->nodeType === XMLReader::DOC_TYPE) throw new \InvalidArgumentException('DTD not allowed in worksheet');
         if ($reader->nodeType !== XMLReader::ELEMENT || $reader->localName !== 'row') continue;
         $node = $reader->expand();
         $rowNo = (int)$node->getAttribute('r');
