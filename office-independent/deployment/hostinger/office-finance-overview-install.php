@@ -21,13 +21,45 @@ $paths = ['src/Finance/OfficeFinanceView.php', 'public/office-finance.php'];
 $journal = [];
 $phase = 'scope';
 try {
-  if (($argv[1] ?? '') !== '--apply' || is_link($configFile) || realpath($configFile) !== $configFile) throw new RuntimeException('Unsafe configuration scope');
+  if (!in_array(($argv[1] ?? ''), ['--apply','--sources'], true) || is_link($configFile) || realpath($configFile) !== $configFile) throw new RuntimeException('Unsafe configuration scope');
   $hash = hash_file('sha256', $configFile);
   $config = bankLoad($configFile);
   $root = $config['OFFICE_PRIVATE_ROOT'] ?? '';
   if (($config['OFFICE_BASE_PATH'] ?? '') !== '/office-test' || !is_string($root)
       || !str_starts_with($root, $base.'/release-') || !str_ends_with($root, '/private')
       || realpath($root) !== $root || ($config['OFFICE_MONEYBIRD_BANK_READ_ENABLED'] ?? '') !== 'enabled') throw new RuntimeException('Existing Office-test bank scope required');
+  if (($argv[1] ?? '') === '--sources') {
+    $phase = 'read_only_source_inventory';
+    $office = bankDb($config);
+    $office->exec('SET SESSION TRANSACTION READ ONLY');
+    $office->beginTransaction();
+    $sources = ['office'=>$office];
+    $dsn = $config['OFFICE_FINANCE_READ_PDO_DSN'] ?? '';
+    if (is_string($dsn) && $dsn !== '') {
+      if (!str_starts_with($dsn, 'mysql:')) throw new RuntimeException('Invalid read source');
+      $source = new PDO($dsn, $config['OFFICE_FINANCE_READ_DB_USER'] ?? '', $config['OFFICE_FINANCE_READ_DB_PASSWORD'] ?? '', [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+      $source->exec('SET SESSION TRANSACTION READ ONLY');
+      $source->beginTransaction();
+      $sources['finance_read'] = $source;
+    }
+    $tables = ['office_project_contracts','office_project_terms','office_finance_sales_invoice','office_finance_sales_drafts','office_finance_payments','brebo_finance_billing_instalment','brebo_finance_sales_invoice_draft','brebo_finance_sales_invoice_outbox','brebo_finance_sales_invoice'];
+    $prefix = $config['OFFICE_FINANCE_TABLE_PREFIX'] ?? '';
+    if (!is_string($prefix) || !preg_match('/^[a-zA-Z0-9_]*$/D',$prefix)) throw new RuntimeException('Invalid read prefix');
+    foreach ($sources as $label=>$connection) {
+      foreach ($tables as $name) {
+        $table = (str_starts_with($name,'brebo_finance_') ? $prefix : '').$name;
+        $q=$connection->prepare('SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+        $q->execute([$table]);
+        $columns=$q->fetchAll(PDO::FETCH_COLUMN);
+        echo 'FINANCE_SOURCE_'.$label.'_'.$name.'_PRESENT='.(int)($columns!==[])."\n";
+        if ($columns !== []) echo 'FINANCE_SOURCE_'.$label.'_'.$name.'_FIELDS='.implode(',',array_intersect(['id','project_nid','office_project_id','contract_id','status','currency','amount','amount_ex_vat','amount_inc_vat','invoice_date','due_date','created_by','moneybird_id','invoice_number','draft_id'], $columns))."\n";
+      }
+      $connection->rollBack();
+    }
+    if (hash_file('sha256',$configFile)!==$hash) throw new RuntimeException('Configuration changed');
+    echo "FINANCE_SOURCE_READ_ONLY_OK=1\n";
+    exit;
+  }
   $changes = json_decode(file_get_contents(__DIR__.'/office-finance-overview-changes.json'), true, 32, JSON_THROW_ON_ERROR);
   if (array_keys($changes) !== $paths) throw new RuntimeException('Unexpected write scope');
   $phase = 'preview';

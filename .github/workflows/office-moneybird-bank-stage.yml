@@ -42,7 +42,7 @@ permissions:
   contents: read
 jobs:
   finance-overview:
-    if: ${{ inputs.confirmation == 'INSTALL-FINANCE-OVERVIEW' && inputs.install_finance_overview && !inputs.activate_office_bank && !inputs.upgrade_booked_balances && !inputs.check_live_bank && !inputs.check_worker_version && !inputs.check_cloudflare_access && !inputs.check_office_account }}
+    if: ${{ (inputs.confirmation == 'INSTALL-FINANCE-OVERVIEW' || inputs.confirmation == 'CHECK-FINANCE-SOURCES') && inputs.install_finance_overview && !inputs.activate_office_bank && !inputs.upgrade_booked_balances && !inputs.check_live_bank && !inputs.check_worker_version && !inputs.check_cloudflare_access && !inputs.check_office_account }}
     runs-on: ubuntu-latest
     timeout-minutes: 6
     concurrency:
@@ -53,6 +53,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      OVERVIEW_MODE: ${{ inputs.confirmation == 'CHECK-FINANCE-SOURCES' && '--sources' || '--apply' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,7 +84,7 @@ jobs:
           sha256sum "${files[@]}" > "$RUNNER_TEMP/overview.sha256"
           tar -czf "$RUNNER_TEMP/overview.tar.gz" "${files[@]}"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -P "$DEPLOY_PORT" "$RUNNER_TEMP/overview.tar.gz" "$RUNNER_TEMP/overview.sha256" "$remote:$stage/"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -p "$DEPLOY_PORT" "$remote" "cd ~/$stage && tar -xzf overview.tar.gz && sha256sum -c overview.sha256 && php deployment/hostinger/office-finance-overview-install.php --apply"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_overview_key -p "$DEPLOY_PORT" "$remote" "cd ~/$stage && tar -xzf overview.tar.gz && sha256sum -c overview.sha256 && php deployment/hostinger/office-finance-overview-install.php $OVERVIEW_MODE"
       - name: Remove local deployment key
         if: always()
         run: rm -f ~/.ssh/office_overview_key
