@@ -598,10 +598,13 @@ try {
 
   if ($view === 'payments' && \Brebo\Office\Intake\OfficeMount::isTest()
       && getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED') === 'enabled') {
-    try {
-      $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
-    } catch (\Throwable $bankError) {
-      $data['bank_snapshot'] = null;
+    $data['bank_read_allowed'] = (new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->allowsBankRead();
+    if ($data['bank_read_allowed']) {
+      try {
+        $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
+      } catch (\Throwable $bankError) {
+        $data['bank_snapshot'] = null;
+      }
     }
   }
 
@@ -621,3 +624,4 @@ try {
 }
 header('Content-Type: text/html; charset=utf-8');
 echo $html;
+

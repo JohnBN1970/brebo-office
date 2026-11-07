@@ -1,0 +1,119 @@
+--- a/public/office-finance.php
++++ b/public/office-finance.php
+@@ -598,10 +598,13 @@
+ 
+   if ($view === 'payments' && \Brebo\Office\Intake\OfficeMount::isTest()
+       && getenv('OFFICE_MONEYBIRD_BANK_READ_ENABLED') === 'enabled') {
+-    try {
+-      $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
+-    } catch (\Throwable $bankError) {
+-      $data['bank_snapshot'] = null;
++    $data['bank_read_allowed'] = (new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId))->allowsBankRead();
++    if ($data['bank_read_allowed']) {
++      try {
++        $data['bank_snapshot'] = \Brebo\Office\Finance\OfficeMoneybirdBankApiClient::fetch();
++      } catch (\Throwable $bankError) {
++        $data['bank_snapshot'] = null;
++      }
+     }
+   }
+ 
+@@ -621,3 +624,4 @@
+ }
+ header('Content-Type: text/html; charset=utf-8');
+ echo $html;
++
+--- a/src/Finance/OfficeFinanceAccess.php
++++ b/src/Finance/OfficeFinanceAccess.php
+@@ -11,14 +11,19 @@ final class OfficeFinanceAccess {
+   public function __construct(private readonly PDO $db, private readonly string $operatorId) {}
+ 
+   public function allows(string $permission = 'read'): bool {
+-    if (!in_array($permission, ['read', 'unassigned_read', 'draft_edit'], true)) return false;
++    if (!in_array($permission, ['read', 'unassigned_read', 'draft_edit', 'bank_read'], true)) return false;
+     $q = $this->db->prepare("SELECT 1 FROM office_module_permissions g
+       INNER JOIN office_operator_accounts a ON a.id=g.operator_id
+       WHERE g.operator_id=? AND g.module='finance' AND g.permission=? AND a.active=1 LIMIT 1");
+     $q->execute([$this->operatorId, $permission]);
+     return $q->fetchColumn() !== false;
+   }
+ 
++  /** Company-wide bank evidence requires its own grant as well as Finance read. */
++  public function allowsBankRead(): bool {
++    return $this->allows('read') && $this->allows('bank_read');
++  }
++
+   /** Office-native draft assignments do not require legacy Finance source mappings. */
+   public function draftProjects(): array {
+     if (!$this->allows()) return [];
+@@ -47,3 +52,4 @@ public function visibleProjects(): array {
+     return $result;
+   }
+ }
++
+--- a/src/Finance/OfficeFinanceBankPanel.php
++++ b/src/Finance/OfficeFinanceBankPanel.php
+@@ -12,10 +12,12 @@ public static function render(?array $snapshot): string {
+     if ($snapshot === null) {
+       return $html . '<p>Bankgegevens nog niet verbonden. Geen saldo beschikbaar.</p></section>';
+     }
+-    if (($snapshot['provider'] ?? null) !== 'moneybird' || ($snapshot['balances_available'] ?? null) !== false) {
++    if (($snapshot['provider'] ?? null) !== 'moneybird' || ($snapshot['balances_available'] ?? null) !== false
++        || ($snapshot['period'] ?? null) !== 'this_month') {
+       throw new \InvalidArgumentException('Unverified bank snapshot');
+     }
+     $html .= '<p class="muted">Alleen lezen · Saldi niet geverifieerd · Geen automatische betalingsbevestiging.</p>';
++    $html .= '<p>Bankmutaties: deze maand volgens Moneybird. Geen volledig historisch overzicht.</p>';
+     $html .= '<h3>Bankrekeningen</h3><div class="table"><table><thead><tr><th>Rekening</th><th>Identificatie</th><th>Valuta</th><th>Saldo</th></tr></thead><tbody>';
+     foreach (($snapshot['accounts'] ?? []) as $account) {
+       $html .= '<tr><td>'.self::e($account['name'] ?? '').'</td><td>'.self::e($account['identifier'] ?? '').'</td><td>'.self::e($account['currency'] ?? '').'</td><td>Niet beschikbaar</td></tr>';
+@@ -27,3 +29,4 @@ public static function render(?array $snapshot): string {
+     return $html . '</tbody></table></div></section>';
+   }
+ }
++
+--- a/src/Finance/OfficeFinanceView.php
++++ b/src/Finance/OfficeFinanceView.php
+@@ -34,7 +34,7 @@ public static function render(array $data, string $view = 'dashboard', string $q
+     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
+     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
+     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
+-    if ($view === 'payments') {
++    if ($view === 'payments' && OfficeMount::isTest() && ($data['bank_read_allowed'] ?? false) === true) {
+       $html .= OfficeFinanceBankPanel::render($data['bank_snapshot'] ?? null);
+     }
+     if ($view === 'dossier') {
+@@ -789,3 +789,4 @@ private static function invoice(array $data): string {
+     return $html . '</tbody></table></div></details><p>Wijzigingen en betalingen zijn hier nog niet beschikbaar.</p></section>';
+   }
+ }
++
+--- a/src/Finance/OfficeMoneybirdBankSnapshot.php
++++ b/src/Finance/OfficeMoneybirdBankSnapshot.php
+@@ -12,14 +12,14 @@ final class OfficeMoneybirdBankSnapshot {
+ 
+   /**
+    * @param array<string,mixed> $payload
+-   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool}
++   * @return array{provider:string,accounts:list<array<string,string>>,transactions:list<array<string,string>>,balances_available:bool,period:string}
+    */
+   public static function fromIntegrationApi(array $payload): array {
+     if (($payload['status'] ?? null) !== 'ok' || ($payload['provider'] ?? null) !== 'moneybird') {
+       throw new \InvalidArgumentException('Invalid bank snapshot provider');
+     }
+     $bank = $payload['bank'] ?? null;
+-    if (!is_array($bank) || ($bank['balances_available'] ?? null) !== false
++    if (!is_array($bank) || ($bank['balances_available'] ?? null) !== false || ($bank['period'] ?? null) !== 'this_month'
+       || !is_array($bank['accounts'] ?? null) || !is_array($bank['transactions'] ?? null)) {
+       throw new \InvalidArgumentException('Incomplete bank snapshot');
+     }
+@@ -49,6 +49,7 @@ public static function fromIntegrationApi(array $payload): array {
+         'matching_status'=>'unverified',
+       ];
+     }
+-    return ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false];
++    return ['provider'=>'moneybird','accounts'=>array_values($accounts),'transactions'=>array_values($transactions),'balances_available'=>false,'period'=>'this_month'];
+   }
+ }
++
+

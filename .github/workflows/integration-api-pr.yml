@@ -40,5 +40,12 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Bank version acceptance harness tests
+        run: node --test scripts/bank-version-acceptance.test.mjs
+
+      - name: Cloudflare read-only diagnostic tests
+        run: node --test scripts/cloudflare-access-check.test.mjs
+
       - name: Wrangler dry run
         run: npm run deploy:dry-run
+

@@ -3,14 +3,42 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type STAGE-OFFICE-BANK
+        description: STAGE-OFFICE-BANK, ACTIVATE-OFFICE-BANK, or UPGRADE-OFFICE-BALANCES for balance-only upgrade
         required: true
         type: string
+      check_live_bank:
+        description: Check bank API with read-only GET requests; no activation
+        type: boolean
+        default: false
+      check_worker_version:
+        description: Temporarily test API version at 0 percent, current version at 100 percent, then restore
+        type: boolean
+        default: false
+      check_cloudflare_access:
+        description: Read-only token, account and Worker API diagnosis; no staging or deployment
+        type: boolean
+        default: false
+      activate_office_bank:
+        description: Activate accepted bank API and Office-test panel for the verified account; preserve invoice flows
+        type: boolean
+        default: false
+      check_office_account:
+        description: Publish temporary authenticated self-account check on Office-test; no permission changes
+        type: boolean
+        default: false
+      account_fingerprint:
+        description: SHA-256 fingerprint of the authenticated Office account for activation
+        type: string
+        default: ''
+      upgrade_booked_balances:
+        description: Upgrade balances only; Worker and two PHP files, no Office config or permission changes
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   stage:
-    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' }}
+    if: ${{ ((inputs.confirmation == 'STAGE-OFFICE-BANK' && !inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'ACTIVATE-OFFICE-BANK' && inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'UPGRADE-OFFICE-BALANCES' && inputs.upgrade_booked_balances && !inputs.activate_office_bank)) && (!inputs.check_cloudflare_access || inputs.check_live_bank || inputs.check_worker_version || inputs.activate_office_bank) }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
@@ -18,21 +46,38 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      BANK_PREFLIGHT_LIVE_READ: ${{ inputs.check_live_bank && '1' || '0' }}
+      BANK_ACCOUNT_CHECK: ${{ inputs.check_office_account && '1' || '0' }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          ref: develop
+          ref: ${{ github.sha }}
       - name: Verify isolated Office code
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "BANK_STAGE_SOURCE_SHA=$GITHUB_SHA"
           php -l office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php
           php -l office-independent/src/Finance/OfficeFinanceBankPanel.php
+          php -l office-independent/src/Finance/OfficeFinanceAccess.php
           php -l office-independent/src/Finance/OfficeMoneybirdBankApiClient.php
           php -l office-independent/src/Finance/OfficeFinanceView.php
           php -l office-independent/public/office-finance.php
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
+          php office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+          php office-independent/tests/OfficeFinanceBankAccessTest.php
+          php office-independent/tests/OfficeFinanceBankViewTest.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-preflight.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php
+          php office-independent/tests/OfficeFinanceBankPreviewHooksTest.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-activate.php
+          php -l office-independent/deployment/hostinger/office-moneybird-booked-balance-upgrade.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-account-check.php
+          php -l office-independent/deployment/hostinger/office-moneybird-bank-account-install.php
+          php office-independent/tests/OfficeFinanceBankActivationBoundaryTest.php
+          (cd office-independent && sha256sum src/Finance/OfficeMoneybirdBankSnapshot.php src/Finance/OfficeFinanceBankPanel.php src/Finance/OfficeFinanceAccess.php src/Finance/OfficeMoneybirdBankApiClient.php src/Finance/OfficeFinanceView.php src/Intake/OfficeMount.php public/office-finance.php tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankAccessTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php deployment/hostinger/office-moneybird-bank-preflight.php deployment/hostinger/office-moneybird-bank-plan.sh deployment/hostinger/office-moneybird-bank-office.patch deployment/hostinger/office-moneybird-bank-previous.sha256 deployment/hostinger/office-moneybird-bank-preview-hooks.php deployment/hostinger/office-moneybird-bank-activate.php deployment/hostinger/office-moneybird-booked-balance-upgrade.php deployment/hostinger/office-moneybird-bank-account-check.php deployment/hostinger/office-moneybird-bank-account-install.php) > "$RUNNER_TEMP/office-bank-stage.sha256"
       - name: Set up SSH
         run: |
           set -euo pipefail
@@ -46,22 +91,236 @@ jobs:
         run: |
           set -euo pipefail
           remote="$DEPLOY_USER@$DEPLOY_HOST"
-          stage="office-bank-staging-$GITHUB_RUN_ID"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "install -d -m 700 ~/$stage/Finance ~/$stage/public"
+          stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage && install -d -m 700 ~/$stage/src/Finance ~/$stage/src/Intake ~/$stage/public ~/$stage/tests ~/$stage/deployment/hostinger"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php \
             office-independent/src/Finance/OfficeFinanceBankPanel.php \
+            office-independent/src/Finance/OfficeFinanceAccess.php \
             office-independent/src/Finance/OfficeMoneybirdBankApiClient.php \
-            office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/Finance/"
+            office-independent/src/Finance/OfficeFinanceView.php "$remote:$stage/src/Finance/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/src/Intake/OfficeMount.php "$remote:$stage/src/Intake/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/tests/OfficeFinanceBankPanelTest.php office-independent/tests/OfficeFinanceBankAccessTest.php \
+            office-independent/tests/OfficeFinanceBankViewTest.php office-independent/tests/OfficeMoneybirdBankApiClientTest.php \
+            office-independent/tests/OfficeMoneybirdBankSnapshotTest.php "$remote:$stage/tests/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            office-independent/deployment/hostinger/office-moneybird-bank-preflight.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-plan.sh \
+            office-independent/deployment/hostinger/office-moneybird-bank-office.patch \
+            office-independent/deployment/hostinger/office-moneybird-bank-previous.sha256 \
+            office-independent/deployment/hostinger/office-moneybird-bank-preview-hooks.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-activate.php \
+            office-independent/deployment/hostinger/office-moneybird-booked-balance-upgrade.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-account-check.php \
+            office-independent/deployment/hostinger/office-moneybird-bank-account-install.php "$remote:$stage/deployment/hostinger/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
+            "$RUNNER_TEMP/office-bank-stage.sha256" "$remote:$stage/EXPECTED_SHA256"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -P "$DEPLOY_PORT" \
             office-independent/public/office-finance.php "$remote:$stage/public/"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' bash -se" <<'REMOTE'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_stage_key -p "$DEPLOY_PORT" "$remote" "STAGE='$stage' SOURCE_SHA='$GITHUB_SHA' BANK_PREFLIGHT_LIVE_READ='$BANK_PREFLIGHT_LIVE_READ' BANK_ACCOUNT_CHECK='$BANK_ACCOUNT_CHECK' bash -se" <<'REMOTE'
           set -euo pipefail
           stage="$HOME/$STAGE"
           test -d "$stage" && test ! -L "$stage"
-          for file in "$stage"/Finance/*.php "$stage"/public/*.php; do php -l "$file"; done
-          echo "BANK_STAGE_SHA256_BEGIN"
-          sha256sum "$stage"/Finance/*.php "$stage"/public/*.php
-          echo "BANK_STAGE_SHA256_END"
+          cd "$stage"
+          sha256sum -c EXPECTED_SHA256
+          printf '%s\n' "$SOURCE_SHA" > SOURCE_SHA
+          while read -r hash file; do case "$file" in *.php) php -l "$file";; *.sh) bash -n "$file";; esac; done < EXPECTED_SHA256
+          for file in tests/OfficeFinanceBankPanelTest.php tests/OfficeFinanceBankViewTest.php tests/OfficeMoneybirdBankApiClientTest.php tests/OfficeMoneybirdBankSnapshotTest.php; do php "$file"; done
+          if php -r 'exit(extension_loaded("pdo_sqlite") ? 0 : 1);'; then
+            php tests/OfficeFinanceBankAccessTest.php
+          else
+            echo 'BANK_ACL_SQLITE_TEST_SKIPPED_ON_TARGET_RUN_IN_CI'
+          fi
           echo "BANK_STAGE_OK_NO_ACTIVE_RELEASE_CHANGED"
+          php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php
+          bash deployment/hostinger/office-moneybird-bank-plan.sh
+          if [ "$BANK_ACCOUNT_CHECK" = 1 ]; then php -d display_errors=0 deployment/hostinger/office-moneybird-bank-account-install.php; fi
           REMOTE
+
+  cloudflare-access-read:
+    if: ${{ inputs.confirmation == 'STAGE-OFFICE-BANK' && inputs.check_cloudflare_access }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate read-only diagnostic
+        run: node --test integration-api/scripts/cloudflare-access-check.test.mjs
+      - name: Read Cloudflare token status and Worker access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node integration-api/scripts/cloudflare-access-check.mjs
+
+  bank-version-read:
+    needs: stage
+    if: ${{ (inputs.confirmation == 'STAGE-OFFICE-BANK' && inputs.check_worker_version && !inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'ACTIVATE-OFFICE-BANK' && inputs.activate_office_bank && !inputs.upgrade_booked_balances) || (inputs.confirmation == 'UPGRADE-OFFICE-BALANCES' && inputs.upgrade_booked_balances && !inputs.activate_office_bank) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    concurrency:
+      group: brebo-integration-api-production
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: integration-api
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: integration-api/package-lock.json
+      - name: Validate exact source and acceptance checks
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            test -n "${!key}" || { echo "::error::Missing $key"; exit 1; }
+          done
+          if [ '${{ inputs.activate_office_bank || inputs.upgrade_booked_balances }}' = true ]; then
+            git fetch --no-tags --depth=1 origin develop:refs/remotes/origin/bank-activation-develop 63c601810f103295eadffc509cc3789b9d29305d
+            git diff --exit-code 63c601810f103295eadffc509cc3789b9d29305d refs/remotes/origin/bank-activation-develop -- src wrangler.jsonc worker-configuration.d.ts package.json package-lock.json >/dev/null
+          fi
+          npm ci
+          npm run check
+          node --test scripts/bank-version-acceptance.test.mjs
+      - name: Verify Office-test activation prerequisites without changes
+        if: ${{ inputs.activate_office_bank || inputs.upgrade_booked_balances }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          ACCOUNT_FINGERPRINT: ${{ inputs.account_fingerprint }}
+          TARGET_SCRIPT: ${{ inputs.upgrade_booked_balances && 'office-moneybird-booked-balance-upgrade.php' || 'office-moneybird-bank-activate.php' }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_bank_activate_key
+          chmod 600 ~/.ssh/office_bank_activate_key
+          [[ "$ACCOUNT_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
+          stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && OFFICE_BANK_ACCOUNT_FINGERPRINT='$ACCOUNT_FINGERPRINT' php -d display_errors=0 deployment/hostinger/$TARGET_SCRIPT --check"
+      - name: Record current active Worker deployment
+        id: baseline
+        run: npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-before.json"
+      - name: Upload version without deploying production traffic
+        id: plan
+        run: |
+          set -euo pipefail
+          if ! npx --no-install wrangler versions upload --keep-vars \
+            --var MONEYBIRD_BANK_READ_ENABLED:enabled --var MONEYBIRD_BANK_BOOKED_BALANCE_ENABLED:enabled \
+            --tag bank-read-1636 --message "Read-only bank acceptance $GITHUB_SHA" \
+            > "$RUNNER_TEMP/bank-version-upload.log" 2>&1; then
+            node scripts/bank-version-acceptance.mjs upload-error "$RUNNER_TEMP/bank-version-upload.log"
+            echo '::error::Worker version upload failed; no production deploy command was invoked.'
+            exit 1
+          fi
+          node scripts/bank-version-acceptance.mjs prepare-zero-plan "$RUNNER_TEMP/bank-active-before.json" "$RUNNER_TEMP/bank-version-upload.log" "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Temporarily add test version at exactly zero percent traffic
+        run: |
+          set -euo pipefail
+          baseline_version="$(node scripts/bank-version-acceptance.mjs baseline-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          candidate_version="$(node scripts/bank-version-acceptance.mjs candidate-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          version_available=0
+          for attempt in 1 2 3 4 5; do
+            if npx --no-install wrangler versions view "$candidate_version" --json > "$RUNNER_TEMP/bank-candidate-metadata.json" 2> "$RUNNER_TEMP/bank-candidate-read-error.log"; then
+              version_available=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$version_available" != 1 ]; then
+            node scripts/bank-version-acceptance.mjs upload-error "$RUNNER_TEMP/bank-candidate-read-error.log"
+            echo '::error::Uploaded version is not readable after bounded metadata checks; no traffic change attempted.'
+            exit 1
+          fi
+          echo 'BANK_CANDIDATE_METADATA_READABLE=1'
+          npx --no-install wrangler versions deploy "$baseline_version@100%" "$candidate_version@0%" --yes --message "Temporary bank GET acceptance; existing traffic stays at 100 percent"
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-zero-current.json"
+          node scripts/bank-version-acceptance.mjs verify-zero "$RUNNER_TEMP/bank-zero-current.json" "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Verify bank-only response with signed GET
+        env:
+          BANK_REQUIRE_BOOKED_BALANCES: '1'
+          BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
+        run: node scripts/bank-version-acceptance.mjs check-zero "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Promote only the accepted bank version
+        if: ${{ inputs.activate_office_bank || inputs.upgrade_booked_balances }}
+        id: promote
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-before-promote.json"
+          node scripts/bank-version-acceptance.mjs verify-zero "$RUNNER_TEMP/bank-before-promote.json" "$RUNNER_TEMP/bank-zero-plan.json"
+          candidate_version="$(node scripts/bank-version-acceptance.mjs candidate-version "$RUNNER_TEMP/bank-zero-plan.json")"
+          npx --no-install wrangler versions deploy "$candidate_version@100%" --yes --message "Activate accepted read-only bank route for Office-test; invoice handlers unchanged"
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-promoted.json"
+      - name: Verify permanent bank route without version override
+        if: ${{ inputs.activate_office_bank || inputs.upgrade_booked_balances }}
+        env:
+          BANK_REQUIRE_BOOKED_BALANCES: '1'
+          BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
+        run: node scripts/bank-version-acceptance.mjs check-promoted "$RUNNER_TEMP/bank-promoted.json" "$RUNNER_TEMP/bank-zero-plan.json"
+      - name: Apply the approved Office-test bank action
+        if: ${{ inputs.activate_office_bank || inputs.upgrade_booked_balances }}
+        id: officeactivate
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
+          ACCOUNT_FINGERPRINT: ${{ inputs.account_fingerprint }}
+          TARGET_SCRIPT: ${{ inputs.upgrade_booked_balances && 'office-moneybird-booked-balance-upgrade.php' || 'office-moneybird-bank-activate.php' }}
+        run: |
+          set -euo pipefail
+          [[ "$ACCOUNT_FINGERPRINT" =~ ^[a-f0-9]{64}$ ]]
+          stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          if [ "$TARGET_SCRIPT" = office-moneybird-booked-balance-upgrade.php ]; then
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && OFFICE_BANK_ACCOUNT_FINGERPRINT='$ACCOUNT_FINGERPRINT' php -d display_errors=0 deployment/hostinger/$TARGET_SCRIPT --apply"
+          else
+            printf '%s' "$BREBO_SHARED_SECRET" | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && OFFICE_BANK_ACCOUNT_FINGERPRINT='$ACCOUNT_FINGERPRINT' php -d display_errors=0 deployment/hostinger/$TARGET_SCRIPT --apply"
+          fi
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && BANK_PREFLIGHT_LIVE_READ=1 php -d display_errors=0 deployment/hostinger/office-moneybird-bank-preflight.php > bank-activated-preflight.log && grep -qx 'BANK_READ_PREFLIGHT_GO=1' bank-activated-preflight.log && echo OFFICE_BANK_POST_CONFIG_PREFLIGHT_OK=1"
+      - name: Retain accepted activation or restore baseline on failure
+        if: ${{ always() && steps.plan.outcome == 'success' }}
+        env:
+          ACTIVATING: ${{ (inputs.activate_office_bank || inputs.upgrade_booked_balances) && '1' || '0' }}
+          TARGET_SCRIPT: ${{ inputs.upgrade_booked_balances && 'office-moneybird-booked-balance-upgrade.php' || 'office-moneybird-bank-activate.php' }}
+          OFFICE_ACTIVATED: ${{ steps.officeactivate.outcome == 'success' && '1' || '0' }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-before-restore.json"
+          state="$(node scripts/bank-version-acceptance.mjs activation-traffic-state "$RUNNER_TEMP/bank-before-restore.json" "$RUNNER_TEMP/bank-zero-plan.json")"
+          if [ "$ACTIVATING" = 1 ] && [ "$OFFICE_ACTIVATED" = 1 ]; then
+            test "$state" = promoted
+            echo 'BANK_AND_OFFICE_TEST_ACTIVATION_COMPLETE=1'
+            exit 0
+          fi
+          rollback_failed=0
+          if [ "$ACTIVATING" = 1 ]; then
+            stage="office-bank-staging-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_bank_activate_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "cd '$stage' && php -d display_errors=0 deployment/hostinger/$TARGET_SCRIPT --rollback" || rollback_failed=1
+          fi
+          if [ "$state" = zero-test ] || [ "$state" = promoted ]; then
+            baseline_version="$(node scripts/bank-version-acceptance.mjs baseline-version "$RUNNER_TEMP/bank-zero-plan.json")"
+            npx --no-install wrangler versions deploy "$baseline_version@100%" --yes --message "Restore baseline after bank acceptance or incomplete activation"
+          fi
+          npx --no-install wrangler deployments list --json > "$RUNNER_TEMP/bank-active-restored.json"
+          node scripts/bank-version-acceptance.mjs verify-restored "$RUNNER_TEMP/bank-active-restored.json" "$RUNNER_TEMP/bank-zero-plan.json"
+          test "$rollback_failed" = 0
