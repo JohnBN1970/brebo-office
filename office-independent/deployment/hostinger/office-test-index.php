@@ -72,6 +72,7 @@ $routes = [
   '/office-test/personeel/medewerkers' => 'office-personnel.php',
   '/office-test/personeel/medewerkers/detail' => 'office-personnel.php',
   '/office-test/finance' => 'office-finance.php',
+  '/office-test/finance/verkoop' => 'office-sales.php',
   '/office-test/finance/betaalcentrum' => 'office-finance-payments.php',
   '/office-test/finance/factuur' => 'office-finance-invoice.php',
   '/office-test/finance/dossier' => 'office-finance-dossier.php',

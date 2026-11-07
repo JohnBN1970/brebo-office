@@ -1,0 +1,71 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI!=='cli') { http_response_code(404); exit; }
+ini_set('display_errors','0');
+try {
+  $base=rtrim((string)getenv('HOME'),'/').'/domains/brebobv.nl/office_calc_test';
+  $path=$base.'/config/config.php';
+  if (is_link($path) || realpath($path)!==$path) throw new RuntimeException('Unsafe test configuration');
+  $hash=hash_file('sha256',$path); $config=require $path;
+  $root=$config['OFFICE_PRIVATE_ROOT']??'';
+  if (!is_array($config) || ($config['OFFICE_BASE_PATH']??'')!=='/office-test' || !is_string($root) || !str_starts_with($root,$base.'/release-') || !str_ends_with($root,'/private') || realpath($root)!==$root
+      || !preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$config['OFFICE_INTAKE_PDO_DSN']??'') || ($config['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test') throw new RuntimeException('Wrong test scope');
+  $db=new PDO($config['OFFICE_INTAKE_PDO_DSN'],$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+  $db->exec('SET SESSION TRANSACTION READ ONLY'); $db->beginTransaction();
+  foreach (['office_projects','office_project_contracts','office_project_terms','office_office_project_contracts','office_office_project_terms'] as $table) {
+    $q=$db->prepare('SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');$q->execute([$table]);
+    echo 'SALES_TERM_SOURCE_'.$table.'_FIELDS='.implode(',',array_map(static fn(array $r): string=>$r['COLUMN_NAME'].':'.$r['DATA_TYPE'],$q->fetchAll(PDO::FETCH_ASSOC)))."\n";
+  }
+  foreach (['OfficeProjectTermRepository','OfficeProjectTermService','OfficeProjectContractRepository','OfficeProjectContractService'] as $class) {
+    $source=$root.'/src/Project/'.$class.'.php';
+    if (is_file($source)&&!is_link($source)) {
+      echo 'SALES_PROJECT_SOURCE_'.$class.'_SHA256='.hash_file('sha256',$source)."\n";
+      foreach(file($source,FILE_IGNORE_NEW_LINES) as $line)if(preg_match('/office_project_terms|office_project_contracts|labou?r|arbeid|g_account|g_rekening|\$prefix/i',$line)&&strlen($line)<1000)echo 'SALES_PROJECT_SOURCE_RULE='.trim($line)."\n";
+    }
+  }
+  foreach (['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit','office_finance_sales_receipt','office_crm_relations','office_crm_external_identities'] as $table) {
+    $q=$db->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?'); $q->execute([$table]);
+    echo 'SALES_TABLE_'.$table.'_PRESENT='.(int)((int)$q->fetchColumn()>0)."\n";
+  }
+  foreach (['read','draft_edit'] as $permission) {
+    $q=$db->prepare("SELECT 1 FROM office_module_permissions p JOIN office_operator_accounts a ON a.id=p.operator_id WHERE a.id=? AND a.active=1 AND p.module='finance' AND p.permission=?");$q->execute(['1',$permission]);
+    echo 'SALES_EXISTING_OPERATOR_'.$permission.'='.(int)($q->fetchColumn()!==false)."\n";
+  }
+  foreach (['OFFICE_SALES_ENABLED','OFFICE_SALES_SCHEMA_VERIFIED','OFFICE_SALES_SEND_ENABLED','OFFICE_SALES_REMINDERS_ENABLED'] as $key) echo $key.'_CURRENT='.(($config[$key]??'disabled')==='enabled'?'enabled':'disabled')."\n";
+  $tax=json_decode($config['OFFICE_SALES_MONEYBIRD_TAX_RATES']??'{}',true);
+  foreach (['0','9','21'] as $rate) echo 'SALES_TAX_MAPPING_'.$rate.'_PRESENT='.(int)(is_array($tax)&&is_string($tax[$rate]??null)&&preg_match('/^\d+$/D',$tax[$rate]))."\n";
+  $q=$db->prepare("SELECT 1 FROM office_crm_external_identities e JOIN office_crm_relations r ON r.id=e.relation_id WHERE e.provider_code='moneybird' AND r.status='active' LIMIT 1"); $q->execute();
+  echo 'SALES_CANONICAL_MONEYBIRD_MAPPING_PRESENT='.(int)($q->fetchColumn()!==false)."\n";
+  foreach (['src/Sales/OfficeSalesService.php','public/office-sales.php'] as $file) echo 'SALES_FILE_'.str_replace(['/','.'],['_','_'],$file).'_PRESENT='.(int)is_file($root.'/'.$file)."\n";
+  $router=dirname($base).'/public_html/office-test/index.php';
+  $rewriteFile=dirname($router).'/.htaccess';
+  echo 'SALES_REWRITE_PRESENT='.(int)(is_file($rewriteFile)&&!is_link($rewriteFile)&&str_contains(file_get_contents($rewriteFile),'RewriteRule ^finance/verkoop$ index.php [END,QSA]'))."\n";
+  if (is_file($router) && !is_link($router)) echo 'SALES_ROUTE_PRESENT='.(int)(str_contains(file_get_contents($router),"'/office-test/finance/verkoop'") || (is_file($root.'/modules/sales/routes.php') && ($config['OFFICE_SALES_ENABLED']??'')==='enabled'))."\n";
+  if (is_file($router) && !is_link($router)) {
+    echo 'SALES_MODULAR_ROUTER_PRESENT='.(int)str_contains(file_get_contents($router),"\$moduleRoot = \$private . '/modules';")."\n";
+  }
+  $runtimeSales=$root.'/src/Sales';
+  $manifest=$root.'/modules/sales/routes.php';
+  if(is_file($manifest)&&!is_link($manifest)){
+    $module=file_get_contents($manifest);
+    if(preg_match("~'(/office-test/finance/verkoop)'\\s*=>\\s*'([a-z][a-z0-9-]*\\.php)'~",$module,$route)){
+      $entry=$root.'/public/'.$route[2];
+      if(is_file($entry)&&!is_link($entry)&&preg_match("~'/src/Sales/(billing-v2-\\d+-\\d+)/~",file_get_contents($entry),$bundle)){
+        $candidate=$root.'/src/Sales/'.$bundle[1];if(realpath($candidate)!==$candidate)throw new RuntimeException('Unsafe billing bundle');$runtimeSales=$candidate;
+      }
+    }
+  }
+  echo 'SALES_ACTIVE_BILLING_V2='.(int)($runtimeSales!==$root.'/src/Sales')."\n";
+  if (($config['OFFICE_SALES_ENABLED']??'')==='enabled') {
+    $db->query('SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE 1=0');
+    require_once $runtimeSales.'/OfficeSalesService.php';
+    require_once $runtimeSales.'/OfficeSalesView.php';
+    $service=new \Brebo\Office\Sales\OfficeSalesService($db,'1');
+    $html=\Brebo\Office\Sales\OfficeSalesView::render($service->list(),null,$service->customers(),$service->projects(),[],str_repeat('a',64),true,false,date('Y-m-d'),'',true,false,[]);
+    if (!str_contains($html,'relation_id') || !str_contains($html,'Verkoopfacturen')) throw new RuntimeException('Sales form render failed');
+    echo "SALES_RUNTIME_FORM_READ_ONLY_OK=1\n";
+  }
+  $db->rollBack();
+  if (hash_file('sha256',$path)!==$hash) throw new RuntimeException('Configuration changed');
+  echo "SALES_PREFLIGHT_READ_ONLY_OK=1\n";
+} catch (Throwable $e) { echo "SALES_PREFLIGHT_BLOCKED=1\n"; exit(1); }
