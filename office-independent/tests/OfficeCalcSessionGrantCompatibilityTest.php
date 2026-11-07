@@ -47,5 +47,16 @@ namespace {
             exit(1);
         }
     }
-    echo "CALC_COMPAT_TESTS=PASS (16 cases)\n";
+    $hash = $adapter->activeSessionHash($validRef, 1, 2, 3, 100);
+    if ($hash !== null) {
+        // The final stub value in the matrix was intentionally invalid.
+        fwrite(STDERR, "FAIL: activeSessionHash invalid record\n");
+        exit(1);
+    }
+    \Brebo\Office\Calculation\OfficeCalcSessionGrantRepository::$result = $active;
+    if ($adapter->activeSessionHash($validRef, 1, 2, 3, 100) !== str_repeat('b', 64)) {
+        fwrite(STDERR, "FAIL: activeSessionHash valid record\n");
+        exit(1);
+    }
+    echo "CALC_COMPAT_TESTS=PASS (18 cases)\n";
 }
