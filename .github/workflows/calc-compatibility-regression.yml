@@ -38,5 +38,7 @@ jobs:
           set -euo pipefail
           php -l office-independent/src/Calculation/OfficeCalcSessionGrantCompatibility.php
           php -l office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+          php -l office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
+          php -l office-independent/src/Calculation/OfficeCalcGrantValidationService.php
           php office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
           echo 'CALC_COMPAT_REGRESSION=PASS'
