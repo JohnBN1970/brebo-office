@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 visible five tabs diagnostics
+name: Office-test Projectdetail V3 real navigation renderer check
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Identify visible five-tab navigation source read-only
+      - name: Inspect five tabs in rendered HTML output read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -46,18 +46,23 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
+          # The visible tabs are produced by a different HTML output
+          # expression from the unused dossierNav constructed at 611-623.
+          # Insert the Documents link into the actual visible nav block.
           source = raw.decode("utf-8")
-          lines = source.splitlines()
-          print("CURRENT_SHA256=" + hashlib.sha256(raw).hexdigest(), flush=True)
-          for term in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel", "Documenten", "brebo-project-documents-visible-tab", "$dossierNav"):
-              matches = [i for i,line in enumerate(lines,1) if term in line]
-              print("VISIBLE_TAB_TOKEN=" + term + " LINES=" + ",".join(map(str,matches[:50])), flush=True)
-          for i in range(725, min(820,len(lines))):
+          expected = "742529945249e360f54222f38f83976636b49bd1aaf874acc206b77008230b25"
+          if hashlib.sha256(raw).hexdigest() != expected:
+              sys.exit("ABORT_LIVE_V3_SHA_CHANGED")
+          if source.count("brebo-project-documents-visible-tab") != 1:
+              sys.exit("ABORT_PREVIOUS_DOCS_LINK_NOT_FOUND")
+          lines = source.splitlines(keepends=True)
+          # Inspect real tab HTML near the end of the rendered HTML.
+          print("CANDIDATES_FOR_VISIBLE_TAB_BAR", flush=True)
+          for i in range(975, min(996,len(lines))):
               line = lines[i]
-              tokens = [t for t in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel", "foreach", "href=", "tab=", "echo", "nav", "render", "activeTab", "projectUrl", "project-nav", "project-tab", "dossier") if t in line]
-              if tokens:
-                  print("VISIBLE_NAV_STRUCTURE_LINE=" + str(i+1) + " TOKENS=" + ",".join(tokens) + " LEN=" + str(len(line)), flush=True)
-          print("VISIBLE_NAV_STRUCTURE_READONLY_PASS", flush=True)
+              labels = [x for x in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel", "Documenten", "nav", "class=", "href=", "$escape", "$projectUrl", "$activeTab", "'") if x in line]
+              print("VISIBLE_HTML_LINE=" + str(i+1) + " HAS=" + ",".join(labels) + " LEN=" + str(len(line)), flush=True)
+          print("VISIBLE_HTML_ANCHOR_INSPECTION_PASS", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
