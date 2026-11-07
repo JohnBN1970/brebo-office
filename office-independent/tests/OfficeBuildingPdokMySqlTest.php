@@ -25,7 +25,7 @@ $db->exec('CREATE TABLE office_project_memberships (project_id INT, operator_id 
 $db->exec("INSERT INTO office_buildings VALUES (1,'Existing A','Original','1234AB','Breda'), (2,'Existing B','Other','1234AB','Breda')");
 $db->exec('INSERT INTO office_building_zones VALUES (1,1,1,51.5,4.3),(2,1,1,51.5,4.3),(3,1,1,51.5,4.3),(4,1,1,51.5,4.3)');
 $db->exec('INSERT INTO office_project_buildings VALUES (10,1),(20,2)');
-$db->exec('INSERT INTO office_operator_accounts VALUES ('manager',1),('reader',1),('disabled',0)');
+$db->exec("INSERT INTO office_operator_accounts VALUES ('manager',1),('reader',1),('disabled',0)");
 $db->exec("INSERT INTO office_project_memberships VALUES (10,'manager','manage'),(10,'reader','read'),(10,'disabled','manage')");
 $rows = fn($table)=>$db->query('SELECT * FROM '.$table.' ORDER BY 1,2')->fetchAll(PDO::FETCH_ASSOC);
 $before = $rows('office_buildings'); $zones = $rows('office_building_zones'); $links = $rows('office_project_buildings');
