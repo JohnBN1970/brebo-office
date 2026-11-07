@@ -59,11 +59,8 @@ jobs:
           p=pathlib.Path(os.environ["VIEW"])
           raw=p.read_bytes()
           s=raw.decode("utf-8")
-          anchor="""        $html .= '</nav><main class="project-v3-content">';"""
-          added="""        // Contextual Documents entry is an external destination, not a sixth
-        // content pane; keep it inside the existing project tab strip.
-        $html .= '<a href="' . $e(rtrim($basePath, '/') . '/documenten?project_id=' . $projectId) . '">Documenten</a>';
-"""
+          anchor = "        $html .= '</nav><main class=\"project-v3-content\">';"
+          added = "        // Contextual Documents entry is an external destination, not a sixth\n        // content pane; keep it inside the existing project tab strip.\n        $html .= '<a href=\"' . $e(rtrim($basePath, '/') . '/documenten?project_id=' . $projectId) . '\">Documenten</a>';\n"
           if s.count("class OfficeProjectDetailV3View") != 1:
               sys.exit("ABORT_V3_CLASS_MISMATCH")
           if s.count('class="project-v3-tabs"') != 1 or s.count("foreach ($tabs as $key => $label)") != 1:
