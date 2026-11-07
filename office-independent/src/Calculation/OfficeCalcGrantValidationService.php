@@ -25,6 +25,7 @@ final class OfficeCalcGrantValidationService
             require_once __DIR__ . '/OfficeCalcSignedRequest.php';
             require_once __DIR__ . '/OfficeCalcRequestReplayRepository.php';
             require_once __DIR__ . '/OfficeCalcSessionGrantCompatibility.php';
+            require_once __DIR__ . '/OfficeCalcActiveOfficeSession.php';
             require_once __DIR__ . '/OfficeCalcLaunchAccess.php';
 
             $timestamp = $headers['x-brebo-timestamp'] ?? null;
@@ -52,9 +53,11 @@ final class OfficeCalcGrantValidationService
             $actorId = $data['actor_id'];
             $projectId = $data['project_id'];
             $calculationId = $data['calculation_id'];
-            if (!(new OfficeCalcSessionGrantCompatibility($this->db))->findActive(
+            $sessionHash = (new OfficeCalcSessionGrantCompatibility($this->db))->activeSessionHash(
                 $data['reference'], $actorId, $projectId, $calculationId, $now
-            )) {
+            );
+            if ($sessionHash === null
+                || !(new OfficeCalcActiveOfficeSession($this->db))->isActive($sessionHash, $actorId, $now)) {
                 return false;
             }
             return (new OfficeCalcLaunchAccess($this->db))->canLaunch($actorId, $projectId, $calculationId);
