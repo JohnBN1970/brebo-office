@@ -27,6 +27,12 @@ try {
   echo 'SALES_CANONICAL_MONEYBIRD_MAPPING_PRESENT='.(int)($q->fetchColumn()!==false)."\n";
   foreach (['src/Sales/OfficeSalesService.php','public/office-sales.php'] as $file) echo 'SALES_FILE_'.str_replace(['/','.'],['_','_'],$file).'_PRESENT='.(int)is_file($root.'/'.$file)."\n";
   $router=dirname($base).'/public_html/office-test/index.php';
+  foreach ([dirname($base).'/public_html/.htaccess',dirname($router).'/.htaccess'] as $rewriteFile) {
+    if (is_file($rewriteFile) && !is_link($rewriteFile)) {
+      echo 'SALES_REWRITE_FILE='.($rewriteFile===dirname($router).'/.htaccess'?'office-test':'public_html')."\n";
+      foreach (file($rewriteFile,FILE_IGNORE_NEW_LINES) as $line) if (preg_match('/^\s*(?:Rewrite|<IfModule|<\/IfModule)/i',$line) && strlen($line)<1500) echo 'SALES_REWRITE_SOURCE='.trim($line)."\n";
+    }
+  }
   if (is_file($router) && !is_link($router)) echo 'SALES_ROUTE_PRESENT='.(int)(str_contains(file_get_contents($router),"'/office-test/finance/verkoop'") || (is_file($root.'/modules/sales/routes.php') && ($config['OFFICE_SALES_ENABLED']??'')==='enabled'))."\n";
   if (is_file($router) && !is_link($router)) {
     echo 'SALES_MODULAR_ROUTER_PRESENT='.(int)str_contains(file_get_contents($router),"\$moduleRoot = \$private . '/modules';")."\n";
