@@ -32,7 +32,14 @@ final class OfficeIntakeBuildingResolver
 
         // The native Office schema uses street_address; legacy uses address_line.
         // Only a whitelisted column identifier can enter this SQL statement.
-        $addressColumn = OfficeBuildingColumnResolver::columns($this->db)['address'];
+        // Intake needs only the address field, not the display-name field.
+        $schemaRows = $this->db->query('SHOW COLUMNS FROM office_buildings')->fetchAll(PDO::FETCH_ASSOC);
+        $fieldNames = array_column($schemaRows, 'Field');
+        $addressColumn = in_array('street_address', $fieldNames, true) ? 'street_address'
+            : (in_array('address_line', $fieldNames, true) ? 'address_line' : null);
+        if ($addressColumn === null) {
+            throw new \\RuntimeException('Building address field unavailable');
+        }
         $query = $this->db->prepare(
             "SELECT id, {$addressColumn} AS address_line, postal_code, city FROM office_buildings "
             . "WHERE UPPER(REPLACE(postal_code, ' ', '')) = ? "
