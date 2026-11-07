@@ -38,9 +38,33 @@ final class OfficeCalcSessionGrantCompatibility
             $result = (new OfficeCalcSessionGrantRepository($this->db))->findActive(
                 $reference, $actorId, $projectId, $calculationId, $now
             );
-            // A false/null result is always denied. Other shapes are deliberately
-            // denied until the installed repository's return contract is verified.
-            return $result === true;
+            // Installed Office-test returns ?array, not boolean. Accept only a
+            // non-empty record whose identity matches the requested grant.
+            // Current project/calculation ACL is rechecked by the caller.
+            if (!is_array($result) || $result === []) {
+                return false;
+            }
+            $expected = [
+                'reference' => $reference,
+                'actor_id' => $actorId,
+                'project_id' => $projectId,
+                'calculation_id' => $calculationId,
+            ];
+            foreach ($expected as $field => $value) {
+                if (!array_key_exists($field, $result)) {
+                    return false;
+                }
+                if ($field === 'reference') {
+                    if (!is_string($result[$field]) || !hash_equals($value, $result[$field])) {
+                        return false;
+                    }
+                } elseif (!is_int($result[$field]) && !(is_string($result[$field]) && ctype_digit($result[$field]))) {
+                    return false;
+                } elseif ((string) $result[$field] !== (string) $value) {
+                    return false;
+                }
+            }
+            return true;
         } catch (Throwable) {
             return false;
         }
