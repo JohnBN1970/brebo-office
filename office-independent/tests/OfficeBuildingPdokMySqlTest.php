@@ -57,7 +57,7 @@ check($saved[1]===$original[1] && $saved[0]['name']==='Existing A','unrelated bu
 $revoking = new Client(function($url) use ($db,$doc) { $db->exec("UPDATE office_project_memberships SET permission='read' WHERE operator_id='manager'"); return ['response'=>['docs'=>[$doc]]]; });
 denied(fn()=>$save('manager',1,$server,$post,new Action($repo,$revoking)));
 check(!$db->inTransaction() && $rows('office_buildings')===$saved,'revoked permission mutated data');
-$db->exec("UPDATE office_project_memberships SET permission='manage' WHERE operator_id=1");
+$db->exec("UPDATE office_project_memberships SET permission='manage' WHERE operator_id='manager'");
 $offline = new Client(fn($url)=>throw new RuntimeException('offline'));
 denied(fn()=>$save('manager',1,$server,$post,new Action($repo,$offline)));
 $mismatch = new Client(fn($url)=>['response'=>['docs'=>[array_replace($doc,['id'=>'adr-other'])]]]);
