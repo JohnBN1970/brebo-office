@@ -14,8 +14,8 @@ use InvalidArgumentException;
 final class OfficeBuildingPdokLocationRepository {
   public function __construct(private PDO $db) {}
 
-  public function canManage(int $operatorId, int $buildingId, bool $lock = false): bool {
-    if ($operatorId < 1 || $buildingId < 1) return false;
+  public function canManage(string $operatorId, int $buildingId, bool $lock = false): bool {
+    if ($operatorId === '' || $buildingId < 1) return false;
     $stmt = $this->db->prepare("SELECT m.operator_id FROM office_project_buildings pb
       INNER JOIN office_project_memberships m ON m.project_id=pb.project_id
       INNER JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
@@ -41,7 +41,7 @@ final class OfficeBuildingPdokLocationRepository {
    * This method independently enforces project-scoped manage permission.
    */
   public function save(
-    int $operatorId,
+    string $operatorId,
     int $buildingId,
     string $bagId,
     string $address,
@@ -50,7 +50,7 @@ final class OfficeBuildingPdokLocationRepository {
     float $latitude,
     float $longitude
   ): void {
-    if ($operatorId < 1 || $buildingId < 1
+    if ($operatorId === '' || $buildingId < 1
       || !preg_match('/^[0-9]{16}$/D', $bagId)
       || trim($address) === '' || strlen($address) > 255
       || !preg_match('/^[1-9][0-9]{3}[A-Z]{2}$/D', $postalCode) || trim($city) === '' || strlen($city) > 160
