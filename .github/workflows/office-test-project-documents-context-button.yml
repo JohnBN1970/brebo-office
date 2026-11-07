@@ -61,7 +61,7 @@ jobs:
           # statement, rather than guessing at the V3 page's HTML layout.
           # This keeps the existing renderer, tabs, and authorization intact.
           import re
-          pattern = re.compile(r'(?m)^(?P<indent>[ \\t]*)\\$dossierNav\\s*\\.=\\s*(?P<quote>[\\\'\\"])</nav>(?P=quote);[ \\t]*$')
+          pattern = re.compile(r"(?m)^\\s*\\$dossierNav\\s*\\.=\\s*'</nav>';[ \\t]*$")
           matches = list(pattern.finditer(source))
           if len(matches) != 1:
               print("ABORT_DOSSIER_NAV_CLOSE_ANCHOR_MISMATCH count=" + str(len(matches)), flush=True)
@@ -76,7 +76,7 @@ jobs:
               . '">Nieuw document</a></div>'"""
           # Assignment is complete PHP code (outside the original concatenated
           # HTML), so it cannot break the project's large template expression.
-          snippet = "\\n" + "$dossierNav .= " + project_links + ";"
+          snippet = "\n" + "$dossierNav .= " + project_links + ";"
           hit = matches[0]
           source = source[:hit.end()] + snippet + source[hit.end():]
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
