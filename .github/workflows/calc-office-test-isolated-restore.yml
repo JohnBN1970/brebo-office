@@ -1,113 +1,38 @@
-name: Calc Office-test isolated backup restore verification
+name: Calc Office-test isolated restore prerequisites
 on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type VERIFY-CALC-RESTORE (writes only to a separate empty restore database)
+        description: Type AUDIT-CALC-RESTORE-PREREQS (read only, no restore)
         required: true
         type: string
 permissions:
   contents: read
 jobs:
-  restore:
+  prerequisites:
     runs-on: ubuntu-latest
     steps:
-      - name: Configure SSH and validate explicit consent
+      - name: Check isolated restore credentials are configured
         env:
-          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           CONFIRMATION: ${{ inputs.confirmation }}
-        run: |
-          set -euo pipefail
-          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-          test "$value" = VERIFY-CALC-RESTORE
-          test -n "$KEY"
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/id_calc_restore
-          chmod 600 ~/.ssh/id_calc_restore
-      - name: Restore latest verified staging backup to dedicated empty database only
-        env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          PORT: ${{ secrets.DEPLOY_PORT }}
-          USER: ${{ secrets.DEPLOY_USER }}
           RESTORE_DB_HOST: ${{ secrets.CALC_RESTORE_DB_HOST }}
-          RESTORE_DB_PORT: ${{ secrets.CALC_RESTORE_DB_PORT }}
           RESTORE_DB_NAME: ${{ secrets.CALC_RESTORE_DB_NAME }}
           RESTORE_DB_USER: ${{ secrets.CALC_RESTORE_DB_USER }}
           RESTORE_DB_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
-          # Dedicated restore credentials are required. Never fall back to live credentials.
-          test -n "$RESTORE_DB_HOST" && test -n "$RESTORE_DB_NAME" && test -n "$RESTORE_DB_USER" && test -n "$RESTORE_DB_PASSWORD"
-          case "$RESTORE_DB_NAME" in
-            calc_restore_*) ;;
-            *) echo 'RESTORE_BLOCKED_TARGET_NAME'; exit 1 ;;
-          esac
-          printf '%s\n' "$RESTORE_DB_NAME" | grep -Eq '^calc_restore_[A-Za-z0-9_]+$'
-          {
-            printf '%s\n' "$RESTORE_DB_HOST"
-            printf '%s\n' "${RESTORE_DB_PORT:-3306}"
-            printf '%s\n' "$RESTORE_DB_NAME"
-            printf '%s\n' "$RESTORE_DB_USER"
-            printf '%s\n' "$RESTORE_DB_PASSWORD"
-          } | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_restore -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
-          set -euo pipefail
-          umask 077
-          IFS= read -r target_host
-          IFS= read -r target_port
-          IFS= read -r target_db
-          IFS= read -r target_user
-          IFS= read -r target_password
-          case "$target_db" in calc_restore_*) ;; *) echo RESTORE_BLOCKED_TARGET_NAME; exit 1;; esac
-          case "$target_port" in *[!0-9]*|'') echo RESTORE_BLOCKED_PORT; exit 1;; esac
-          base="$HOME/domains/brebobv.nl/office_calc_test"
-          config="$base/config/config.php"
-          test -f "$config"
-          # Guard against accidental live database target, including identical host/name.
-          LIVE_CONFIG="$config" TARGET_DB="$target_db" TARGET_HOST="$target_host" php <<'PHP'
-          <?php
-          $config = require getenv('LIVE_CONFIG');
-          if (!is_array($config)) exit(1);
-          $dsn = getenv('OFFICE_INTAKE_PDO_DSN') ?: ($config['OFFICE_INTAKE_PDO_DSN'] ?? '');
-          if (!is_string($dsn) || !str_starts_with($dsn, 'mysql:')) exit(1);
-          preg_match('/(?:^|;)dbname=([^;]+)/', substr($dsn, 6), $m);
-          $liveDb = $m[1] ?? '';
-          if ($liveDb === '' || $liveDb === getenv('TARGET_DB')) {
-              echo "RESTORE_BLOCKED_LIVE_DATABASE\n"; exit(1);
-          }
-          PHP
-          opts=$(mktemp)
-          trap 'rm -f "$opts"' EXIT
-          chmod 600 "$opts"
-          TARGET_HOST="$target_host" TARGET_PORT="$target_port" TARGET_USER="$target_user" TARGET_PASSWORD="$target_password" TARGET_OPTIONS="$opts" php <<'PHP'
-          <?php
-          $esc = static fn(string $v): string => '"' . str_replace(['\\','"', "\n", "\r"], ['\\\\','\\"','',''], $v) . '"';
-          $s = "[client]\n";
-          foreach (['host'=>'TARGET_HOST','port'=>'TARGET_PORT','user'=>'TARGET_USER','password'=>'TARGET_PASSWORD'] as $k=>$v) {
-              $s .= $k . "=" . $esc(getenv($v) ?: '') . "\n";
-          }
-          if (file_put_contents(getenv('TARGET_OPTIONS'), $s, LOCK_EX) === false) exit(1);
-          PHP
-          if command -v mariadb >/dev/null 2>&1; then client=mariadb; else client=mysql; fi
-          # Target must already exist and be completely empty. Do not create/drop schemas.
-          tables=$("$client" --defaults-extra-file="$opts" --batch --skip-column-names --database="$target_db" -e 'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()')
-          if [ "$tables" != 0 ]; then echo 'RESTORE_BLOCKED_TARGET_NOT_EMPTY'; exit 1; fi
-          latest=''
-          for file in "$base"/backups/office-test-pre-calc-*.sql.gz; do
-            [ -f "$file" ] || continue
-            if [ -z "$latest" ] || [ "$file" -nt "$latest" ]; then latest="$file"; fi
+          confirmation="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$confirmation" = AUDIT-CALC-RESTORE-PREREQS
+          for key in RESTORE_DB_HOST RESTORE_DB_NAME RESTORE_DB_USER RESTORE_DB_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "ISOLATED_RESTORE_CONFIG=BLOCKED_MISSING_$key"
+              exit 1
+            fi
           done
-          test -n "$latest"
-          gzip -t "$latest"
-          echo 'RESTORE_ARCHIVE_GZIP=PASS'
-          # Backup was exported with --databases, which contains CREATE/USE of live DB.
-          # Rewrite only the database-selection statements in a streaming SQL parser
-          # rather than risk executing the original dump against its original schema.
-          # This workflow deliberately blocks until a dump without --databases exists.
-          if gzip -cd "$latest" | head -c 8192 | grep -Eq '^(CREATE DATABASE|USE )'; then
-            echo 'RESTORE_BLOCKED_DUMP_CONTAINS_DATABASE_SELECTION'
-            exit 1
-          fi
-          echo 'RESTORE_BLOCKED_DUMP_REQUIRES_SAFE_REEXPORT'
-          exit 1
-          REMOTE
+          case "$RESTORE_DB_NAME" in
+            calc_restore_*) echo "ISOLATED_RESTORE_NAME=ACCEPTED_PREFIX" ;;
+            *) echo "ISOLATED_RESTORE_CONFIG=BLOCKED_TARGET_NAME"; exit 1 ;;
+          esac
+          echo 'ISOLATED_RESTORE_CONFIG=READY_FOR_SEPARATE_RESTORE_WORKFLOW'
+          echo 'DATABASE_RESTORE_EXECUTED=NO'
+          echo 'CALC_SCHEMA_INSTALL=BLOCKED_PENDING_VERIFIED_RESTORE'
