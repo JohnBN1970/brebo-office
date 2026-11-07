@@ -1,0 +1,93 @@
+name: Calc Office-test verified isolated database restore
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RESTORE-CALC-ISOLATED (restores to an empty calc_restore_* database only)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: calc-office-test-isolated-restore
+  cancel-in-progress: false
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore exact fresh archive into isolated database and verify
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          RESTORE_HOST: ${{ secrets.CALC_RESTORE_DB_HOST }}
+          RESTORE_NAME: ${{ secrets.CALC_RESTORE_DB_NAME }}
+          RESTORE_USER: ${{ secrets.CALC_RESTORE_DB_USER }}
+          RESTORE_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = RESTORE-CALC-ISOLATED
+          for key in SSH_KEY SSH_HOST SSH_PORT SSH_USER RESTORE_HOST RESTORE_NAME RESTORE_USER RESTORE_PASSWORD; do
+            test -n "${!key}" || { echo "CALC_RESTORE=BLOCKED_MISSING_$key"; exit 1; }
+          done
+          case "$RESTORE_NAME" in calc_restore_*) ;; *) echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1;; esac
+          case "$RESTORE_NAME" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
+          command -v mysql >/dev/null
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_calc_restore
+          chmod 600 ~/.ssh/id_calc_restore
+          options=$(mktemp)
+          archive=$(mktemp)
+          sql=$(mktemp)
+          trap 'rm -f "$options" "$archive" "$sql" ~/.ssh/id_calc_restore' EXIT
+          chmod 600 "$options" "$archive" "$sql"
+          RESTORE_OPTIONS="$options" python3 - <<'PY'
+          import os
+          def esc(s):
+              return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('\n','').replace('\r','') + '"'
+          with open(os.environ['RESTORE_OPTIONS'], 'w') as f:
+              f.write('[client]\n')
+              for key, env in [('host','RESTORE_HOST'),('user','RESTORE_USER'),('password','RESTORE_PASSWORD')]:
+                  f.write(key + '=' + esc(os.environ[env]) + '\n')
+          PY
+          # Target must exist already, and must contain no tables.
+          count=$(mysql --defaults-extra-file="$options" --batch --skip-column-names --database="$RESTORE_NAME" -e 'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')
+          test "$count" = 0 || { echo 'CALC_RESTORE=BLOCKED_TARGET_NOT_EMPTY'; exit 1; }
+          remote='set -euo pipefail; dir="$HOME/domains/brebobv.nl/office_calc_test/backups"; latest=""; for f in "$dir"/office-test-pre-calc-*.sql.gz; do test -f "$f" || continue; if test -z "$latest" || test "$f" -nt "$latest"; then latest="$f"; fi; done; test -n "$latest"; test "$(date +%s)" -lt "$(( $(stat -c %Y "$latest") + 86400 ))"; gzip -t "$latest"; cat "$latest"'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_restore -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "$remote" > "$archive"
+          gzip -t "$archive"
+          sha=$(sha256sum "$archive" | cut -d ' ' -f 1)
+          gzip -cd "$archive" > "$sql"
+          # Never allow dump SQL to select, create, or drop a database.
+          if grep -Eiq '^[[:space:]]*(USE[[:space:]]|CREATE[[:space:]]+DATABASE|DROP[[:space:]]+DATABASE)' "$sql"; then
+            echo 'CALC_RESTORE=BLOCKED_SOURCE_DATABASE_DIRECTIVE'
+            exit 1
+          fi
+          mysql --defaults-extra-file="$options" --database="$RESTORE_NAME" < "$sql"
+          tables=$(mysql --defaults-extra-file="$options" --batch --skip-column-names --database="$RESTORE_NAME" -e 'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')
+          test "$tables" -gt 0 || { echo 'CALC_RESTORE=FAILED_EMPTY_RESULT'; exit 1; }
+          for table in office_projects office_project_memberships office_operator_accounts; do
+            found=$(mysql --defaults-extra-file="$options" --batch --skip-column-names --database="$RESTORE_NAME" -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='$table'")
+            test "$found" = 1 || { echo "CALC_RESTORE=FAILED_MISSING_$table"; exit 1; }
+          done
+          # A proof file is written only after the isolated import and table checks pass.
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_restore -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "bash -s" <<REMOTE
+          set -euo pipefail
+          umask 077
+          dir="\$HOME/domains/brebobv.nl/office_calc_test/backups"
+          latest=""
+          for f in "\$dir"/office-test-pre-calc-*.sql.gz; do
+            test -f "\$f" || continue
+            if test -z "\$latest" || test "\$f" -nt "\$latest"; then latest="\$f"; fi
+          done
+          test -n "\$latest"
+          test "\$(sha256sum "\$latest" | cut -d ' ' -f 1)" = "$sha"
+          printf '%s\n' "$sha" > "\$latest.restore-verified"
+          chmod 600 "\$latest.restore-verified"
+          REMOTE
+          echo 'CALC_ISOLATED_RESTORE=PASS'
+          echo "CALC_RESTORE_TABLE_COUNT=$tables"
+          echo "CALC_RESTORE_ARCHIVE_SHA256=$sha"
+          echo 'CALC_SCHEMA_INSTALL=READY_FOR_SEPARATE_APPROVAL'
