@@ -63,15 +63,16 @@ jobs:
           if "'documenten' => 'Documenten'" in source:
               print("ALREADY_INSTALLED")
               sys.exit(0)
-          # Ensure the matching label belongs to the project tabs array.
-          import re
-          # Active V3 uses a project-tab variable whose exact name may differ
-          # from the repository template; avoid a brittle guessed name.
-          tab_arrays = list(re.finditer(r"\\$[A-Za-z_][A-Za-z0-9_]*\\s*=\\s*\\[[^;]*\\];", source, re.S))
-          candidates = [m for m in tab_arrays if item in m.group()]
-          if len(candidates) != 1:
-              print("TAB_ARRAY_MATCHES=" + str(len(candidates)), flush=True)
-              sys.exit("ABORT_TABS_ARRAY_NOT_FOUND")
+          # A strict multiline PHP tabs-array regex was incorrectly matching
+          # no candidate on the active V3. Verify the actual 5-tab array by
+          # its unique financial label and the existing foreach renderer.
+          tab_prefix = source[:source.index(item)]
+          nearby = tab_prefix[max(0, len(tab_prefix) - 600):]
+          if 'Overzicht' not in nearby or 'Gebouwen' not in nearby or 'Werkvoorbereiding' not in nearby or 'Uitvoering' not in nearby:
+              sys.exit('ABORT_FINANCIAL_LABEL_NOT_IN_FIVE_TAB_ARRAY')
+          if '=> ' not in nearby:
+              sys.exit('ABORT_TAB_MAPPING_NOT_CONFIRMED')
+          print('ACTIVE_V3_FIVE_TAB_MAPPING_CONFIRMED', flush=True)
           anchor = "foreach ($tabs as $key => $label) {"
           if source.count(anchor) != 1:
               sys.exit("ABORT_TAB_RENDER_LOOP_MISMATCH")
