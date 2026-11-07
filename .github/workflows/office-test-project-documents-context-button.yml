@@ -1,4 +1,4 @@
-name: Office-test V3 project dossier nav render fix
+name: Office-test V3 remove duplicate dossier nav
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Render Projectdetail V3 dossier tabs with backup and lint
+      - name: Remove duplicate project tabs with backup and lint
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -46,51 +46,31 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          source = raw.decode("utf-8")
-          lines = source.splitlines(keepends=True)
-          if len(lines) != 995:
-              sys.exit("ABORT_UNEXPECTED_V3_LINE_COUNT")
-          if source.count("$dossierNav = '<nav class=\"office-dossier-nav\"") != 1:
-              sys.exit("ABORT_PROJECT_NAV_BUILDER_CHANGED")
-          if any("$dossierNav" in line for line in lines[625:]):
-              sys.exit("ABORT_DOSSIER_NAV_ALREADY_RENDERED")
-          if "<main" not in lines[992] or "</nav>" not in lines[992] or "$dashboard" not in lines[992]:
-              sys.exit("ABORT_FINAL_PROJECT_MAIN_CHANGED")
+          source=raw.decode("utf-8")
           if "OfficeNativeProjectAccess($db))->canRead" not in source:
-              sys.exit("ABORT_PROJECT_ACCESS_CHECK_CHANGED")
-          # Remove two legacy duplicate Documenten links from the
-          # previously-unused dossierNav, leaving one contextual link.
-          dupe1 = "$dossierNav .= '<a href=\"/office-test/documenten?project_id=' . (int)$projectId . '\">Documenten</a>'; // BREBO_PROJECT_V3_DOCUMENTS_LINK_20261106\n"
-          if source.count(dupe1) != 1:
-              sys.exit("ABORT_LEGACY_DOCUMENTS_LINK_CHANGED")
-          source = source.replace(dupe1,"",1)
-          # The old main nav HTML contains the left sidebar, which has
-          # already been modified. Inject the project dossier nav at the
-          # start of project content, using a PHP concatenation expression.
-          lines = source.splitlines(keepends=True)
-          main_lines = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line and "$dashboard" in line]
-          if len(main_lines) != 1:
-              sys.exit("ABORT_RENDER_MAIN_NOT_UNIQUE")
-          idx = main_lines[0]
-          old_line=lines[idx]
-          main_tag=re.search(r"<main\b[^>]*>",old_line)
-          if not main_tag:
-              sys.exit("ABORT_MAIN_TAG_NOT_FOUND")
-          # The output is an expression with quoted HTML segments:
-          # insert the PHP variable AFTER the completed <main> tag,
-          # never as literal HTML text.
-          start=main_tag.end()
-          if not old_line[start:].startswith("'"):
-              sys.exit("ABORT_MAIN_TAG_NOT_STRING_BOUNDARY")
-          insertion="' . $dossierNav . '"
-          lines[idx]=old_line[:start]+insertion+old_line[start:]
+              sys.exit("ABORT_PROJECT_ACCESS_CHECK_MISSING")
+          # Last deployment inserted this exact expression after the
+          # <main> opening tag; remove only that expression.
+          marker="<main"
+          lines=source.splitlines(keepends=True)
+          matches=[i for i,line in enumerate(lines) if marker in line and "$dossierNav" in line]
+          if len(matches)!=1:
+              sys.exit("ABORT_DUPLICATE_NAV_INSERTION_NOT_UNIQUE")
+          idx=matches[0]
+          old=lines[idx]
+          import re
+          if not re.search(r"<main\b[^>]*>' \. \$dossierNav \. '",old):
+              sys.exit("ABORT_INSERTION_FORMAT_CHANGED")
+          new=re.sub(r"(<main\b[^>]*>)' \. \$dossierNav \. '",r"\1",old,count=1)
+          if old==new:
+              sys.exit("ABORT_NO_CHANGE")
+          lines[idx]=new
           candidate="".join(lines).encode("utf-8")
-          if candidate.count(b"$dossierNav") != raw.count(b"$dossierNav") + 0:
-              # removed duplicate builder line and added render reference
-              sys.exit("ABORT_DOSSIER_NAV_REFERENCE_COUNT_MISMATCH")
+          if candidate.count(b"$dossierNav")!=raw.count(b"$dossierNav")-1:
+              sys.exit("ABORT_UNEXPECTED_NAV_REFERENCES")
           from tempfile import NamedTemporaryFile
           import shutil
-          with NamedTemporaryFile(dir=str(p.parent),prefix=".v3-dossier-nav-",suffix=".php",delete=False) as tmp:
+          with NamedTemporaryFile(dir=str(p.parent),prefix=".v3-nav-dedup-",suffix=".php",delete=False) as tmp:
               tmp.write(candidate)
               tmp_path=tmp.name
           try:
@@ -99,22 +79,19 @@ jobs:
                   print(lint.stdout+lint.stderr,flush=True)
                   sys.exit("ABORT_CANDIDATE_PHP_LINT_FAILED")
               stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-              backup=p.with_name(p.name+".dossier-nav-backup-"+stamp)
+              backup=p.with_name(p.name+".nav-dedup-backup-"+stamp)
               with open(backup,"xb") as out: out.write(raw)
               os.chmod(backup,p.stat().st_mode & 0o777)
               os.chmod(tmp_path,p.stat().st_mode & 0o777)
               os.replace(tmp_path,p)
-              active_lint=subprocess.run(["php","-l",str(p)],capture_output=True,text=True)
-              if active_lint.returncode:
+              check=subprocess.run(["php","-l",str(p)],capture_output=True,text=True)
+              if check.returncode or p.read_bytes()!=candidate:
                   shutil.copy2(backup,p)
-                  sys.exit("ABORT_ACTIVE_LINT_FAILED_RESTORED")
-              if p.read_bytes()!=candidate:
-                  shutil.copy2(backup,p)
-                  sys.exit("ABORT_WRITE_VALIDATION_FAILED_RESTORED")
-              print("V3_PROJECT_DOSSIER_NAV_RENDERED",flush=True)
-              print("V3_PROJECT_DOSSIER_NAV_BACKUP="+backup.name,flush=True)
+                  sys.exit("ABORT_POST_DEPLOY_CHECK_RESTORED")
+              print("V3_DUPLICATE_PROJECT_NAV_REMOVED",flush=True)
+              print("BACKUP="+backup.name,flush=True)
           finally:
               if os.path.exists(tmp_path): os.unlink(tmp_path)
           PY
-          echo OFFICE_TEST_V3_DOSSIER_NAV_DEPLOY_PASS
+          echo OFFICE_TEST_V3_NAV_DEDUP_PASS
           REMOTE
