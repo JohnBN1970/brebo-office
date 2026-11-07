@@ -88,7 +88,13 @@ jobs:
           trap 'rm -f "$opts" "$opts.dbname" "$tmp"' EXIT
           dbname=$(cat "$opts.dbname")
           case "$dbname" in *[!a-zA-Z0-9_]*|'') echo BACKUP_DBNAME_UNSUPPORTED; exit 1;; esac
-          "$dump" --defaults-extra-file="$opts" --single-transaction --quick --skip-lock-tables --no-tablespaces --databases "$dbname" | gzip -c > "$tmp"
+          # Do not emit CREATE DATABASE or USE statements: the archive must be
+          # restorable only into an explicitly selected isolated target database.
+          "$dump" --defaults-extra-file="$opts" --single-transaction --quick --skip-lock-tables --no-tablespaces --skip-add-drop-database "$dbname" | gzip -c > "$tmp"
+          if gzip -cd "$tmp" | grep -Ei '^[[:space:]]*(CREATE[[:space:]]+DATABASE|DROP[[:space:]]+DATABASE|USE[[:space:]]+)' ; then
+            echo 'CALC_FRESH_BACKUP=BLOCKED_DATABASE_SWITCH_STATEMENT'
+            exit 1
+          fi
           test -s "$tmp"
           gzip -t "$tmp"
           mv "$tmp" "$archive"
