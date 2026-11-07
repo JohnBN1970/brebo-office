@@ -23,6 +23,7 @@ jobs:
           extensions: mbstring
       - name: Syntax
         run: |
+          php -l office-independent/public/office-buildings.php
           php -l office-independent/src/Buildings/OfficeResidentAddressProposal.php
           php -l office-independent/src/Buildings/OfficeResidentAddressBatch.php
           php -l office-independent/src/Buildings/OfficeResidentAddressBuildingMatcher.php
