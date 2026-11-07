@@ -192,7 +192,33 @@ if ($detail) {
   echo '</section></div>';
   echo '<section class="building-addresses"><h2>Adressen en bewoners</h2>';
   echo '<p>Een gebouw kan meerdere adressen bevatten. Bewonersgegevens horen bij het afzonderlijke adres, niet bij het gebouw.</p>';
-  echo '<details><summary>Adressen bekijken</summary><p>De adressenregistratie is nog niet geactiveerd. Er worden geen bewonersgegevens getoond of gewijzigd.</p></details></section>';
+  try {
+    require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingAddressReadRepository.php';
+    // Building access was established above. Resident permissions are separate
+    // and deliberately NOT inferred from project read/manage access.
+    $addressResult = (new \\Brebo\\Office\\Buildings\\OfficeBuildingAddressReadRepository($db))
+      ->listForBuilding((int)$buildingId, false);
+    if (!$addressResult['available']) {
+      echo '<p>De adressenregistratie is nog niet geactiveerd.</p>';
+    } elseif ($addressResult['addresses'] === []) {
+      echo '<p>Er zijn nog geen afzonderlijke adressen geregistreerd.</p>';
+    } else {
+      echo '<p>' . count($addressResult['addresses']) . ' adressen geregistreerd.</p>';
+      foreach ($addressResult['addresses'] as $address) {
+        $line = trim(implode(' ', array_filter([
+          $address['street'] ?? '', $address['house_number'] ?? '', $address['addition'] ?? '',
+          $address['postal_code'] ?? '', $address['city'] ?? ''
+        ], static fn($value) => is_string($value) && trim($value) !== '')));
+        echo '<details><summary>' . $h($line) . '</summary>';
+        echo '<dl><dt>BAG-nummeraanduiding</dt><dd>' . $h($address['bag_nummeraanduiding_id'] ?? 'Niet gekoppeld') . '</dd></dl>';
+        echo '<p>Bewonersgegevens zijn alleen beschikbaar met afzonderlijke autorisatie.</p></details>';
+      }
+    }
+  } catch (Throwable $addressReadError) {
+    error_log('Office buildings: address read unavailable');
+    echo '<p>Adressen tijdelijk niet beschikbaar. De overige gebouwgegevens blijven zichtbaar.</p>';
+  }
+  echo '</section>';
   echo '<section class="building-dossier"><h2>Gebouwdossier</h2><details><summary>Projecten</summary><p>' . (int)$selectedBuilding['project_count'] . ' gekoppelde projecten.</p></details><details><summary>Rapporten</summary><p>Documentkoppeling volgt.</p></details><details><summary>Documenten</summary><p>Documentkoppeling volgt.</p></details><details><summary>Tekeningen</summary><p>Documentkoppeling volgt.</p></details><details><summary>Gebouwzones</summary><p>' . (int)$selectedBuilding['active_zone_count'] . ' actieve zones.</p></details></section>';
   echo '</main></body></html>';
   exit;
