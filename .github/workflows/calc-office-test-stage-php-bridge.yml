@@ -86,28 +86,47 @@ jobs:
             exit 1
           fi
           echo 'CALC_STAGE_RELEASE_RESOLUTION=CONFIG_PRIVATE_ROOT'
-          # Never overwrite pre-existing files. No router, .htaccess, env, flags or existing PHP changed.
+          # Verify all existing files are byte-identical before changing anything.
+          # An existing file with a different checksum always blocks the deployment.
+          existing=0
+          missing=0
           for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
             test -f "$source"
             relative="${source#"$stage"/}"
-            if [ -e "$target/$relative" ]; then
-              echo 'CALC_STAGE=BLOCKED_FILE_ALREADY_EXISTS'
-              exit 1
+            destination="$target/$relative"
+            if [ -e "$destination" ] || [ -L "$destination" ]; then
+              if [ ! -f "$destination" ] || [ -L "$destination" ] || ! cmp -s "$source" "$destination"; then
+                echo "CALC_STAGE=BLOCKED_EXISTING_FILE_DIFFERS"
+                echo "CALC_STAGE_DIFFERING_FILE=$relative"
+                exit 1
+              fi
+              existing=$((existing+1))
+            else
+              missing=$((missing+1))
             fi
           done
+          echo "CALC_STAGE_EXISTING_IDENTICAL=$existing"
+          echo "CALC_STAGE_MISSING=$missing"
           count=0
           for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
             relative="${source#"$stage"/}"
             destination="$target/$relative"
+            if [ -f "$destination" ]; then
+              continue
+            fi
             mkdir -p "$(dirname "$destination")"
             php -l "$source" >/dev/null
-            cp -n "$source" "$destination"
+            # Exclusive create never overwrites an existing file in a concurrent deploy.
+            if ! (set -C; cat "$source" > "$destination") 2>/dev/null; then
+              echo "CALC_STAGE=BLOCKED_CONCURRENT_FILE_CREATION"
+              exit 1
+            fi
             chmod 640 "$destination"
             cmp -s "$source" "$destination"
             count=$((count+1))
           done
-          echo "CALC_STAGE=PHP_FILES_COPIED"
-          echo "CALC_STAGE_FILES=$count"
+          echo "CALC_STAGE=PHP_FILES_VERIFIED_OR_COPIED"
+          echo "CALC_STAGE_FILES_NEW=$count"
           echo "CALC_ROUTER_CHANGED=NO"
           echo "CALC_FLAGS_ENABLED=NO"
           echo "CALC_RUNTIME_VERIFIED=NO"
