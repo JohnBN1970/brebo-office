@@ -32,4 +32,4 @@ $html=OfficeSalesView::render([],$invoice,[],[],[],'csrf',true,false,'2026-11-07
 pdfCheck(substr_count($html,'name="lines[')===8,'Only saved lines rendered');
 pdfCheck(str_contains($html,'download=pdf'),'Saved invoice PDF link');
 echo "OFFICE_SALES_PDF_OK\n";
-if(($argv[1]??'')==='--sample')echo 'SALES_PDF_SAMPLE='.base64_encode($pdf)."\n";
+if(($argv[1]??'')==='--sample')foreach(str_split(base64_encode($pdf),8000) as $part)echo 'SALES_PDF_SAMPLE_PART='.$part."\n";

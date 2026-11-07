@@ -7,20 +7,25 @@ final class OfficeSalesPdf {
   private array $pages=[];
   private string $page='';
   private float $y=0;
-  private const WIDTHS=[32=>278,33=>278,34=>355,35=>556,36=>556,37=>889,38=>667,39=>191,40=>333,41=>333,42=>389,43=>584,44=>278,45=>333,46=>278,47=>278,48=>556,49=>556,50=>556,51=>556,52=>556,53=>556,54=>556,55=>556,56=>556,57=>556,58=>278,59=>278,60=>584,61=>584,62=>584,63=>556,64=>1015,65=>667,66=>667,67=>722,68=>722,69=>667,70=>611,71=>778,72=>722,73=>278,74=>500,75=>667,76=>556,77=>833,78=>722,79=>778,80=>667,81=>778,82=>722,83=>667,84=>611,85=>722,86=>667,87=>944,88=>667,89=>667,90=>611,91=>278,92=>278,93=>278,94=>469,95=>556,96=>333,97=>556,98=>556,99=>500,100=>556,101=>556,102=>278,103=>556,104=>556,105=>222,106=>222,107=>500,108=>222,109=>833,110=>556,111=>556,112=>556,113=>556,114=>333,115=>500,116=>278,117=>556,118=>500,119=>722,120=>500,121=>500,122=>500,123=>334,124=>260,125=>334,126=>584,127=>761,128=>556,130=>222,131=>556,132=>333,133=>1000,134=>556,135=>556,136=>333,137=>1000,138=>667,139=>333,140=>1000,142=>611,145=>222,146=>222,147=>333,148=>333,149=>350,150=>556,151=>1000,152=>333,153=>1000,154=>500,155=>333,156=>944,158=>500,159=>667,160=>278,161=>333,162=>556,163=>556,164=>556,165=>556,166=>260,167=>556,168=>333,169=>737,170=>370,171=>556,172=>584,173=>333,174=>737,175=>333,176=>400,177=>584,178=>333,179=>333,180=>333,181=>556,182=>537,183=>278,184=>333,185=>333,186=>365,187=>556,188=>834,189=>834,190=>834,191=>611,192=>667,193=>667,194=>667,195=>667,196=>667,197=>667,198=>1000,199=>722,200=>667,201=>667,202=>667,203=>667,204=>278,205=>278,206=>278,207=>278,208=>722,209=>722,210=>778,211=>778,212=>778,213=>778,214=>778,215=>584,216=>778,217=>722,218=>722,219=>722,220=>722,221=>667,222=>667,223=>611,224=>556,225=>556,226=>556,227=>556,228=>556,229=>556,230=>889,231=>500,232=>556,233=>556,234=>556,235=>556,236=>278,237=>278,238=>278,239=>278,240=>556,241=>556,242=>556,243=>556,244=>556,245=>556,246=>556,247=>584,248=>611,249=>556,250=>556,251=>556,252=>556,253=>500,254=>556,255=>500];
+  private static array $fonts=[];
+  private static function fonts(): array {
+    if(self::$fonts===[])self::$fonts=json_decode(file_get_contents(__DIR__.'/brebo-fonts.json'),true,16,JSON_THROW_ON_ERROR);
+    return self::$fonts;
+  }
   private static function encoded(string $text): string {
     $text=preg_replace('/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u','',$text)??'';
     $bytes=iconv('UTF-8','Windows-1252//TRANSLIT',$text);
     if($bytes===false)throw new \RuntimeException('PDF text encoding unavailable');
     return $bytes;
   }
-  private static function width(string $bytes,float $size): float {
-    $width=0;foreach(str_split($bytes) as $char)$width+=self::WIDTHS[ord($char)]??556;
+  private static function width(string $bytes,float $size,bool $bold=false): float {
+    $widths=self::fonts()[$bold?'bold':'regular']['widths'];
+    $width=0;foreach(str_split($bytes) as $char)$width+=$widths[ord($char)]??556;
     return $width*$size/1000;
   }
   private function text(float $x,float $y,string $text,float $size=10,bool $bold=false,?float $right=null): void {
     $bytes=self::encoded($text);
-    if($right!==null)$x=$right-self::width($bytes,$size);
+    if($right!==null)$x=$right-self::width($bytes,$size,$bold);
     $escaped=str_replace(['\\','(',')',"\r","\n"],['\\\\','\\(','\\)',' ',' '],$bytes);
     $this->page.=sprintf("BT /%s %.2F Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",$bold?'F2':'F1',$size,$x,842-$y,$escaped);
   }
@@ -112,14 +117,23 @@ final class OfficeSalesPdf {
       foreach(self::wrap('Wij verzoeken u het bedrag voor vervaldatum van deze factuur over te maken op rekeningnummer NL19 ABNA 0894 3515 67 onder vermelding van factuurnummer '.$invoice['invoice_number'],520,9) as $line){$pdf->text(35,$pdf->y,$line,9);$pdf->y+=15;}
     }
     $pdf->pages[]=$pdf->page;
-    $objects=[1=>'<< /Type /Catalog /Pages 2 0 R >>',2=>'',3=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',4=>'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];$logo=json_decode(file_get_contents(__DIR__.'/brebo-logo.rgb.json'),true,8,JSON_THROW_ON_ERROR);
+    $objects=[1=>'<< /Type /Catalog /Pages 2 0 R >>',2=>''];
+    foreach(self::fonts() as $key=>$font){
+      $id=$key==='regular'?3:4;$descriptor=$id+3;$fileId=$id+5;$name=$key==='regular'?'BREBOA+DejaVuSans':'BREBOB+DejaVuSans-Bold';
+      $widths=[];for($i=32;$i<=255;$i++)$widths[]=$font['widths'][$i]??556;
+      $objects[$id]='<< /Type /Font /Subtype /TrueType /BaseFont /'.$name.' /Encoding /WinAnsiEncoding /FirstChar 32 /LastChar 255 /Widths ['.implode(' ',$widths).'] /FontDescriptor '.$descriptor.' 0 R >>';
+      $objects[$descriptor]='<< /Type /FontDescriptor /FontName /'.$name.' /Flags 32 /FontBBox ['.implode(' ',$font['bbox']).'] /ItalicAngle 0 /Ascent '.$font['ascent'].' /Descent '.$font['descent'].' /CapHeight '.$font['ascent'].' /StemV 80 /FontFile2 '.$fileId.' 0 R >>';
+      $fontBytes=base64_decode($font['data'],true);if($fontBytes===false)throw new \RuntimeException('Invalid font');
+      $objects[$fileId]='<< /Length '.strlen($fontBytes).' /Length1 '.$font['length']." /Filter /FlateDecode >>\nstream\n".$fontBytes."\nendstream";
+    }
+    $logo=json_decode(file_get_contents(__DIR__.'/brebo-logo.rgb.json'),true,8,JSON_THROW_ON_ERROR);
     $image=base64_decode($logo['data'],true);if($image===false)throw new \RuntimeException('Invalid logo');
     $objects[5]='<< /Type /XObject /Subtype /Image /Width '.(int)$logo['width'].' /Height '.(int)$logo['height'].' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length '.strlen($image)." >>\nstream\n".$image."\nendstream";
     $kids=[];$count=count($pdf->pages);
     foreach($pdf->pages as $index=>$content){
       $pdf->page='';$pdf->text(159,796,'Op onze facturen zijn onze algemene voorwaarden van toepassing.',8);$pdf->logo(496,805,65);
       if($count>1)$pdf->text(35,817,($index+1).' / '.$count,8);$content.=$pdf->page;
-      $pageId=6+$index*2;$streamId=$pageId+1;$kids[]=$pageId.' 0 R';
+      $pageId=10+$index*2;$streamId=$pageId+1;$kids[]=$pageId.' 0 R';
       $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Logo 5 0 R >> >> /Contents '.$streamId.' 0 R >>';
       $objects[$streamId]='<< /Length '.strlen($content)." >>\nstream\n".$content.'endstream';
     }
