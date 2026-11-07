@@ -1,4 +1,4 @@
-name: Office-test V3 remove duplicate dossier nav
+name: Office-test V3 original project tab renderer inspection
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Remove duplicate project tabs with backup and lint
+      - name: Inspect original project tab renderer read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -47,51 +47,22 @@ jobs:
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
           source=raw.decode("utf-8")
-          if "OfficeNativeProjectAccess($db))->canRead" not in source:
-              sys.exit("ABORT_PROJECT_ACCESS_CHECK_MISSING")
-          # Last deployment inserted this exact expression after the
-          # <main> opening tag; remove only that expression.
-          marker="<main"
-          lines=source.splitlines(keepends=True)
-          matches=[i for i,line in enumerate(lines) if marker in line and "$dossierNav" in line]
-          if len(matches)!=1:
-              sys.exit("ABORT_DUPLICATE_NAV_INSERTION_NOT_UNIQUE")
-          idx=matches[0]
-          old=lines[idx]
-          import re
-          if not re.search(r"<main\b[^>]*>' \. \$dossierNav \. '",old):
-              sys.exit("ABORT_INSERTION_FORMAT_CHANGED")
-          new=re.sub(r"(<main\b[^>]*>)' \. \$dossierNav \. '",r"\1",old,count=1)
-          if old==new:
-              sys.exit("ABORT_NO_CHANGE")
-          lines[idx]=new
-          candidate="".join(lines).encode("utf-8")
-          if candidate.count(b"$dossierNav")!=raw.count(b"$dossierNav")-1:
-              sys.exit("ABORT_UNEXPECTED_NAV_REFERENCES")
-          from tempfile import NamedTemporaryFile
-          import shutil
-          with NamedTemporaryFile(dir=str(p.parent),prefix=".v3-nav-dedup-",suffix=".php",delete=False) as tmp:
-              tmp.write(candidate)
-              tmp_path=tmp.name
-          try:
-              lint=subprocess.run(["php","-l",tmp_path],capture_output=True,text=True)
-              if lint.returncode:
-                  print(lint.stdout+lint.stderr,flush=True)
-                  sys.exit("ABORT_CANDIDATE_PHP_LINT_FAILED")
-              stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-              backup=p.with_name(p.name+".nav-dedup-backup-"+stamp)
-              with open(backup,"xb") as out: out.write(raw)
-              os.chmod(backup,p.stat().st_mode & 0o777)
-              os.chmod(tmp_path,p.stat().st_mode & 0o777)
-              os.replace(tmp_path,p)
-              check=subprocess.run(["php","-l",str(p)],capture_output=True,text=True)
-              if check.returncode or p.read_bytes()!=candidate:
-                  shutil.copy2(backup,p)
-                  sys.exit("ABORT_POST_DEPLOY_CHECK_RESTORED")
-              print("V3_DUPLICATE_PROJECT_NAV_REMOVED",flush=True)
-              print("BACKUP="+backup.name,flush=True)
-          finally:
-              if os.path.exists(tmp_path): os.unlink(tmp_path)
+          lines=source.splitlines()
+          if len(lines)<900 or "OfficeNativeProjectAccess($db))->canRead" not in source:
+              sys.exit("ABORT_NOT_EXPECTED_PRIVATE_V3")
+          # Find original five-tab HTML renderer without exposing
+          # project records, credentials or complete PHP source.
+          for i,line in enumerate(lines):
+              if any(k in line for k in ("Werkvoorbereiding","Financieel","dashboardTabs","dashboardTab","ob_get_clean","ob_start","preg_replace","str_replace","echo $","$pageHtml","$html =","<main")):
+                  if 620 <= i <= 995:
+                      tokens=[t for t in ("Werkvoorbereiding","Financieel","dashboardTabs","dashboardTab","ob_get_clean","ob_start","preg_replace","str_replace","echo $","$pageHtml","$html =","<main","office-dossier-nav","<nav","<a ") if t in line]
+                      print("RENDER_SOURCE_LINE="+str(i+1)+" TOKENS="+",".join(tokens)+" LEN="+str(len(line)),flush=True)
+          for i in list(range(705,731))+list(range(945,976))+list(range(990,995)):
+              if i>=len(lines):continue
+              line=lines[i]
+              if len(line)>500 or any(k in line.lower() for k in ("secret","password","token","authorization","api_key")):continue
+              print("RENDER_DETAIL_LINE="+str(i+1)+" "+line,flush=True)
+          print("V3_ORIGINAL_NAV_RENDER_INSPECTED",flush=True)
           PY
-          echo OFFICE_TEST_V3_NAV_DEDUP_PASS
+          echo OFFICE_TEST_V3_RENDER_INSPECTION_PASS
           REMOTE
