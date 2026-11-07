@@ -62,15 +62,15 @@ jobs:
           # until one unambiguous insertion point has been established.
           import re
           tokens = [
-              ("dossier_nav", r"\\$dossierNav"),
-              ("project_id", r"\\$projectId"),
+              ("dossier_nav", r"\$dossierNav"),
+              ("project_id", r"\$projectId"),
               ("project_gegevens", r"project-gegevens"),
               ("project_id_html", r"id=[\\\"']project-"),
               ("new_document", r"Nieuw document"),
               ("project_dossier", r"Projectdossier"),
               ("detail_heading", r"<h1"),
               ("main_open", r"<main"),
-              ("render_echo", r"\\becho\\b"),
+              ("render_echo", r"\becho\b"),
           ]
           print("V3_ANCHOR_SIGNATURES " + repr({
               name: len(list(re.finditer(pattern, source)))
