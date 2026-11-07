@@ -41,6 +41,8 @@ jobs:
           php -l office-independent/tests/OfficeResidentAddressFileImportTest.php
           php -l office-independent/src/Buildings/OfficeResidentAddressReviewPresenter.php
           php -l office-independent/tests/OfficeResidentAddressReviewPresenterTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressReviewPage.php
+          php -l office-independent/tests/OfficeResidentAddressReviewPageTest.php
           php -l office-independent/tests/OfficeResidentAddressSchemaTest.php
           php -l office-independent/tests/OfficeResidentAddressProposalTest.php
           php -l office-independent/tests/OfficeResidentAddressBatchTest.php
@@ -55,3 +57,4 @@ jobs:
           php office-independent/tests/OfficeResidentAddressXlsxReaderTest.php
           php office-independent/tests/OfficeResidentAddressFileImportTest.php
           php office-independent/tests/OfficeResidentAddressReviewPresenterTest.php
+          php office-independent/tests/OfficeResidentAddressReviewPageTest.php
