@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 visible tab and CSS verification
+name: Office-test Projectdetail V3 navigation guard diagnostics
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Verify Documenten in actual visible nav and CSS
+      - name: Inspect V3 navigation structure checks separately
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -57,10 +57,19 @@ jobs:
           if source.count("OfficeNativeProjectAccess($db))->canRead") != 1:
               sys.exit("ABORT_PROJECT_ACCESS_CHECK_CHANGED")
           lines = source.splitlines(keepends=True)
-          if len(lines) < 995 or "<nav" not in lines[987] or "Overzicht" not in lines[988] or "href=" not in lines[990] or "</nav>" not in lines[991]:
-              sys.exit("ABORT_ACTUAL_VISIBLE_NAV_STRUCTURE_CHANGED")
-          if "brebo-project-documents-visible-tab" not in lines[991]:
-              sys.exit("ABORT_EXISTING_DOCS_LINK_UNEXPECTED_LINE")
+          # Inspect each location separately: the previous combined guard
+          # failed despite the earlier confirmed live SHA, obscuring which
+          # assertion was incorrect. This operation is read-only.
+          checks = {
+              "MIN_LENGTH": len(lines) >= 995,
+              "NAV_OPEN_988": len(lines) >= 988 and "<nav" in lines[987],
+              "OVERVIEW_989": len(lines) >= 989 and "Overzicht" in lines[988],
+              "LINK_991": len(lines) >= 991 and "href=" in lines[990],
+              "NAV_CLOSE_992": len(lines) >= 992 and "</nav>" in lines[991],
+              "DOCS_LINK_992": len(lines) >= 992 and "brebo-project-documents-visible-tab" in lines[991],
+          }
+          for key, value in checks.items():
+              print("STRUCT_CHECK_" + key + "=" + str(value), flush=True)
           # Existing rendered tab strip is lines 988-992. It is generated
           # as a PHP HTML concatenation. The inserted Documents link was
           # already added to the same line as </nav>, but was not visible
