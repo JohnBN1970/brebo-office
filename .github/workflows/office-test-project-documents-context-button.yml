@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 HTML placement diagnostic
+name: Office-test Projectdetail V3 Documents main-line guard
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Check exact live HTML placement read-only
+      - name: Validate project main HTML insertion preconditions
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,16 +54,22 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # The live nav is constructed but not referenced after line 623.
-          # Inspect the PHP-to-HTML transition around line 990 without
-          # exposing raw HTML or customer data.
-          lines = source.splitlines()
-          for i in range(960, min(1000, len(lines))):
-              line = lines[i]
-              needles = ("?>", "<?php", "<?=", "echo", "<main", "</main", "<nav", "</nav", "<section", "$dossierNav", "$activeTab", "$projectUrl", "OfficeNavigation", "$project", "project-dossier", "office-dossier")
-              tokens = [name for name in needles if name in line]
-              print("RENDER_CONTEXT_" + str(i + 1) + "_TOKENS=" + ",".join(tokens) + "_LEN=" + str(len(line)), flush=True)
-          print("PROJECT_V3_OUTPUT_STRUCTURE_PASS", flush=True)
+          # In the live page the project navigation builder is known and
+          # ends before PHP outputs the full HTML at line 970. The existing
+          # $dossierNav holds the correct project-aware Documents URL but is
+          # never used. Insert it directly before the HTML is rendered.
+          lines = source.splitlines(keepends=True)
+          targets = [i for i, line in enumerate(lines) if "<main" in line and "</nav" in line]
+          if targets != [991]:
+              sys.exit("ABORT_MAIN_NAV_ANCHOR_MISMATCH")
+          main_line = lines[991]
+          if main_line.count("<main") != 1 or main_line.count("</nav") != 1:
+              sys.exit("ABORT_MAIN_NAV_LINE_CHANGED")
+          # Avoid guessing PHP output quoting. Anchor to the unique PHP
+          # closing nav literal, once fully verified in the live source.
+          print("MAIN_LINE_QUOTE_COUNTS=" + ",".join(str(main_line.count(q)) for q in ("'", '"', "$", " . ")), flush=True)
+          print("MAIN_LINE_TOKENS=" + ",".join(k for k in ("<nav", "</nav>", "<main", "$dossierNav", "<?php", "?>") if k in main_line), flush=True)
+          print("ABORT_NEED_EXACT_ECHO_LINE", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
