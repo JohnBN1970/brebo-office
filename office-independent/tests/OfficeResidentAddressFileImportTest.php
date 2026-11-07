@@ -13,6 +13,16 @@ try {
   try { Import::propose($file,'adreslijst.pdf','document-42'); }
   catch (InvalidArgumentException $e) { $blocked=true; }
   if (!$blocked) throw new RuntimeException('Unsupported file extension accepted');
+  file_put_contents($file, "PK\\x03\\x04fakezip");
+  $blocked=false;
+  try { Import::propose($file,'adreslijst.csv','document-42'); }
+  catch (InvalidArgumentException $e) { $blocked=true; }
+  if (!$blocked) throw new RuntimeException('ZIP disguised as CSV accepted');
+  file_put_contents($file, 'not an xlsx file');
+  $blocked=false;
+  try { Import::propose($file,'adreslijst.xlsx','document-42'); }
+  catch (InvalidArgumentException $e) { $blocked=true; }
+  if (!$blocked) throw new RuntimeException('Non-ZIP disguised as XLSX accepted');
   $blocked=false;
   try { Import::propose($file,'adreslijst.csv',''); }
   catch (InvalidArgumentException $e) { $blocked=true; }
