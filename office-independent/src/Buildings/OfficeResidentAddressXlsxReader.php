@@ -18,6 +18,29 @@ final class OfficeResidentAddressXlsxReader {
     $zip = new ZipArchive();
     if ($zip->open($path) !== true) throw new \InvalidArgumentException('Invalid XLSX archive');
     try {
+      // Inspect metadata before extracting ZIP members to avoid decompression bombs.
+      if ($zip->numFiles < 3 || $zip->numFiles > 200) throw new \InvalidArgumentException('Invalid XLSX package size');
+      $totalExpanded = 0;
+      $required = ['[Content_Types].xml'=>false, 'xl/workbook.xml'=>false, 'xl/worksheets/sheet1.xml'=>false];
+      for ($i = 0; $i < $zip->numFiles; $i++) {
+        $entry = $zip->statIndex($i);
+        if (!is_array($entry)) throw new \InvalidArgumentException('Invalid ZIP entry');
+        $name = (string)($entry['name'] ?? '');
+        $expanded = (int)($entry['size'] ?? -1);
+        $compressed = (int)($entry['comp_size'] ?? -1);
+        if ($name === '' || str_contains($name, '..') || str_starts_with($name, '/')
+          || str_contains($name, '\\') || $expanded < 0 || $compressed < 0) {
+          throw new \InvalidArgumentException('Unsafe XLSX ZIP entry');
+        }
+        if ($expanded > 12 * 1024 * 1024) throw new \LengthException('XLSX ZIP entry too large');
+        if ($expanded > 0 && $expanded > max(1, $compressed) * 200) {
+          throw new \LengthException('XLSX ZIP expansion ratio exceeded');
+        }
+        $totalExpanded += $expanded;
+        if ($totalExpanded > 24 * 1024 * 1024) throw new \LengthException('XLSX ZIP total too large');
+        if (array_key_exists($name, $required)) $required[$name] = true;
+      }
+      if (in_array(false, $required, true)) throw new \InvalidArgumentException('Required XLSX package entries missing');
       $shared = [];
       $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
       if ($sharedXml !== false) {
