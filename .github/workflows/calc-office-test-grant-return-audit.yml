@@ -1,0 +1,103 @@
+name: Calc installed grant return contract (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-RETURN
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation and SSH
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-RETURN
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_return
+          chmod 600 ~/.ssh/id_calc_return
+      - name: Read-only PHP token analysis of grant return values
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_return -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_RETURN=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $file=getenv('CALC_ACTIVE_ROOT').'/src/Calculation/OfficeCalcSessionGrantRepository.php';
+          if(!is_file($file)){echo "CALC_RETURN=FILE_MISSING\n";exit(1);}
+          $tokens=token_get_all(file_get_contents($file));
+          $inside=false;$brace=0;$returns=[];$returnType='UNDECLARED';
+          for($i=0;$i<count($tokens);$i++){
+            $t=$tokens[$i];
+            if(!$inside&&is_array($t)&&$t[0]===T_FUNCTION){
+              $j=$i+1;
+              while(isset($tokens[$j])&&(!is_array($tokens[$j])||$tokens[$j][0]!==T_STRING))$j++;
+              if(!isset($tokens[$j])||$tokens[$j][1]!=='findActive')continue;
+              $inside=true;$depth=0;$seenParams=false;$signature=[];
+              for($k=$j+1;$k<count($tokens);$k++){
+                $x=is_array($tokens[$k])?$tokens[$k][1]:$tokens[$k];
+                if($x==='('){$depth++;$seenParams=true;continue;}
+                if($x===')'){$depth--;continue;}
+                if($seenParams&&$depth===0&&$x==='{'){
+                  $s=trim(implode('',$signature));
+                  if(preg_match('/:\\s*([?\\\\a-zA-Z_][?\\\\a-zA-Z_0-9|]*)/', $s,$m))$returnType=$m[1];
+                  $i=$k;$brace=1;break;
+                }
+                if($seenParams&&$depth===0)$signature[]=$x;
+              }
+              continue;
+            }
+            if(!$inside)continue;
+            $v=is_array($t)?$t[1]:$t;
+            if($v==='{'){$brace++;continue;}
+            if($v==='}'){if(--$brace===0)break;continue;}
+            if(is_array($t)&&$t[0]===T_RETURN){
+              $expression=[];
+              for($k=$i+1;$k<count($tokens);$k++){
+                $part=is_array($tokens[$k])?$tokens[$k][1]:$tokens[$k];
+                if($part===';')break;
+                $expression[]=$tokens[$k];
+              }
+              $sig=array_values(array_filter($expression,fn($a)=>!is_array($a)||$a[0]!==T_WHITESPACE));
+              $first=$sig[0]??null;
+              $firstText=is_array($first)?$first[1]:$first;
+              $category='EXPRESSION';
+              if($firstText==='true'||$firstText==='false')$category='BOOLEAN_LITERAL';
+              elseif($firstText==='null')$category='NULL_LITERAL';
+              elseif($firstText==='['||$firstText==='array')$category='ARRAY_LITERAL';
+              elseif($firstText==='!')$category='BOOLEAN_NEGATION';
+              elseif($firstText==='(')$category='PARENTHESIZED_EXPRESSION';
+              elseif(is_array($first)&&$first[0]===T_VARIABLE)$category='VARIABLE_OR_METHOD';
+              $returns[]=$category;
+            }
+          }
+          if(!$inside){echo "CALC_RETURN=METHOD_MISSING\n";exit(1);}
+          echo "CALC_RETURN_TYPE=$returnType\n";
+          echo "CALC_RETURN_EXPRESSIONS=".implode(',',$returns)."\n";
+          echo "CALC_RETURN_AUDIT=READ_ONLY_COMPLETE\n";
+          PHP
+          REMOTE

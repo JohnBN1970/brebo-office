@@ -1,0 +1,38 @@
+name: Calc Office-test isolated restore prerequisites
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-RESTORE-PREREQS (read only, no restore)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  prerequisites:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check isolated restore credentials are configured
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          RESTORE_DB_HOST: ${{ secrets.CALC_RESTORE_DB_HOST }}
+          RESTORE_DB_NAME: ${{ secrets.CALC_RESTORE_DB_NAME }}
+          RESTORE_DB_USER: ${{ secrets.CALC_RESTORE_DB_USER }}
+          RESTORE_DB_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          confirmation="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$confirmation" = AUDIT-CALC-RESTORE-PREREQS
+          for key in RESTORE_DB_HOST RESTORE_DB_NAME RESTORE_DB_USER RESTORE_DB_PASSWORD; do
+            if [ -z "${!key}" ]; then
+              echo "ISOLATED_RESTORE_CONFIG=BLOCKED_MISSING_$key"
+              exit 1
+            fi
+          done
+          case "$RESTORE_DB_NAME" in
+            calc_restore_*) echo "ISOLATED_RESTORE_NAME=ACCEPTED_PREFIX" ;;
+            *) echo "ISOLATED_RESTORE_CONFIG=BLOCKED_TARGET_NAME"; exit 1 ;;
+          esac
+          echo 'ISOLATED_RESTORE_CONFIG=READY_FOR_SEPARATE_RESTORE_WORKFLOW'
+          echo 'DATABASE_RESTORE_EXECUTED=NO'
+          echo 'CALC_SCHEMA_INSTALL=BLOCKED_PENDING_VERIFIED_RESTORE'

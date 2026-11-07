@@ -103,10 +103,16 @@ final class OfficeDocumentRegistry
         }
     }
 
+    /** Context identifiers are resolved and authorized by their owning Office module. */
+    public static function allowedContextTypes(): array
+    {
+        return ['building', 'project', 'organization', 'contact', 'brebo', 'personnel'];
+    }
+
     /** Call only after authorization against the requested business context. */
     public function attachContext(int $documentId, string $type, string $id, string $role = 'supporting'): void
     {
-        if ($documentId < 1 || !in_array($type, ['building', 'project', 'organization', 'contact', 'brebo'], true)
+        if ($documentId < 1 || !in_array($type, self::allowedContextTypes(), true)
             || $id === '' || strlen($id) > 100
             || !in_array($role, ['origin', 'durable', 'supporting', 'contractual', 'correspondence', 'other'], true)) {
             throw new InvalidArgumentException('invalid_document_context');

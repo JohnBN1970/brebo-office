@@ -1,0 +1,95 @@
+name: Calc Office-test database schema audit (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-DB to check required tables and columns without changing data
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirmation }}" = AUDIT-CALC-DB
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_db_audit
+          chmod 600 ~/.ssh/id_calc_db_audit
+      - name: Check Office-test schema without exposing credentials or data
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_db_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          if [ ! -f "$config" ]; then echo 'CALC_DB_AUDIT=BLOCKED_CONFIG_MISSING'; exit 1; fi
+          OFFICE_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $config = require getenv('OFFICE_CONFIG_PATH');
+              if (!is_array($config)) {
+                  echo "CALC_DB_AUDIT=BLOCKED_CONFIG_NOT_ARRAY\n";
+                  exit(1);
+              }
+              $get = static function (string $key) use ($config): string {
+                  $env = getenv($key);
+                  if (is_string($env) && $env !== '') return $env;
+                  $value = $config[$key] ?? '';
+                  return is_string($value) ? $value : '';
+              };
+              $dsn = $get('OFFICE_INTAKE_PDO_DSN');
+              if (!str_starts_with($dsn, 'mysql:')) {
+                  echo "CALC_DB_AUDIT=BLOCKED_DSN_UNAVAILABLE\n";
+                  exit(1);
+              }
+              $db = new PDO($dsn, $get('OFFICE_INTAKE_DB_USER'), $get('OFFICE_INTAKE_DB_PASSWORD'), [
+                  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_EMULATE_PREPARES => false,
+              ]);
+              $db->exec('SET SESSION TRANSACTION READ ONLY');
+              $db->beginTransaction();
+              $required = [
+                  'office_projects' => [],
+                  'office_project_memberships' => ['operator_id','project_id','permission'],
+                  'office_calc_calculations' => ['id','project_id'],
+                  'office_calc_project_access' => ['calculation_id','project_id','operator_id','permission'],
+                  'office_calc_session_grants' => ['reference','session_hash','actor_id','project_id','calculation_id','expires_at','revoked_at'],
+                  'office_calc_signed_request_ids' => ['request_id','expires_at'],
+              ];
+              $stmt = $db->query("SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('office_projects','office_project_memberships','office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids')");
+              $actual = [];
+              foreach ($stmt as $row) $actual[$row['TABLE_NAME']][$row['COLUMN_NAME']] = true;
+              $pass = true;
+              foreach ($required as $table => $columns) {
+                  $exists = isset($actual[$table]);
+                  echo "TABLE_" . strtoupper($table) . "=" . ($exists ? 'PRESENT' : 'MISSING') . "\n";
+                  if (!$exists) $pass = false;
+                  foreach ($columns as $column) {
+                      if (!isset($actual[$table][$column])) {
+                          echo "MISSING_COLUMN={$table}.{$column}\n";
+                          $pass = false;
+                      }
+                  }
+              }
+              $db->rollBack();
+              echo "CALC_DB_AUDIT=" . ($pass ? 'PASS' : 'BLOCKED_SCHEMA_INCOMPLETE') . "\n";
+              exit($pass ? 0 : 1);
+          } catch (Throwable $e) {
+              // Never log database error details, credentials, DSN, or row values.
+              echo "CALC_DB_AUDIT=BLOCKED_CONNECTION_OR_QUERY\n";
+              exit(1);
+          }
+          PHP
+          REMOTE

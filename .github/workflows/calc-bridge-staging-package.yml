@@ -6,11 +6,6 @@ on:
         description: Type PACKAGE-CALC-BRIDGE to build a non-deploying review artifact
         required: true
         type: string
-  pull_request:
-    paths:
-      - '.github/workflows/calc-bridge-staging-package.yml'
-      - 'office-independent/src/Calculation/**'
-      - 'office-independent/public/office-calc-*.php'
 permissions:
   contents: read
 jobs:
@@ -18,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
@@ -25,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ github.event_name }}" = pull_request || test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
+          test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
           mkdir -p staging-calc-bridge/public staging-calc-bridge/src/Calculation staging-calc-bridge/deployment/hostinger/sql
           for file in office-independent/public/office-calc-*.php; do
             test -f "$file"

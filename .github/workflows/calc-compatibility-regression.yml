@@ -1,0 +1,52 @@
+name: Calc compatibility regression tests
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type TEST-CALC-COMPAT
+        required: true
+        type: string
+  push:
+    branches:
+      - fix/calc-reconnect-rebased-20261106
+    paths:
+      - office-independent/src/Calculation/OfficeCalcSessionGrantCompatibility.php
+      - office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+      - office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+      - office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+      - office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
+      - office-independent/src/Calculation/OfficeCalcGrantValidationService.php
+      - .github/workflows/calc-compatibility-regression.yml
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate explicit test confirmation
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$CONFIRMATION" = TEST-CALC-COMPAT
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite
+          coverage: none
+      - name: Syntax check and execute isolated compatibility tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Calculation/OfficeCalcSessionGrantCompatibility.php
+          php -l office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+          php -l office-independent/src/Calculation/OfficeCalcActiveOfficeSession.php
+          php -l office-independent/src/Calculation/OfficeCalcGrantValidationService.php
+          php -l office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+          php office-independent/tests/OfficeCalcSessionGrantCompatibilityTest.php
+          php office-independent/tests/OfficeCalcActiveOfficeSessionTest.php
+          php -l office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+          php office-independent/tests/OfficeCalcGrantValidationServiceTest.php
+          echo 'CALC_COMPAT_REGRESSION=PASS'

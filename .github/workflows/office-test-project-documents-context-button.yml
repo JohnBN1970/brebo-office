@@ -1,0 +1,97 @@
+name: Office-test V3 remove duplicate dossier nav
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-documents-button
+  cancel-in-progress: false
+jobs:
+  project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Remove duplicate project tabs with backup and lint
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_RELEASE_SCOPE; exit 20;; esac
+          project="$active/public/office-project.php"
+          docs="$active/public/office-documents.php"
+          test -f "$project" && test ! -L "$project" && test -f "$docs" && test ! -L "$docs" || { echo ABORT_MISSING_PAGE; exit 21; }
+          php -l "$project" && php -l "$docs"
+          test "$(wc -l < "$project")" -ge 900 || { echo ABORT_NOT_ACTIVE_V3; exit 22; }
+          grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$project" || { echo ABORT_ACCESS_CHECK_MISSING; exit 23; }
+          grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$docs" || { echo ABORT_DOCUMENTS_ACCESS_CHECK_MISSING; exit 24; }
+          grep -Fq 'OfficeNewDocumentMenu::render' "$docs" || { echo ABORT_DOCUMENTS_MENU_MISSING; exit 25; }
+          PROJECT="$project" python3 - <<'PY'
+          import os, pathlib, hashlib, datetime, subprocess, sys, re
+          p = pathlib.Path(os.environ["PROJECT"])
+          raw = p.read_bytes()
+          source=raw.decode("utf-8")
+          if "OfficeNativeProjectAccess($db))->canRead" not in source:
+              sys.exit("ABORT_PROJECT_ACCESS_CHECK_MISSING")
+          # Last deployment inserted this exact expression after the
+          # <main> opening tag; remove only that expression.
+          marker="<main"
+          lines=source.splitlines(keepends=True)
+          matches=[i for i,line in enumerate(lines) if marker in line and "$dossierNav" in line]
+          if len(matches)!=1:
+              sys.exit("ABORT_DUPLICATE_NAV_INSERTION_NOT_UNIQUE")
+          idx=matches[0]
+          old=lines[idx]
+          import re
+          if not re.search(r"<main\b[^>]*>' \. \$dossierNav \. '",old):
+              sys.exit("ABORT_INSERTION_FORMAT_CHANGED")
+          new=re.sub(r"(<main\b[^>]*>)' \. \$dossierNav \. '",r"\1",old,count=1)
+          if old==new:
+              sys.exit("ABORT_NO_CHANGE")
+          lines[idx]=new
+          candidate="".join(lines).encode("utf-8")
+          if candidate.count(b"$dossierNav")!=raw.count(b"$dossierNav")-1:
+              sys.exit("ABORT_UNEXPECTED_NAV_REFERENCES")
+          from tempfile import NamedTemporaryFile
+          import shutil
+          with NamedTemporaryFile(dir=str(p.parent),prefix=".v3-nav-dedup-",suffix=".php",delete=False) as tmp:
+              tmp.write(candidate)
+              tmp_path=tmp.name
+          try:
+              lint=subprocess.run(["php","-l",tmp_path],capture_output=True,text=True)
+              if lint.returncode:
+                  print(lint.stdout+lint.stderr,flush=True)
+                  sys.exit("ABORT_CANDIDATE_PHP_LINT_FAILED")
+              stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+              backup=p.with_name(p.name+".nav-dedup-backup-"+stamp)
+              with open(backup,"xb") as out: out.write(raw)
+              os.chmod(backup,p.stat().st_mode & 0o777)
+              os.chmod(tmp_path,p.stat().st_mode & 0o777)
+              os.replace(tmp_path,p)
+              check=subprocess.run(["php","-l",str(p)],capture_output=True,text=True)
+              if check.returncode or p.read_bytes()!=candidate:
+                  shutil.copy2(backup,p)
+                  sys.exit("ABORT_POST_DEPLOY_CHECK_RESTORED")
+              print("V3_DUPLICATE_PROJECT_NAV_REMOVED",flush=True)
+              print("BACKUP="+backup.name,flush=True)
+          finally:
+              if os.path.exists(tmp_path): os.unlink(tmp_path)
+          PY
+          echo OFFICE_TEST_V3_NAV_DEDUP_PASS
+          REMOTE

@@ -1,0 +1,56 @@
+name: Calc Office-test backup readiness (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-BACKUP (no backup is created)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation and SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-BACKUP
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_backup_audit
+          chmod 600 ~/.ssh/id_calc_backup_audit
+      - name: Inspect backup tools and metadata only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_backup_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          echo 'CALC_BACKUP_AUDIT=READ_ONLY'
+          for command in mysqldump mariadb-dump mysql mariadb gzip sha256sum; do
+            if command -v "$command" >/dev/null 2>&1; then
+              echo "BACKUP_TOOL_${command}=PRESENT"
+            else
+              echo "BACKUP_TOOL_${command}=MISSING"
+            fi
+          done
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          for dir in "$base/backups" "$base/backup" "$HOME/backups"; do
+            if [ -d "$dir" ]; then
+              echo "BACKUP_DIR=$(basename "$dir") PRESENT"
+              # Only report count, never names, paths, archive contents or credentials.
+              count=$(find "$dir" -maxdepth 1 -type f \( -name '*.sql' -o -name '*.sql.gz' -o -name '*.dump' \) | wc -l)
+              echo "BACKUP_CANDIDATES=$count"
+            fi
+          done
+          if [ -f "$base/config/config.php" ]; then echo 'OFFICE_CONFIG=PRESENT'; else echo 'OFFICE_CONFIG=MISSING'; fi
+          echo 'BACKUP_RESTORE_VERIFIED=NO'
+          echo 'CALC_SCHEMA_INSTALL=BLOCKED_PENDING_VERIFIED_RESTORE_AND_APPROVAL'
+          REMOTE

@@ -1,0 +1,25 @@
+name: Office building PDOK safety
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Buildings/**'
+      - 'office-independent/tests/OfficeBuildingPdok*'
+      - 'office-independent/public/office-buildings.php'
+      - 'office-independent/deployment/hostinger/office-building-pdok*'
+      - '.github/workflows/office-building-pdok-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Syntax and migration safety (no database connection)
+        run: |
+          set -euo pipefail
+          for file in office-independent/src/Buildings/*.php office-independent/tests/OfficeBuildingPdok*.php; do php -l "$file"; done
+          php office-independent/tests/OfficeBuildingPdokSchemaMigrationTest.php

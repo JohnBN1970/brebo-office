@@ -1,0 +1,85 @@
+name: Calc Office-test installed API signatures (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-SIGNATURES (read only)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH with manual approval
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$(printf '%s' "$CONFIRMATION" | xargs)" = AUDIT-CALC-SIGNATURES
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_signatures
+          chmod 600 ~/.ssh/id_calc_signatures
+      - name: Inspect installed PHP method signatures and dependencies without executing source
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_signatures -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_SIGNATURES=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $root=getenv('CALC_ACTIVE_ROOT');
+          $names=['OfficeCalcLaunchToken.php','OfficeCalcSessionGrantRepository.php','OfficeCalcLaunchService.php','OfficeCalcLaunchAuthorization.php','OfficeCalcActiveGrantValidator.php'];
+          foreach($names as $name){
+            $file=$root.'/src/Calculation/'.$name;
+            if(!is_file($file)){echo "FILE=$name MISSING\n";continue;}
+            $tokens=token_get_all(file_get_contents($file));
+            echo "FILE=$name SHA256=".hash_file('sha256',$file)."\n";
+            foreach($tokens as $i=>$tok){
+              if(!is_array($tok)||$tok[0]!==T_FUNCTION)continue;
+              $j=$i+1;
+              while(isset($tokens[$j])&&is_array($tokens[$j])&&$tokens[$j][0]===T_WHITESPACE)$j++;
+              if(isset($tokens[$j])&&$tokens[$j]==='&')$j++;
+              while(isset($tokens[$j])&&is_array($tokens[$j])&&$tokens[$j][0]===T_WHITESPACE)$j++;
+              if(!isset($tokens[$j])||!is_array($tokens[$j])||$tokens[$j][0]!==T_STRING)continue;
+              $method=$tokens[$j][1];
+              $j++;
+              while(isset($tokens[$j])&&$tokens[$j]!=='(')$j++;
+              if(!isset($tokens[$j]))continue;
+              $depth=0;$args=[];$type=[];$argName='';$optional=false;
+              for(;$j<count($tokens);$j++){
+                $t=$tokens[$j];$v=is_array($t)?$t[1]:$t;
+                if($v==='('){$depth++;continue;}
+                if($v===')'){if(--$depth===0){if($argName!=='')$args[]=$argName.':'.trim(implode('',$type)).($optional?'?':'!');break;}}
+                if($depth!==1)continue;
+                if($v===','){if($argName!=='')$args[]=$argName.':'.trim(implode('',$type)).($optional?'?':'!');$type=[];$argName='';$optional=false;continue;}
+                if(is_array($t)&&$t[0]===T_VARIABLE){$argName=$v;continue;}
+                if($v==='='){$optional=true;continue;}
+                if($argName===''){if(!is_array($t)||$t[0]!==T_WHITESPACE)$type[]=$v;}
+              }
+              echo "METHOD=$name::$method(".implode(',',$args).")\n";
+            }
+          }
+          echo "CALC_SIGNATURES=READ_ONLY_COMPLETE\n";
+          PHP
+          REMOTE

@@ -1,0 +1,91 @@
+name: Calc installed grant mapping safe expression audit
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-EXPRESSION
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation and SSH
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-EXPRESSION
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_expression
+          chmod 600 ~/.ssh/id_calc_expression
+      - name: Read-only inspect findActive return expression tokens
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_expression -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_EXPRESSION=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $file=getenv('CALC_ACTIVE_ROOT').'/src/Calculation/OfficeCalcSessionGrantRepository.php';
+          if(!is_file($file))exit(1);
+          $tokens=token_get_all(file_get_contents($file));$start=null;
+          foreach($tokens as $i=>$t){
+            if(!is_array($t)||$t[0]!==T_FUNCTION)continue;
+            for($j=$i+1;$j<min($i+9,count($tokens));$j++){
+              if(is_array($tokens[$j])&&$tokens[$j][0]===T_STRING&&$tokens[$j][1]==='findActive'){$start=$j;break 2;}
+            }
+          }
+          if($start===null){echo "CALC_EXPRESSION=METHOD_MISSING\n";exit(1);}
+          $body=[];$depth=0;$started=false;
+          for($i=$start;$i<count($tokens);$i++){
+            $t=$tokens[$i];$v=is_array($t)?$t[1]:$t;
+            if($v==='{'){$depth++;$started=true;}
+            if($started)$body[]=$t;
+            if($v==='}'&&$started){$depth--;if($depth===0)break;}
+          }
+          foreach($body as $i=>$tok){
+            if(!is_array($tok)||$tok[0]!==T_RETURN)continue;
+            $expr=[];
+            for($k=$i+1;$k<count($body);$k++){
+              $t=$body[$k];$v=is_array($t)?$t[1]:$t;
+              if($v===';')break;
+              if(is_array($t)&&$t[0]===T_WHITESPACE)continue;
+              $expr[]=$t;
+            }
+            if(count($expr)>35){echo "CALC_EXPRESSION_RETURN=TOO_COMPLEX\n";continue;}
+            $parts=[];
+            foreach($expr as $tok){
+              $v=is_array($tok)?$tok[1]:$tok;
+              if(is_array($tok)&&$tok[0]===T_VARIABLE)$v='VARIABLE';
+              elseif(is_array($tok)&&$tok[0]===T_CONSTANT_ENCAPSED_STRING)$v='STRING';
+              elseif(is_array($tok)&&$tok[0]===T_LNUMBER)$v='NUMBER';
+              elseif(is_array($tok)&&$tok[0]===T_DNUMBER)$v='NUMBER';
+              elseif(!in_array($v,['null','false','true','?','[',']','(',')','->','=>','!','===','!==',',',':','??','&&','||','{','}'],true)&&is_array($tok)&&$tok[0]===T_STRING)$v='IDENTIFIER';
+              $parts[]=$v;
+            }
+            echo "CALC_EXPRESSION_RETURN=".implode(' ',$parts)."\n";
+          }
+          echo "CALC_EXPRESSION_AUDIT=READ_ONLY_COMPLETE\n";
+          PHP
+          REMOTE

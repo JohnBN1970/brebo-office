@@ -1,0 +1,86 @@
+name: Calc installed grant key and predicates (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-KEY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation and SSH
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-KEY
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_key
+          chmod 600 ~/.ssh/id_calc_key
+      - name: Inspect static return key and DB predicates
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          root=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          $config=require getenv('OFFICE_CONFIG_PATH');
+          $root=is_array($config)?($config['OFFICE_PRIVATE_ROOT']??''):'';
+          if(!is_string($root)||$root==='')exit(1);
+          echo $root;
+          PHP
+          )
+          root=$(realpath "$root")
+          case "$root" in "$base"/release-*/private) ;; *) echo 'CALC_KEY=BLOCKED_ROOT'; exit 1;; esac
+          export CALC_ACTIVE_ROOT="$root"
+          php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $file=getenv('CALC_ACTIVE_ROOT').'/src/Calculation/OfficeCalcSessionGrantRepository.php';
+          if(!is_file($file))exit(1);
+          $tokens=token_get_all(file_get_contents($file));$start=null;
+          foreach($tokens as $i=>$t){
+            if(!is_array($t)||$t[0]!==T_FUNCTION)continue;
+            for($j=$i+1;$j<min($i+9,count($tokens));$j++){
+              if(is_array($tokens[$j])&&$tokens[$j][0]===T_STRING&&$tokens[$j][1]==='findActive'){$start=$j;break 2;}
+            }
+          }
+          if($start===null){echo "CALC_KEY=METHOD_MISSING\n";exit(1);}
+          $body=[];$depth=0;$started=false;
+          for($i=$start;$i<count($tokens);$i++){
+            $t=$tokens[$i];$v=is_array($t)?$t[1]:$t;
+            if($v==='{'){$depth++;$started=true;}
+            if($started)$body[]=$t;
+            if($v==='}'&&$started){$depth--;if($depth===0)break;}
+          }
+          $stringKeys=[];$bodyText='';
+          for($i=0;$i<count($body);$i++){
+            $t=$body[$i];$v=is_array($t)?$t[1]:$t;$bodyText.=$v;
+            if(!is_array($t)||$t[0]!==T_CONSTANT_ENCAPSED_STRING)continue;
+            $j=$i+1;
+            while(isset($body[$j])&&is_array($body[$j])&&$body[$j][0]===T_WHITESPACE)$j++;
+            if(isset($body[$j])&&((is_array($body[$j])&&$body[$j][0]===T_DOUBLE_ARROW)||$body[$j]==='=>')){
+              $key=trim($v,"'\"");
+              if(preg_match('/^[a-z_]{1,64}$/D',$key))$stringKeys[]=$key;
+            }
+          }
+          echo 'CALC_KEY_RETURN_KEYS='.implode(',',array_unique($stringKeys))."\n";
+          if($stringKeys===[]){echo 'CALC_KEY_AUDIT=INCOMPLETE_EMPTY_KEY';exit(1);}
+          foreach(['reference','actor_id','project_id','calculation_id','expires_at','revoked_at','session_hash'] as $col){
+            $present=preg_match('/\\b'.preg_quote($col,'/').'\\b/i',$bodyText);
+            echo 'CALC_KEY_PREDICATE_'.$col.'='.($present?'MENTIONED':'NOT_MENTIONED')."\n";
+          }
+          echo "CALC_KEY_AUDIT=READ_ONLY_COMPLETE\n";
+          PHP
+          REMOTE

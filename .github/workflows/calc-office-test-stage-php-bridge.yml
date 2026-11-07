@@ -1,0 +1,133 @@
+name: Calc Office-test stage PHP bridge (flags off)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type STAGE-CALC-PHP to stage new PHP bridge files in active Office-test release (flags stay off)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: calc-office-test-php-stage
+  cancel-in-progress: false
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify opt-in and configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$value" = STAGE-CALC-PHP
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_stage
+          chmod 600 ~/.ssh/id_calc_stage
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: Syntax check all bridge files
+        run: |
+          set -euo pipefail
+          for f in office-independent/public/office-calc-*.php office-independent/src/Calculation/*.php; do
+            test -f "$f"
+            php -l "$f"
+          done
+      - name: Stage only previously absent PHP bridge files in active release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          archive="$(mktemp)"
+          trap 'rm -f "$archive"' EXIT
+          (cd office-independent && find public -maxdepth 1 -type f -name 'office-calc-*.php' -print && find src/Calculation -maxdepth 1 -type f -name '*.php' -print) | sort > "$archive.files"
+          test "$(wc -l < "$archive.files")" -ge 10
+          tar -C office-independent -cf "$archive" -T "$archive.files"
+          rm -f "$archive.files"
+          remote_dir=".calc-bridge-stage-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_stage -p "$PORT" "$USER@$HOST" "umask 077; mkdir -m 700 -p \"\$HOME/$remote_dir\" && tar -C \"\$HOME/$remote_dir\" -xf -" < "$archive"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_stage -p "$PORT" "$USER@$HOST" "CALC_STAGE_DIR=\"\$HOME/$remote_dir\" bash -s" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          stage="$CALC_STAGE_DIR"
+          case "$stage" in "$HOME"/.calc-bridge-stage-*) ;; *) exit 1;; esac
+          trap 'rm -rf "$stage"' EXIT
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$router"
+          # This router obtains its actual private root from config.  Never guess a release.
+          # Read the configuration value without printing credentials or other config data.
+          target=$(OFFICE_CONFIG_PATH="$base/config/config.php" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          if (!is_array($config)) exit(1);
+          $root = $config['OFFICE_PRIVATE_ROOT'] ?? getenv('OFFICE_PRIVATE_ROOT');
+          if (!is_string($root) || $root === '') exit(1);
+          echo $root;
+          PHP
+          )
+          if [ -z "$target" ]; then echo 'CALC_STAGE=BLOCKED_PRIVATE_ROOT_MISSING'; exit 1; fi
+          target=$(realpath "$target")
+          case "$target" in "$base"/release-*/private) ;; *) echo 'CALC_STAGE=BLOCKED_TARGET'; exit 1;; esac
+          if [ ! -d "$target/public" ] || [ ! -d "$target/src" ]; then
+            echo 'CALC_STAGE=BLOCKED_PRIVATE_ROOT_INVALID'
+            exit 1
+          fi
+          echo 'CALC_STAGE_RELEASE_RESOLUTION=CONFIG_PRIVATE_ROOT'
+          # Verify all existing files are byte-identical before changing anything.
+          # An existing file with a different checksum always blocks the deployment.
+          existing=0
+          missing=0
+          for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
+            test -f "$source"
+            relative="${source#"$stage"/}"
+            destination="$target/$relative"
+            if [ -e "$destination" ] || [ -L "$destination" ]; then
+              if [ ! -f "$destination" ] || [ -L "$destination" ] || ! cmp -s "$source" "$destination"; then
+                echo "CALC_STAGE=BLOCKED_EXISTING_FILE_DIFFERS"
+                echo "CALC_STAGE_DIFFERING_FILE=$relative"
+                exit 1
+              fi
+              existing=$((existing+1))
+            else
+              missing=$((missing+1))
+            fi
+          done
+          echo "CALC_STAGE_EXISTING_IDENTICAL=$existing"
+          echo "CALC_STAGE_MISSING=$missing"
+          count=0
+          for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
+            relative="${source#"$stage"/}"
+            destination="$target/$relative"
+            if [ -f "$destination" ]; then
+              continue
+            fi
+            mkdir -p "$(dirname "$destination")"
+            php -l "$source" >/dev/null
+            # Exclusive create never overwrites an existing file in a concurrent deploy.
+            if ! (set -C; cat "$source" > "$destination") 2>/dev/null; then
+              echo "CALC_STAGE=BLOCKED_CONCURRENT_FILE_CREATION"
+              exit 1
+            fi
+            chmod 640 "$destination"
+            cmp -s "$source" "$destination"
+            count=$((count+1))
+          done
+          echo "CALC_STAGE=PHP_FILES_VERIFIED_OR_COPIED"
+          echo "CALC_STAGE_FILES_NEW=$count"
+          echo "CALC_ROUTER_CHANGED=NO"
+          echo "CALC_FLAGS_ENABLED=NO"
+          echo "CALC_RUNTIME_VERIFIED=NO"
+          REMOTE

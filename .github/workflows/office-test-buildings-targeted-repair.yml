@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify source PHP syntax
-        run: php -l office-independent/public/office-buildings.php
+        run: |
+          php -l office-independent/public/office-buildings.php
+          php -l office-independent/src/Buildings/OfficeBuildingPdokLocationRepository.php
       - name: Configure SSH
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -30,6 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-buildings.php "$USER@$HOST:/tmp/office-buildings-${GITHUB_RUN_ID}.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/src/Buildings/OfficeBuildingPdokLocationRepository.php "$USER@$HOST:/tmp/office-building-pdok-repo-${GITHUB_RUN_ID}.php"
       - name: Back up and deploy to active Office-test release
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -44,21 +47,39 @@ jobs:
           case "$active" in "$root"/release-*/private) ;; *) echo INVALID_RELEASE_SCOPE; exit 21;; esac
           test -d "$active/public"
           src="/tmp/office-buildings-${GITHUB_RUN_ID}.php"
+          repo_src="/tmp/office-building-pdok-repo-${GITHUB_RUN_ID}.php"
           dest="$active/public/office-buildings.php"
-          test -f "$src"
+          repo_dest="$active/src/Buildings/OfficeBuildingPdokLocationRepository.php"
+          test -f "$src" && test -f "$repo_src" && test -f "$dest"
+          test -d "$active/src/Buildings"
           php -l "$src"
-          test -f "$dest"
+          php -l "$repo_src"
           backup="$dest.backup-${GITHUB_RUN_ID}"
+          repo_backup="$repo_dest.backup-${GITHUB_RUN_ID}"
           cp -p "$dest" "$backup"
-          trap 'rm -f "$src"' EXIT
-          if ! cp "$src" "$dest" || ! php -l "$dest"; then
+          repo_existed=0
+          if test -f "$repo_dest"; then
+            repo_existed=1
+            cp -p "$repo_dest" "$repo_backup"
+          fi
+          rollback() {
             cp -p "$backup" "$dest"
+            if test "$repo_existed" = 1; then cp -p "$repo_backup" "$repo_dest"; else rm -f "$repo_dest"; fi
             echo BUILDINGS_DEPLOY_ROLLED_BACK
+          }
+          trap 'rm -f "$src" "$repo_src"' EXIT
+          if ! cp "$repo_src" "$repo_dest" || ! php -l "$repo_dest" || ! cp "$src" "$dest" || ! php -l "$dest"; then
+            rollback
             exit 31
           fi
-          cmp -s "$src" "$dest" || { cp -p "$backup" "$dest"; echo BUILDINGS_DEPLOY_ROLLED_BACK; exit 32; }
+          if ! cmp -s "$src" "$dest" || ! cmp -s "$repo_src" "$repo_dest"; then
+            rollback
+            exit 32
+          fi
           echo BUILDINGS_DEPLOY_OK
           echo "SOURCE_SHA=$(sha256sum "$src" | cut -d' ' -f1)"
           echo "ACTIVE_SHA=$(sha256sum "$dest" | cut -d' ' -f1)"
+          echo "REPO_SOURCE_SHA=$(sha256sum "$repo_src" | cut -d' ' -f1)"
+          echo "REPO_ACTIVE_SHA=$(sha256sum "$repo_dest" | cut -d' ' -f1)"
           echo "BACKUP_PATH=$backup"
           REMOTE

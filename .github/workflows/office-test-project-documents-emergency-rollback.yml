@@ -1,0 +1,87 @@
+name: Office-test emergency rollback Documents tab HTTP 500
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-documents-button
+  cancel-in-progress: false
+jobs:
+  project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Restore exact V3 pre-tab backup after HTTP 500
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_RELEASE_SCOPE; exit 20;; esac
+          project="$active/public/office-project.php"
+          docs="$active/public/office-documents.php"
+          test -f "$project" && test ! -L "$project" && test -f "$docs" && test ! -L "$docs" || { echo ABORT_MISSING_PAGE; exit 21; }
+          php -l "$project" && php -l "$docs"
+          test "$(wc -l < "$project")" -ge 900 || { echo ABORT_NOT_ACTIVE_V3; exit 22; }
+          grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$project" || { echo ABORT_ACCESS_CHECK_MISSING; exit 23; }
+          grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$docs" || { echo ABORT_DOCUMENTS_ACCESS_CHECK_MISSING; exit 24; }
+          grep -Fq 'OfficeNewDocumentMenu::render' "$docs" || { echo ABORT_DOCUMENTS_MENU_MISSING; exit 25; }
+          PROJECT="$project" python3 - <<'PY'
+          import os, pathlib, subprocess, hashlib, datetime, sys
+          p = pathlib.Path(os.environ["PROJECT"])
+          backup = p.with_name("office-project.php.documents-action-backup-20261107T044733Z")
+          if not backup.is_file() or backup.is_symlink():
+              sys.exit("ABORT_EXPECTED_BACKUP_MISSING")
+          current = p.read_bytes()
+          previous = backup.read_bytes()
+          if b'id="brebo-project-documents-tab"' not in current:
+              if current == previous:
+                  print("ALREADY_ROLLED_BACK")
+                  sys.exit(0)
+              sys.exit("ABORT_TAB_NOT_PRESENT")
+          if b'id="brebo-project-documents-tab"' in previous:
+              sys.exit("ABORT_BACKUP_CONTAINS_TAB")
+          if b'id="brebo-project-documents-action"' not in previous:
+              sys.exit("ABORT_BACKUP_NOT_PROJECT_V3")
+          snippet = r"""$dossierNav .= '<a id="brebo-project-documents-tab" href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId]))
+              . '">Documenten</a>';""" + chr(10)
+          actual = current.decode("utf-8")
+          if actual.count(snippet) != 1 or actual.replace(snippet, "", 1).encode("utf-8") != previous:
+              sys.exit("ABORT_CURRENT_V3_DIFFERS_FROM_TAB_ONLY_CHANGE")
+          lint = subprocess.run(["php", "-l", str(backup)], capture_output=True, text=True)
+          if lint.returncode:
+              print(lint.stdout + lint.stderr)
+              sys.exit("ABORT_BACKUP_PHP_LINT")
+          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+          emergency = p.with_name(p.name + ".pre-rollback-" + stamp)
+          emergency.write_bytes(current)
+          emergency.chmod(0o600)
+          temp = p.with_name(p.name + ".rollback-" + stamp)
+          temp.write_bytes(previous)
+          temp.chmod(p.stat().st_mode & 0o777)
+          os.replace(temp, p)
+          print("PROJECT_DOCUMENTS_TAB_ROLLED_BACK")
+          print("PRE_ROLLBACK_BACKUP_CREATED=" + emergency.name)
+          print("RESTORED_SHA256=" + hashlib.sha256(previous).hexdigest())
+          PY
+          php -l "$project"
+          if grep -Fq 'brebo-project-documents-tab' "$project"; then echo ABORT_TAB_STILL_PRESENT; exit 30; fi
+          echo OFFICE_TEST_PROJECT_V3_ROLLBACK_SERVER_PASS
+          REMOTE

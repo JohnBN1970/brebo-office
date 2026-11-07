@@ -1,0 +1,126 @@
+name: Calc Office-test four-table schema migration
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-CALC-FOUR-TABLES to install only the four Calc tables in Office-test
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: calc-office-test-schema
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate approval and configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          test "$value" = INSTALL-CALC-FOUR-TABLES
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_schema
+          chmod 600 ~/.ssh/id_calc_schema
+      - name: Check out reviewed Calc bridge migration SQL
+        uses: actions/checkout@v4
+        with:
+          ref: fix/calc-reconnect-rebased-20261106
+          persist-credentials: false
+      - name: Validate migration files and transfer to server
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          root=office-independent/deployment/hostinger/sql
+          for f in office-calc-calculations-access.sql office-calc-session-grants.sql office-calc-signed-request-ids.sql; do
+            test -s "$root/$f"
+            if grep -Ei '^[[:space:]]*(DROP|ALTER|DELETE|UPDATE|INSERT|TRUNCATE|REPLACE|GRANT|REVOKE)[[:space:]]' "$root/$f"; then
+              echo 'CALC_SCHEMA=BLOCKED_UNEXPECTED_SQL'
+              exit 1
+            fi
+          done
+          remote_dir=".calc-schema-migration-$GITHUB_RUN_ID"
+          tar -C "$root" -cf - office-calc-calculations-access.sql office-calc-session-grants.sql office-calc-signed-request-ids.sql | ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$USER@$HOST" "umask 077; mkdir -m 700 -p \"\$HOME/$remote_dir\" && tar -C \"\$HOME/$remote_dir\" -xf -"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$USER@$HOST" "CALC_MIGRATION_DIR=\"\$HOME/$remote_dir\" bash -s" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          tmpdir="$CALC_MIGRATION_DIR"
+          case "$tmpdir" in "$HOME"/.calc-schema-migration-*) ;; *) echo 'CALC_SCHEMA=BLOCKED_INVALID_TEMP_DIR'; exit 1;; esac
+          trap 'rm -rf "$tmpdir"' EXIT
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config"
+          # Require a fresh verified backup from this workflow family (within 24h).
+          backup=''
+          for file in "$HOME"/domains/brebobv.nl/office_calc_test/backups/office-test-pre-calc-*.sql.gz; do
+            test -f "$file" || continue
+            if test -z "$backup" || test "$file" -nt "$backup"; then backup="$file"; fi
+          done
+          test -n "$backup"
+          test "$(date +%s)" -lt "$(( $(stat -c %Y "$backup") + 86400 ))"
+          gzip -t "$backup"
+          echo 'CALC_SCHEMA_BACKUP=FRESH_GZIP_PASS'
+          OFFICE_CONFIG_PATH="$config" MIGRATION_DIR="$tmpdir" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $config = require getenv('OFFICE_CONFIG_PATH');
+              if (!is_array($config)) throw new RuntimeException('config');
+              $get = static function(string $k) use($config): string {
+                  $v=getenv($k); if(is_string($v)&&$v!=='')return $v;
+                  $v=$config[$k]??''; return is_string($v)?$v:'';
+              };
+              $dsn=$get('OFFICE_INTAKE_PDO_DSN');
+              if (!str_starts_with($dsn,'mysql:')) throw new RuntimeException('dsn');
+              $db=new PDO($dsn,$get('OFFICE_INTAKE_DB_USER'),$get('OFFICE_INTAKE_DB_PASSWORD'),[
+                  PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_EMULATE_PREPARES=>false,
+              ]);
+              $names=['office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids'];
+              $existing=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids')")->fetchAll(PDO::FETCH_COLUMN);
+              if ($existing !== []) {
+                  echo "CALC_SCHEMA=BLOCKED_TABLES_ALREADY_EXIST_REVIEW_REQUIRED\n"; exit(1);
+              }
+              foreach (['office_projects','office_project_memberships'] as $name) {
+                  $stmt=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+                  $stmt->execute([$name]);
+                  if ((int)$stmt->fetchColumn()!==1) throw new RuntimeException('base-schema');
+              }
+              $files=['office-calc-calculations-access.sql','office-calc-session-grants.sql','office-calc-signed-request-ids.sql'];
+              $statements=[];
+              foreach($files as $file) {
+                  $sql=file_get_contents(getenv('MIGRATION_DIR').'/'.$file);
+                  if ($sql===false) throw new RuntimeException('file');
+                  $sql=preg_replace('/^\\s*--.*$/m','',$sql);
+                  foreach(explode(';',$sql) as $part) {
+                      $part=trim($part);
+                      if ($part==='')continue;
+                      if (!preg_match('/^CREATE TABLE IF NOT EXISTS (office_calc_calculations|office_calc_project_access|office_calc_session_grants|office_calc_signed_request_ids)\\s*\\(/i',$part)) {
+                          echo "CALC_SCHEMA=BLOCKED_UNEXPECTED_STATEMENT\n";exit(1);
+                      }
+                      $statements[]=$part;
+                  }
+              }
+              if(count($statements)!==4) throw new RuntimeException('statement-count');
+              foreach($statements as $sql) $db->exec($sql);
+              $stmt=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids')");
+              $found=$stmt->fetchAll(PDO::FETCH_COLUMN);
+              sort($found); sort($names);
+              if($found!==$names) throw new RuntimeException('postflight');
+              echo "CALC_SCHEMA=INSTALLED_FOUR_TABLES\n";
+              echo "CALC_SCHEMA_POSTFLIGHT=PASS\n";
+              echo "CALC_BRIDGE_DEPLOYED=NO\n";
+          } catch(Throwable $e) {
+              echo "CALC_SCHEMA=BLOCKED_OR_PARTIAL_MANUAL_REVIEW_REQUIRED\n";
+              exit(1);
+          }
+          PHP
+          REMOTE

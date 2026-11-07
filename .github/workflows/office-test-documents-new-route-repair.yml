@@ -1,0 +1,125 @@
+name: Repair Office-test Documents new route
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-documents-new-route
+  cancel-in-progress: false
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Add only missing Documents new route
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          site="$HOME/domains/brebobv.nl/public_html/office-test"
+          router="$site/index.php"
+          htaccess="$site/.htaccess"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_INVALID_RELEASE; exit 20;; esac
+          for path in "$router" "$htaccess" "$active/public/office-documents.php"; do
+            test -f "$path" && test ! -L "$path" || { echo ABORT_MISSING_OR_UNSAFE; exit 21; }
+          done
+          php -l "$router" >/dev/null
+          php -l "$active/public/office-documents.php" >/dev/null
+          grep -Fq "'/office-test/documenten' => 'office-documents.php'" "$router" || { echo ABORT_DOCUMENTS_BASE_ROUTER_MISMATCH; exit 22; }
+          grep -Fq 'RewriteRule ^documenten' "$htaccess" || { echo ABORT_DOCUMENTS_REWRITE_MISSING; exit 23; }
+          php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(2);' "$root/config/config.php" || { echo ABORT_NOT_OFFICE_TEST; exit 24; }
+          ROUTER="$router" HTACCESS="$htaccess" php -r '
+            $router=file_get_contents(getenv("ROUTER"));
+            $ht=file_get_contents(getenv("HTACCESS"));
+            if (substr_count($router,"/office-test/documenten")<1 || substr_count($ht,"RewriteEngine On")!==1) exit(25);
+            if (strpos($router,"/office-test/documenten/nieuw")!==false) echo "NEW_ROUTE_ALREADY_IN_ROUTER\n";
+            if (preg_match("~(?m)^RewriteRule \\^documenten(?:/|\\()~",$ht)) echo "DOCUMENTS_SUBPATH_REWRITE_PRESENT\n";
+          '
+          ROUTER="$router" HTACCESS="$htaccess" python3 - <<'PY'
+          import datetime
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          router = pathlib.Path(os.environ["ROUTER"])
+          htaccess = pathlib.Path(os.environ["HTACCESS"])
+          original_router = router.read_bytes()
+          original_htaccess = htaccess.read_bytes()
+          r = original_router.decode("utf-8")
+          h = original_htaccess.decode("utf-8")
+          anchor = "'/office-test/documenten' => 'office-documents.php',"
+          new = "'/office-test/documenten/nieuw' => 'office-documents.php',"
+          if r.count(anchor) != 1:
+              sys.exit("ABORT_ROUTE_ANCHOR")
+          if new not in r:
+              r = r.replace(anchor, anchor + "\n    " + new, 1)
+          rule = "RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]"
+          if rule not in h:
+              if h.count("RewriteEngine On") != 1:
+                  sys.exit("ABORT_REWRITE_ANCHOR")
+              h = h.replace("RewriteEngine On", "RewriteEngine On\n# BREBO Documents new route\n" + rule, 1)
+          if r.encode() == original_router and h.encode() == original_htaccess:
+              print("ALREADY_CONFIGURED_NO_CHANGE", flush=True)
+              sys.exit(0)
+          suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + str(os.getpid())
+          backup_router = router.with_name(router.name + ".documents-new-backup-" + suffix)
+          backup_htaccess = htaccess.with_name(htaccess.name + ".documents-new-backup-" + suffix)
+          backup_router.write_bytes(original_router)
+          backup_htaccess.write_bytes(original_htaccess)
+          backup_router.chmod(0o600)
+          backup_htaccess.chmod(0o600)
+          tmp_router = router.with_name(router.name + ".documents-new-" + suffix)
+          tmp_htaccess = htaccess.with_name(htaccess.name + ".documents-new-" + suffix)
+          tmp_router.write_bytes(r.encode())
+          tmp_htaccess.write_bytes(h.encode())
+          tmp_router.chmod(router.stat().st_mode & 0o777)
+          tmp_htaccess.chmod(htaccess.stat().st_mode & 0o777)
+          lint = subprocess.run(["php", "-l", str(tmp_router)], capture_output=True, text=True)
+          if lint.returncode != 0:
+              tmp_router.unlink(missing_ok=True)
+              tmp_htaccess.unlink(missing_ok=True)
+              print(lint.stdout + lint.stderr)
+              sys.exit("ABORT_PHP_SYNTAX")
+          print("BACKUPS_CREATED_ROUTER_AND_HTACCESS", flush=True)
+          try:
+              os.replace(tmp_htaccess, htaccess)
+              os.replace(tmp_router, router)
+          except Exception as exc:
+              os.replace(backup_htaccess, htaccess)
+              os.replace(backup_router, router)
+              sys.exit("ABORT_INSTALL_RESTORED_BACKUPS: " + str(type(exc).__name__))
+          print("DOCUMENTS_ROUTE_PATCH_INSTALLED", flush=True)
+          print("BACKUP_ROUTER=" + backup_router.name, flush=True)
+          print("BACKUP_REWRITE=" + backup_htaccess.name, flush=True)
+          PY
+          php -l "$router" >/dev/null
+          grep -Fq "'/office-test/documenten/nieuw' => 'office-documents.php'" "$router"
+          grep -Fq 'RewriteRule ^documenten/nieuw/?$ index.php [END,QSA]' "$htaccess"
+          echo DOCUMENTS_NEW_ROUTE_SERVER_CHECK_PASS
+          REMOTE
+      - name: Check unauthenticated route status
+        run: |
+          set -euo pipefail
+          for path in /office-test/documenten /office-test/documenten/nieuw; do
+            response="$(curl --silent --show-error --max-redirs 0 --connect-timeout 10 --max-time 25 --output /dev/null --write-out '%{http_code} %{redirect_url}' "https://brebobv.nl$path")"
+            echo "$path $response"
+            test "${response%% *}" != "404" || exit 34
+            test "${response%% *}" != "500" || exit 35
+          done
+          echo DOCUMENTS_HTTP_SMOKE_PASS
