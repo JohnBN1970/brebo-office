@@ -1,4 +1,4 @@
-name: Office-test project Documents contextual button rollout
+name: Office-test project Documents visible tab rollout
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Safely insert project Documents action in active V3
+      - name: Safely add Documents tab inside active V3 navigation
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -51,34 +51,22 @@ jobs:
           import sys
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          if hashlib.sha256(raw).hexdigest() != "98c29ef3d5d3a2c7289806b28483f08e743dbe250ff7b964e750c3484122f143":
-              sys.exit("ABORT_PROJECT_V3_SHA_CHANGED")
           source = raw.decode("utf-8")
-          if 'id="brebo-project-documents-action"' in source:
+          if 'id="brebo-project-documents-action"' not in source:
+              sys.exit("ABORT_PREVIOUS_PROJECT_ACTION_NOT_INSTALLED")
+          if 'id="brebo-project-documents-tab"' in source:
               print("ALREADY_INSTALLED", flush=True)
               sys.exit(0)
-          # Modify the existing dossier navigation at its unique closing
-          # statement, rather than guessing at the V3 page's HTML layout.
-          # This keeps the existing renderer, tabs, and authorization intact.
-          import re
-          pattern = re.compile(r"(?m)^\s*\$dossierNav\s*\.=\s*'</nav>';[ \t]*$")
-          matches = list(pattern.finditer(source))
-          if len(matches) != 1:
-              print("ABORT_DOSSIER_NAV_CLOSE_ANCHOR_MISMATCH count=" + str(len(matches)), flush=True)
+          marker = "$dossierNav .= '</nav>';"
+          if source.count(marker) != 1:
+              print("ABORT_DOSSIER_NAV_CLOSE_MISMATCH count=" + str(source.count(marker)), flush=True)
               sys.exit(27)
-          # Existing navigation is rendered only for authorized project detail.
-          # Links use OfficeMount::basePath and URL-encoded project ID.
-          # Single-quoted PHP fragments are escaped correctly in this block.
-          project_links = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
-              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
-              . '">Projectdocumenten</a> <a href="'
-              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
-              . '">Nieuw document</a></div>'"""
-          # Assignment is complete PHP code (outside the original concatenated
-          # HTML), so it cannot break the project's large template expression.
-          snippet = chr(10) + "$dossierNav .= " + project_links + ";"
-          hit = matches[0]
-          source = source[:hit.end()] + snippet + source[hit.end():]
+          if source.count("$dossierNav =") != 1 or source.index("$dossierNav =") > source.index(marker):
+              sys.exit("ABORT_DOSSIER_NAV_INITIALIZATION_MISMATCH")
+          insert = r"""$dossierNav .= '<a id="brebo-project-documents-tab" href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId]))
+              . '">Documenten</a>';"""
+          source = source.replace(marker, insert + chr(10) + marker, 1)
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-action-backup-" + suffix)
           tmp = p.with_name(p.name + ".documents-action-" + suffix)
@@ -92,10 +80,10 @@ jobs:
               print(lint.stdout + lint.stderr)
               sys.exit("ABORT_PHP_LINT")
           os.replace(tmp, p)
-          print("PROJECT_DOCUMENTS_ACTION_INSTALLED", flush=True)
+          print("PROJECT_DOCUMENTS_TAB_INSTALLED", flush=True)
           print("BACKUP_CREATED=" + backup.name, flush=True)
           PY
           php -l "$project"
-          grep -Fq 'brebo-project-documents-action' "$project"
-          echo OFFICE_TEST_PROJECT_DOCUMENTS_ACTION_SERVER_PASS
+          grep -Fq 'brebo-project-documents-tab' "$project"
+          echo OFFICE_TEST_PROJECT_DOCUMENTS_TAB_SERVER_PASS
           REMOTE
