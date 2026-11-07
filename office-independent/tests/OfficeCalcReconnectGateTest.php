@@ -23,9 +23,14 @@ foreach ([
         throw new RuntimeException('Calc router missing security gate or route: ' . $required);
     }
 }
-if (!str_contains($router, "getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled'")
-    || !str_contains($router, "getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled'")) {
-    throw new RuntimeException('Calc routes do not fail closed');
+if (!str_contains($router, "$"+"calcBridgeReady = getenv('OFFICE_CALC_ENABLED') === 'enabled'")
+    || !str_contains($router, "getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled'")
+    || substr_count($router, 'if (!$calcBridgeReady') < 3
+    || !str_contains($router, "strlen((string) getenv('OFFICE_CALC_SHARED_SECRET')) >= 32")) {
+    throw new RuntimeException('Calc routes do not fail closed independently');
+}
+if (str_contains($router, "|| (getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'")) {
+    throw new RuntimeException('Calc flags must not take down unrelated Office-test pages');
 }
 if (!str_contains($router, '$root = getenv(\'OFFICE_PRIVATE_ROOT\');')
     || !str_contains($router, 'preg_quote($testRoot')
