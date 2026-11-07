@@ -63,7 +63,7 @@ jobs:
           # Reuse the stable authorized project header: unlike the former
           # guessed anchor, this exact fragment was present in repo V3.
           # The active file remains protected by its exact preflight SHA.
-          marker = '<section>\' . $dossierNav . \'<div id="project-gegevens">'
+          marker = "<section>' . $dossierNav . '<div id=\"project-gegevens\">"
           if source.count(marker) != 1:
               # Show only small structural diagnostics (no customer data).
               import re
