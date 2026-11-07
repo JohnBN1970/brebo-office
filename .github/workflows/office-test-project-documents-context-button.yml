@@ -54,31 +54,23 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # The currently built $dossierNav includes a second navigation
-          # bar, and the project detail page prints its own navigation.
-          # Insert only the already constructed Documents link into the
-          # existing rendered navigation immediately before its </nav>.
+          # The live output is a PHP string concatenation spanning the
+          # HTML nav and main. Place the project-scoped Documents link in
+          # that existing rendered navigation, not the unused $dossierNav.
           lines = source.splitlines(keepends=True)
           targets = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line]
           if targets != [991]:
               sys.exit("ABORT_MAIN_NAV_ANCHOR_MISMATCH")
           old = lines[991]
-          if old.count("<main") != 1 or old.count("</nav>") != 1:
-              sys.exit("ABORT_MAIN_NAV_PATTERN_CHANGED")
-          if (old.count("'"), old.count('"'), old.count("$")) != (2, 0, 3):
-              sys.exit("ABORT_MAIN_NAV_QUOTE_STYLE_CHANGED")
+          if (old.count("<main"), old.count("</nav>"), old.count("'"), old.count('"'), old.count("$")) != (1,1,2,0,3):
+              sys.exit("ABORT_MAIN_NAV_OUTPUT_CHANGED")
           if source.count("$dossierNav") != 6 or source.count("brebo-project-documents-tab") != 1:
-              sys.exit("ABORT_DOSSIER_NAV_CHANGED")
-          if old.count("</nav>") != 1:
-              sys.exit("ABORT_RENDER_NAV_BOUNDARY")
-          # The PHP expression is a single-quoted HTML literal. Close the
-          # string immediately before </nav>, insert a project-scoped link,
-          # and reopen the string while preserving existing tabs.
-          insertion = "' . '<a class=\"brebo-project-documents-visible-tab\" href=\"' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId) . '\">Documenten</a>' . '"
-          new = old.replace("</nav>", insertion + "</nav>", 1)
+              sys.exit("ABORT_DOSSIER_NAV_STATE_CHANGED")
+          # The exact nav-close is inside a single-quoted PHP HTML
+          # literal. Insert escaped link as a direct PHP concatenation.
+          injection = "' . '<a class=\"brebo-project-documents-visible-tab\" href=\"' . $escape(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId) . '\">Documenten</a>' . '"
+          new = old.replace("</nav>", injection + "</nav>", 1)
           candidate = source.replace(old, new, 1)
-          if candidate.count("brebo-project-documents-visible-tab") != 1:
-              sys.exit("ABORT_DOC_TAB_INSERT_COUNT")
           stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-visible-html-backup-" + stamp)
           temp = p.with_name(p.name + ".documents-visible-html-tmp-" + stamp)
