@@ -57,20 +57,26 @@ jobs:
           if 'id="brebo-project-documents-action"' in source:
               print("ALREADY_INSTALLED", flush=True)
               sys.exit(0)
-          marker = "$inspectionActions = '';"
+          # Place a self-contained action block immediately after the first
+          # existing project dossier navigation render, without touching V3 tabs.
+          marker = "' . $dossierNav ."
           if source.count(marker) != 1:
-              sys.exit("ABORT_INSERTION_ANCHOR_MISSING")
+              sys.exit("ABORT_DOSSIER_NAV_ANCHOR_MISMATCH")
           inject = r"""$officeProjectDocumentsAction = '<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
-              . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId]))
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
               . '">Projectdocumenten</a> <a href="'
-              . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten/nieuw', ['project_id' => (int)$projectId]))
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
               . '">Nieuw document</a></div>';
           """
-          source = source.replace(marker, inject + marker, 1)
-          output_anchor = "' . $inspectionActions ."
-          if source.count(output_anchor) != 1:
-              sys.exit("ABORT_RENDER_ANCHOR_MISMATCH")
-          source = source.replace(output_anchor, "' . $officeProjectDocumentsAction . $inspectionActions .", 1)
+          # Insert before the unique final HTML render, never inside control flow.
+          source = source.replace(marker, "' . $dossierNav . $officeProjectDocumentsAction .", 1)
+          # Use no extra PHP variable: inline the HTML expression at render time instead.
+          inline = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten?project_id=' . (int)$projectId)
+              . '">Projectdocumenten</a> <a href="'
+              . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/documenten/nieuw?project_id=' . (int)$projectId)
+              . '">Nieuw document</a></div>'"""
+          source = source.replace("$officeProjectDocumentsAction", inline, 1)
           suffix = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-action-backup-" + suffix)
           tmp = p.with_name(p.name + ".documents-action-" + suffix)
