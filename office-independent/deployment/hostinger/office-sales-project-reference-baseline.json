@@ -1,0 +1,14 @@
+{
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesBilling.php": "e35f45a419ca25e19a428feb59c3495dfdd6e796",
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesPdf.php": "dfa9614138fe3f0935675303331afce363a13438",
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesSchema.php": "9aa742091465b79458868e92bed3f59ffee9f284",
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesService.php": "3b4d1c88e2d402bad9a589a3d14fd6bf33d0e6ed",
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesTransport.php": "9a1673903ad999943a102850f90db6585f4b8623",
+  "src/Sales/billing-v2-42405563766-1/OfficeSalesView.php": "fea3b8652888e1dafbc5ae07365a105119b953eb",
+  "src/Sales/billing-v2-42405563766-1/brebo-fonts-LICENSE.txt": "b3d93a1235a82213fbc451853317c40e62ed9272",
+  "src/Sales/billing-v2-42405563766-1/brebo-fonts.json": "a815e846d3f4bc969413b418bebd51758b8b8374",
+  "src/Sales/billing-v2-42405563766-1/brebo-logo-web.json": "fb6d7c60e8fbf396bb1761218b629ec0f10cff5f",
+  "src/Sales/billing-v2-42405563766-1/brebo-logo.rgb.json": "60f10edc4b1d4c4b01e495e8bfa5a8eddde1d015",
+  "public/office-sales-billing-42405563766-1.php": "3aabf6a75aab4a6da772b367be4d64efbf75bc3c",
+  "modules/sales/routes.php": "2101d5fe52d33a68c4d3daf88904d19710b80b1b"
+}

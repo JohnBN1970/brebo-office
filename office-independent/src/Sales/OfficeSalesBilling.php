@@ -12,6 +12,12 @@ final class OfficeSalesBilling {
     if(strlen($due)!==10)throw new \InvalidArgumentException('Vervaldatum ligt buiten het geldige datumbereik.');
     return $due;
   }
+  /** Separate document metadata; the customer's reference never contains inferred project data. */
+  public static function documentContext(array $invoice): array {
+    $source=empty($invoice['source_snapshot'])?[]:json_decode($invoice['source_snapshot'],true,32,JSON_THROW_ON_ERROR);
+    $customer=empty($invoice['customer_json'])?[]:json_decode($invoice['customer_json'],true,32,JSON_THROW_ON_ERROR);
+    return ['project'=>(string)($source['project_title']??$customer['_office_project']['title']??''),'contract'=>(string)($source['contract_number']??'')];
+  }
   public static function schema(bool $sqlite=false): string {
     return "CREATE TABLE office_finance_sales_context (
       invoice_id BIGINT NOT NULL PRIMARY KEY,

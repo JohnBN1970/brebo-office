@@ -74,7 +74,8 @@ final class OfficeSalesPdf {
       $this->text(399,$this->y+17,'Vervaldatum:',9,true);
       $this->text(0,$this->y+17,self::date($invoice['due_date']),9,false,561);
       $refY=$this->y;
-      if(($invoice['reference']??'')!=='')foreach(self::wrap('Project / referentie: '.$invoice['reference'],340,9) as $line){$this->text(35,$refY,$line,9);$refY+=13;}
+      $context=OfficeSalesBilling::documentContext($invoice);
+      foreach(['Project'=>$context['project'],'Contract'=>$context['contract'],'Uw kenmerk'=>(string)($invoice['reference']??'')] as $label=>$value)if($value!=='')foreach(self::wrap($label.': '.$value,340,9) as $line){$this->text(35,$refY,$line,9);$refY+=13;}
       $this->y=max($this->y+56,$refY+24);
       if($draft){$this->text(35,$this->y-12,'Concept - nog niet verzonden. Geen betaalverzoek.',9);}
     } else {$this->y=260;}
