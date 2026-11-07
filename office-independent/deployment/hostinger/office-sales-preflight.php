@@ -27,14 +27,9 @@ try {
   echo 'SALES_CANONICAL_MONEYBIRD_MAPPING_PRESENT='.(int)($q->fetchColumn()!==false)."\n";
   foreach (['src/Sales/OfficeSalesService.php','public/office-sales.php'] as $file) echo 'SALES_FILE_'.str_replace(['/','.'],['_','_'],$file).'_PRESENT='.(int)is_file($root.'/'.$file)."\n";
   $router=dirname($base).'/public_html/office-test/index.php';
-  if (is_file($router) && !is_link($router)) echo 'SALES_ROUTE_PRESENT='.(int)str_contains(file_get_contents($router),"'/office-test/finance/verkoop'")."\n";
+  if (is_file($router) && !is_link($router)) echo 'SALES_ROUTE_PRESENT='.(int)(str_contains(file_get_contents($router),"'/office-test/finance/verkoop'") || (is_file($root.'/modules/sales/routes.php') && ($config['OFFICE_SALES_ENABLED']??'')==='enabled'))."\n";
   if (is_file($router) && !is_link($router)) {
-    $routerLines=file($router,FILE_IGNORE_NEW_LINES); $routeContext=0;
-    foreach ($routerLines as $line) {
-      if (str_contains($line,'$routes = [')) $routeContext=100;
-      if ($routeContext>0) { echo 'SALES_ROUTER_CONTEXT='.trim($line)."\n"; --$routeContext; }
-      if (preg_match('/finance|require|include|router|manifest|moduleRoutes|glob\(|\$routes/i',$line) && strlen($line)<1000) echo 'SALES_FINANCE_ROUTER_SOURCE='.trim($line)."\n";
-    }
+    echo 'SALES_MODULAR_ROUTER_PRESENT='.(int)str_contains(file_get_contents($router),"\$moduleRoot = \$private . '/modules';")."\n";
   }
   $db->rollBack();
   if (hash_file('sha256',$path)!==$hash) throw new RuntimeException('Configuration changed');

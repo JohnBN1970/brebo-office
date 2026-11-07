@@ -30,7 +30,7 @@ try {
   $tables=['office_finance_sales_invoice','office_finance_sales_delivery','office_finance_sales_audit','office_finance_sales_receipt'];
   foreach ($tables as $table) { $q=$db->prepare('SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');$q->execute([$table]);if((int)$q->fetchColumn()!==0)throw new RuntimeException('Existing sales schema requires review'); }
   $phase='new_source_paths';
-  $paths=['src/Sales/OfficeSalesSchema.php','src/Sales/OfficeSalesService.php','src/Sales/OfficeSalesTransport.php','src/Sales/OfficeSalesView.php','public/office-sales.php'];
+  $paths=['src/Sales/OfficeSalesSchema.php','src/Sales/OfficeSalesService.php','src/Sales/OfficeSalesTransport.php','src/Sales/OfficeSalesView.php','public/office-sales.php','modules/sales/routes.php'];
   foreach ($paths as $path) { if (file_exists($root.'/'.$path)||is_link($root.'/'.$path)||!is_file($stage.'/'.$path))throw new RuntimeException('New source path not empty');token_get_all(file_get_contents($stage.'/'.$path),TOKEN_PARSE); }
   if (is_link($root.'/src/Sales') || (is_dir($root.'/src/Sales') && scandir($root.'/src/Sales')!==['.','..'])) throw new RuntimeException('Existing sales directory requires review');
   $phase='active_file_paths';
@@ -38,13 +38,20 @@ try {
   foreach ([$router,$view] as $file) if (is_link($file)||realpath($file)!==$file)throw new RuntimeException('Unsafe active file');
   $phase='router_navigation_anchors';
   $oldRouter=file_get_contents($router);$oldView=file_get_contents($view);
-  $routeAnchor="  '/office-test/finance' => 'office-finance.php',";
+  $moduleRoot=$root.'/modules';
+  if (is_link($moduleRoot) || realpath($moduleRoot)!==$moduleRoot || file_exists($moduleRoot.'/sales') || is_link($moduleRoot.'/sales')) throw new RuntimeException('Unsafe or existing sales module directory');
+  foreach (glob($moduleRoot.'/*/routes.php')?:[] as $manifest) {
+    if (is_link($manifest) || !is_file($manifest) || str_contains(file_get_contents($manifest),'/office-test/finance/verkoop')) throw new RuntimeException('Existing or unsafe sales module route');
+  }
+  $moduleAnchor="\$moduleRoot = \$private . '/modules';";
+  $discoveryAnchor="\$manifests = glob(\$moduleRoot . '/*/routes.php') ?: [];";
   // Literal PHP source anchor, not a rendered value.
   $navAnchor="<a href=\"'.\$newInvoice.'\">Nieuwe inkoopfactuur</a>";
-  echo 'SALES_ROUTER_ANCHOR_COUNT='.substr_count($oldRouter,$routeAnchor)."\n";
+  echo 'SALES_MODULE_ROOT_ANCHOR_COUNT='.substr_count($oldRouter,$moduleAnchor)."\n";
+  echo 'SALES_MODULE_DISCOVERY_ANCHOR_COUNT='.substr_count($oldRouter,$discoveryAnchor)."\n";
   echo 'SALES_NAV_ANCHOR_COUNT='.substr_count($oldView,$navAnchor)."\n";
-  if (substr_count($oldRouter,$routeAnchor)!==1 || substr_count($oldView,$navAnchor)!==1 || str_contains($oldRouter,"'/office-test/finance/verkoop'"))throw new RuntimeException('Reviewed router/navigation anchor missing');
-  $newRouter=str_replace($routeAnchor,$routeAnchor."\n  '/office-test/finance/verkoop' => 'office-sales.php',",$oldRouter);
+  if (substr_count($oldRouter,$moduleAnchor)!==1 || substr_count($oldRouter,$discoveryAnchor)!==1 || substr_count($oldView,$navAnchor)!==1 || str_contains($oldRouter,'/office-test/finance/verkoop'))throw new RuntimeException('Reviewed module router/navigation anchor missing');
+  $newRouter=$oldRouter; // Existing modular router stays byte-for-byte intact.
   $newView=str_replace($navAnchor,$navAnchor.'<a href="/office-test/finance/verkoop">Verkoopfacturen</a>',$oldView);
   token_get_all($newRouter,TOKEN_PARSE);token_get_all($newView,TOKEN_PARSE);
   $suffix=basename($stage);$baseConfig=$base.'/config/config-sales-base-'.$suffix.'.php';
@@ -64,12 +71,15 @@ try {
   echo "OFFICE_SALES_NEW_SCHEMA_VERIFIED=1\n";
   $phase='source';
   if(!is_dir($root.'/src/Sales'))mkdir($root.'/src/Sales',0750);
+  if(!mkdir($moduleRoot.'/sales',0750))throw new RuntimeException('Sales module directory creation failed');
   foreach($paths as $path){$dest=$root.'/'.$path;$handle=fopen($dest,'x');if($handle===false)throw new RuntimeException('Concurrent new source');$created[$dest]=hash_file('sha256',$stage.'/'.$path);try{$bytes=file_get_contents($stage.'/'.$path);if(fwrite($handle,$bytes)!==strlen($bytes))throw new RuntimeException('Source copy failed');}finally{fclose($handle);}chmod($dest,0640);if(hash_file('sha256',$dest)!==$created[$dest])throw new RuntimeException('Source copy mismatch');}
   require_once $root.'/src/Sales/OfficeSalesService.php';
   $service=new \Brebo\Office\Sales\OfficeSalesService($db,'1');
   if($service->list()!==[])throw new RuntimeException('New sales register unexpectedly populated');
   $phase='activate'; $active=true;
-  foreach([$view=>$newView,$router=>$newRouter,$configFile=>$wrapper] as $file=>$content){$journal[$file]['after']=hash('sha256',$content);salesReplace($file,$journal[$file]['before'],$content,$journal[$file]['mode']);}
+  $journal[$router]['after']=$journal[$router]['before'];
+  if(hash_file('sha256',$router)!==$journal[$router]['before'])throw new RuntimeException('Module router changed during installation');
+  foreach([$view=>$newView,$configFile=>$wrapper] as $file=>$content){$journal[$file]['after']=hash('sha256',$content);salesReplace($file,$journal[$file]['before'],$content,$journal[$file]['mode']);}
   foreach($journal as $file=>$row)if(hash_file('sha256',$file)!==$row['after'])throw new RuntimeException('Installed source changed');
   file_put_contents($stage.'/activation-journal.json',json_encode(['root'=>$root,'files'=>$journal,'created'=>$created],JSON_THROW_ON_ERROR),LOCK_EX);
   $db->query("SELECT RELEASE_LOCK('office-native-sales-install')");
