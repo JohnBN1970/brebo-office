@@ -46,30 +46,29 @@ jobs:
           import os, pathlib, hashlib, datetime, subprocess, sys, re
           p = pathlib.Path(os.environ["PROJECT"])
           raw = p.read_bytes()
-          # The generated dossier nav is never output: run #42353786216.
-          # Render one canonical strip rather than editing the sidebar.
+          # Run #42353786216 proves $dossierNav is unused. Add the
+          # contextual document entry to the actual project HTML fragment.
+          # This is separate from the left sidebar and uses the existing
+          # project context. Avoid double-rendering the whole five-tab bar.
           source = raw.decode("utf-8")
-          expected = "742529945249e360f54222f38f83976636b49bd1aaf874acc206b77008230b25"
-          # The CSS deployment changed the hash from the earlier reference;
-          # protect this installation by structural guards instead.
           if source.count("$dossierNav = '<nav class=\"office-dossier-nav\"") != 1:
               sys.exit("ABORT_DOSSIER_NAV_BUILDER_CHANGED")
           if source.count("$dossierNav .= '<a href=\"/office-test/documenten?project_id='") != 1:
               sys.exit("ABORT_DUPLICATE_LINK_CONTEXT_CHANGED")
           if "OfficeNativeProjectAccess($db))->canRead" not in source:
               sys.exit("ABORT_ACCESS_CHECK_CHANGED")
-          # Navigation is generated but unused. The five tabs in the
-          # screenshot were produced elsewhere. Avoid duplicate strips:
-          # emit a single project Documents action into the project main
-          # content, using its existing rendered HTML echo.
-          lines = source.splitlines(keepends=True)
-          if len(lines) != 995:
-              sys.exit("ABORT_EXPECTED_LIVE_LINE_COUNT_CHANGED")
-          # Current last line is the rendered output; verify anchor by
-          # matching exact html segment, not positional guessing.
-          needle = "<main class=\"office-main\""
-          print("LIVE_MAIN_TAG_MATCHES="+str(source.count(needle)),flush=True)
-          print("LIVE_PROJECT_NAV_PROBE_ONLY",flush=True)
+          if source.count("brebo-project-documents-visible-tab") != 2:
+              sys.exit("ABORT_PRIOR_SIDEBAR_LINK_OR_CSS_CHANGED")
+          # Inspect presentation variables near the final echo so the
+          # upcoming live patch uses an exact guarded insertion point.
+          lines=source.splitlines()
+          print("LIVE_LINES="+str(len(lines)),flush=True)
+          print("DOSSIER_NAV_LAST_REF="+str(max(i for i,line in enumerate(lines,1) if "$dossierNav" in line)),flush=True)
+          for i in range(max(0,len(lines)-14),len(lines)):
+              line=lines[i]
+              tags=[t for t in ("$project", "$dossierNav", "<main", "</main", "<nav", "</nav", "echo", "office-project", "$dashboard") if t in line]
+              print("RENDER_LINE="+str(i+1)+" TOKENS="+",".join(tags)+" LEN="+str(len(line)),flush=True)
+          print("RENDER_SCOPE_READONLY_PASS",flush=True)
           PY
           echo OFFICE_TEST_RENDER_SCOPE_PASS
           REMOTE
