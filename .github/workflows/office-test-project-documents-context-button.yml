@@ -54,5 +54,19 @@ jobs:
           echo "PROJECT_V3_DOCUMENTS_ACTION_COUNT=$(grep -Fc 'brebo-project-documents-action' "$project" || true)"
           echo "PROJECT_V3_NAV_CLOSE_COUNT=$(grep -Fc "\$dossierNav .= '</nav>';" "$project" || true)"
           echo "PROJECT_V3_SHA256=$(sha256sum "$project" | cut -d' ' -f1)"
+          echo "OFFICE_MOUNT_ROUTE_DOCUMENTEN_PRESENT=$(grep -Ec "'documenten'[[:space:]]*=>" "$mount" || true)"
+          echo "OFFICE_MOUNT_ROUTE_DOCUMENTEN_NIEUW_PRESENT=$(grep -Ec "'documenten/nieuw'[[:space:]]*=>" "$mount" || true)"
+          # The active project page may differ from the repository. Inspect
+          # positions, not source lines containing customer or server data.
+          PROJECT="$project" python3 - <<'PY'
+          import os, pathlib
+          p = pathlib.Path(os.environ["PROJECT"])
+          src = p.read_text()
+          lines = src.splitlines()
+          keys = ["$dossierNav =", "$dossierNav .=", "$escape =", "$projectId =", "brebo-project-documents-action"]
+          for key in keys:
+              hits = [str(i) for i, line in enumerate(lines, 1) if key in line]
+              print("PROJECT_V3_POSITIONS_" + key.replace("$", "").replace(" ", "_").replace("=", "ASSIGN").replace(".", "DOT").replace("-", "_") + "=" + ",".join(hits[:30]))
+          PY
           echo OFFICE_TEST_DOCUMENTS_RUNTIME_DIAGNOSIS_READONLY_PASS
           REMOTE
