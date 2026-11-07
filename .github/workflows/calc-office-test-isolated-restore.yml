@@ -30,7 +30,7 @@ jobs:
             fi
           done
           case "$RESTORE_DB_NAME" in
-            calc_restore_*) echo "ISOLATED_RESTORE_NAME=ACCEPTED_PREFIX" ;;
+            calc_restore|*_calc_restore) echo "ISOLATED_RESTORE_NAME=ACCEPTED_PREFIX" ;;
             *) echo "ISOLATED_RESTORE_CONFIG=BLOCKED_TARGET_NAME"; exit 1 ;;
           esac
           echo 'ISOLATED_RESTORE_CONFIG=READY_FOR_SEPARATE_RESTORE_WORKFLOW'
