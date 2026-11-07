@@ -21,7 +21,8 @@ final class OfficeResidentAddressUploadProcessor {
     bool $canManageBuilding,
     string $actorId,
     string $documentId,
-    callable $scanUploadedFile
+    callable $scanUploadedFile,
+    callable $canViewResidentData
   ): string {
     $validated = OfficeResidentAddressUploadGuard::validate(
       $server, $upload, $csrfProvided, $csrfExpected, $canManageBuilding, $buildingId
@@ -33,12 +34,17 @@ final class OfficeResidentAddressUploadProcessor {
     if ($scanUploadedFile($validated['path'], $validated['filename']) !== true) {
       throw new \RuntimeException('Upload scanner did not approve file');
     }
+    // Building management is not resident-data permission. Require a separate
+    // grant scoped to this actor, building and document, failing closed.
+    if ($canViewResidentData($actorId, $buildingId, $documentId) !== true) {
+      throw new \DomainException('Resident data access denied');
+    }
     // The source is the verified PHP upload tmp path; do not move into a web root.
-    // Authorization is explicitly checked again at preview boundary.
     return OfficeResidentAddressReviewPage::preview(
       $validated['path'], $validated['filename'], $documentId, $actorId,
       static fn(string $checkedActor, string $checkedDocument): bool =>
-        $checkedActor === $actorId && $checkedDocument === $documentId && $canManageBuilding
+        $checkedActor === $actorId && $checkedDocument === $documentId
+        && $canViewResidentData($checkedActor, $buildingId, $checkedDocument) === true
     );
   }
 }
