@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 Documents visible navigation rollout
+name: Office-test Projectdetail V3 exact nav string guard
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Safely render existing Documents navigation in project main output
+      - name: Check exact main nav string boundaries read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,10 +54,9 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # Run #42350282237 confirmed the output expression:
-          # the unique line 992 contains the closing nav plus opening main,
-          # with 2 single quotes, zero double quotes and 3 PHP variables.
-          # Add existing $dossierNav into that HTML output expression.
+          # The live V3 main-output line is a PHP string concatenation,
+          # not a literal HTML template. Use a fail-closed guard for the
+          # exact insertion point, with PHP lint before any replacement.
           lines = source.splitlines(keepends=True)
           targets = [i for i,line in enumerate(lines) if "<main" in line and "</nav>" in line]
           if targets != [991]:
@@ -71,31 +70,11 @@ jobs:
               sys.exit("ABORT_DOSSIER_NAV_STATE_CHANGED")
           if "brebo-project-documents-tab" not in source:
               sys.exit("ABORT_DOCS_NAV_NOT_CONSTRUCTED")
-          # This is a PHP string concat expression and the line is bounded
-          # by the existing nav-closing literal and main-opening literal.
-          # Keep the existing layout and append the prebuilt nav to the
-          # output just before <main>. We do not change authorization.
-          needle = "</nav><main"
-          if old.count(needle) != 1:
-              sys.exit("ABORT_NAV_MAIN_NOT_ADJACENT")
-          new = old.replace(needle, "</nav>' . $dossierNav . '<main", 1)
-          candidate = source.replace(old, new, 1)
-          # Lint a temporary copy before installing, and retain backup.
-          stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-          backup = p.with_name(p.name + ".documents-visible-render-backup-" + stamp)
-          tmp = p.with_name(p.name + ".documents-visible-render-tmp-" + stamp)
-          backup.write_bytes(raw)
-          backup.chmod(0o600)
-          tmp.write_bytes(candidate.encode("utf-8"))
-          tmp.chmod(p.stat().st_mode & 0o777)
-          lint = subprocess.run(["php", "-l", str(tmp)], text=True, capture_output=True)
-          if lint.returncode:
-              tmp.unlink(missing_ok=True)
-              print(lint.stdout + lint.stderr, flush=True)
-              sys.exit("ABORT_PHP_LINT")
-          os.replace(tmp, p)
-          print("PROJECT_V3_DOCUMENTS_RENDERED", flush=True)
-          print("BACKUP_CREATED=" + backup.name, flush=True)
+          # The exact tokens surrounding the nav-close must be established
+          # before a mutation. Keep this diagnostic read-only on mismatch.
+          for token in ("</nav><main", "</nav>' . ", "</nav>'", " . '<main", " . $", "</nav>"):
+              print("MAIN_ANCHOR_TOKEN_" + str(len(token)) + "=" + str(old.count(token)), flush=True)
+          print("READ_ONLY_EXACT_NAV_ANCHOR_REVIEW", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
