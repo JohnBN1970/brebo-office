@@ -22,7 +22,7 @@ final class OfficeResidentAddressFileImport {
     if ($handle === false) throw new \RuntimeException('Cannot inspect import file');
     try { $signature = fread($handle, 8); } finally { fclose($handle); }
     if ($extension === 'csv') {
-      if (str_starts_with($signature, "PK\\x03\\x04") || str_starts_with($signature, "%PDF-") || str_starts_with($signature, "\\xD0\\xCF\\x11\\xE0")) {
+      if (str_starts_with($signature, "PK\x03\x04") || str_starts_with($signature, "%PDF-") || str_starts_with($signature, "\xD0\xCF\x11\xE0")) {
         throw new \InvalidArgumentException('File content does not match CSV');
       }
       if (filesize($path) > 5 * 1024 * 1024) throw new \LengthException('CSV file too large');
@@ -32,7 +32,7 @@ final class OfficeResidentAddressFileImport {
       $delimiter = substr_count((string)$firstLine, ';') >= substr_count((string)$firstLine, ',') ? ';' : ',';
       $rows = OfficeResidentAddressCsvReader::read($content, $delimiter, $maxRows);
     } elseif ($extension === 'xlsx') {
-      if (!str_starts_with($signature, "PK\\x03\\x04")) {
+      if (!str_starts_with($signature, "PK\x03\x04")) {
         throw new \InvalidArgumentException('File content does not match XLSX');
       }
       $rows = OfficeResidentAddressXlsxReader::read($path, $maxRows);
