@@ -49,7 +49,7 @@ jobs:
           remote="$DEPLOY_USER@$DEPLOY_HOST"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage"
           cd office-independent
-          files=(src/Sales/OfficeSalesSchema.php src/Sales/OfficeSalesService.php src/Sales/OfficeSalesView.php src/Sales/OfficeSalesTransport.php public/office-sales.php modules/sales/routes.php deployment/hostinger/office-sales-activate.php deployment/hostinger/office-sales-route-repair.php deployment/hostinger/office-sales-ui-update.php src/Sales/OfficeSalesPdf.php src/Sales/brebo-logo.rgb.json src/Sales/brebo-fonts.json src/Sales/brebo-fonts-LICENSE.txt)
+          files=(src/Sales/OfficeSalesSchema.php src/Sales/OfficeSalesService.php src/Sales/OfficeSalesView.php src/Sales/OfficeSalesTransport.php public/office-sales.php modules/sales/routes.php deployment/hostinger/office-sales-activate.php deployment/hostinger/office-sales-route-repair.php deployment/hostinger/office-sales-ui-update.php src/Sales/OfficeSalesPdf.php src/Sales/brebo-logo.rgb.json src/Sales/brebo-fonts.json src/Sales/brebo-fonts-LICENSE.txt src/Sales/brebo-logo-web.json)
           sha256sum "${files[@]}" > "$RUNNER_TEMP/sales.sha256"
           tar -czf "$RUNNER_TEMP/sales.tar.gz" "${files[@]}"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -P "$DEPLOY_PORT" "$RUNNER_TEMP/sales.tar.gz" "$RUNNER_TEMP/sales.sha256" "$remote:$stage/"

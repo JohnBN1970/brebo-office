@@ -4,7 +4,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 $scriptNonce=base64_encode(random_bytes(18));
-header("Content-Security-Policy: script-src 'nonce-".$scriptNonce."'; default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: script-src 'nonce-".$scriptNonce."'; default-src 'none'; img-src data:; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 header('Referrer-Policy: same-origin');
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) { header('Allow: GET, POST'); http_response_code(405); exit; }

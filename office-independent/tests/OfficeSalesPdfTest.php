@@ -25,11 +25,17 @@ pdfCheck(!str_contains(OfficeSalesPdf::render($sent),'CONCEPTFACTUUR'),'Acknowle
 $many=$invoice;$many['lines_json']=json_encode(array_fill(0,100,$totals['lines'][0]));
 preg_match('~/Count (\d+)~',OfficeSalesPdf::render($many),$count);
 pdfCheck((int)$count[1]>1,'Many lines paginate');
-$html=OfficeSalesView::render([],null,[],[],[],'csrf',true,false,'2026-11-07','',true,false,[],'testnonce');
+$html=OfficeSalesView::render([],null,[['id'=>4,'display_name'=>'Voorbeeld Vastgoed B.V.']],[['id'=>10,'title'=>'Voorbeeldproject']],[],'csrf',true,false,'2026-11-07','',true,false,[],'testnonce');
 pdfCheck(substr_count($html,'name="lines[')===4,'One initial editable line');
+$newHtml=$html;
 pdfCheck(str_contains($html,'id="sales-add-line"')&&str_contains($html,'data-remove-line'),'Add and remove controls');
 $html=OfficeSalesView::render([],$invoice,[],[],[],'csrf',true,false,'2026-11-07');
 pdfCheck(substr_count($html,'name="lines[')===8,'Only saved lines rendered');
 pdfCheck(str_contains($html,'download=pdf'),'Saved invoice PDF link');
 echo "OFFICE_SALES_PDF_OK\n";
 if(($argv[1]??'')==='--sample')foreach(str_split(base64_encode($pdf),8000) as $part)echo 'SALES_PDF_SAMPLE_PART='.$part."\n";
+
+if(($argv[1]??'')==='--layout-fixture'){
+  if(file_put_contents($argv[2],$newHtml)!==strlen($newHtml))throw new RuntimeException('Fixture failed');
+  foreach(str_split(base64_encode($html),8000) as $part)echo 'SALES_LAYOUT_SAMPLE_PART='.$part."\n";
+}
