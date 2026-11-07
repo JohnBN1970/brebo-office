@@ -1,0 +1,65 @@
+name: Office resident address proposals
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Buildings/OfficeResidentAddress*.php'
+      - 'office-independent/tests/OfficeResidentAddress*Test.php'
+      - '.github/workflows/office-resident-address-proposals.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proposals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring
+      - name: Syntax
+        run: |
+          php -l office-independent/public/office-buildings.php
+          php -l office-independent/src/Buildings/OfficeBuildingAddressReadRepository.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressUploadGuard.php
+          php -l office-independent/tests/OfficeResidentAddressUploadGuardTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressProposal.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressBatch.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressBuildingMatcher.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressSchema.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressApproval.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressMaterializer.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressColumnMapper.php
+          php -l office-independent/tests/OfficeResidentAddressColumnMapperTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressIntakeAdapter.php
+          php -l office-independent/tests/OfficeResidentAddressIntakeAdapterTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressCsvReader.php
+          php -l office-independent/tests/OfficeResidentAddressCsvReaderTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressXlsxReader.php
+          php -l office-independent/tests/OfficeResidentAddressXlsxReaderTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressFileImport.php
+          php -l office-independent/tests/OfficeResidentAddressFileImportTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressReviewPresenter.php
+          php -l office-independent/tests/OfficeResidentAddressReviewPresenterTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressReviewPage.php
+          php -l office-independent/tests/OfficeResidentAddressReviewPageTest.php
+          php -l office-independent/tests/OfficeResidentAddressSchemaTest.php
+          php -l office-independent/tests/OfficeResidentAddressProposalTest.php
+          php -l office-independent/tests/OfficeResidentAddressBatchTest.php
+      - name: Tests
+        run: |
+          php office-independent/tests/OfficeResidentAddressProposalTest.php
+          php office-independent/tests/OfficeResidentAddressBatchTest.php
+          php office-independent/tests/OfficeResidentAddressSchemaTest.php
+          php office-independent/tests/OfficeResidentAddressColumnMapperTest.php
+          php office-independent/tests/OfficeResidentAddressIntakeAdapterTest.php
+          php office-independent/tests/OfficeResidentAddressCsvReaderTest.php
+          php office-independent/tests/OfficeResidentAddressXlsxReaderTest.php
+          php office-independent/tests/OfficeResidentAddressFileImportTest.php
+          php office-independent/tests/OfficeResidentAddressReviewPresenterTest.php
+          php office-independent/tests/OfficeResidentAddressReviewPageTest.php
+          php office-independent/tests/OfficeResidentAddressUploadGuardTest.php
