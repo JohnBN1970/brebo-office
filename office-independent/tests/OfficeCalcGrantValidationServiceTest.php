@@ -61,6 +61,18 @@ $db->exec("UPDATE office_project_memberships SET permission='manage'");
 $db->exec('UPDATE office_operator_sessions SET revoked_at = CURRENT_TIMESTAMP');
 $id3 = '123e4567-e89b-42d3-a456-426614174002';
 if ($service->validate($body, $sign($id3, $body), $secret, $now)) throw new RuntimeException('Revoked session accepted');
-echo "CALC_GRANT_VALIDATION_SERVICE=PASS\n";
+$db->exec('UPDATE office_operator_sessions SET revoked_at = NULL');
+$db->exec('UPDATE office_calc_session_grants SET revoked_at = CURRENT_TIMESTAMP');
+$id4 = '123e4567-e89b-42d3-a456-426614174003';
+if ($service->validate($body, $sign($id4, $body), $secret, $now)) throw new RuntimeException('Revoked grant accepted');
+$db->exec('UPDATE office_calc_session_grants SET revoked_at = NULL');
+$db->exec('UPDATE office_operator_accounts SET active = 0 WHERE id = 1');
+$id5 = '123e4567-e89b-42d3-a456-426614174004';
+if ($service->validate($body, $sign($id5, $body), $secret, $now)) throw new RuntimeException('Inactive operator accepted');
+$db->exec('UPDATE office_operator_accounts SET active = 1 WHERE id = 1');
+$db->exec("UPDATE office_calc_project_access SET permission = 'read'");
+$id6 = '123e4567-e89b-42d3-a456-426614174005';
+if ($service->validate($body, $sign($id6, $body), $secret, $now)) throw new RuntimeException('Revoked calculation access accepted');
+echo "CALC_GRANT_VALIDATION_SERVICE=PASS (7 cases)\n";
 
 }
