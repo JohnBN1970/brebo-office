@@ -83,6 +83,7 @@ try {
     if($source===false)throw new DomainException('Termijn niet beschikbaar.');
     $draftPreview=$invoice??($source>0?$service->termDraft($source,$today):\Brebo\Office\Sales\OfficeSalesBilling::defaults(['id'=>0,'revision'=>0,'status'=>'draft','relation_id'=>'','office_project_id'=>'','invoice_date'=>$today,'due_date'=>$today,'reference'=>'','lines_json'=>'[]','net_cents'=>0,'vat_cents'=>0,'gross_cents'=>0]));
     foreach(['relation_id','office_project_id','invoice_date','due_date','reference'] as $field)$draftPreview[$field]=$s($_POST[$field]??'');
+    $draftPreview['_payment_days_input']=$s($_POST['payment_days']??'');
     $draftPreview['price_mode']=in_array($_POST['price_mode']??'',['incl','excl'],true)?$_POST['price_mode']:'excl';
     foreach(['labor_amount'=>'_labor_input','g_percent'=>'_g_percent_input','term_percent'=>'_term_percent_input','g_iban'=>'g_iban'] as $field=>$target)$draftPreview[$target]=$s($_POST[$field]??'');
     $lines=[];foreach(array_slice(is_array($_POST['lines']??null)?$_POST['lines']:[],0,100) as $line){if(!is_array($line))continue;$safe=[];foreach(['description','quantity','price','vat'] as $field)$safe[$field]=$s($line[$field]??'');$lines[]=$safe;}

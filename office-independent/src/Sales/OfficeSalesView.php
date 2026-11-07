@@ -15,6 +15,18 @@ final class OfficeSalesView {
   const status = document.getElementById('sales-lines-status');
   if (!body || !add) return;
   let next = body.rows.length;
+  const invoiceDate=document.getElementById('sales-invoice-date'),paymentDays=document.getElementById('sales-payment-days'),dueDate=document.getElementById('sales-due-date');
+  const updateDueDate=()=>{
+    const raw=paymentDays.value,date=invoiceDate.value;
+    paymentDays.setCustomValidity('');
+    if(!/^\d{1,4}$/.test(raw)||Number(raw)>3650){dueDate.value='';paymentDays.setCustomValidity('Vul 0 tot en met 3650 hele dagen in.');return;}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){dueDate.value='';return;}
+    const parsed=new Date(date+'T00:00:00Z');
+    if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date){dueDate.value='';return;}
+    parsed.setUTCDate(parsed.getUTCDate()+Number(raw));
+    const result=parsed.toISOString();dueDate.value=result.length===24?result.slice(0,10):'';
+  };
+  if(invoiceDate&&paymentDays&&dueDate){for(const field of [invoiceDate,paymentDays]){field.addEventListener('input',updateDueDate);field.addEventListener('change',updateDueDate);}updateDueDate();}
   const mode=document.getElementById('sales-price-mode'), term=document.getElementById('sales-term-basis'), termPercent=document.getElementById('sales-term-percent');
   const labor=document.getElementById('sales-labor'), gPercent=document.getElementById('sales-g-percent');
   const fixed=cents=>{const s=cents.toString().padStart(3,'0');return s.slice(0,-2)+'.'+s.slice(-2);};
@@ -141,9 +153,12 @@ CSS;
       else $h.='<p class="small">Kies een debiteur voor het factuuradres.</p>';
       $h.='</div><h2 class="invoice-title">'.$e($row['invoice_number']??((int)$row['id']>0?'Concept #'.$row['id']:'Conceptfactuur')).'</h2>';
       if($editable){
+        $days='14';
+        try{$from=\DateTimeImmutable::createFromFormat('!Y-m-d',(string)$row['invoice_date'],new \DateTimeZone('UTC'));$to=\DateTimeImmutable::createFromFormat('!Y-m-d',(string)$row['due_date'],new \DateTimeZone('UTC'));if($from&&$to)$days=$from->diff($to)->format('%r%a');}catch(\Throwable){}
+        $days=(string)($row['_payment_days_input']??$days);
         $h.='<fieldset class="edit-block"><legend>Factuurgegevens</legend><div class="invoice-meta"><div><label>Project<select name="office_project_id"'.($source!==null?' disabled':'').'><option value="">Losse factuur</option>';
         foreach($projects as $p)$h.='<option value="'.(int)$p['id'].'" '.((string)$p['id']===(string)$row['office_project_id']?'selected':'').'>'.$e($p['title']).'</option>';
-        $h.='</select></label><label>Uw kenmerk / referentie<input name="reference" maxlength="255" value="'.$e($row['reference']).'"></label></div><div><label>Factuurdatum<input type="date" name="invoice_date" required value="'.$e($row['invoice_date']).'"></label><label>Vervaldatum<input type="date" name="due_date" required value="'.$e($row['due_date']).'"></label></div></div></fieldset>';
+        $h.='</select></label><label>Uw kenmerk / referentie<input name="reference" maxlength="255" value="'.$e($row['reference']).'"></label></div><div><label>Factuurdatum<input id="sales-invoice-date" type="date" name="invoice_date" required value="'.$e($row['invoice_date']).'"></label><label>Betalingstermijn (dagen)<input id="sales-payment-days" type="number" name="payment_days" min="0" max="3650" step="1" required value="'.$e($days).'"></label><label>Vervaldatum<input id="sales-due-date" type="date" name="due_date" readonly required value="'.$e($row['due_date']).'"></label></div></div></fieldset>';
         if($source!==null)$h.='<input type="hidden" name="office_project_id" value="'.(int)$row['office_project_id'].'">';
       }else $h.='<div class="invoice-meta"><p>'.$e($row['reference']).'</p><div><p>Factuurdatum: '.$e($row['invoice_date']).'</p><p>Vervaldatum: '.$e($row['due_date']).'</p></div></div>';
       if($editable){

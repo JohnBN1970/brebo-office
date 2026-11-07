@@ -13,6 +13,13 @@ set_error_handler(static function(int $severity,string $message): never {throw n
 function billingCheck(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
 function billingDenied(callable $f): void {try{$f();}catch(DomainException|InvalidArgumentException $e){return;}throw new RuntimeException('Expected rejection');}
 function billingLine(string $price,string $vat='21',string $quantity='1'): array {return ['description'=>'Werkzaamheden','quantity'=>$quantity,'price'=>$price,'vat'=>$vat];}
+billingCheck(Billing::dueDate('2026-11-07','14')==='2026-11-21','Payment days calculate due date');
+billingCheck(Billing::dueDate('2026-12-31','30')==='2027-01-30','Payment days cross year');
+billingCheck(Billing::dueDate('2028-02-28','1')==='2028-02-29','Leap day');
+billingCheck(Billing::dueDate('2026-03-28','2')==='2026-03-30','Calendar days cross DST');
+billingCheck(Billing::dueDate('2026-11-07','0')==='2026-11-07','Immediate payment');
+foreach(['','-1','1.5','3651',[],null] as $days)billingDenied(fn()=>Billing::dueDate('2026-11-07',$days));
+billingDenied(fn()=>Billing::dueDate('2026-02-30','14'));
 $t=Sales::totals([billingLine('121.00'),billingLine('109.00','9'),billingLine('50.00','0')],'incl');
 billingCheck($t['net_cents']===25000&&$t['vat_cents']===3000&&$t['gross_cents']===28000,'Mixed inclusive rates reconcile');
 billingCheck(count(Billing::taxes($t['lines']))===3,'Separate VAT subtotals');
@@ -33,7 +40,8 @@ CREATE TABLE office_project_terms(id INTEGER PRIMARY KEY,contract_id INTEGER,ter
 $one=new Sales($db,'1');$two=new Sales($db,'2');billingCheck(count($one->termChoices())===3,'Only authorized unclaimed terms');billingDenied(fn()=>$one->sourceTerm(201));
 $draft=$one->termDraft(101,'2026-11-07');billingCheck($draft['net_cents']===200000&&$draft['term_percent_units']===200000,'Term uses contract percentage');
 $input=['relation_id'=>4,'office_project_id'=>10,'source_term_id'=>101,'term_percent'=>'20','price_mode'=>'excl','invoice_date'=>'2026-11-07','due_date'=>'2026-11-21','reference'=>'C-100','lines'=>json_decode($draft['lines_json'],true),'labor_amount'=>'800','g_percent'=>'25','g_iban'=>''];
-$id=$one->save($input);$row=$one->get($id);billingCheck((int)$row['g_cents']===20000&&(int)$row['labor_cents']===80000,'Allocation persisted in separate context');
+$input['payment_days']='14';$input['due_date']='2099-01-01';
+$id=$one->save($input);billingCheck($one->get($id)['due_date']==='2026-11-21','Server derives saved due date from days');$row=$one->get($id);billingCheck((int)$row['g_cents']===20000&&(int)$row['labor_cents']===80000,'Allocation persisted in separate context');
 billingDenied(fn()=>$one->prepare($id,1,'invoice','test@example.com','Test',['21'=>'1'],'2026-11-07'));
 $input['g_iban']='NL91ABNA0417164300';$one->save($input,$id,1);$delivery=$one->prepare($id,2,'invoice','test@example.com','Test',['21'=>'1'],'2026-11-07');
 $command=json_decode($db->query('SELECT payload_json FROM office_finance_sales_delivery WHERE id='.$delivery)->fetchColumn(),true);billingCheck(str_contains($command['sales_invoice']['payment_conditions'],'200.00'),'G payment split is frozen in the outgoing command');

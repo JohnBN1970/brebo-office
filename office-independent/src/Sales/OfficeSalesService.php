@@ -110,7 +110,7 @@ final class OfficeSalesService {
     $this->project($project);
     $customerId=filter_var($input['relation_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if($customerId===false)throw new \InvalidArgumentException('Kies een relatie.');
     $q=$this->db->prepare("SELECT id,display_name,legal_name,email,street,postal_code,city,country_code,vat_number FROM office_crm_relations WHERE id=? AND status='active'");$q->execute([$customerId]);$customer=$q->fetch(PDO::FETCH_ASSOC);if(!$customer)throw new \InvalidArgumentException('Relatie niet beschikbaar.');
-    $date=self::date((string)($input['invoice_date']??''));$due=self::date((string)($input['due_date']??''));if($due<$date)throw new \InvalidArgumentException('Vervaldatum ligt voor factuurdatum.');
+    $date=self::date((string)($input['invoice_date']??''));$due=array_key_exists('payment_days',$input)?OfficeSalesBilling::dueDate($date,$input['payment_days']):self::date((string)($input['due_date']??''));if($due<$date)throw new \InvalidArgumentException('Vervaldatum ligt voor factuurdatum.');
     $reference=trim((string)($input['reference']??''));if(strlen($reference)>255||preg_match('/[\x00-\x1f]/',$reference))throw new \InvalidArgumentException('Ongeldige referentie.');
     $mode=(string)($input['price_mode']??($prior['price_mode']??'excl'));$percent=null;$lines=$input['lines']??[];
     if($source!==null){

@@ -3,14 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: STAGE-OFFICE-BANK, CHECK-OFFICE-SALES, ACTIVATE-OFFICE-SALES, REPAIR-OFFICE-SALES-ROUTE, UPDATE-OFFICE-SALES-UI or UPGRADE-OFFICE-SALES-BILLING
+        description: STAGE-OFFICE-BANK, CHECK-OFFICE-SALES, ACTIVATE-OFFICE-SALES, REPAIR-OFFICE-SALES-ROUTE, UPDATE-OFFICE-SALES-UI , UPGRADE-OFFICE-SALES-BILLING or UPDATE-OFFICE-SALES-PAYMENT-DAYS
         required: true
         type: string
 permissions:
   contents: read
 jobs:
   sales-activate:
-    if: ${{ inputs.confirmation == 'ACTIVATE-OFFICE-SALES' || inputs.confirmation == 'REPAIR-OFFICE-SALES-ROUTE' || inputs.confirmation == 'UPDATE-OFFICE-SALES-UI' || inputs.confirmation == 'UPGRADE-OFFICE-SALES-BILLING' }}
+    if: ${{ inputs.confirmation == 'UPDATE-OFFICE-SALES-PAYMENT-DAYS' || inputs.confirmation == 'ACTIVATE-OFFICE-SALES' || inputs.confirmation == 'REPAIR-OFFICE-SALES-ROUTE' || inputs.confirmation == 'UPDATE-OFFICE-SALES-UI' || inputs.confirmation == 'UPGRADE-OFFICE-SALES-BILLING' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     concurrency:
@@ -21,7 +21,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      SALES_INSTALL_SCRIPT: ${{ inputs.confirmation == 'UPGRADE-OFFICE-SALES-BILLING' && 'office-sales-billing-update.php --upgrade-billing' || inputs.confirmation == 'UPDATE-OFFICE-SALES-UI' && 'office-sales-ui-update.php --update-pdf-and-lines' || inputs.confirmation == 'REPAIR-OFFICE-SALES-ROUTE' && 'office-sales-route-repair.php --repair-route-only' || 'office-sales-activate.php --activate-drafts-only' }}
+      SALES_INSTALL_SCRIPT: ${{ inputs.confirmation == 'UPDATE-OFFICE-SALES-PAYMENT-DAYS' && 'office-sales-payment-days-update.php --update-payment-days' || inputs.confirmation == 'UPGRADE-OFFICE-SALES-BILLING' && 'office-sales-billing-update.php --upgrade-billing' || inputs.confirmation == 'UPDATE-OFFICE-SALES-UI' && 'office-sales-ui-update.php --update-pdf-and-lines' || inputs.confirmation == 'REPAIR-OFFICE-SALES-ROUTE' && 'office-sales-route-repair.php --repair-route-only' || 'office-sales-activate.php --activate-drafts-only' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,6 +34,7 @@ jobs:
           php -l office-independent/deployment/hostinger/office-sales-activate.php
           php -l office-independent/deployment/hostinger/office-sales-route-repair.php
           php -l office-independent/deployment/hostinger/office-sales-ui-update.php
+          php -l office-independent/deployment/hostinger/office-sales-payment-days-update.php
           php -l office-independent/deployment/hostinger/office-sales-billing-update.php
           php office-independent/tests/OfficeSalesBillingTest.php
           php office-independent/tests/OfficeSalesPdfTest.php
@@ -51,7 +52,7 @@ jobs:
           remote="$DEPLOY_USER@$DEPLOY_HOST"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -p "$DEPLOY_PORT" "$remote" "test ! -e ~/$stage && test ! -L ~/$stage && install -d -m 700 ~/$stage"
           cd office-independent
-          files=(src/Sales/OfficeSalesSchema.php src/Sales/OfficeSalesService.php src/Sales/OfficeSalesView.php src/Sales/OfficeSalesTransport.php public/office-sales.php modules/sales/routes.php deployment/hostinger/office-sales-activate.php deployment/hostinger/office-sales-route-repair.php deployment/hostinger/office-sales-ui-update.php src/Sales/OfficeSalesPdf.php src/Sales/brebo-logo.rgb.json src/Sales/brebo-fonts.json src/Sales/brebo-fonts-LICENSE.txt src/Sales/brebo-logo-web.json src/Sales/OfficeSalesBilling.php deployment/hostinger/office-sales-billing-update.php deployment/hostinger/office-sales-billing-baseline.json)
+          files=(src/Sales/OfficeSalesSchema.php src/Sales/OfficeSalesService.php src/Sales/OfficeSalesView.php src/Sales/OfficeSalesTransport.php public/office-sales.php modules/sales/routes.php deployment/hostinger/office-sales-activate.php deployment/hostinger/office-sales-route-repair.php deployment/hostinger/office-sales-ui-update.php src/Sales/OfficeSalesPdf.php src/Sales/brebo-logo.rgb.json src/Sales/brebo-fonts.json src/Sales/brebo-fonts-LICENSE.txt src/Sales/brebo-logo-web.json src/Sales/OfficeSalesBilling.php deployment/hostinger/office-sales-billing-update.php deployment/hostinger/office-sales-billing-baseline.json deployment/hostinger/office-sales-payment-days-update.php deployment/hostinger/office-sales-payment-days-baseline.json)
           sha256sum "${files[@]}" > "$RUNNER_TEMP/sales.sha256"
           tar -czf "$RUNNER_TEMP/sales.tar.gz" "${files[@]}"
           scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/sales_activate_key -P "$DEPLOY_PORT" "$RUNNER_TEMP/sales.tar.gz" "$RUNNER_TEMP/sales.sha256" "$remote:$stage/"

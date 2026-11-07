@@ -3,6 +3,15 @@ declare(strict_types=1);
 namespace Brebo\Office\Sales;
 /** Money and allocation rules owned by Office. All amounts use integer cents. */
 final class OfficeSalesBilling {
+  /** Calendar days, independent of daylight-saving transitions. */
+  public static function dueDate(string $invoiceDate,mixed $days): string {
+    $date=\DateTimeImmutable::createFromFormat('!Y-m-d',$invoiceDate,new \DateTimeZone('UTC'));
+    if(!$date||$date->format('Y-m-d')!==$invoiceDate)throw new \InvalidArgumentException('Ongeldige factuurdatum.');
+    if((!is_string($days)&&!is_int($days))||!preg_match('/^\d{1,4}$/D',(string)$days)||(int)$days>3650)throw new \InvalidArgumentException('Vul een betalingstermijn van 0 tot en met 3650 hele dagen in.');
+    $due=$date->modify('+'.(int)$days.' days')->format('Y-m-d');
+    if(strlen($due)!==10)throw new \InvalidArgumentException('Vervaldatum ligt buiten het geldige datumbereik.');
+    return $due;
+  }
   public static function schema(bool $sqlite=false): string {
     return "CREATE TABLE office_finance_sales_context (
       invoice_id BIGINT NOT NULL PRIMARY KEY,
