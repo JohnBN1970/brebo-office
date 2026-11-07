@@ -70,12 +70,13 @@ jobs:
             if(!is_array($t)||$t[0]!==T_CONSTANT_ENCAPSED_STRING)continue;
             $j=$i+1;
             while(isset($body[$j])&&is_array($body[$j])&&$body[$j][0]===T_WHITESPACE)$j++;
-            if(isset($body[$j])&&$body[$j]==='=>'){
+            if(isset($body[$j])&&((is_array($body[$j])&&$body[$j][0]===T_DOUBLE_ARROW)||$body[$j]==='=>')){
               $key=trim($v,"'\"");
               if(preg_match('/^[a-z_]{1,64}$/D',$key))$stringKeys[]=$key;
             }
           }
           echo 'CALC_KEY_RETURN_KEYS='.implode(',',array_unique($stringKeys))."\n";
+          if($stringKeys===[]){echo 'CALC_KEY_AUDIT=INCOMPLETE_EMPTY_KEY';exit(1);}
           foreach(['reference','actor_id','project_id','calculation_id','expires_at','revoked_at','session_hash'] as $col){
             $present=preg_match('/\\b'.preg_quote($col,'/').'\\b/i',$bodyText);
             echo 'CALC_KEY_PREDICATE_'.$col.'='.($present?'MENTIONED':'NOT_MENTIONED')."\n";
