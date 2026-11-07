@@ -90,8 +90,8 @@ jobs:
           PY
           php -l "$project"
           grep -Fq 'brebo-project-documents-tab' "$project" || { echo ABORT_TAB_NOT_INSTALLED; exit 28; }
-          # HTTP probe: unauthenticated project requests must not return 500;
-          # they normally redirect to login (302).
+          # Basic public HTTP check is only a routing smoke test; full
+          # authenticated page execution must also be browser-verified.
           url="https://brebobv.nl/office-test/projecten/detail?id=1"
           status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || true)"
           echo "PROJECT_DETAIL_HTTP_STATUS=$status"
