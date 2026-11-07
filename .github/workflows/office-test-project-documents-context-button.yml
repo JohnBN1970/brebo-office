@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 HTML placement diagnostic
+name: Office-test Projectdetail V3 Documents main-line guard
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Check exact live HTML placement read-only
+      - name: Validate project main HTML insertion preconditions
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -54,16 +54,30 @@ jobs:
               sys.exit("ABORT_EXPECTED_TAB_LINK_MISSING_OR_DUPLICATED")
           if source.count("brebo-project-documents-action") != 1:
               sys.exit("ABORT_EXISTING_DOCUMENT_ACTION_MISSING_OR_DUPLICATED")
-          # The live nav is constructed but not referenced after line 623.
-          # Inspect the PHP-to-HTML transition around line 990 without
-          # exposing raw HTML or customer data.
-          lines = source.splitlines()
-          for i in range(960, min(1000, len(lines))):
-              line = lines[i]
-              needles = ("?>", "<?php", "<?=", "echo", "<main", "</main", "<nav", "</nav", "<section", "$dossierNav", "$activeTab", "$projectUrl", "OfficeNavigation", "$project", "project-dossier", "office-dossier")
-              tokens = [name for name in needles if name in line]
-              print("RENDER_CONTEXT_" + str(i + 1) + "_TOKENS=" + ",".join(tokens) + "_LEN=" + str(len(line)), flush=True)
-          print("PROJECT_V3_OUTPUT_STRUCTURE_PASS", flush=True)
+          # Render the existing, escaped dossier navigation inside the
+          # actual HTML <main>, not in an unreferenced PHP variable.
+          # Keep the five current tabs, access checks and all page content.
+          lines = source.splitlines(keepends=True)
+          main_indices = [i for i,line in enumerate(lines) if "<main" in line and "</nav" in line]
+          if len(main_indices) != 1 or main_indices[0] != 991:
+              sys.exit("ABORT_LIVE_MAIN_RENDER_ANCHOR_MISMATCH")
+          if lines[main_indices[0]].count("<main") != 1:
+              sys.exit("ABORT_MAIN_TAG_NOT_UNIQUE_ON_LINE")
+          if source.count("$dossierNav") != 6:
+              sys.exit("ABORT_DOSSIER_NAV_REFERENCE_COUNT")
+          if source.count("OfficeNativeProjectAccess($db))->canRead") < 1:
+              sys.exit("ABORT_ACCESS_GUARD_NOT_FOUND")
+          if "brebo-documents-visible-nav-v1" in source:
+              print("ALREADY_INSTALLED", flush=True)
+              sys.exit(0)
+          # We are still inside the PHP output string here: splice the
+          # document links into the rendered markup using the same escaped
+          # HTML that the server already constructed.
+          main_line = lines[main_indices[0]]
+          if "' . " in main_line and "<main" in main_line:
+              sys.exit("ABORT_COMPLEX_MAIN_LINE_REQUIRE_EXACT_REVIEW")
+          print("RENDER_MAIN_LINE_TOKENS=" + ",".join(t for t in ("echo", " . ", "$", "'", '"', "</nav", "<main", "<section") if t in main_line), flush=True)
+          print("ABORT_NEED_EXACT_MAIN_LINE_SHAPE", flush=True)
           PY
           echo OFFICE_TEST_PROJECT_NAV_READONLY_PASS
           REMOTE
