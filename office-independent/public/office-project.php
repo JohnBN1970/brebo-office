@@ -375,6 +375,43 @@ if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTe
     ? '<button type="submit">Calculatie koppelen</button></form>'
     : '</form><p>Geen voorbereid woningtype of toegankelijke ongekoppelde Calc-calculatie beschikbaar.</p>';
 }
+// Calc start links are visible only to operators with explicit project and
+// calculation manage permission, and only after the full staging handoff gate.
+$calcLaunchHtml = '';
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && $canManage
+  && getenv('OFFICE_CALC_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled'
+  && getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') === 'enabled'
+  && strlen((string) getenv('OFFICE_CALC_SHARED_SECRET')) >= 32
+  && $calculationScopes !== null) {
+  require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcLaunchAccess.php';
+  $launchAccess = new \Brebo\Office\Calculation\OfficeCalcLaunchAccess($db);
+  $launchIds = [];
+  foreach ($calculationScopes as $scope) {
+    $calcId = filter_var($scope['calc_calculation_id'] ?? null, FILTER_VALIDATE_INT);
+    if (is_int($calcId) && $calcId > 0) {
+      $launchIds[$calcId] = $calcId;
+    }
+  }
+  foreach ($launchIds as $calcId) {
+    if (!$launchAccess->canLaunch((int) $operator->operatorId, (int) $projectId, (int) $calcId)) {
+      unset($launchIds[$calcId]);
+    }
+  }
+  if ($launchIds !== []) {
+    $calcLaunchHtml = '<section><h2>Calculaties openen</h2><ul>';
+    foreach ($launchIds as $calcId) {
+      $launchUrl = '/office-test/calc-werkbank?project_id=' . (int) $projectId
+        . '&amp;calculation_id=' . (int) $calcId;
+      $calcLaunchHtml .= '<li><a href="' . $launchUrl . '">Calculatie ' . (int) $calcId . ' openen</a></li>';
+    }
+    $calcLaunchHtml .= '</ul></section>';
+  }
+}
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
@@ -449,7 +486,7 @@ if (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
   $inspectionActions .= '</div>';
 }
 $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
-  . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
+  . $calcBuildingTruthHtml . $calcLinkHtml . $calcLaunchHtml . $scopeHtml
   . '</div>'
 ;
 $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
