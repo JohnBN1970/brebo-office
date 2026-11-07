@@ -57,7 +57,7 @@ jobs:
           if 'id="brebo-project-documents-action"' in source:
               print("ALREADY_INSTALLED", flush=True)
               sys.exit(0)
-          marker = "' . $dossierNav ."
+          marker = '<section>\' . $dossierNav . \'<div id="project-gegevens">'
           if source.count(marker) != 1:
               sys.exit("ABORT_DOSSIER_NAV_ANCHOR_MISMATCH")
           insert = r"""'<div id="brebo-project-documents-action" class="project-related-actions"><a href="'
