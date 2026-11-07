@@ -11,6 +11,8 @@ on:
       - 'office-independent/tests/OfficeBuildingColumnResolverTest.php'
       - 'office-independent/src/Buildings/OfficeResidentAddressUploadProcessor.php'
       - 'office-independent/tests/OfficeResidentAddressUploadProcessorTest.php'
+      - 'office-independent/src/Buildings/OfficeResidentAddressUploadForm.php'
+      - 'office-independent/tests/OfficeResidentAddressUploadFormTest.php'
       - '.github/workflows/office-resident-address-proposals.yml'
   workflow_dispatch:
 
@@ -37,6 +39,8 @@ jobs:
           php -l office-independent/src/Buildings/OfficeResidentAddressUploadGuard.php
           php -l office-independent/src/Buildings/OfficeResidentAddressUploadProcessor.php
           php -l office-independent/tests/OfficeResidentAddressUploadProcessorTest.php
+          php -l office-independent/src/Buildings/OfficeResidentAddressUploadForm.php
+          php -l office-independent/tests/OfficeResidentAddressUploadFormTest.php
           php -l office-independent/tests/OfficeResidentAddressUploadGuardTest.php
           php -l office-independent/src/Buildings/OfficeResidentAddressProposal.php
           php -l office-independent/src/Buildings/OfficeResidentAddressBatch.php
@@ -65,6 +69,7 @@ jobs:
         run: |
           php office-independent/tests/OfficeBuildingColumnResolverTest.php
           php office-independent/tests/OfficeResidentAddressUploadProcessorTest.php
+          php office-independent/tests/OfficeResidentAddressUploadFormTest.php
           php office-independent/tests/OfficeResidentAddressProposalTest.php
           php office-independent/tests/OfficeResidentAddressBatchTest.php
           php office-independent/tests/OfficeResidentAddressSchemaTest.php
