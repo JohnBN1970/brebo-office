@@ -15,6 +15,7 @@ final class OfficeResidentAddressBatch {
     if ($maxRows < 1 || $maxRows > 10000) throw new \InvalidArgumentException('Invalid batch limit');
     $result = ['proposals' => [], 'needs_review' => [], 'errors' => []];
     $seen = [];
+    $duplicateKeys = [];
     $count = 0;
     foreach ($records as $row => $record) {
       if (++$count > $maxRows) throw new \LengthException('Batch limit exceeded');
@@ -30,7 +31,9 @@ final class OfficeResidentAddressBatch {
         }
         $key = $proposal['match_key'];
         if (isset($seen[$key])) {
-          // Multiple names for one address are conflicts, not silent resident updates.
+          // Quarantine ALL rows at the same address, including the first.
+          // A first-row-wins rule could otherwise silently choose a resident.
+          $duplicateKeys[$key] = true;
           $result['needs_review'][] = ['row' => $row, 'reason' => 'duplicate_address', 'first_row' => $seen[$key], 'proposal' => $proposal];
           continue;
         }
@@ -40,6 +43,17 @@ final class OfficeResidentAddressBatch {
         // Avoid echoing potentially personal input or exception contents into logs.
         $result['errors'][] = ['row' => $row, 'reason' => 'invalid_fields'];
       }
+    }
+    if ($duplicateKeys !== []) {
+      $safe = [];
+      foreach ($result['proposals'] as $item) {
+        if (isset($duplicateKeys[$item['proposal']['match_key']])) {
+          $result['needs_review'][] = ['row' => $item['row'], 'reason' => 'duplicate_address', 'proposal' => $item['proposal']];
+        } else {
+          $safe[] = $item;
+        }
+      }
+      $result['proposals'] = $safe;
     }
     return $result;
   }
