@@ -1,4 +1,4 @@
-name: Office-test Projectdetail V3 navigation source read-only
+name: Office-test Projectdetail V3 navigation structure read-only
 on:
   workflow_dispatch:
 permissions:
@@ -20,7 +20,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Read live project navigation code without modifications
+      - name: Inspect live project navigation structure read-only
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -65,12 +65,12 @@ jobs:
           if not all(label in chr(10).join(area) for label in ("Overzicht", "Gebouwen", "Werkvoorbereiding", "Uitvoering", "Financieel")):
               sys.exit("ABORT_NOT_EXPECTED_TAB_MAPPING")
           print("LIVE_V3_NAVIGATION_CONTEXT", flush=True)
-          # Print only local source code structure; no secrets, user data,
-          # filesystem paths, request parameters, or document content.
+          # Report structural symbols only, never raw live PHP source.
           for i, line in enumerate(lines[max(0, financial_line-8):financial_line+24], max(0, financial_line-8)+1):
-              if any(token in line for token in ("$dossierNav", "foreach", "'financieel'", "'overzicht'", "'gebouwen'", "'werkvoorbereiding'", "'uitvoering'", "tab=", "$projectUrl", "brebo-project-documents-tab")):
-                  # This section consists of static PHP navigation only.
-                  print(f"NAV_SOURCE_{i}=" + line[:250], flush=True)
+              tokens = ("$dossierNav", "foreach", "'financieel'", "'overzicht'", "'gebouwen'", "'werkvoorbereiding'", "'uitvoering'", "tab=", "$projectUrl", "brebo-project-documents-tab", "href=", "echo", "office-dossier-nav")
+              hits = [t for t in tokens if t in line]
+              if hits:
+                  print(f"NAV_STRUCT_{i}=" + ",".join(hits) + ";CHARS=" + str(len(line)), flush=True)
           print("OFFICE_TEST_TAB_RENDER_SOURCE_REVIEW_PASS", flush=True)
           stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
           backup = p.with_name(p.name + ".documents-visible-tabs-backup-" + stamp)
