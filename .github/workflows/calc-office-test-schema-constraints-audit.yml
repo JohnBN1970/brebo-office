@@ -1,0 +1,71 @@
+name: Calc Office-test schema constraints audit (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-CALC-CONSTRAINTS
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read only schema constraints and character sets
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = AUDIT-CALC-CONSTRAINTS
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_constraints
+          chmod 600 ~/.ssh/id_calc_constraints
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_constraints -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config"
+          OFFICE_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          if (!is_array($config)) exit(1);
+          $get = static function(string $key) use ($config): string {
+              $v = getenv($key);
+              if (is_string($v) && $v !== '') return $v;
+              $v = $config[$key] ?? '';
+              return is_string($v) ? $v : '';
+          };
+          $db = new PDO($get('OFFICE_INTAKE_PDO_DSN'), $get('OFFICE_INTAKE_DB_USER'), $get('OFFICE_INTAKE_DB_PASSWORD'), [
+              PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+              PDO::ATTR_EMULATE_PREPARES => false,
+          ]);
+          $tables = ['office_calc_calculations','office_calc_project_access','office_calc_session_grants','office_calc_signed_request_ids'];
+          foreach ($tables as $table) {
+              $q = $db->prepare('SELECT ENGINE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+              $q->execute([$table]);
+              $row = $q->fetch(PDO::FETCH_ASSOC);
+              if (!$row) { echo "TABLE $table MISSING\n"; exit(1); }
+              echo "TABLE $table ENGINE=" . $row['ENGINE'] . ' COLLATION=' . $row['TABLE_COLLATION'] . "\n";
+              $q = $db->prepare('SELECT COLUMN_NAME,CHARACTER_SET_NAME,COLLATION_NAME,COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (\'reference\',\'session_hash\',\'request_id\',\'permission\',\'created_at\') ORDER BY ORDINAL_POSITION');
+              $q->execute([$table]);
+              foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $col) {
+                  echo "COLUMN $table " . $col['COLUMN_NAME'] . ' CHARSET=' . ($col['CHARACTER_SET_NAME'] ?? 'NULL') . ' COLLATION=' . ($col['COLLATION_NAME'] ?? 'NULL') . ' DEFAULT=' . ($col['COLUMN_DEFAULT'] ?? 'NULL') . "\n";
+              }
+          }
+          $q = $db->prepare('SELECT CONSTRAINT_NAME,TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY CONSTRAINT_NAME,ORDINAL_POSITION');
+          $q->execute(['office_calc_project_access']);
+          $fk = $q->fetchAll(PDO::FETCH_ASSOC);
+          foreach ($fk as $r) echo 'FOREIGN_KEY ' . implode(' ', array_values($r)) . "\n";
+          $q = $db->prepare('SELECT CONSTRAINT_NAME,UPDATE_RULE,DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME=?');
+          $q->execute(['office_calc_project_access']);
+          foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) echo 'FOREIGN_KEY_RULE ' . implode(' ', array_values($r)) . "\n";
+          echo 'FOREIGN_KEY_COLUMN_COUNT=' . count($fk) . "\n";
+          echo "CALC_CONSTRAINT_AUDIT=READ_ONLY\n";
+          PHP
+          REMOTE
