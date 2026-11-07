@@ -224,8 +224,23 @@ if ($detail) {
   exit;
 }
 echo '<section>';
+$searchQuery = trim((string)($_GET['q'] ?? ''));
+if (strlen($searchQuery) > 120) $searchQuery = substr($searchQuery, 0, 120);
+echo '<form method="get" action="/office-test/gebouwen" role="search" style="margin-bottom:20px"><label for="building-search">Zoek gebouw of adres</label> ';
+echo '<input id="building-search" name="q" maxlength="120" value="' . $h($searchQuery) . '" placeholder="Gebouw, straat, postcode of plaats" style="padding:9px;width:min(420px,75%)"> ';
+echo '<button type="submit" style="padding:9px">Zoeken</button> <a href="/office-test/gebouwen">Wissen</a></form>';
+if ($searchQuery !== '') {
+  $needle = strtolower($searchQuery);
+  $buildings = array_values(array_filter($buildings, static function (array $building) use ($needle): bool {
+    $haystack = strtolower(implode(' ', [
+      $building['building_name'] ?? '', $building['street_address'] ?? '',
+      $building['postal_code'] ?? '', $building['city'] ?? '',
+    ]));
+    return str_contains($haystack, $needle);
+  }));
+}
 if ($buildings === []) {
-  echo '<p>Geen toegankelijke gebouwen gevonden.</p>';
+  echo '<p>' . ($searchQuery !== '' ? 'Geen gebouwen gevonden voor deze zoekopdracht.' : 'Geen toegankelijke gebouwen gevonden.') . '</p>';
 } else {
   echo '<table><thead><tr><th>Gebouw</th><th>Adres</th><th>Projecten</th><th>Actieve zones</th></tr></thead><tbody>';
   foreach ($buildings as $building) {
