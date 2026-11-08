@@ -5,12 +5,14 @@ on:
     paths:
       - 'office-independent/src/Governance/**'
       - 'office-independent/public/office-governance.php'
+      - 'office-independent/public/office-project.php'
       - 'office-independent/tests/OfficeGovernance*'
       - '.github/workflows/office-governance-native-acceptance.yml'
   pull_request:
     paths:
       - 'office-independent/src/Governance/**'
       - 'office-independent/public/office-governance.php'
+      - 'office-independent/public/office-project.php'
       - 'office-independent/tests/OfficeGovernance*'
       - 'office-independent/src/Intake/OfficeNavigation.php'
       - 'office-independent/src/Intake/OfficeMount.php'
@@ -47,6 +49,7 @@ jobs:
           set -euo pipefail
           find office-independent/src/Governance -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l office-independent/public/office-governance.php
+          php -l office-independent/public/office-project.php
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/src/Intake/OfficeNavigation.php
           php -l office-independent/src/Project/OfficeProjectDetailV3View.php
