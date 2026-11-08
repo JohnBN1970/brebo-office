@@ -1,0 +1,84 @@
+name: Office governance code-only test release staging
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/office-governance-code-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-test-code-stage
+  cancel-in-progress: false
+jobs:
+  stage-inactive-governance-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax and governance acceptance
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-governance.php
+          find office-independent/src/Governance -type f -name '*.php' -print0 | xargs -0 -n 1 php -l
+          php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: Stage governance files outside public root
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/public/office-governance.php,office-independent/src/Governance/bootstrap.php,office-independent/src/Governance/OfficeGovernanceService.php,office-independent/src/Governance/OfficeGovernanceCsrf.php,office-independent/src/Governance/OfficeGovernanceSchema.php,office-independent/src/Governance/OfficeProcurementOrderSource.php,office-independent/src/Governance/Contract/OfficeGovernanceStore.php,office-independent/src/Governance/Infrastructure/PdoOfficeGovernanceStore.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-runtime-stage
+          overwrite: true
+      - name: Place only absent files in isolated active test release
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            STAGE="$ROOT/.governance-runtime-stage/office-independent"
+            TARGET=$("$PHP" -r '
+              $root="/home/u213420663/domains/brebobv.nl/office_calc_test";
+              $cfg=require $root."/config/config.php";
+              $base=realpath($root);
+              $path=is_array($cfg) && ($cfg["OFFICE_BASE_PATH"]??null)==="/office-test" && is_string($cfg["OFFICE_PRIVATE_ROOT"]??null) ? realpath($cfg["OFFICE_PRIVATE_ROOT"]) : false;
+              if ($base===false || $path===false || !str_starts_with($path,$base.DIRECTORY_SEPARATOR) || !preg_match("~/release-[^/]+/private$~D",$path)) exit(2);
+              echo $path;
+            ')
+            test -n "$TARGET"
+            test -f "$TARGET/public/office-project.php"
+            test -f /home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            FILES='public/office-governance.php src/Governance/bootstrap.php src/Governance/OfficeGovernanceService.php src/Governance/OfficeGovernanceCsrf.php src/Governance/OfficeGovernanceSchema.php src/Governance/OfficeProcurementOrderSource.php src/Governance/Contract/OfficeGovernanceStore.php src/Governance/Infrastructure/PdoOfficeGovernanceStore.php'
+            for rel in $FILES; do
+              test -f "$STAGE/$rel"
+              "$PHP" -l "$STAGE/$rel"
+              if test -L "$TARGET/$rel"; then
+                echo "GOVERNANCE_SYMLINK_DENIED"
+                exit 2
+              fi
+              if test -e "$TARGET/$rel" && ! cmp -s "$STAGE/$rel" "$TARGET/$rel"; then
+                echo "GOVERNANCE_EXISTING_FILE_DIFFERS: $rel"
+                exit 2
+              fi
+            done
+            for rel in $FILES; do
+              if test ! -e "$TARGET/$rel"; then
+                mkdir -p "$(dirname "$TARGET/$rel")"
+                cp "$STAGE/$rel" "$TARGET/$rel"
+                chmod 644 "$TARGET/$rel"
+                echo "GOVERNANCE_FILE_STAGED: $rel"
+              fi
+              cmp -s "$STAGE/$rel" "$TARGET/$rel"
+              "$PHP" -l "$TARGET/$rel"
+            done
+            echo GOVERNANCE_CODE_INSTALLED_WITHOUT_ROUTE_OR_FEATURE_ACTIVATION
