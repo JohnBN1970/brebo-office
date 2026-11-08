@@ -85,6 +85,22 @@ $fields=match($module) {
     'procurement'=>['supplier_relation_id'=>'Leverancier','description'=>'Omschrijving opdracht','quantity'=>'Aantal eenheden','unit_price_cents'=>'Prijs per eenheid excl. btw (€)','selection_reason'=>'Onderbouwing leverancierskeuze','evidence'=>'Opdracht- / prestatiebewijs'],
 };
 $statuses=match($module) {'quality'=>['open','deviation','recheck','accepted'],'risk'=>['open','mitigating','closed'],'procurement'=>['draft','submitted','approved','ordered','received','cancelled']};
+// Read-only operational KPIs for the selected project/building, derived from authorized rows.
+$counts=[];$late=0;$today=gmdate('Y-m-d');$urgent=0;$amount=0;
+foreach($records as $item) {
+    $state=(string)($item['status']??'');
+    $counts[$state]=($counts[$state]??0)+1;
+    $payload=$item['payload']??[];
+    $done=in_array($state,['accepted','closed','received','cancelled'],true);
+    if(!$done && is_string($payload['due_date']??null) && $payload['due_date']<$today) $late++;
+    if($module==='quality' && !$done && !empty($payload['blocks_release'])) $urgent++;
+    if($module==='risk' && !$done && (int)($payload['score']??((int)($payload['probability']??0)*(int)($payload['impact']??0)))>=15) $urgent++;
+    if($module==='procurement' && in_array($state,['approved','ordered','received'],true)) {
+        $amount+=(int)($payload['quantity']??0)*(int)($payload['unit_price_cents']??0);
+    }
+}
+$activeCount=count($records)-array_sum(array_intersect_key($counts,array_flip(['accepted','closed','received','cancelled'])));
+$moduleLinks=['quality'=>'kwaliteit','risk'=>'risicos','procurement'=>'inkoop'];
 $values=$record['payload']??[];
 $labels=[];
 foreach($choices as $key=>$options) foreach($options as $option) $labels[$key][(string)$option['id']]=$option['label'];
@@ -95,10 +111,12 @@ $display=static function(string $key,mixed $value)use($labels):string {
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= $e($titles[$module]) ?> · BREBO Office</title>
-<style>body{margin:0;font:16px system-ui;background:#f4f6fa;color:#203247}main{max-width:1100px;margin:auto;padding:28px}a{color:#175a91}section{background:white;padding:22px;margin:18px 0;border:1px solid #dce3eb;border-radius:10px}label{display:block;margin:14px 0 5px}input,textarea,select{box-sizing:border-box;width:100%;padding:10px;border:1px solid #bdcbd7;border-radius:6px;font:inherit}textarea{min-height:85px}button{margin-top:18px;padding:12px 22px;background:#175a91;color:white;border:0;border-radius:6px;font:inherit}table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #dce3eb;padding:12px}.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 20px}</style></head><body><main>
+<style>body{margin:0;font:16px system-ui;background:#f4f6fa;color:#203247}main{max-width:1100px;margin:auto;padding:28px}a{color:#175a91}section{background:white;padding:22px;margin:18px 0;border:1px solid #dce3eb;border-radius:10px}label{display:block;margin:14px 0 5px}input,textarea,select{box-sizing:border-box;width:100%;padding:10px;border:1px solid #bdcbd7;border-radius:6px;font:inherit}textarea{min-height:85px}button{margin-top:18px;padding:12px 22px;background:#175a91;color:white;border:0;border-radius:6px;font:inherit}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.kpi{border:1px solid #dce3eb;border-radius:10px;padding:16px;background:#fff}.kpi strong{font-size:26px;display:block}.kpi small{color:#536779}.kpi.warn{border-left:5px solid #d18c21}.kpi.danger{border-left:5px solid #b33d37}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.tabs a{display:inline-block;background:#e7eef5;border-radius:7px;padding:10px 14px;text-decoration:none}.tabs a.current{background:#175a91;color:white}table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #dce3eb;padding:12px}.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 20px}</style></head><body><main>
 <a href="/office-test/">BREBO Office</a><h1><?= $e($titles[$module]) ?></h1>
 <section><h2>Project en gebouw</h2><?php foreach($contexts as $c): ?><p><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$c['project_id'],'building_id'=>$c['building_id']])) ?>"><?= $e($c['title']) ?> · <?= $e($c['building_name']) ?></a></p><?php endforeach; ?></section>
 <?php if (is_int($project)&&is_int($building)): ?>
+<nav class="tabs" aria-label="Projectbeheersing"><?php foreach($moduleLinks as $key=>$route): ?><a class="<?= $key===$module?'current':'' ?>" href="<?= $e('/office-test/'.$route.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>"><?= $e($titles[$key]) ?></a><?php endforeach; ?></nav>
+<div class="kpis"><div class="kpi"><small>Registraties</small><strong><?= count($records) ?></strong></div><div class="kpi"><small>Openstaand</small><strong><?= $activeCount ?></strong></div><div class="kpi <?= $late?'warn':'' ?>"><small>Termijn verstreken</small><strong><?= $late ?></strong></div><?php if($module!=='procurement'): ?><div class="kpi <?= $urgent?'danger':'' ?>"><small><?= $module==='quality'?'Vrijgaveblokkades':'Hoge risico’s (15+)' ?></small><strong><?= $urgent ?></strong></div><?php else: ?><div class="kpi"><small>Goedgekeurd / besteld / ontvangen excl. btw</small><strong>€ <?= $e(number_format($amount/100,2,',','.')) ?></strong></div><?php endif; ?></div>
 <p><a href="/office-test/projecten/detail?id=<?= $e($project) ?>">Terug naar project</a> · Gebouw <?= $e($building) ?></p>
 <section><h2>Dossieroverzicht</h2><table><thead><tr><th>Onderwerp</th><th>Status</th><th>Eigenaar</th><th>Termijn</th></tr></thead><tbody>
 <?php foreach(array_slice($records,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
