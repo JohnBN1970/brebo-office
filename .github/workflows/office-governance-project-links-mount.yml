@@ -1,0 +1,59 @@
+name: Office-test project governance links guarded mount
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/office-governance-project-links-mount.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-governance-links
+  cancel-in-progress: false
+jobs:
+  mount:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate additive patch
+        run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/mount-governance-project-links.py
+          php -l office-independent/public/office-project.php
+      - name: Stage patch outside webroot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/mount-governance-project-links.py
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-project-links-stage
+          overwrite: true
+      - name: Guarded surgical install on active Office-test project detail
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            BASE=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            CONFIG="$BASE/config/config.php"
+            SCRIPT="$BASE/.governance-project-links-stage/office-independent/deployment/hostinger/mount-governance-project-links.py"
+            test -f "$SCRIPT"
+            RELEASE=$("$PHP" -r '$c=require $argv[1];if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test" || ($c["OFFICE_TEST_GOVERNANCE_ENABLED"]??"")!=="enabled")exit(3);echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$CONFIG")
+            case "$RELEASE" in "$BASE"/release-*/private) ;; *) echo PROJECT_LINKS_SCOPE_DENIED; exit 2;; esac
+            TARGET="$RELEASE/public/office-project.php"
+            test -f "$TARGET"
+            test ! -L "$TARGET"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_PROJECT_LINKS=explicit
+            python3 "$SCRIPT" "$TARGET"
+            "$PHP" -l "$TARGET"
+            grep -Fq governance-project-links-v1 "$TARGET"
+            echo PROJECT_LINKS_ACTIVE_PROJECT_VIEW_VERIFIED
