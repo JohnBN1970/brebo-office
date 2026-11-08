@@ -1,0 +1,50 @@
+name: Calc isolated restore target inventory (read only)
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-restore-target-inventory.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect isolated restore metadata without mutations
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          RESTORE_HOST: ${{ secrets.CALC_RESTORE_DB_HOST }}
+          RESTORE_NAME: ${{ secrets.CALC_RESTORE_DB_NAME }}
+          RESTORE_USER: ${{ secrets.CALC_RESTORE_DB_USER }}
+          RESTORE_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in SSH_KEY SSH_HOST SSH_PORT SSH_USER RESTORE_HOST RESTORE_NAME RESTORE_USER RESTORE_PASSWORD; do
+            test -n "${!key}" || { echo "RESTORE_INVENTORY=BLOCKED_MISSING_$key"; exit 1; }
+          done
+          test "$RESTORE_NAME" = u213420663_calc_restore || { echo 'RESTORE_INVENTORY=BLOCKED_TARGET_NAME'; exit 1; }
+          test "$RESTORE_HOST" = localhost || { echo 'RESTORE_INVENTORY=BLOCKED_TARGET_HOST'; exit 1; }
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_restore_inventory
+          chmod 600 ~/.ssh/id_restore_inventory
+          ssh -f -N -o ExitOnForwardFailure=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_restore_inventory -p "$SSH_PORT" -L 127.0.0.1:33078:127.0.0.1:3306 "$SSH_USER@$SSH_HOST"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          def quote(v):
+              return '"' + v.replace('\\','\\\\').replace('"','\\"').replace('\n','').replace('\r','') + '"'
+          p=Path('/tmp/calc-restore-inventory.cnf')
+          p.write_text('[client]\n' + ''.join(k+'='+quote(v)+'\n' for k,v in [
+              ('host','127.0.0.1'),('port','33078'),('protocol','tcp'),
+              ('user',os.environ['RESTORE_USER']),('password',os.environ['RESTORE_PASSWORD'])
+          ]))
+          p.chmod(0o600)
+          PY
+          trap 'rm -f /tmp/calc-restore-inventory.cnf ~/.ssh/id_restore_inventory' EXIT
+          sudo apt-get update -qq && sudo apt-get install -y -qq default-mysql-client >/dev/null
+          mysql --defaults-extra-file=/tmp/calc-restore-inventory.cnf --batch --skip-column-names --database="$RESTORE_NAME" -e "SELECT CONCAT('RESTORE_TABLE_COUNT=',COUNT(*)) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE(); SELECT CONCAT('RESTORE_TABLE=',TABLE_NAME,',ROWS_ESTIMATE=',COALESCE(TABLE_ROWS,0)) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME LIMIT 100;"
+          echo 'RESTORE_INVENTORY=READ_ONLY_COMPLETE'
