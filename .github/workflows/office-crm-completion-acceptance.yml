@@ -7,6 +7,9 @@ on:
       - 'office-independent/public/office-crm-opportunit*.php'
       - 'office-independent/public/office-crm-calculation-context.php'
       - 'office-independent/tests/OfficeCrmCompletion*'
+      - 'office-independent/tests/OfficeCrmWorkspaceMountTest.php'
+      - 'office-independent/deployment/hostinger/OfficeCrmWorkspaceMount.php'
+      - 'office-independent/deployment/hostinger/install-office-crm-workspace-test.php'
       - '.github/workflows/office-crm-completion-acceptance.yml'
   pull_request:
     branches: [develop]
@@ -66,3 +69,99 @@ jobs:
             php "$test"
           done
           php office-independent/tests/OfficeNavigationV2Test.php
+      - name: Verify narrow shared-file mount
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-crm-workspace-test.php
+          php office-independent/tests/OfficeCrmWorkspaceMountTest.php
+  install-test:
+    name: Install validated CRM on isolated Office-test
+    needs: native
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration/crm-completion-20261108'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: office-test-native-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build code package and compare baselines
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess,tarfile,tempfile
+          from pathlib import Path
+          files=[
+              'src/Crm/OfficeCrmFunnel.php','src/Crm/OfficeCrmFunnelViews.php',
+              'src/Crm/OfficeCrmOpportunityPolicy.php','src/Crm/OfficeCrmOpportunityRepository.php',
+              'src/Crm/OfficeCrmOpportunitySchema.php','src/Crm/OfficeCrmCalculationContext.php',
+              'public/office-crm-opportunities.php','public/office-crm-opportunity-bootstrap.php',
+              'public/office-crm-opportunity-create.php','public/office-crm-opportunity-detail.php',
+              'public/office-crm-opportunity-transition.php','public/office-crm-calculation-context.php',
+          ]
+          meta={}
+          for f in files:
+              p='office-independent/'+f
+              prior=subprocess.run(['git','show','10c42f85954932f3993e8b3eb973f48e9e5f7406:'+p],capture_output=True)
+              meta[f]={'sha256':hashlib.sha256(Path(p).read_bytes()).hexdigest(),'prior_sha256':hashlib.sha256(prior.stdout).hexdigest() if prior.returncode==0 else None}
+          with tempfile.TemporaryDirectory() as tmp:
+              manifest=Path(tmp)/'manifest.json'
+              manifest.write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'files':meta}))
+              with tarfile.open('/tmp/crm-workspace.tgz','w:gz') as tar:
+                  tar.add(manifest,arcname='manifest.json')
+                  for p in [*( 'office-independent/'+f for f in files),
+                      'office-independent/deployment/hostinger/OfficeCrmWorkspaceMount.php',
+                      'office-independent/deployment/hostinger/install-office-crm-workspace-test.php',
+                      'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php',
+                      'office-independent/deployment/hostinger/backup-office-governance-test.php']:
+                      tar.add(p,arcname=p)
+          PY
+      - name: Back up and install only native CRM in isolated test
+        env:
+          CRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          CRM_DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          CRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          CRM_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for key in CRM_DEPLOY_HOST CRM_DEPLOY_PORT CRM_DEPLOY_USER CRM_DEPLOY_KEY; do test -n "${!key}"; done
+          [[ "$CRM_DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CRM_DEPLOY_KEY" > ~/.ssh/crm_install
+          chmod 600 ~/.ssh/crm_install
+          trap 'rm -f ~/.ssh/crm_install /tmp/crm-workspace.tgz' EXIT
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" 'install -d -m 700 "$HOME/domains/brebobv.nl/office_calc_test/.crm-completion-stage"'
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -P "$CRM_DEPLOY_PORT" /tmp/crm-workspace.tgz "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST:/home/u213420663/domains/brebobv.nl/office_calc_test/.crm-completion-stage/$GITHUB_SHA.tgz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "CRM_INSTALL_SHA=$GITHUB_SHA bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$base/.crm-completion-stage/$CRM_INSTALL_SHA"
+          test ! -e "$stage"
+          install -d -m 700 "$stage"
+          tar -xzf "$base/.crm-completion-stage/$CRM_INSTALL_SHA.tgz" -C "$stage"
+          rm "$base/.crm-completion-stage/$CRM_INSTALL_SHA.tgz"
+          phpbin=/opt/alt/php83/usr/bin/php
+          test -x "$phpbin"
+          export OFFICE_BASE_PATH=/office-test
+          export OFFICE_GOVERNANCE_BACKUP=explicit
+          backup_output="$($phpbin "$stage/office-independent/deployment/hostinger/backup-office-governance-test.php")"
+          printf '%s\n' "$backup_output"
+          printf '%s\n' "$backup_output" | grep -Fxq OFFICE_GOVERNANCE_BACKUP_COMPLETE
+          export CRM_BACKUP_SHA="$(printf '%s\n' "$backup_output" | sed -n 's/^BACKUP_SHA256=//p')"
+          export OFFICE_CRM_COMPLETION_DEPLOY=explicit-test-only
+          "$phpbin" "$stage/office-independent/deployment/hostinger/install-office-crm-workspace-test.php" "$stage"
+          REMOTE
+      - name: Verify published test routes reach Office login
+        run: |
+          set -euo pipefail
+          for route in crm/verkoopkansen crm/verkoopkansen/nieuw crm/verkoopkansen/detail marketing/leads marketing/leads/nieuw; do
+            headers=$(mktemp)
+            code=$(curl --silent --show-error --max-time 20 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --max-redirs 0 "https://brebobv.nl/office-test/$route")
+            test "$code" = 302
+            grep -Eiq '^location: (/office-test/inloggen|https://brebobv.nl/office-test/inloggen)' "$headers"
+            rm "$headers"
+            echo "CRM_TEST_ROUTE_VERIFIED=$route"
+          done
