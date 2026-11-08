@@ -1,0 +1,71 @@
+name: Office-test project Finance procurement widget mount
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/office-governance-finance-widget-mount.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-finance-governance-mount
+  cancel-in-progress: false
+jobs:
+  mount:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify additive patch and source
+        run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/mount-finance-governance-widget.py
+          php -l office-independent/public/office-project.php
+          php -l office-independent/src/Governance/OfficeProcurementOrderSource.php
+      - name: Stage only source and patch outside webroot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/mount-finance-governance-widget.py,office-independent/public/office-project.php,office-independent/src/Governance/OfficeProcurementOrderSource.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-finance-stage
+          overwrite: true
+      - name: Install dependency and surgically patch active test project Finance
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            BASE=/home/u213420663/domains/brebobv.nl/office_calc_test
+            STAGE="$BASE/.governance-finance-stage/office-independent"
+            PHP=/opt/alt/php83/usr/bin/php
+            CONFIG="$BASE/config/config.php"
+            test -f "$CONFIG"
+            RELEASE=$("$PHP" -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test" || ($c["OFFICE_TEST_GOVERNANCE_ENABLED"]??"")!=="enabled" || ($c["OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED"]??"")!=="enabled") exit(3); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$CONFIG")
+            case "$RELEASE" in "$BASE"/release-*/private) ;; *) echo FINANCE_GOVERNANCE_RELEASE_SCOPE_DENIED; exit 2;; esac
+            test -f "$RELEASE/public/office-project.php"
+            test ! -L "$RELEASE/public/office-project.php"
+            test -f "$STAGE/public/office-project.php"
+            test -f "$STAGE/src/Governance/OfficeProcurementOrderSource.php"
+            "$PHP" -l "$STAGE/src/Governance/OfficeProcurementOrderSource.php"
+            test -f "$RELEASE/src/Governance/OfficeGovernanceService.php"
+            DEST="$RELEASE/src/Governance/OfficeProcurementOrderSource.php"
+            if test -f "$DEST"; then
+              cmp -s "$DEST" "$STAGE/src/Governance/OfficeProcurementOrderSource.php" || { echo FINANCE_GOVERNANCE_DEPENDENCY_CONFLICT; exit 4; }
+            else
+              cp "$STAGE/src/Governance/OfficeProcurementOrderSource.php" "$DEST"
+              chmod 644 "$DEST"
+            fi
+            "$PHP" -l "$DEST"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_FINANCE_MOUNT=explicit
+            python3 "$STAGE/deployment/hostinger/mount-finance-governance-widget.py" "$RELEASE/public/office-project.php" "$STAGE/public/office-project.php"
+            grep -Fq awardedProjectCommitment "$RELEASE/public/office-project.php"
+            "$PHP" -l "$RELEASE/public/office-project.php"
+            echo FINANCE_GOVERNANCE_ACTIVE_PROJECT_VIEW_VERIFIED
