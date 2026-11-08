@@ -21,24 +21,10 @@ final class OfficeFinanceView {
     return ctype_digit((string)$value) ? gmdate('d-m-Y', (int)$value) : self::e($value);
   }
 
-  /** Read-only management overview; unavailable sources never become zero values. */
+  /** Native, accessible graphical management overview. */
   private static function overview(array $data, callable $url): string {
-    $e = self::e(...);
-    $html = '<section aria-label="Financiële stuurinformatie"><h2>Financieel overzicht</h2><p class="muted">Resultaat en facturen: BREBO Office. Bankgegevens: Moneybird. Alleen jouw toegankelijke financiële gegevens.</p>';
-    $html .= '<div class="cards">';
-    require_once __DIR__.'/OfficeFinanceSalesOverview.php';
-    $html .= OfficeFinanceSalesOverview::cards($data['sales_overview'] ?? [], '/office-test/finance/verkoop');
-    // Bank balances are organisation-wide; never present them as a project balance.
-    if (($data['project'] ?? null) === null && ($data['bank_read_allowed'] ?? false) === true) {
-      $snapshot = $data['bank_snapshot'] ?? null;
-      $html .= '<div class="card"><span>Bankpositie</span><strong>'.(is_array($snapshot) ? 'Per rekening' : 'Niet beschikbaar').'</strong><small>Boekhoudkundig saldo volgens Moneybird; geen bankbevestigd beschikbaar saldo.</small><p><a href="'.$e($url('finance/betaalcentrum')).'">Bekijk rekeningen en bankmutaties</a></p></div>';
-    }
-    $html .= '</div><h3>Ontvangstenplanning 30 / 60 / 90 dagen</h3><div class="cards">';
-    require_once __DIR__.'/OfficeFinanceCostReadiness.php';
-    $html .= OfficeFinanceCostReadiness::cashCards($data['sales_overview'] ?? []);
-    $center=$data['sales_overview']['center']??null;
-    if(is_array($center)){$html.='</div><h3>Liquiditeitsprognose</h3><div class="cards">';if($center['forecast']){foreach($center['forecast']['horizons'] as $days=>$forecast)$html.='<div class="card"><span>'.(int)$days.' dagen</span><strong>'.$e(\Brebo\Office\Finance\Center\Amounts::money((int)$forecast['ending']['regular'])).'</strong><small>Gewone rekeningen. G-rekeningen afzonderlijk: '.$e(\Brebo\Office\Finance\Center\Amounts::money((int)$forecast['ending']['g'])).'.</small></div>';}else{$html.='<div class="card"><span>Saldo en betaalplanning aanvullen</span><ul>';foreach(array_unique($center['forecast_reasons']) as $reason)$html.='<li>'.$e($reason).'</li>';$html.='</ul></div>';}$html.='<div class="card"><a href="/office-test/finance/administratie">Financiële administratie openen</a></div>';}
-    return $html . '</div></section>';
+    require_once __DIR__.'/OfficeFinanceDashboard.php';
+    return OfficeFinanceDashboard::render($data,$url);
   }
 
   public static function render(array $data, string $view = 'dashboard', string $queue = '', int $page = 1, string $search = ''): string {
@@ -56,8 +42,8 @@ final class OfficeFinanceView {
     $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a>'.(getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'?'<a href="/office-test/finance/administratie">Administratie</a>':'').'</nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
     if ($view === 'dashboard' && OfficeMount::isTest()) $html .= self::overview($data, $url);
-    if (in_array($view, ['dashboard', 'payments'], true) && OfficeMount::isTest() && ($data['bank_read_allowed'] ?? false) === true
-        && ($view === 'payments' || $project === null)) {
+    if ($view === 'dashboard' && OfficeMount::isTest()) return $html . '</main></div></body></html>';
+    if ($view === 'payments' && OfficeMount::isTest() && ($data['bank_read_allowed'] ?? false) === true) {
       $html .= OfficeFinanceBankPanel::render($data['bank_snapshot'] ?? null);
     }
     if ($view === 'dossier') {

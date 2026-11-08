@@ -10,6 +10,9 @@ on:
       - 'office-independent/deployment/hostinger/office-finance-sales-overview*'
       - 'office-independent/public/office-finance.php'
       - 'office-independent/src/Finance/OfficeFinanceView.php'
+      - 'office-independent/src/Finance/OfficeFinanceDashboard.php'
+      - 'office-independent/tests/OfficeFinanceDashboardTest.php'
+      - 'office-independent/deployment/hostinger/office-finance-dashboard*'
       - 'office-independent/src/Finance/OfficeFinanceBankPanel.php'
       - 'office-independent/src/Finance/OfficeMoneybirdBankApiClient.php'
       - 'office-independent/src/Finance/OfficeMoneybirdBankSnapshot.php'
@@ -31,6 +34,10 @@ jobs:
           php office-independent/tests/OfficeFinanceCostReadinessTest.php
           php -l office-independent/deployment/hostinger/office-finance-cost-connections-install.php
           php office-independent/tests/OfficeFinanceSalesOverviewTest.php
+          php office-independent/tests/OfficeFinanceOverviewTest.php
+          php office-independent/tests/OfficeFinanceBankViewTest.php
+          php office-independent/tests/OfficeFinanceDashboardTest.php
+          php -l office-independent/deployment/hostinger/office-finance-dashboard-install.php
           php office-independent/tests/OfficeFinanceBankPanelTest.php
           php office-independent/tests/OfficeMoneybirdBankApiClientTest.php
 
