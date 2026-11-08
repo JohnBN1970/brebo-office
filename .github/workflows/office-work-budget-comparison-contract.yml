@@ -12,6 +12,7 @@ on:
       - 'office-independent/src/Project/OfficeProjectBudgetKpiView.php'
       - 'office-independent/tests/OfficeProjectBudgetKpiViewTest.php'
       - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/public/office-project.php'
       - 'office-independent/tests/OfficeProjectBudgetSlotTest.php'
   workflow_dispatch:
 permissions:
@@ -34,6 +35,7 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectBudgetKpiView.php
           php -l office-independent/tests/OfficeProjectBudgetKpiViewTest.php
           php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l office-independent/public/office-project.php
           php -l office-independent/tests/OfficeProjectBudgetSlotTest.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
           php office-independent/tests/OfficeProjectBudgetKpiViewTest.php
