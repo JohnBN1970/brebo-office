@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Resolve single-building project deep links without changing the Office router.
+# Add ACL-scoped prioritized actions from quality, risk and procurement.
 on:
   push:
     branches: [develop]
