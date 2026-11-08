@@ -69,6 +69,15 @@ jobs:
               if "OfficeNewDocumentMenu" in line:
                   print("DOCUMENTS_MENU_REFERENCE_KIND="+("require" if "require" in line else "render" if "::render" in line else "other"),flush=True)
           print("DOCUMENTS_MENU_CLASS_DECLARATION_COUNT="+str(sum("class OfficeNewDocumentMenu" in x.read_text(errors="replace") for x in candidates)),flush=True)
+          for line in docs.splitlines():
+              if "OfficeNewDocumentMenu" in line and ("require" in line or "include" in line):
+                  print("DOCUMENTS_MENU_INCLUDE_USES_DOCUMENTS="+str("/Documents/" in line),flush=True)
+                  print("DOCUMENTS_MENU_INCLUDE_USES_DOCUMENT="+str("/Document/" in line),flush=True)
+          for candidate in candidates[:10]:
+              source=candidate.read_text(errors="replace")
+              namespace=re.search(r"namespace\\s+([A-Za-z0-9_\\\\]+)\\s*;",source)
+              print("DOCUMENTS_MENU_NAMESPACE="+(namespace.group(1) if namespace else "none"),flush=True)
+              print("DOCUMENTS_MENU_HAS_STATIC_RENDER="+str(bool(re.search(r"static\\s+function\\s+render\\s*\\(",source))),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
