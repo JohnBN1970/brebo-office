@@ -1,0 +1,58 @@
+name: Office CRM live source read-only comparison
+
+on:
+  push:
+    branches: [audit/crm-live-source-20261108]
+    paths:
+      - .github/workflows/office-crm-live-source-comparison.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compare active CRM page fingerprints with repository
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo REPOSITORY_CRM_FILES
+          for file in office-crm-relations.php office-crm-relation-create.php office-crm-relation-detail.php office-crm-relation-manage.php; do
+            path="office-independent/public/$file"
+            test -f "$path"
+            php -l "$path"
+            printf 'REPO %s ' "$file"
+            sha256sum "$path" | cut -d' ' -f1
+          done
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 20;; esac
+          echo ACTIVE_CRM_FILES
+          for file in office-crm-relations.php office-crm-relation-create.php office-crm-relation-detail.php office-crm-relation-manage.php; do
+            path="$active/public/$file"
+            if test -f "$path" && test ! -L "$path"; then
+              php -l "$path"
+              printf 'LIVE %s ' "$file"
+              sha256sum "$path" | cut -d' ' -f1
+            else
+              echo "LIVE_MISSING $file"
+            fi
+          done
+          echo CRM_READ_ONLY_AUDIT_OK
+          REMOTE
