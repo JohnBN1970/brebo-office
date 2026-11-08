@@ -1,0 +1,70 @@
+name: Office-test project Documenten HTTP 500 diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active Documenten entrypoint and error categories
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          case "$active" in "$root"/release-*/private) ;; *) echo ABORT_RELEASE_SCOPE; exit 20;; esac
+          docs="$active/public/office-documents.php"
+          project="$active/public/office-project.php"
+          view="$active/src/Project/OfficeProjectDetailV3View.php"
+          for file in "$docs" "$project" "$view"; do
+            test -f "$file" && test ! -L "$file" || { echo ABORT_FILE_MISSING; exit 21; }
+            php -l "$file"
+          done
+          DOCS="$docs" VIEW="$view" python3 - <<'PY'
+          import os,pathlib,re
+          docs=pathlib.Path(os.environ["DOCS"]).read_text()
+          view=pathlib.Path(os.environ["VIEW"]).read_text()
+          markers=["OfficeNewDocumentMenu::render","OfficeNativeProjectAccess","OfficeMount::route","OfficeMount::basePath","project_id","canRead","require_once","OfficeDocumentContextLinks"]
+          for marker in markers:
+              print("DOCUMENTS_MARKER_"+re.sub("[^A-Z0-9]","_",marker.upper())+"="+str(docs.count(marker)),flush=True)
+          print("V3_CONTEXT_LINK="+str(view.count("/documenten?project_id=")),flush=True)
+          for m in re.finditer(r"OfficeMount::(route|basePath)",docs):
+              print("DOCS_MOUNT_CALL_LINE="+str(docs.count("\n",0,m.start())+1)+" METHOD="+m.group(1),flush=True)
+          for m in re.finditer(r"OfficeNewDocumentMenu::render|OfficeNativeProjectAccess|OfficeDocumentContextLinks",docs):
+              print("DOCS_COMPONENT_LINE="+str(docs.count("\n",0,m.start())+1)+" NAME="+m.group(0),flush=True)
+          print("DOCUMENTS_SOURCE_DIAGNOSTIC_OK",flush=True)
+          PY
+          # Do not expose request paths, IPs, cookies or raw exception messages.
+          # Only count recent PHP error categories, with no user data.
+          for log in "$active/error_log" "$active/public/error_log" "$root/error_log"; do
+            if test -f "$log" && test ! -L "$log"; then
+              LOG="$log" python3 - <<'PY'
+          import os,pathlib,re
+          data=pathlib.Path(os.environ["LOG"]).read_text(errors="replace").splitlines()[-200:]
+          hits=[x for x in data if any(y in x for y in ("office-documents.php","OfficeNewDocumentMenu","OfficeMount","OfficeNativeProjectAccess"))]
+          print("DOCUMENTS_RELATED_ERRORS="+str(len(hits)),flush=True)
+          for x in hits[-8:]:
+              typ="undefined_method" if "undefined method" in x.lower() else "missing_class" if "class " in x.lower() and "not found" in x.lower() else "missing_file" if "failed opening" in x.lower() else "type_error" if "typeerror" in x.lower() else "other_php_error"
+              print("DOCUMENTS_ERROR_CATEGORY="+typ,flush=True)
+          PY
+            fi
+          done
+          echo OFFICE_TEST_DOCUMENTS_500_DIAGNOSTIC_COMPLETE
+          REMOTE
