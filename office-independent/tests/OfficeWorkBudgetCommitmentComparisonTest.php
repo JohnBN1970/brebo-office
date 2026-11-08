@@ -16,7 +16,7 @@ $commitment['commitment_cents']=12000;
 $over=Comparison::summarize($baseline,$commitment);
 assert($over['remaining_cents']===-2000 && $over['variance_cents']===2000);
 foreach([
-    [$baseline+['project_id'=>13],$commitment],
+    [array_replace($baseline,['project_id'=>13]),$commitment],
     [array_replace($baseline,['locked'=>false]),$commitment],
     [$baseline,array_replace($commitment,['source'=>'invoices'])],
 ] as [$b,$c]) {
