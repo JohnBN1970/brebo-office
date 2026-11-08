@@ -1,0 +1,34 @@
+name: Office CRM relation manage acceptance
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - office-independent/public/office-crm-relation-manage.php
+      - .github/workflows/office-crm-manage-acceptance.yml
+  push:
+    branches: [audit/crm-live-source-20261108]
+    paths:
+      - office-independent/public/office-crm-relation-manage.php
+      - .github/workflows/office-crm-manage-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check CRM relation manage page
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-crm-relation-manage.php
+          php -r '
+            $src=file_get_contents("office-independent/public/office-crm-relation-manage.php");
+            foreach (["invoice_email", "offer_email", "billing_street", "billing_postal_code", "billing_city", "billing_country_code", "FILTER_VALIDATE_EMAIL", "crm_manage_csrf", "FOR UPDATE"] as $marker) {
+              if (!str_contains($src,$marker)) {fwrite(STDERR,"CRM_MANAGE_MISSING_MARKER: ".$marker.PHP_EOL);exit(1);}
+            }
+            echo "CRM_MANAGE_ACCEPTANCE_OK\n";
+          '
