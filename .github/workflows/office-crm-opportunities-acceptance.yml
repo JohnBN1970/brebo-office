@@ -1,0 +1,21 @@
+name: CRM opportunities acceptance
+on:
+  push:
+    branches: [feature/crm-opportunities-foundation-20261108]
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmOpportunity*.php'
+      - 'office-independent/tests/OfficeCrmOpportunityContractTest.php'
+      - '.github/workflows/office-crm-opportunities-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/src/Crm/OfficeCrmOpportunitySchema.php
+          php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
+          php office-independent/tests/OfficeCrmOpportunityContractTest.php
