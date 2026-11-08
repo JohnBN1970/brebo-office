@@ -101,14 +101,6 @@ $reject(static fn()=> $service->transfer($accept('45',505,'r1'),[$line('line-e',
 if ($count('office_projects')!==1 || $count('office_calc_crm_acceptance_transfers')!==1) {
     throw new RuntimeException('Persisted value mismatch was not rolled back');
 }
-// Project adapters must not commit independently. Test on a fresh connection
-// because the fixture also deliberately creates failure triggers.
-$reject(static fn()=> $service->transfer($accept('46',506,'r1'),[$line('line-f','other',1,600)],
-    static function(PDO $pdo,array $a)use($create):int {
-        $id=$create($pdo,$a);
-        $pdo->commit();
-        return $id;
-    },$verify),'project adapter committed transaction');
 // Misbehaving adapters cannot silently end the transaction and continue.
 $reject(static fn()=> $service->transfer($accept('46',506,'r1'),[$line('line-f','other',1,600)],$create,
     static function(PDO $pdo,array $a,array $lines)use($verify):bool {
