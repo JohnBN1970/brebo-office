@@ -1,0 +1,24 @@
+name: Office CRM work-budget handoff status contracts
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmWorkBudgetHandoffStatus.php'
+      - 'office-independent/tests/OfficeCrmWorkBudgetHandoffStatusTest.php'
+      - '.github/workflows/office-crm-budget-handoff-status.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint and verify read-only CRM budget handoff
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Crm/OfficeCrmWorkBudgetHandoffStatus.php
+          php -l office-independent/tests/OfficeCrmWorkBudgetHandoffStatusTest.php
+          php office-independent/tests/OfficeCrmWorkBudgetHandoffStatusTest.php
