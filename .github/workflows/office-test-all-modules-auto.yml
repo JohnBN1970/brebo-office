@@ -1,0 +1,47 @@
+name: Office-test all modules automatic validation
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/**'
+      - '.github/workflows/office-test-all-modules-auto.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-all-modules-validation
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all Office-independent PHP sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d office-independent
+          find office-independent -type f -name '*.php' -print0 | sort -z > /tmp/office-php-files
+          count="$(tr -cd '\0' < /tmp/office-php-files | wc -c)"
+          test "$count" -gt 0
+          xargs -0 -r -n 1 -P 4 php -l < /tmp/office-php-files > /tmp/office-php-lint.log || {
+            grep -v 'No syntax errors detected' /tmp/office-php-lint.log || true
+            echo OFFICE_ALL_MODULES_PHP_LINT_FAILED
+            exit 1
+          }
+          echo "OFFICE_ALL_MODULES_PHP_LINT_PASS count=$count"
+      - name: Verify critical module directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in Project Buildings Documents Finance Inzet Crm; do
+            test -d "office-independent/src/$module" || { echo "MODULE_MISSING=$module"; exit 1; }
+            echo "MODULE_PRESENT=$module"
+          done
+          echo OFFICE_ALL_MODULES_SOURCE_GATE_PASS
+      - name: Summarize validated scope
+        shell: bash
+        run: |
+          echo "All modules covered by automatic source validation."
+          echo "No automatic copying of unverified runtime files, no DB migrations and no production deployment."
+          echo OFFICE_TEST_ALL_MODULES_VALIDATION_COMPLETE
