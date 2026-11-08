@@ -136,3 +136,20 @@ GitHub Actions op commit `44794752e11ba770e92bdc419d3551487f003b89`: **14/14 wor
 De Finance-tab heeft nu een read-only inkoopverplichtingenblok. Een onverwachte fout in de procurement-lezer wordt afzonderlijk afgevangen, zodat het contractoverzicht niet door deze optionele bron uitvalt. De oudere passages hierboven beschrijven de toenmalige tussenstand; dit onderdeel is de actuele code-/CI-status.
 
 **Openstaande productie- en testgates:** geen bewijs van SQL-uitvoering op de host, rechtenuitgifte, secretconfiguratie, live routeacceptatie of deploy van de PR-branch. Een groene CI of rollout-gate is geen bewijs van actieve serverinstallatie. Eerst schema-/back-upcontrole en expliciete mandaten, daarna gecontroleerde testdeployment en browseracceptatie. Geen productieaanpassing.
+
+## Actuele Office-test uitrol — 8 november 2026
+
+Dit hoofdstuk vervangt de eerdere, historische tussenstanden hierboven.
+
+- De native governance-PR [#1725](https://github.com/JohnBN1970/brebo-office/pull/1725) is naar `develop` gemerged.
+- De originele SQL-run [42456210705](https://github.com/JohnBN1970/brebo-office/actions/runs/42456210705) eindigde rood, **na** een volledige Office-test SQL-back-up van 45.646.126 bytes. De aparte read-only audit [42456386379](https://github.com/JohnBN1970/brebo-office/actions/runs/42456386379) stelde vervolgens vast dat alle vijf tabellen wel aanwezig waren.
+- Onafhankelijke runtimecontrole [42457183737](https://github.com/JohnBN1970/brebo-office/actions/runs/42457183737) bevestigde correcte kolommen en composite foreign keys. De database hoefde niet opnieuw gemigreerd te worden.
+- Code-only uitrol [42457300011](https://github.com/JohnBN1970/brebo-office/actions/runs/42457300011) plaatste de acht benodigde PHP-bestanden in de actieve geïsoleerde testrelease, zonder router- of featurewijziging.
+- Beveiligde routermount [42457394939](https://github.com/JohnBN1970/brebo-office/actions/runs/42457394939) plaatste drie routes en de RewriteRule, met terugvalkopieën.
+- De read-only rechtencontrole [42457479460](https://github.com/JohnBN1970/brebo-office/actions/runs/42457479460) bevestigde dat alle opslag- en inspectieafhankelijkheden bestaan, twee operators actief zijn en er maar één projectmanager is. De vervolgaudit [42457526802](https://github.com/JohnBN1970/brebo-office/actions/runs/42457526802) bevestigde na een tijdelijke SSH-timeout dat die ene projectmanager ook een bestaand `settings:manage`-mandaat heeft.
+- De afgeschermde activatie [42457647579](https://github.com/JohnBN1970/brebo-office/actions/runs/42457647579) slaagde. Beide featureflags, de CSRF-sleutel en de drie `read`/`write`-mandaten voor uitsluitend die bestaande beheerder zijn actief. Geen `approve`, `award` of `receive`-mandaten automatisch verstrekt. Configuratieback-up is aanwezig.
+- Na activering eindigde de onafhankelijke servercontrole met `GOVERNANCE_RUNTIME_READY`. De publieke HTTPS-smoke [42457713566](https://github.com/JohnBN1970/brebo-office/actions/runs/42457713566) kreeg op alle drie routes HTTP 302 (verwacht voor niet-aangemelde bezoekers). Er zijn geen HTTP 404/500 waargenomen in deze rooktest.
+
+**Nog uit te voeren:** browseracceptatie met een aangemelde, gemandateerde Office-operator; veilige proefregistratie per module; afzonderlijke tweepersoonsmandaten voor goedkeuring en opdrachtverstrekking; en bevestigen of de project-Finance read-only inkoopverplichtingenweergave ook daadwerkelijk in de actieve release staat. De laatstgenoemde Finance-code bestaat in `develop`, maar is niet door de code-only governancedeployment overgezet.
+
+Geen wijzigingen in productie, geen Drupal-afhankelijkheid.
