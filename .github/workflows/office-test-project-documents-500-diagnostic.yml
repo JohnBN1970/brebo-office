@@ -102,6 +102,17 @@ jobs:
                       assigned=bool(re.search(re.escape(var)+r"\\s*=",docs))
                       print("DOCUMENTS_RENDER_ARG_ASSIGNED="+str(assigned),flush=True)
           print("DOCUMENTS_ENTRYPOINT_CATCH_THROWABLE="+str("catch (Throwable" in docs or "catch (\\Throwable" in docs),flush=True)
+          # Verify local include dependencies used by the active Documents entrypoint.
+          for line in docs.splitlines():
+              if "require" not in line or "dirname(__DIR__)" not in line:
+                  continue
+              matches=re.findall(r"['\"](/src/[^'\"]+\\.php)['\"]",line)
+              for rel in matches:
+                  target=active/rel.lstrip("/")
+                  print("DOCUMENTS_LOCAL_INCLUDE_"+re.sub("[^A-Z0-9]","_",target.stem.upper())+"="+("present" if target.is_file() else "MISSING"),flush=True)
+          # Detect potentially fatal references to classes not imported or declared.
+          print("DOCUMENTS_ENTRYPOINT_BYTES="+str(len(docs)),flush=True)
+          print("DOCUMENTS_MENU_RENDER_CALL_COUNT="+str(docs.count("OfficeNewDocumentMenu::render(")),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
