@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Add ACL-scoped prioritized actions from quality, risk and procurement.
+# Use Docker-bundled SSH action to avoid the external drone-ssh release download (HTTP 504).
 on:
   push:
     branches: [develop]
@@ -33,7 +33,7 @@ jobs:
           target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-ui-stage
           overwrite: true
       - name: Replace isolated test governance controller with guarded backup
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
