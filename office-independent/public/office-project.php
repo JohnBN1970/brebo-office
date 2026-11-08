@@ -611,9 +611,9 @@ if (is_array($financeContracts)
         if ($buildingIds === []) {
             $financeHtml .= '<section class="module"><h3>Inkoopverplichtingen</h3><p>Geen gebouwen gekoppeld; totaal niet beschikbaar.</p></section>';
         } else {
-            $source = new \\Brebo\\Office\\Governance\\OfficeProcurementOrderSource(
-                new \\Brebo\\Office\\Governance\\OfficeGovernanceService(
-                    new \\Brebo\\Office\\Governance\\Infrastructure\\PdoOfficeGovernanceStore($db)
+            $source = new \Brebo\Office\Governance\OfficeProcurementOrderSource(
+                new \Brebo\Office\Governance\OfficeGovernanceService(
+                    new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db)
                 )
             );
             $commitment = $source->awardedProjectCommitment((string) $operator->operatorId, (int) $projectId, $buildingIds);
@@ -623,9 +623,9 @@ if (is_array($financeContracts)
                 . '</strong></dd><dt>Aantal opdrachten</dt><dd>' . (int) $commitment['awarded_order_count']
                 . '</dd></dl><p>Verplichtingen zijn geen geboekte kosten, facturen of betalingen.</p></section>';
         }
-    } catch (\\DomainException | \\InvalidArgumentException $e) {
+    } catch (\DomainException | \InvalidArgumentException $e) {
         $financeHtml .= '<p>Inkoopverplichtingen niet beschikbaar: onvoldoende inkooprechten of ongeldige projectscope.</p>';
-    } catch (\\PDOException $e) {
+    } catch (\PDOException $e) {
         error_log('Office procurement commitment read unavailable: ' . $e->getCode());
         $financeHtml .= '<p>Inkoopverplichtingen tijdelijk niet beschikbaar.</p>';
     }
