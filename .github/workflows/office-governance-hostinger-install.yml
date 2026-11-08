@@ -19,6 +19,7 @@ jobs:
       - name: Validate isolated installer
         run: |
           set -euo pipefail
+          php -l office-independent/deployment/hostinger/backup-office-governance-test.php
           php -l office-independent/deployment/hostinger/install-office-governance-test.php
           php -l office-independent/src/Governance/OfficeGovernanceSchema.php
           php office-independent/tests/OfficeGovernanceIntegrationTest.php
@@ -35,7 +36,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
-          source: office-independent/deployment/hostinger/install-office-governance-test.php,office-independent/src/Governance/OfficeGovernanceSchema.php
+          source: office-independent/deployment/hostinger/backup-office-governance-test.php,office-independent/deployment/hostinger/install-office-governance-test.php,office-independent/src/Governance/OfficeGovernanceSchema.php
           target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-install-stage
           overwrite: true
       - name: Install only absent governance tables in isolated test schema
@@ -51,10 +52,14 @@ jobs:
             ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
             STAGE="$ROOT/.governance-install-stage/office-independent"
             PHP=/opt/alt/php83/usr/bin/php
+            test -f "$STAGE/deployment/hostinger/backup-office-governance-test.php"
             test -f "$STAGE/deployment/hostinger/install-office-governance-test.php"
             test -f "$STAGE/src/Governance/OfficeGovernanceSchema.php"
+            "$PHP" -l "$STAGE/deployment/hostinger/backup-office-governance-test.php"
             "$PHP" -l "$STAGE/deployment/hostinger/install-office-governance-test.php"
             "$PHP" -l "$STAGE/src/Governance/OfficeGovernanceSchema.php"
             export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_BACKUP=explicit
+            "$PHP" "$STAGE/deployment/hostinger/backup-office-governance-test.php"
             export OFFICE_GOVERNANCE_SCHEMA_INSTALL=explicit
             "$PHP" "$STAGE/deployment/hostinger/install-office-governance-test.php"
