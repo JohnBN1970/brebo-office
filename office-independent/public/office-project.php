@@ -348,12 +348,12 @@ if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTe
      INNER JOIN office_calc_project_access g
        ON g.calculation_id = c.id AND g.project_id = c.project_id
      INNER JOIN office_operator_accounts a ON a.id = g.operator_id
-     WHERE c.project_id = :project AND g.operator_id = :operator AND g.permission = 'manage' AND a.active = 1
+     WHERE c.project_id = :project AND g.operator_id = :operator AND g.permission = :calc_permission AND a.active = 1
        AND NOT EXISTS (SELECT 1 FROM office_project_calculation_scopes s
          WHERE s.project_id = c.project_id AND s.calc_calculation_id = c.id)
      ORDER BY c.id LIMIT 200'
   );
-  $authorizedCalcQuery->execute([':project' => $projectId, ':operator' => $operator->operatorId]);
+  $authorizedCalcQuery->execute([':project' => $projectId, ':operator' => $operator->operatorId, ':calc_permission' => 'manage']);
   $authorizedCalcIds = $authorizedCalcQuery->fetchAll(PDO::FETCH_COLUMN);
   $calcLinkHtml = '<h3>Bestaande Calc-calculatie koppelen</h3>'
     . '<p>De woningaantallen blijven afkomstig uit Gebouwwaarheid.</p>'
