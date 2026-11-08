@@ -1,4 +1,5 @@
 name: Office-test project governance links guarded mount
+# Corrected PHP apostrophe escaping for guarded candidate lint.
 on:
   push:
     branches: [develop]
