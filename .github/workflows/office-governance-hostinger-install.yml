@@ -29,6 +29,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Stage independent read-only schema audit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/audit-office-governance-readonly.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-install-stage
+          overwrite: true
+      - name: Verify current schema before any installation
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            PHP=/opt/alt/php83/usr/bin/php
+            FILE=/home/u213420663/domains/brebobv.nl/office_calc_test/.governance-install-stage/office-independent/deployment/hostinger/audit-office-governance-readonly.php
+            test -f "$FILE"
+            "$PHP" -l "$FILE"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_PREFLIGHT=read-only
+            "$PHP" "$FILE"
       - name: Stage installer outside webroot
         uses: appleboy/scp-action@v0.1.7
         with:
