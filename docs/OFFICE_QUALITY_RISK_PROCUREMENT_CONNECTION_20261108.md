@@ -157,3 +157,13 @@ Geen wijzigingen in productie, geen Drupal-afhankelijkheid.
 ## Aanvullende project-Finance audit
 
 De onafhankelijke read-only serveraudit [42457760318](https://github.com/JohnBN1970/brebo-office/actions/runs/42457760318) eindigde opnieuw met `GOVERNANCE_RUNTIME_READY`, maar rapporteert `OPTIONAL_PROJECT_FINANCE_PROCUREMENT_WIDGET=NOT_INSTALLED`. De governancefuncties zelf zijn actief; de afzonderlijke Finance-blokweergave van inkoopverplichtingen is **nog niet** in de actieve projectdetailpagina geplaatst. Een latere, versie-gecontroleerde gerichte wijziging van `office-project.php` is nodig; vervang niet blind de bestaande actieve projectpagina.
+
+## Afgeronde Finance-mount en functionele acceptatie — 8 november 2026
+
+- De eerste gecontroleerde Finance-mount [42459829767](https://github.com/JohnBN1970/brebo-office/actions/runs/42459829767) stopte **zonder de projectpagina te wijzigen** op `FINANCE_GOVERNANCE_LIVE_ANCHOR_MISMATCH`. De actieve projectpagina gebruikt een andere HTML-assemblage dan de repositoryversie.
+- Read-only audits [42459867138](https://github.com/JohnBN1970/brebo-office/actions/runs/42459867138) en [42460007709](https://github.com/JohnBN1970/brebo-office/actions/runs/42460007709) hebben het daadwerkelijke veilige invoegpunt vastgesteld: `$moduleHtml .= $financeHtml;`.
+- De aangepaste, additieve mount [42460049024](https://github.com/JohnBN1970/brebo-office/actions/runs/42460049024) is **groen**: `FINANCE_GOVERNANCE_WIDGET_MOUNTED`, `FINANCE_GOVERNANCE_BACKUP_PRESENT`, `FINANCE_GOVERNANCE_ACTIVE_PROJECT_VIEW_VERIFIED`; PHP-lint van de actieve pagina is geslaagd. De bestaande projectpagina is niet volledig vervangen.
+- De HTTPS-smoke [42460089268](https://github.com/JohnBN1970/brebo-office/actions/runs/42460089268) is groen: alle drie governance-URL's en `/office-test/projecten/detail?id=1` retourneren HTTP 302 voor niet-aangemelde bezoekers, geen 404/500.
+- De read-only **functionele** acceptatie [42460246756](https://github.com/JohnBN1970/brebo-office/actions/runs/42460246756) draait tegen de echte Office-testdatabase en de actieve PHP-serviceklassen. Resultaat: `GOVERNANCE_FUNCTIONAL_READONLY_PASS`, één toegankelijke project-/gebouwcontext per module, één project gecontroleerd voor de Finance-aggregatie, ACL's voor read/write bevestigd en approve/award/receive niet verleend. Er zijn geen dossiers, rechten of financiële records geschreven.
+
+**Resterende gebruikersacceptatie:** browserweergave onder een aangemelde operator en een proefregistratie inclusief teruglezen; expliciet afzonderlijk mandaatproces voor goedkeuring, verstrekking en ontvangst. Dit is niet afgedekt door de read-only serveracceptatie.
