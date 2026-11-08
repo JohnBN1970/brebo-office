@@ -1,6 +1,13 @@
 name: Office-test V3 Documenten in original project tabs
 on:
   workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-test-v3-documents-original-tabs-deploy.yml'
+      - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/src/Project/OfficeProjectPageStructure.php'
+      - 'office-independent/tests/OfficeProjectDetailV3ViewTest.php'
 permissions:
   contents: read
 concurrency:
