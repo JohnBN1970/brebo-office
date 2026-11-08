@@ -1,0 +1,49 @@
+name: Office governance functional acceptance on real test DB
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/office-governance-functional-acceptance.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-functional-readonly
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate audit and pure integration tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/audit-office-governance-functional.php
+          php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: Stage read-only acceptance
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/audit-office-governance-functional.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-functional-stage
+          overwrite: true
+      - name: Check actual project scopes, ACL, records and Finance without mutations
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            PHP=/opt/alt/php83/usr/bin/php
+            SCRIPT=/home/u213420663/domains/brebobv.nl/office_calc_test/.governance-functional-stage/office-independent/deployment/hostinger/audit-office-governance-functional.php
+            "$PHP" -l "$SCRIPT"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_FUNCTIONAL_AUDIT=read-only
+            "$PHP" "$SCRIPT"
