@@ -79,7 +79,7 @@ $calcEnabled = getenv('OFFICE_CALC_ENABLED') === 'enabled'
   && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled';
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $crmUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/crm/bedrijven' : ($queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen');
-$calcUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('calc-werkbank') : ($queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank');
+$calcUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test/projecten' : ($queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank');
 $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
   && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled';
@@ -148,7 +148,7 @@ $modules = [
     ['Inkoop', null, false],
     ['Overleg', null, false],
   ]],
-  ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie', $calcUrl, $calcEnabled]]],
+  ['Calculatie & offertes', 'Berekenen en offreren', [['Calculatie via projecten', $calcUrl, $calcEnabled]]],
   ['Financiën', 'Facturen en betalingen', [['Financiën',
     $financeVisible ? \Brebo\Office\Intake\OfficeMount::basePath() . '/finance' : null,
     $financeVisible]]],
