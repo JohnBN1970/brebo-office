@@ -1,5 +1,9 @@
 name: Calc bundled staging preflight
 on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-bundled-staging-preflight.yml'
   pull_request:
     paths:
       - '.github/workflows/calc-bundled-staging-preflight.yml'
@@ -22,7 +26,7 @@ jobs:
           grep -q 'AUDIT-CALC-BUNDLE' .github/workflows/calc-bundled-staging-preflight.yml
           grep -q 'CALC_BUNDLE_READ_ONLY' .github/workflows/calc-bundled-staging-preflight.yml
       - name: Configure SSH
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE') }}
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
@@ -32,7 +36,7 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_bundle
           chmod 600 ~/.ssh/id_calc_bundle
       - name: One-pass read-only router, release, Calc runtime and rewrite preflight
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE' }}
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-CALC-BUNDLE') }}
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
