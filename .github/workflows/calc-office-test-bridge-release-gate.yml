@@ -21,7 +21,7 @@ jobs:
           test "$value" = VERIFY-CALC-BRIDGE
       - uses: actions/checkout@v4
         with:
-          ref: fix/calc-reconnect-rebased-20261106
+          ref: develop
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
