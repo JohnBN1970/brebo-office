@@ -1,0 +1,25 @@
+name: Office governance HTTPS route smoke on isolated test
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/office-governance-https-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe three live Office-test endpoints without cookies or credentials
+        run: |
+          set -euo pipefail
+          for route in kwaliteit risicos inkoop; do
+            code="$(curl --silent --show-error --max-time 20 --path-as-is --output /dev/null --write-out '%{http_code}' --max-redirs 0 "https://brebobv.nl/office-test/$route" || true)"
+            case "$code" in
+              200|301|302|303|307|308) echo "GOVERNANCE_PUBLIC_$route=HTTP_$code" ;;
+              401|403) echo "GOVERNANCE_PUBLIC_$route=AUTH_GATE_HTTP_$code (route not yet independently proven)" ;;
+              *) echo "GOVERNANCE_PUBLIC_$route=FAILED_HTTP_$code"; exit 1 ;;
+            esac
+          done
