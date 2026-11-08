@@ -1,5 +1,12 @@
 name: Calc bridge isolated staging package
 on:
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/public/office-calc-*.php'
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/deployment/hostinger/sql/office-calc-*.sql'
+      - '.github/workflows/calc-bridge-staging-package.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -13,8 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: develop
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
@@ -22,7 +27,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            test "${{ inputs.confirmation }}" = PACKAGE-CALC-BRIDGE
+          fi
           mkdir -p staging-calc-bridge/public staging-calc-bridge/src/Calculation staging-calc-bridge/deployment/hostinger/sql
           for file in office-independent/public/office-calc-*.php; do
             test -f "$file"
