@@ -1,5 +1,14 @@
 # BREBO Office — Continuïteitsdocument
 
+## Bindend runtimebesluit — 8 november 2026
+
+Drupal wordt uitsluitend nog voor de publieke website gebruikt. Alle Office-modules,
+waaronder kwaliteit, risico’s en inkoop, gebruiken native Office-identiteiten,
+opslag, sessies en contracten. Oudere Drupal/sboffice-beschrijvingen hieronder zijn
+historische context en mogen geen nieuwe Office-runtimeafhankelijkheid opleveren.
+Geen Drupal-projectmapping als voorwaarde voor native modules.
+Aansluitcontract en actuele bewijsstatus: `OFFICE_QUALITY_RISK_PROCUREMENT_CONNECTION_20261108.md`.
+
 ## Doel
 
 Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe chat opnieuw vanaf nul wordt opgebouwd. Het bevat de compacte actuele werkstand en verwijst naar de leidende bronnen.

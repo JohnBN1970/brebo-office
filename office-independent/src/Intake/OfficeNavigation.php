@@ -12,20 +12,23 @@ final class OfficeNavigation {
     'personeel'=>['Personeel','/projecten?view=inzet'],
     'calculatie-offertes'=>['Calculatie & Offertes','/calculatie-offertes'],
     'finance'=>['Finance','/finance'],
+    'kwaliteit'=>['Kwaliteit','/kwaliteit'],
+    'risicos'=>['Risico’s','/risicos'],
+    'inkoop'=>['Inkoop','/inkoop'],
     'informatie'=>['Informatie','/informatie'],
   ];
   public const GOTIK=['geld'=>'Geld','organisatie'=>'Organisatie','tijd'=>'Tijd','informatie'=>'Informatie','kwaliteit'=>'Kwaliteit'];
   private static function h(string $value):string{return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function current(string $path):string {
     if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
-    foreach(['crm','calculatie-offertes','finance','informatie']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
+    foreach(['crm','calculatie-offertes','finance','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
     if(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel'))return 'personeel';
     if(str_starts_with($path,'/office-test/projecten'))return 'projecten';
     return 'bedrijf';
   }
   public static function main(string $current):string {
     $html='<nav class="office-global-nav" aria-label="Hoofdnavigatie">';
-    foreach(self::AREAS as$key=>[$label,$path])$html.='<a'.($key===$current?' aria-current="page"':'').' href="/office-test'.$path.'">'.self::h($label).'</a>';
+    foreach(self::AREAS as$key=>[$label,$path]){if(in_array($key,['kwaliteit','risicos','inkoop'],true)&&!self::governanceVisible())continue;$html.='<a'.($key===$current?' aria-current="page"':'').' href="/office-test'.$path.'">'.self::h($label).'</a>';}
     return $html.'</nav>';
   }
   /** Office 2.0 presentation only; routes and ACL remain server-owned. */
@@ -61,6 +64,11 @@ final class OfficeNavigation {
       return false;
     }
   }
+  public static function governanceVisible():bool {
+    return getenv('OFFICE_BASE_PATH')==='/office-test'
+      && getenv('OFFICE_TEST_GOVERNANCE_ENABLED')==='enabled'
+      && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED')==='enabled';
+  }
   public static function mainV2(string $path):string {
     // Only advertise modules whose existing test-environment gates are enabled.
     // This is presentation logic, never a substitute for per-request ACL checks.
@@ -85,19 +93,21 @@ final class OfficeNavigation {
           ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']]
           : []
       ):[]],
-      ['Bedrijfsvoering','bedrijfsvoering',self::financeVisible()?[
+      ['Bedrijfsvoering','bedrijfsvoering',array_merge(self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
-      ]:[]],
+      ]:[],self::governanceVisible()?[['Inkoop','/office-test/inkoop']]:[])],
       ['Rapporten','rapporten',getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' ? [['Inspectierapporten','/office-test/inspecties']] : []],
-      ['Kennis & kwaliteit','kennis',[]],
+      ['Kennis & kwaliteit','kennis',self::governanceVisible()?[['Kwaliteit','/office-test/kwaliteit'],['Risico’s','/office-test/risicos']]:[]],
     ];
     $selected='werkplek';
     if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
+    elseif(str_starts_with($path,'/office-test/inkoop'))$selected='bedrijfsvoering';
+    elseif(str_starts_with($path,'/office-test/kwaliteit')||str_starts_with($path,'/office-test/risicos'))$selected='kennis';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/rapporten'))$selected='rapporten';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
