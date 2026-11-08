@@ -94,7 +94,7 @@ $projectOrders=$source->awardedProjectOrders('one',10,[100,100]);
 $check(count($projectOrders)===1,'project total deduplicates building input');
 $commitment=$source->awardedProjectCommitment('one',10,[100]);
 $check($commitment['commitment_cents']===25100 && $commitment['awarded_order_count']===1,'project commitment uses exact cents');
-$check($source->awardedProjectCommitment('one',10,[])['commitment_cents']===0,'empty project scope has zero commitments');
+$expect(fn()=>$source->awardedProjectCommitment('one',10,[]),'missing building scope must fail closed');
 $expect(fn()=>$source->awardedProjectOrders('outsider',10,[100]),'project commitment enforces module and project ACL');
 $check(count($service->read('reader','procurement',10,100))===1,'authorized list');
 $expect(fn()=>$service->read('outsider','procurement',10,100),'cross-project read');
