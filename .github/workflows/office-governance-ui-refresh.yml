@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Align financial commitments with awarded/received orders, not approvals.
+# Resolve single-building project deep links without changing the Office router.
 on:
   push:
     branches: [develop]
