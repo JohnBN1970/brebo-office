@@ -27,7 +27,7 @@ jobs:
           SSH_PORT: ${{ secrets.DEPLOY_PORT }}
           SSH_USER: ${{ secrets.DEPLOY_USER }}
           RESTORE_HOST: ${{ secrets.CALC_RESTORE_DB_HOST }}
-          RESTORE_NAME: ${{ secrets.CALC_RESTORE_DB_NAME }}
+          RESTORE_NAME: u213420663_calc_bu
           RESTORE_USER: ${{ secrets.CALC_RESTORE_DB_USER }}
           RESTORE_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
         run: |
@@ -41,7 +41,7 @@ jobs:
           for key in SSH_KEY SSH_HOST SSH_PORT SSH_USER RESTORE_HOST RESTORE_NAME RESTORE_USER RESTORE_PASSWORD; do
             test -n "${!key}" || { echo "CALC_RESTORE=BLOCKED_MISSING_$key"; exit 1; }
           done
-          test "$RESTORE_NAME" = u213420663_calc_restore || { echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1; }
+          test "$RESTORE_NAME" = u213420663_calc_bu || { echo 'CALC_RESTORE=BLOCKED_TARGET_NAME'; exit 1; }
           test "$RESTORE_HOST" = localhost || { echo 'CALC_RESTORE=BLOCKED_NONLOCAL_HOST'; exit 1; }
           case "$RESTORE_NAME" in *[!a-zA-Z0-9_]*|'') exit 1;; esac
           sudo apt-get update -qq && sudo apt-get install -y -qq default-mysql-client >/dev/null
