@@ -13,6 +13,7 @@ foreach ([
     [['status'=>'draft'] + $accepted, $lines],
     [$accepted, []],
     [$accepted, [$lines[0], $lines[0]]],
+    [$accepted, [['line_id'=>'overflow','cost_type'=>'labor','quantity'=>PHP_INT_MAX,'unit_cost_cents'=>2]]],
 ] as [$context,$rows]) {
     try { H::prepare($context,$rows); throw new RuntimeException('Invalid handoff accepted'); }
     catch (InvalidArgumentException $expected) {}
