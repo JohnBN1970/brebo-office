@@ -1,0 +1,53 @@
+name: Office governance guarded router mount on Office-test
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/office-governance-router-mount.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-test-route-mount
+  cancel-in-progress: false
+jobs:
+  mount-routing-without-activation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax validation
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/mount-office-governance-routes-test.php
+          php -l office-independent/public/office-governance.php
+      - name: Stage isolated router installer outside webroot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/mount-office-governance-routes-test.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-runtime-stage
+          overwrite: true
+      - name: Back up and install only isolated governance route mappings
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            SCRIPT="$ROOT/.governance-runtime-stage/office-independent/deployment/hostinger/mount-office-governance-routes-test.php"
+            test -f "$SCRIPT"
+            "$PHP" -l "$SCRIPT"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_ROUTER_DEPLOY=explicit
+            "$PHP" "$SCRIPT"
