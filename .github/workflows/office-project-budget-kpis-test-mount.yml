@@ -2,7 +2,7 @@ name: Office-test guarded work budget KPI mount
 on:
   push:
     branches: [develop]
-    paths: ['.github/workflows/office-project-budget-kpis-test-mount.yml']
+    paths: ['.github/workflows/office-project-budget-kpis-test-mount.yml', 'office-independent/deployment/hostinger/mount-project-budget-kpis.py']
   workflow_dispatch:
 permissions:
   contents: read
