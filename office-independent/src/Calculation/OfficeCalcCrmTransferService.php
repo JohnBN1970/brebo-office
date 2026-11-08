@@ -36,6 +36,9 @@ final class OfficeCalcCrmTransferService
             if ($verifyCrmAcceptance($this->db, $acceptance, $lines) !== true) {
                 throw new DomainException('CRM acceptance is not verified against persisted Office data');
             }
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('CRM verifier ended the transfer transaction');
+            }
             // Lock the existing opportunity row when present. A unique index
             // closes the concurrent-insert race when the row is not present.
             $existing = $this->db->prepare(
@@ -55,6 +58,9 @@ final class OfficeCalcCrmTransferService
             // Project creation remains an injected native Office adapter; no
             // project or runtime routing is enabled by this service alone.
             $projectId = $createProject($this->db, $acceptance);
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('Project adapter ended the transfer transaction');
+            }
             if (!is_int($projectId) || $projectId < 1) {
                 throw new DomainException('Project creation did not return a valid ID');
             }
@@ -140,6 +146,9 @@ final class OfficeCalcCrmTransferService
             $projectCheck->execute([$projectId]);
             if ($projectCheck->fetchColumn() === false) {
                 throw new DomainException('Native Office project was not persisted');
+            }
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('Transfer transaction ended before commit');
             }
             $this->db->commit();
             return ['project_id' => $projectId, 'work_budget_id' => $baselineId, 'acceptance_key' => $key];
