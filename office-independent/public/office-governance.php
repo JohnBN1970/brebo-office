@@ -100,6 +100,24 @@ foreach($records as $item) {
     }
 }
 $activeCount=count($records)-array_sum(array_intersect_key($counts,array_flip(['accepted','closed','received','cancelled'])));
+$filterStatus=is_string($_GET['status']??null)?(string)$_GET['status']:'all';
+if(!in_array($filterStatus,['all','open','overdue','closed'],true)) $filterStatus='all';
+$visibleRecords=array_values(array_filter($records,static function(array $r)use($filterStatus,$today):bool {
+    $status=(string)($r['status']??'');
+    $closed=in_array($status,['accepted','closed','received','cancelled'],true);
+    return match($filterStatus) {
+        'open'=>!$closed,
+        'overdue'=>!$closed && is_string($r['payload']['due_date']??null) && $r['payload']['due_date']<$today,
+        'closed'=>$closed,
+        default=>true,
+    };
+}));
+usort($visibleRecords,static function(array $a,array $b):int {
+    $ad=(string)($a['payload']['due_date']??'9999-12-31');
+    $bd=(string)($b['payload']['due_date']??'9999-12-31');
+    return strcmp($ad,$bd) ?: ((int)$b['id']<=>(int)$a['id']);
+});
+
 $moduleLinks=['quality'=>'kwaliteit','risk'=>'risicos','procurement'=>'inkoop'];
 $values=$record['payload']??[];
 $labels=[];
@@ -118,9 +136,9 @@ header('Content-Type: text/html; charset=utf-8');
 <nav class="tabs" aria-label="Projectbeheersing"><?php foreach($moduleLinks as $key=>$route): ?><a class="<?= $key===$module?'current':'' ?>" href="<?= $e('/office-test/'.$route.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>"><?= $e($titles[$key]) ?></a><?php endforeach; ?></nav>
 <div class="kpis"><div class="kpi"><small>Registraties</small><strong><?= count($records) ?></strong></div><div class="kpi"><small>Openstaand</small><strong><?= $activeCount ?></strong></div><div class="kpi <?= $late?'warn':'' ?>"><small>Termijn verstreken</small><strong><?= $late ?></strong></div><?php if($module!=='procurement'): ?><div class="kpi <?= $urgent?'danger':'' ?>"><small><?= $module==='quality'?'Vrijgaveblokkades':'Hoge risico’s (15+)' ?></small><strong><?= $urgent ?></strong></div><?php else: ?><div class="kpi"><small>Goedgekeurd / besteld / ontvangen excl. btw</small><strong>€ <?= $e(number_format($amount/100,2,',','.')) ?></strong></div><?php endif; ?></div>
 <p><a href="/office-test/projecten/detail?id=<?= $e($project) ?>">Terug naar project</a> · Gebouw <?= $e($building) ?></p>
-<section><h2>Dossieroverzicht</h2><table><thead><tr><th>Onderwerp</th><th>Status</th><th>Eigenaar</th><th>Termijn</th></tr></thead><tbody>
-<?php foreach(array_slice($records,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
-</tbody></table><?php if($records===[]): ?><p>Nog geen registraties binnen dit dossier.</p><?php endif; ?><p>Maximaal 200 meest recente registraties.</p></section>
+<section><h2>Dossieroverzicht</h2><nav class="tabs" aria-label="Dossierfilter"><?php foreach(['all'=>'Alles','open'=>'Openstaand','overdue'=>'Te laat','closed'=>'Afgerond'] as $key=>$label): ?><a class="<?= $filterStatus===$key?'current':'' ?>" href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'status'=>$key])) ?>"><?= $e($label) ?> (<?= $key==='all'?count($records):($key==='open'?$activeCount:($key==='overdue'?$late:count($records)-$activeCount)) ?>)</a><?php endforeach; ?></nav><table><thead><tr><th>Onderwerp</th><th>Status</th><th>Eigenaar</th><th>Termijn</th></tr></thead><tbody>
+<?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
+</tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
