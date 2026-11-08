@@ -18,7 +18,7 @@ final class OfficeProcurementOrderSource
         $all = [];
         foreach ($buildingIds as $buildingId) {
             $building = filter_var($buildingId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            if (!is_int($building)) throw new \\InvalidArgumentException('Ongeldig gebouw.');
+            if (!is_int($building)) throw new \InvalidArgumentException('Ongeldig gebouw.');
             if (isset($seen[$building])) continue;
             $seen[$building] = true;
             foreach ($this->awardedOrders($actor, $project, $building) as $order) {
@@ -37,7 +37,7 @@ final class OfficeProcurementOrderSource
         foreach ($orders as $order) {
             $amount = $order['amount_cents'];
             if (!is_int($amount) || $amount < 0 || $total > PHP_INT_MAX - $amount) {
-                throw new \\OverflowException('Ongeldige inkoopverplichting.');
+                throw new \OverflowException('Ongeldige inkoopverplichting.');
             }
             $total += $amount;
         }
