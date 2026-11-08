@@ -31,7 +31,7 @@ final class OfficeCrmFunnelViews {
         if ($view === 'list') {
             $out .= '<table><thead><tr><th>Relatie / lead</th><th>Fase</th><th>Volgende actie</th><th>Datum</th></tr></thead><tbody>';
             foreach ($items as $item) {
-                $out .= '<tr><td>'.self::h($item['name']??'').'</td><td>'.self::h(OfficeCrmFunnel::label((string)($item['stage']??''))).'</td><td>'.self::h($item['next_action']??'').'</td><td>'.self::h($item['due_date']??'').'</td></tr>';
+                $out .= '<tr><td>'.self::h($item['name']??'').self::action($item).'</td><td>'.self::h(OfficeCrmFunnel::label((string)($item['stage']??''))).'</td><td>'.self::h($item['next_action']??'').'</td><td>'.self::h($item['due_date']??'').'</td></tr>';
             }
             return $out.'</tbody></table>';
         }
@@ -50,7 +50,12 @@ final class OfficeCrmFunnelViews {
         }
         return $out.'</div>';
     }
+    private static function action(array $item): string {
+        $id=filter_var($item['id']??null,FILTER_VALIDATE_INT);
+        if ($id===false || $id<1 || in_array((string)($item['stage']??''),['won','lost'],true)) return '';
+        return ' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Fase wijzigen</a>';
+    }
     private static function card(array $item): string {
-        return '<article style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px"><strong>'.self::h($item['name']??'').'</strong><p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
+        return '<article style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
     }
 }
