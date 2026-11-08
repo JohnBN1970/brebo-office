@@ -1,0 +1,106 @@
+name: Calc CRM work-budget three-table Office-test install
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-crm-work-budget-schema-install.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: calc-office-test-schema
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install only three missing CRM work-budget tables with verified restore proof
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.DEPLOY_HOST }}
+          SSH_PORT: ${{ secrets.DEPLOY_PORT }}
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          for k in SSH_KEY SSH_HOST SSH_PORT SSH_USER; do test -n "${!k}"; done
+          sql=office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql
+          test -s "$sql"
+          python3 - "$sql" <<'PY'
+          import re,sys
+          s=open(sys.argv[1]).read()
+          s=re.sub(r'(?m)^\s*--[^\n]*$', '', s)
+          statements=[x.strip() for x in s.split(';') if x.strip()]
+          expected=['office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines']
+          assert len(statements)==3
+          for stmt,name in zip(statements,expected):
+              assert re.match(r'CREATE TABLE IF NOT EXISTS\s+'+name+r'\s*\(',stmt,re.I),name
+          PY
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_calc_three
+          chmod 600 ~/.ssh/id_calc_three
+          remote=".calc-crm-schema-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_three -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "umask 077; mkdir -m 700 -p \"\$HOME/$remote\""
+          scp -q -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_three -P "$SSH_PORT" "$sql" "$SSH_USER@$SSH_HOST:$remote/schema.sql"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_three -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "CALC_SCHEMA_DIR=\"\$HOME/$remote\" bash -s" <<'REMOTE'
+          set -euo pipefail
+          dir="$CALC_SCHEMA_DIR"
+          case "$dir" in "$HOME"/.calc-crm-schema-*) ;; *) exit 1;; esac
+          trap 'rm -rf "$dir"' EXIT
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config"
+          backup=''
+          for file in "$HOME"/domains/brebobv.nl/office_calc_test/backups/office-test-pre-calc-*.sql.gz; do
+            test -f "$file" || continue
+            if test -z "$backup" || test "$file" -nt "$backup"; then backup="$file"; fi
+          done
+          test -n "$backup"
+          test "$(date +%s)" -lt "$(( $(stat -c %Y "$backup") + 86400 ))" || { echo 'CALC_CRM_SCHEMA=BLOCKED_STALE_BACKUP'; exit 1; }
+          gzip -t "$backup"
+          test -f "$backup.restore-verified" || { echo 'CALC_CRM_SCHEMA=BLOCKED_RESTORE_NOT_VERIFIED'; exit 1; }
+          test "$(stat -c %a "$backup.restore-verified")" = 600
+          test "$(cat "$backup.restore-verified")" = "$(sha256sum "$backup" | cut -d ' ' -f 1)" || { echo 'CALC_CRM_SCHEMA=BLOCKED_BACKUP_HASH_MISMATCH'; exit 1; }
+          OFFICE_CONFIG_PATH="$config" SCHEMA_SQL="$dir/schema.sql" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $config=require getenv('OFFICE_CONFIG_PATH');
+              if(!is_array($config))throw new RuntimeException('config');
+              $get=static function(string $key)use($config):string {
+                  $value=getenv($key);
+                  if(is_string($value)&&$value!=='')return $value;
+                  $value=$config[$key]??'';
+                  return is_string($value)?$value:'';
+              };
+              $dsn=$get('OFFICE_INTAKE_PDO_DSN');
+              if(!str_starts_with($dsn,'mysql:'))throw new RuntimeException('dsn');
+              $db=new PDO($dsn,$get('OFFICE_INTAKE_DB_USER'),$get('OFFICE_INTAKE_DB_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
+              $expected=['office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines'];
+              $q=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')");
+              if($q->fetchAll(PDO::FETCH_COLUMN)!==[]){echo "CALC_CRM_SCHEMA=BLOCKED_TABLES_ALREADY_EXIST\n";exit(1);}
+              foreach(['office_projects','office_crm_opportunities'] as $base){
+                  $q=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+                  $q->execute([$base]);
+                  if((int)$q->fetchColumn()!==1)throw new RuntimeException('base-schema');
+              }
+              $sql=file_get_contents(getenv('SCHEMA_SQL'));
+              if($sql===false)throw new RuntimeException('file');
+              $sql=preg_replace('/^\s*--.*$/m','',$sql);
+              $parts=array_values(array_filter(array_map('trim',explode(';',$sql)),static fn($x)=>$x!==''));
+              if(count($parts)!==3)throw new RuntimeException('statement-count');
+              foreach($parts as $i=>$part){
+                  if(!preg_match('/^CREATE TABLE IF NOT EXISTS '.preg_quote($expected[$i],'/').'\s*\(/i',$part))throw new RuntimeException('unexpected-statement');
+              }
+              foreach($parts as $part)$db->exec($part);
+              $found=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')")->fetchAll(PDO::FETCH_COLUMN);
+              sort($found);sort($expected);
+              if($found!==$expected)throw new RuntimeException('postflight');
+              echo "CALC_CRM_SCHEMA=INSTALLED_THREE_TABLES\nCALC_CRM_SCHEMA_POSTFLIGHT=PASS\nCALC_CRM_RUNTIME_ENABLED=NO\n";
+          }catch(Throwable $e){
+              echo "CALC_CRM_SCHEMA=BLOCKED_OR_PARTIAL_REVIEW_REQUIRED\n";
+              exit(1);
+          }
+          PHP
+          REMOTE
