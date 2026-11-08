@@ -81,6 +81,7 @@ $routes = [
   '/office-test/crm/relaties/beheren' => 'office-crm-relation-manage.php',
   '/office-test/crm/verkoopkansen' => 'office-crm-opportunities.php',
   '/office-test/crm/verkoopkansen/nieuw' => 'office-crm-opportunity-create.php',
+  '/office-test/crm/verkoopkansen/fase' => 'office-crm-opportunity-transition.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/projecten' => 'office-projects.php',
