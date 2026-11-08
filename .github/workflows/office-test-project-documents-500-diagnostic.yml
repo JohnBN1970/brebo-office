@@ -163,5 +163,41 @@ jobs:
           PY
             fi
           done
+          # Search only recent server-side PHP errors across common vhost log locations.
+          # Never emit raw log lines, request details, cookies, or exception messages.
+          SITE="$HOME/domains/brebobv.nl" ACTIVE="$active" python3 - <<'PY'
+          import os,pathlib,re,collections
+          site=pathlib.Path(os.environ["SITE"])
+          active=pathlib.Path(os.environ["ACTIVE"])
+          paths=[site/"logs",site/"public_html"/"error_log",site/"public_html"/"office-test"/"error_log",active/"logs",active/"public"/"error_log",site/"office_calc_test"/"error_log"]
+          files=[]
+          for p in paths:
+              if p.is_file() and not p.is_symlink(): files.append(p)
+              elif p.is_dir() and not p.is_symlink():
+                  files.extend(q for q in list(p.glob("*error*"))[:12] if q.is_file() and not q.is_symlink())
+          counts=collections.Counter()
+          inspected=0
+          for p in files[:40]:
+              try:
+                  with p.open(errors="replace") as fh:
+                      lines=collections.deque(fh,maxlen=2500)
+                  inspected+=1
+              except (OSError,PermissionError): continue
+              for line in lines:
+                  if not any(m in line.lower() for m in ("office-documents","officenewdocumentmenu","office-test/documenten")): continue
+                  low=line.lower()
+                  category=("argument_error" if "argumentcounterror" in low else
+                            "type_error" if "typeerror" in low else
+                            "missing_class" if "class" in low and "not found" in low else
+                            "missing_include" if "failed opening" in low else
+                            "undefined_method" if "undefined method" in low else
+                            "database_error" if "pdoexception" in low else
+                            "other")
+                  counts[category]+=1
+          print("DOCUMENTS_LOG_FILES_INSPECTED="+str(inspected),flush=True)
+          print("DOCUMENTS_LOG_MATCH_COUNT="+str(sum(counts.values())),flush=True)
+          for category,count in sorted(counts.items()):
+              print("DOCUMENTS_LOG_CATEGORY_"+category.upper()+"="+str(count),flush=True)
+          PY
           echo OFFICE_TEST_DOCUMENTS_500_DIAGNOSTIC_COMPLETE
           REMOTE
