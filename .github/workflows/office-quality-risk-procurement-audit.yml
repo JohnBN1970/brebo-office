@@ -1,0 +1,41 @@
+name: Office quality risk procurement source audit
+on:
+  push:
+    branches: ['integration/quality-risk-procurement-20261108']
+    paths:
+      - 'office-independent/deployment/hostinger/office-quality-risk-procurement-audit.php'
+      - '.github/workflows/office-quality-risk-procurement-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-quality-risk-procurement-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Validate audit script
+        run: php -l office-independent/deployment/hostinger/office-quality-risk-procurement-audit.php
+      - name: Read isolated Office-test metadata
+        env:
+          AUDIT_HOST: ${{ secrets.DEPLOY_HOST }}
+          AUDIT_PORT: ${{ secrets.DEPLOY_PORT }}
+          AUDIT_USER: ${{ secrets.DEPLOY_USER }}
+          AUDIT_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in AUDIT_HOST AUDIT_PORT AUDIT_USER AUDIT_KEY; do test -n "${!name}"; done
+          [[ "$AUDIT_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$AUDIT_KEY" > ~/.ssh/office_audit
+          chmod 600 ~/.ssh/office_audit
+          trap 'rm -f ~/.ssh/office_audit' EXIT
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_audit -p "$AUDIT_PORT" "$AUDIT_USER@$AUDIT_HOST" php < office-independent/deployment/hostinger/office-quality-risk-procurement-audit.php
