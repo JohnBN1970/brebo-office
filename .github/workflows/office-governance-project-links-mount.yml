@@ -58,3 +58,11 @@ jobs:
             "$PHP" -l "$TARGET"
             grep -Fq governance-project-links-v1 "$TARGET"
             echo PROJECT_LINKS_ACTIVE_PROJECT_VIEW_VERIFIED
+      - name: Public HTTPS smoke for linked modules
+        run: |
+          set -euo pipefail
+          for route in kwaliteit risicos inkoop; do
+            code=$(curl --silent --show-error --output /dev/null --max-time 15 --write-out '%{http_code}' "https://brebobv.nl/office-test/$route?project_id=1")
+            case "$code" in 302|303) echo "GOVERNANCE_LINK_${route}_AUTH_REDIRECT_OK";; *) echo "GOVERNANCE_LINK_${route}_UNEXPECTED_HTTP_$code"; exit 1;; esac
+          done
+
