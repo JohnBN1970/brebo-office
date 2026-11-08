@@ -118,15 +118,17 @@ jobs:
           # An existing file with a different checksum always blocks the deployment.
           existing=0
           missing=0
+          conflicts=0
           for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
             test -f "$source"
             relative="${source#"$stage"/}"
             destination="$target/$relative"
             if [ -e "$destination" ] || [ -L "$destination" ]; then
               if [ ! -f "$destination" ] || [ -L "$destination" ] || ! cmp -s "$source" "$destination"; then
-                echo "CALC_STAGE=BLOCKED_EXISTING_FILE_DIFFERS"
+                echo "CALC_STAGE=EXISTING_FILE_DIFFERS_UNTOUCHED"
                 echo "CALC_STAGE_DIFFERING_FILE=$relative"
-                exit 1
+                conflicts=$((conflicts+1))
+                continue
               fi
               existing=$((existing+1))
             else
@@ -135,6 +137,7 @@ jobs:
           done
           echo "CALC_STAGE_EXISTING_IDENTICAL=$existing"
           echo "CALC_STAGE_MISSING=$missing"
+          echo "CALC_STAGE_CONFLICTS_UNTOUCHED=$conflicts"
           count=0
           for source in "$stage"/public/office-calc-*.php "$stage"/src/Calculation/*.php; do
             relative="${source#"$stage"/}"
@@ -155,7 +158,9 @@ jobs:
           done
           echo "CALC_STAGE=PHP_FILES_VERIFIED_OR_COPIED"
           echo "CALC_STAGE_FILES_NEW=$count"
+          echo "CALC_STAGE_CONFLICTS_UNTOUCHED=$conflicts"
           echo "CALC_ROUTER_CHANGED=NO"
           echo "CALC_FLAGS_ENABLED=NO"
           echo "CALC_RUNTIME_VERIFIED=NO"
+          if [ "$conflicts" -gt 0 ]; then echo "CALC_STAGE=PARTIAL_EXISTING_CONFLICTS_REMAIN"; fi
           REMOTE
