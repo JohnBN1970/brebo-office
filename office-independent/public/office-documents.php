@@ -50,7 +50,9 @@ try {
             exit('Ongeldig project.');
         }
         require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
-        if (!(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead((int)$operator->operatorId, $projectId)) {
+        $operatorId = filter_var($operator->operatorId, FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]);
+        if (!is_int($operatorId) || !(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead($operatorId, $projectId)) {
             http_response_code(404);
             exit('Dossier niet gevonden.');
         }
