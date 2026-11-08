@@ -1,0 +1,73 @@
+name: Calc CRM work-budget Office-test read-only audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-crm-work-budget-db-audit.yml'
+permissions:
+  contents: read
+concurrency:
+  group: calc-crm-work-budget-db-audit
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read-only schema inspection over SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_crm_audit
+          chmod 600 ~/.ssh/id_calc_crm_audit
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_crm_audit -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          if [ ! -f "$config" ]; then echo 'CRM_CALC_DB_AUDIT=BLOCKED_CONFIG_MISSING'; exit 1; fi
+          OFFICE_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $config=require getenv('OFFICE_CONFIG_PATH');
+              if(!is_array($config))throw new RuntimeException('config');
+              $get=static function(string $k)use($config):string{
+                  $v=getenv($k);
+                  if(is_string($v)&&$v!=='')return $v;
+                  $v=$config[$k]??'';
+                  return is_string($v)?$v:'';
+              };
+              $dsn=$get('OFFICE_INTAKE_PDO_DSN');
+              if(!str_starts_with($dsn,'mysql:'))throw new RuntimeException('dsn');
+              $db=new PDO($dsn,$get('OFFICE_INTAKE_DB_USER'),$get('OFFICE_INTAKE_DB_PASSWORD'),[
+                  PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+                  PDO::ATTR_EMULATE_PREPARES=>false,
+              ]);
+              $required=[
+                  'office_calc_crm_acceptance_transfers'=>['id','crm_opportunity_id','acceptance_key','calculation_id','accepted_revision','office_project_id'],
+                  'office_calc_work_budget_baselines'=>['id','acceptance_transfer_id','version_number','locked_at'],
+                  'office_calc_work_budget_lines'=>['id','baseline_id','source_line_id','cost_type','quantity','unit_cost_cents','budget_cents'],
+              ];
+              $stmt=$db->query("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')");
+              $found=[];
+              foreach($stmt as $row)$found[$row['TABLE_NAME']][$row['COLUMN_NAME']]=true;
+              $pass=true;
+              foreach($required as $table=>$columns){
+                  $ok=isset($found[$table]);
+                  foreach($columns as $column)if(!isset($found[$table][$column]))$ok=false;
+                  echo 'CRM_CALC_TABLE_'.strtoupper($table).'='.($ok?'PASS':'MISSING_OR_INCOMPLETE')."\n";
+                  if(!$ok)$pass=false;
+              }
+              echo 'CRM_CALC_DB_AUDIT='.($pass?'PASS':'BLOCKED_SCHEMA_INCOMPLETE')."\n";
+              exit($pass?0:1);
+          }catch(Throwable){
+              echo "CRM_CALC_DB_AUDIT=BLOCKED_CONNECTION_OR_QUERY\n";
+              exit(1);
+          }
+          PHP
+          REMOTE
