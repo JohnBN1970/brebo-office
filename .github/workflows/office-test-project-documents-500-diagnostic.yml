@@ -91,6 +91,17 @@ jobs:
                   tail=line.split("OfficeNewDocumentMenu::render(",1)[1]
                   print("DOCUMENTS_MENU_RENDER_CALL_EMPTY="+str(tail.lstrip().startswith(")")),flush=True)
                   print("DOCUMENTS_MENU_RENDER_CALL_HAS_ARGUMENT="+str(not tail.lstrip().startswith(")")),flush=True)
+          # Classify the exact call argument and potential undefined variable without logging source.
+          for line in docs.splitlines():
+              if "OfficeNewDocumentMenu::render(" in line:
+                  arg=line.split("OfficeNewDocumentMenu::render(",1)[1].split(")",1)[0].strip()
+                  kind="variable" if arg.startswith("$") else "literal" if arg.startswith(("'",'"')) else "expression"
+                  print("DOCUMENTS_RENDER_ARG_KIND="+kind,flush=True)
+                  if arg.startswith("$"):
+                      var=arg.split("[",1)[0].split("->",1)[0]
+                      assigned=bool(re.search(re.escape(var)+r"\\s*=",docs))
+                      print("DOCUMENTS_RENDER_ARG_ASSIGNED="+str(assigned),flush=True)
+          print("DOCUMENTS_ENTRYPOINT_CATCH_THROWABLE="+str("catch (Throwable" in docs or "catch (\\Throwable" in docs),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
@@ -106,6 +117,11 @@ jobs:
                 $method=new ReflectionMethod($class,"render");
                 echo "DOCUMENTS_MENU_RENDER_STATIC=".($method->isStatic()?"true":"false").PHP_EOL;
                 echo "DOCUMENTS_MENU_RENDER_REQUIRED_ARGS=".$method->getNumberOfRequiredParameters().PHP_EOL;
+                $params=$method->getParameters();
+                if (isset($params[0])) {
+                  $type=$params[0]->getType();
+                  echo "DOCUMENTS_MENU_RENDER_FIRST_ARG_TYPE=".($type ? (string)$type : "untyped").PHP_EOL;
+                }
               }
             ' "$menu_file"
           else
