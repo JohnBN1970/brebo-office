@@ -7,8 +7,8 @@ use Brebo\Office\Calculation\OfficeCalcCrmTransferService;
 
 // Disposable SQLite fixture only. These are test inputs, never project budgets.
 if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
-    echo "CRM_CALC_TRANSFER_SQLITE=SKIP_NO_DRIVER\n";
-    exit(0);
+    fwrite(STDERR, "SQLite PDO driver required for atomic transfer regression\n");
+    exit(1);
 }
 final class TransferFixturePdo extends PDO
 {
