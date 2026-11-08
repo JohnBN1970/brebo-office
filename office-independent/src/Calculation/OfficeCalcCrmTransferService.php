@@ -30,10 +30,10 @@ final class OfficeCalcCrmTransferService
         }
         $this->db->beginTransaction();
         try {
-            // Verify persisted CRM acceptance under the same transaction before any
+            // Verify persisted CRM acceptance and EXACT SOURCE LINES under the same transaction before any
             // project or budget write. The adapter must lock the opportunity row
             // and return true only for the exact accepted calculation/revision.
-            if ($verifyCrmAcceptance($this->db, $acceptance) !== true) {
+            if ($verifyCrmAcceptance($this->db, $acceptance, $lines) !== true) {
                 throw new DomainException('CRM acceptance is not verified against persisted Office data');
             }
             // Lock the existing opportunity row when present. A unique index
