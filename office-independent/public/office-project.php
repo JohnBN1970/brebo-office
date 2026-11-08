@@ -628,6 +628,9 @@ if (is_array($financeContracts)
     } catch (\PDOException $e) {
         error_log('Office procurement commitment read unavailable: ' . $e->getCode());
         $financeHtml .= '<p>Inkoopverplichtingen tijdelijk niet beschikbaar.</p>';
+    } catch (\Throwable $e) {
+        error_log('Office procurement commitment unexpected failure: ' . get_class($e));
+        $financeHtml .= '<p>Inkoopverplichtingen tijdelijk niet beschikbaar.</p>';
     }
 }
 $financialSectionHtml .= $financeHtml;
