@@ -42,6 +42,9 @@ final class OfficeCalcWorkBudgetHandoff
                 || !is_int($unitCost) || $unitCost < 0) {
                 throw new InvalidArgumentException('Invalid or duplicate accepted calculation line');
             }
+            if ($quantity > 0 && $unitCost > intdiv(PHP_INT_MAX, $quantity)) {
+                throw new InvalidArgumentException('Accepted calculation line budget overflows integer cents');
+            }
             $ids[$id] = true;
             $items[] = [
                 'source_line_id' => $id,
