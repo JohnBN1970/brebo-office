@@ -19,7 +19,7 @@ foreach ([null, false, 'true', 1] as $allowed) {
 }
 $data['bank_read_allowed'] = true;
 $html = OfficeFinanceView::render($data, 'payments');
-if (!str_contains($html, 'PRIVATE_BANK_MARKER') || !str_contains($html, 'deze maand volgens Moneybird')) throw new RuntimeException('Authorized bank panel or period missing');
+if (!str_contains($html, 'PRIVATE_BANK_MARKER') || !str_contains($html, 'aria-label="Bankgegevens"')) throw new RuntimeException('Authorized bank panel or period missing');
 if (str_contains(OfficeFinanceView::render($data, 'dashboard'), 'PRIVATE_BANK_MARKER') || str_contains(OfficeFinanceView::render($data, 'dashboard'), 'PRIVATE_IBAN_MARKER')) throw new RuntimeException('Bank details must stay in payments, not dashboard');
 $data['project'] = ['office_project_id'=>7, 'title'=>'Project'];
 if (str_contains(OfficeFinanceView::render($data, 'dashboard'), 'PRIVATE_BANK_MARKER')) throw new RuntimeException('Organisation bank panel leaked into project overview');
