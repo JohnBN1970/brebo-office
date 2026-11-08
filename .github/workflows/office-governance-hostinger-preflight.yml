@@ -1,0 +1,51 @@
+name: Office governance isolated schema preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST for read-only audit
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint audit script
+        run: php -l office-independent/deployment/hostinger/audit-office-governance-readonly.php
+  audit:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage read-only audit outside public root
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/audit-office-governance-readonly.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-audit-stage
+          overwrite: true
+      - name: Read-only test database inspection
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            FILE="$ROOT/.governance-audit-stage/office-independent/deployment/hostinger/audit-office-governance-readonly.php"
+            test -f "$FILE"
+            PHP=/opt/alt/php83/usr/bin/php
+            "$PHP" -l "$FILE"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_PREFLIGHT=read-only
+            "$PHP" "$FILE"
