@@ -3,7 +3,7 @@ declare(strict_types=1);
 $root=dirname(__DIR__);
 $m=file_get_contents($root.'/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php');
 $r=file_get_contents($root.'/src/Crm/OfficeCrmOpportunityRepository.php');
-foreach (['OFFICE_CRM_LEGACY_MIGRATION','OFFICE_BASE_PATH','OFFICE_TEST_CONFIG_PATH','u213420663_office_test','legacy_rows_present_manual_mapping_required','partial_migration_inspect_first','ALTER TABLE office_crm_opportunities ADD COLUMN','CREATE','CRM_LEGACY_MIGRATION_COMPLETE'] as $marker) {
+foreach (['OFFICE_CRM_LEGACY_MIGRATION','OFFICE_BASE_PATH','OFFICE_TEST_CONFIG_PATH','u213420663_office_test','legacy_rows_present_manual_mapping_required','partial_migration_inspect_first','ALTER TABLE office_crm_opportunities ADD COLUMN','OfficeCrmOpportunitySchema::statements','CRM_LEGACY_MIGRATION_COMPLETE'] as $marker) {
     if (!str_contains($m,$marker)) { fwrite(STDERR,"Missing safety marker: ".$marker."\n"); exit(1); }
 }
 foreach (['DROP TABLE','TRUNCATE TABLE','DELETE FROM office_crm_opportunities','RENAME TABLE'] as $forbidden) {
