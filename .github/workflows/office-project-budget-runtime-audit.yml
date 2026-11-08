@@ -37,7 +37,7 @@ jobs:
                 $v=$c[$key]??'';return is_string($v)?$v:'';
             };
             $root=$get('OFFICE_PRIVATE_ROOT');
-            if(!str_starts_with($root,dirname(getenv('OFFICE_CONFIG_PATH')).'/release-') && !str_starts_with($root,dirname(getenv('OFFICE_CONFIG_PATH')).'/../release-')){
+            if(!str_starts_with($root,dirname(dirname(getenv('OFFICE_CONFIG_PATH'))).'/release-') || !str_ends_with($root,'/private')){
                 echo "BUDGET_AUDIT=INVALID_RELEASE_SCOPE\n";exit(3);
             }
             $target=$root.'/public/office-project.php';
