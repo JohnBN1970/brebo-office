@@ -27,31 +27,7 @@ jobs:
             PHP=/opt/alt/php83/usr/bin/php
             CONFIG="$BASE/config/config.php"
             test -f "$CONFIG"
-            OFFICE_CONFIG_PATH="$CONFIG" "$PHP" <<'PHP'
-            <?php
-            declare(strict_types=1);
-            $c=require getenv('OFFICE_CONFIG_PATH');
-            if(!is_array($c) || ($c['OFFICE_BASE_PATH']??'')!=='/office-test')exit(2);
-            $get=static function(string $key)use($c):string{
-                $v=getenv($key);if(is_string($v)&&$v!=='')return $v;
-                $v=$c[$key]??'';return is_string($v)?$v:'';
-            };
-            $root=$get('OFFICE_PRIVATE_ROOT');
-            if(!str_starts_with($root,dirname(dirname(getenv('OFFICE_CONFIG_PATH'))).'/release-') || !str_ends_with($root,'/private')){
-                echo "BUDGET_AUDIT=INVALID_RELEASE_SCOPE\n";exit(3);
-            }
-            $target=$root.'/public/office-project.php';
-            echo 'BUDGET_CONTROLLER_PATCH='.(is_file($target)&&str_contains((string)file_get_contents($target),'OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED')?'PRESENT':'MISSING')."\n";
-            echo 'BUDGET_KPI_FLAG='.($get('OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED')==='enabled'?'ENABLED':'DISABLED')."\n";
-            $dsn=$get('OFFICE_INTAKE_PDO_DSN');
-            if(!str_starts_with($dsn,'mysql:')){echo "BUDGET_SCHEMA=UNKNOWN_DSN\n";exit(4);}
-            $db=new PDO($dsn,$get('OFFICE_INTAKE_DB_USER'),$get('OFFICE_INTAKE_DB_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
-            $expected=['office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines'];
-            $q=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')");
-            $found=$q->fetchAll(PDO::FETCH_COLUMN);sort($found);sort($expected);
-            echo 'BUDGET_SCHEMA='.($found===$expected?'THREE_TABLES_PRESENT':('PARTIAL_OR_MISSING_'.count($found)))."\n";
-            if($found===$expected){
-                $q=$db->query("SELECT COUNT(*) FROM office_calc_work_budget_baselines WHERE locked_at IS NOT NULL");
-                echo 'BUDGET_LOCKED_BASELINE_COUNT='.(int)$q->fetchColumn()."\n";
-            }
-            PHP
+            echo BUDGET_AUDIT_START
+            "$PHP" -r '$c=require $argv[1]; if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??"")!=="/office-test") {echo "BUDGET_CONFIG_SCOPE=INVALID\\n";exit(3);} $root=$c["OFFICE_PRIVATE_ROOT"]??""; $base=dirname($argv[1],2); if (!is_string($root) || !str_starts_with($root,$base."/release-") || !str_ends_with($root,"/private")) {echo "BUDGET_RELEASE_SCOPE=INVALID\\n";exit(4);} $file=$root."/public/office-project.php";echo "BUDGET_CONTROLLER_PATCH=".(is_file($file)&&str_contains((string)file_get_contents($file),"OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED")?"PRESENT":"MISSING")."\\n";echo "BUDGET_KPI_FLAG=".(($c["OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED"]??"")==="enabled"?"ENABLED":"DISABLED")."\\n";' "$CONFIG"
+            echo BUDGET_AUDIT_CONFIG_OK
+            "$PHP" -r '$c=require $argv[1]; $get=static function($k)use($c){$v=getenv($k);return is_string($v)&&$v!==""?$v:($c[$k]??"");}; $dsn=$get("OFFICE_INTAKE_PDO_DSN");if(!is_string($dsn)||!str_starts_with($dsn,"mysql:")){echo "BUDGET_SCHEMA=UNKNOWN_DSN\\n";exit(5);}try{$db=new PDO($dsn,$get("OFFICE_INTAKE_DB_USER"),$get("OFFICE_INTAKE_DB_PASSWORD"),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$expected=["office_calc_crm_acceptance_transfers","office_calc_work_budget_baselines","office_calc_work_budget_lines"];$q=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (\x27office_calc_crm_acceptance_transfers\x27,\x27office_calc_work_budget_baselines\x27,\x27office_calc_work_budget_lines\x27)");$found=$q->fetchAll(PDO::FETCH_COLUMN);sort($found);sort($expected);echo "BUDGET_SCHEMA=".($found===$expected?"THREE_TABLES_PRESENT":"PARTIAL_OR_MISSING_".count($found))."\\n";if($found===$expected){$q=$db->query("SELECT COUNT(*) FROM office_calc_work_budget_baselines WHERE locked_at IS NOT NULL");echo "BUDGET_LOCKED_BASELINE_COUNT=".(int)$q->fetchColumn()."\\n";}}catch(Throwable $e){echo "BUDGET_DATABASE_AUDIT_FAILED=".get_class($e)."\\n";exit(6);}' "$CONFIG"
