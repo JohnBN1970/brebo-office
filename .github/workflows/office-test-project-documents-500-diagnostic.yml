@@ -85,6 +85,12 @@ jobs:
                   print("DOCUMENTS_MENU_REQUIRE_LINE_HAS_ACTIVE_PARENT="+str("dirname(__DIR__)" in line),flush=True)
           for candidate in candidates[:10]:
               print("DOCUMENTS_MENU_PHP_LINT_TARGET="+str(candidate.relative_to(active)),flush=True)
+          # Inspect render invocation and required argument shape without exposing source.
+          for line in docs.splitlines():
+              if "OfficeNewDocumentMenu::render(" in line:
+                  tail=line.split("OfficeNewDocumentMenu::render(",1)[1]
+                  print("DOCUMENTS_MENU_RENDER_CALL_EMPTY="+str(tail.lstrip().startswith(")")),flush=True)
+                  print("DOCUMENTS_MENU_RENDER_CALL_HAS_ARGUMENT="+str(not tail.lstrip().startswith(")")),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
@@ -112,7 +118,7 @@ jobs:
               /office-test/documenten/nieuw) label=documents_new ;;
               *) label=projects ;;
             esac
-            status="$(curl -sS -L --max-redirs 0 --connect-timeout 8 --max-time 20 -o /dev/null -w '%{http_code}' "https://brebobv.nl$route" 2>/dev/null)" || status=transport_error
+            status="$(curl -sS --max-redirs 0 --connect-timeout 8 --max-time 20 -o /dev/null -w '%{http_code}' "https://brebobv.nl$route" 2>/dev/null)" || status=transport_error
             echo "DOCUMENTS_HTTP_${label}=$status"
           done
           # Do not expose request paths, IPs, cookies or raw exception messages.
