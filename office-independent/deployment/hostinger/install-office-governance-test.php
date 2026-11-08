@@ -39,6 +39,7 @@ try {
     if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'u213420663_office_test') {
         throw new RuntimeException('wrong_database');
     }
+    $phase = 'parents';
     $expected = ['office_quality_checks', 'office_risks', 'office_procurement_orders',
         'office_governance_commands', 'office_governance_audit'];
     $tableQuery = $db->prepare('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?');
@@ -58,6 +59,7 @@ try {
             }
         }
     }
+    $phase = 'parent_index';
     $indexQuery = $db->prepare('SELECT INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX');
     $indexQuery->execute(['u213420663_office_test', 'office_project_buildings']);
     $indexes = [];
@@ -74,6 +76,7 @@ try {
     if (!$hasParentIndex) {
         throw new RuntimeException('project_buildings_fk_index_missing');
     }
+    $phase = 'existing_tables';
     foreach ($expected as $table) {
         $tableQuery->execute(['u213420663_office_test', $table]);
         if ($tableQuery->fetchColumn() !== false) {
@@ -81,9 +84,12 @@ try {
         }
     }
     echo "OFFICE_GOVERNANCE_PREFLIGHT_PASSED\n";
-    foreach (\Brebo\Office\Governance\OfficeGovernanceSchema::statements('mysql') as $sql) {
+    $phase = 'ddl';
+    foreach (\Brebo\Office\Governance\OfficeGovernanceSchema::statements('mysql') as $i => $sql) {
+        $phase = 'ddl_statement_' . ($i + 1);
         $db->exec($sql);
     }
+    $phase = 'verify';
     foreach ($expected as $table) {
         $tableQuery->execute(['u213420663_office_test', $table]);
         if ($tableQuery->fetchColumn() !== 'InnoDB') {
@@ -94,6 +100,8 @@ try {
     echo "OFFICE_GOVERNANCE_SCHEMA_INSTALL_COMPLETE\n";
 } catch (Throwable $e) {
     // Avoid printing database credentials or exception detail from a connector.
-    fwrite(STDERR, "ABORT: schema installation incomplete; inspect database before retry\n");
+    $reason = $e instanceof RuntimeException ? $e->getMessage() : get_class($e);
+    $reason = preg_match('/^[a-zA-Z0-9_]+$/D', $reason) ? $reason : get_class($e);
+    fwrite(STDERR, "ABORT: governance installation phase=" . ($phase ?? 'connect') . " reason=" . $reason . "; inspect database before retry\n");
     exit(1);
 }
