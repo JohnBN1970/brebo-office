@@ -13,7 +13,7 @@ final class OfficeCrmOpportunityRepository {
     public function create(int $relationId,string $title,?int $contactId=null): int {
         $title=trim($title);
         if ($relationId<1 || $title==='' || mb_strlen($title)>255 || ($contactId!==null && $contactId<1)) throw new InvalidArgumentException('Ongeldige verkoopkans.');
-        $stmt=$this->db->prepare("INSERT INTO office_crm_opportunities (relation_id,contact_id,title,stage) VALUES (?,?,?,'prospect')");
+        $stmt=$this->db->prepare("INSERT INTO office_crm_opportunities (relation_id,contact_id,title,stage,currency) VALUES (?,?,?,'prospect','EUR')");
         $stmt->execute([$relationId,$contactId,$title]);
         return (int)$this->db->lastInsertId();
     }
