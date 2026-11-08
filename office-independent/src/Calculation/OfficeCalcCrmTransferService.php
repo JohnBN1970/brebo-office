@@ -16,7 +16,7 @@ final class OfficeCalcCrmTransferService
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function transfer(array $acceptance, array $lines, callable $createProject): array
+    public function transfer(array $acceptance, array $lines, callable $createProject, callable $verifyCrmAcceptance): array
     {
         if ($this->db->inTransaction()) {
             throw new DomainException('Transfer requires ownership of transaction');
@@ -27,6 +27,12 @@ final class OfficeCalcCrmTransferService
         $budget = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines);
         $this->db->beginTransaction();
         try {
+            // Verify persisted CRM acceptance under the same transaction before any
+            // project or budget write. The adapter must lock the opportunity row
+            // and return true only for the exact accepted calculation/revision.
+            if ($verifyCrmAcceptance($this->db, $acceptance) !== true) {
+                throw new DomainException('CRM acceptance is not verified against persisted Office data');
+            }
             // Lock the existing opportunity row when present. A unique index
             // closes the concurrent-insert race when the row is not present.
             $existing = $this->db->prepare(
