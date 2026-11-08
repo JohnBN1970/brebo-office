@@ -28,14 +28,15 @@ if b"awardedProjectCommitment" in active:
         print("FINANCE_GOVERNANCE_WIDGET_ALREADY_PRESENT")
         sys.exit(0)
     sys.exit("FINANCE_GOVERNANCE_WIDGET_CONFLICT")
-if active.count(end) != 1 or active.count(b"$financeHtml") < 2:
+live_anchor = b"$moduleHtml .= $financeHtml;"
+if active.count(live_anchor) != 1 or active.count(b"$financeHtml") < 2 or b"$financeContracts" not in active:
     sys.exit("FINANCE_GOVERNANCE_LIVE_ANCHOR_MISMATCH")
 for marker in [b"OfficeProjectFinanceOverview", b"OfficeNativeProjectAccess", b"create_project_contract",
                b"create_project_term", b"create_project_change", b"OfficeProjectDetailV3View"]:
     if marker not in active:
         sys.exit("FINANCE_GOVERNANCE_LIVE_REQUIRED_MARKER_MISSING")
-new = active.replace(end, widget + end, 1)
-if new.count(widget) != 1 or new.count(end) != 1:
+new = active.replace(live_anchor, widget + live_anchor, 1)
+if new.count(widget) != 1 or new.count(live_anchor) != 1:
     sys.exit("FINANCE_GOVERNANCE_PATCH_FAILED")
 backup = target.with_name(target.name + ".backup-before-governance-" + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"))
 with backup.open("xb") as f:
