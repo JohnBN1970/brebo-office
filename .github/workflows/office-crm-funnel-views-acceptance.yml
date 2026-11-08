@@ -1,0 +1,21 @@
+name: CRM funnel views acceptance
+on:
+  push:
+    branches: [feature/crm-funnel-views-20261108]
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmFunnel*.php'
+      - 'office-independent/tests/OfficeCrmFunnelViewsTest.php'
+      - '.github/workflows/office-crm-funnel-views-acceptance.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/src/Crm/OfficeCrmFunnel.php
+          php -l office-independent/src/Crm/OfficeCrmFunnelViews.php
+          php office-independent/tests/OfficeCrmFunnelViewsTest.php
