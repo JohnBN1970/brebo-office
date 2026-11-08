@@ -78,6 +78,13 @@ jobs:
               namespace=re.search(r"namespace\s+([A-Za-z0-9_\\]+)\s*;",source)
               print("DOCUMENTS_MENU_NAMESPACE="+(namespace.group(1) if namespace else "none"),flush=True)
               print("DOCUMENTS_MENU_HAS_STATIC_RENDER="+str(bool(re.search(r"static\s+function\s+render\s*\(",source))),flush=True)
+          # Resolve the actual menu require target relative to the active public entrypoint.
+          for line in docs.splitlines():
+              if "OfficeNewDocumentMenu.php" in line and "require" in line:
+                  print("DOCUMENTS_MENU_REQUIRE_LINE_HAS_DIRNAME="+str("__DIR__" in line),flush=True)
+                  print("DOCUMENTS_MENU_REQUIRE_LINE_HAS_ACTIVE_PARENT="+str("dirname(__DIR__)" in line),flush=True)
+          for candidate in candidates[:10]:
+              print("DOCUMENTS_MENU_PHP_LINT_TARGET="+str(candidate.relative_to(active)),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
