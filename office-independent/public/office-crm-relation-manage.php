@@ -34,8 +34,8 @@ if (!is_int($id)) { http_response_code(400); exit('Ongeldig relatienummer.'); }
 $stmt=$db->prepare('SELECT * FROM office_crm_relations WHERE id=? LIMIT 1');$stmt->execute([$id]);$relation=$stmt->fetch(PDO::FETCH_ASSOC);
 if (!$relation) { http_response_code(404); exit('Relatie niet gevonden.'); }
 $errors=[];
-$fields=['display_name'=>255,'legal_name'=>255,'chamber_of_commerce'=>32,'vat_number'=>48,'email'=>254,'phone'=>48,'street'=>255,'postal_code'=>32,'city'=>128,'country_code'=>2];
-$labels=['display_name'=>'Relatienaam','legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
+$fields=['display_name'=>255,'legal_name'=>255,'chamber_of_commerce'=>32,'vat_number'=>48,'email'=>254,'invoice_email'=>254,'offer_email'=>254,'billing_street'=>255,'billing_postal_code'=>32,'billing_city'=>128,'billing_country_code'=>2,'phone'=>48,'street'=>255,'postal_code'=>32,'city'=>128,'country_code'=>2];
+$labels=['display_name'=>'Relatienaam','legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'Algemene e-mail','invoice_email'=>'Factuur e-mail','offer_email'=>'Offerte e-mail','billing_street'=>'Factuuradres: straat en huisnummer','billing_postal_code'=>'Factuuradres: postcode','billing_city'=>'Factuuradres: plaats','billing_country_code'=>'Factuuradres: landcode','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 $roles=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
 $stmt=$db->prepare('SELECT role_code FROM office_crm_relation_roles WHERE relation_id=?');$stmt->execute([$id]);$selected=$stmt->fetchAll(PDO::FETCH_COLUMN);
 if ($method==='POST') {
@@ -59,7 +59,9 @@ if ($method==='POST') {
   if (!is_array($postedRoles)||array_filter($postedRoles,static fn($v)=>!is_string($v))||array_diff($postedRoles,array_keys($roles))) $errors[]='Ongeldige rollen.';
   else $selected=array_values(array_unique($postedRoles));
   if (($relation['display_name']??'')==='') $errors[]='Relatienaam is verplicht.';
-  if (($relation['email']??'')!==''&&!filter_var($relation['email'],FILTER_VALIDATE_EMAIL)) $errors[]='Ongeldig e-mailadres.';
+  foreach(['email','invoice_email','offer_email'] as $emailField)if(($relation[$emailField]??'')!==''&&(!filter_var($relation[$emailField],FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$relation[$emailField])))$errors[]='Ongeldig e-mailadres bij '.$labels[$emailField];
+  $relation['billing_country_code']=strtoupper((string)($relation['billing_country_code']??''));
+  if($relation['billing_country_code']!==''&&!preg_match('/^[A-Z]{2}$/D',$relation['billing_country_code']))$errors[]='Factuuradres: landcode moet twee hoofdletters zijn.';
   $relation['country_code']=strtoupper((string)($relation['country_code']??''));
   if (!preg_match('/^[A-Z]{2}$/D',(string)$relation['country_code'])) $errors[]='Landcode moet twee hoofdletters zijn.';
   if ($relation['status']==='archived') $errors[]='Gearchiveerde relatie eerst herstellen.';
