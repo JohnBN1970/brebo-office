@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Includes ACL-scoped cross-module project control overview and deadline filters.
+# Align financial commitments with awarded/received orders, not approvals.
 on:
   push:
     branches: [develop]
