@@ -623,6 +623,23 @@ if (is_array($financeContracts)
                 . number_format($commitment['commitment_cents'] / 100, 2, ',', '.')
                 . '</strong></dd><dt>Aantal opdrachten</dt><dd>' . (int) $commitment['awarded_order_count']
                 . '</dd></dl><p>Verplichtingen zijn geen geboekte kosten, facturen of betalingen.</p></section>';
+
+            // Canonical locked work budget: read only, same authorized procurement scope.
+            // A missing/uninstalled baseline must not suppress the existing commitments.
+            if (getenv('OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED') === 'enabled') {
+                try {
+                    require_once dirname(__DIR__) . '/src/Governance/OfficeWorkBudgetBaselineReader.php';
+                    require_once dirname(__DIR__) . '/src/Governance/OfficeWorkBudgetCommitmentComparison.php';
+                    require_once dirname(__DIR__) . '/src/Project/OfficeProjectBudgetKpiView.php';
+                    $baseline = (new \\Brebo\\Office\\Governance\\OfficeWorkBudgetBaselineReader($db))->forProject((int) $projectId);
+                    $comparison = \\Brebo\\Office\\Governance\\OfficeWorkBudgetCommitmentComparison::summarize($baseline, $commitment);
+                    $financeHtml .= \\Brebo\\Office\\Project\\OfficeProjectBudgetKpiView::render($comparison);
+                } catch (\\Throwable $budgetError) {
+                    error_log('Office locked work budget KPI unavailable: ' . get_class($budgetError));
+                    $financeHtml .= '<p>Vergelijking met de vastgestelde werkbegroting tijdelijk niet beschikbaar.</p>';
+                }
+            }
+
         }
     } catch (\DomainException | \InvalidArgumentException $e) {
         $financeHtml .= '<p>Inkoopverplichtingen niet beschikbaar: onvoldoende inkooprechten of ongeldige projectscope.</p>';
