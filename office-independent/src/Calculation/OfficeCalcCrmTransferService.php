@@ -110,6 +110,32 @@ final class OfficeCalcCrmTransferService
                 || (int)$stored['line_count'] !== count($budget['items'])) {
                 throw new DomainException('Persisted locked work budget verification failed');
             }
+            // Compare every persisted value with the verified accepted source,
+            // not merely the row count. Reject silent truncation or substitution.
+            $readLines = $this->db->prepare(
+                'SELECT source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref ' .
+                'FROM office_calc_work_budget_lines WHERE baseline_id = ? ORDER BY source_line_id'
+            );
+            $readLines->execute([$baselineId]);
+            $actualLines = $readLines->fetchAll(PDO::FETCH_ASSOC);
+            $expectedLines = $budget['items'];
+            usort($expectedLines, static fn(array $a, array $b): int =>
+                strcmp($a['source_line_id'], $b['source_line_id']));
+            if (count($actualLines) !== count($expectedLines)) {
+                throw new DomainException('Persisted work budget line count differs');
+            }
+            foreach ($expectedLines as $index => $expected) {
+                $actual = $actualLines[$index] ?? null;
+                if (!is_array($actual)
+                    || (string)$actual['source_line_id'] !== $expected['source_line_id']
+                    || (string)$actual['cost_type'] !== $expected['cost_type']
+                    || (int)$actual['quantity'] !== $expected['quantity']
+                    || (int)$actual['unit_cost_cents'] !== $expected['unit_cost_cents']
+                    || (int)$actual['budget_cents'] !== $expected['budget_cents']
+                    || $actual['activity_ref'] !== $expected['activity_ref']) {
+                    throw new DomainException('Persisted work budget line differs from accepted source');
+                }
+            }
             $projectCheck = $this->db->prepare('SELECT 1 FROM office_projects WHERE id = ?');
             $projectCheck->execute([$projectId]);
             if ($projectCheck->fetchColumn() === false) {
