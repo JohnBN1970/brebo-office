@@ -36,6 +36,13 @@ final class OfficeProjectDetailV3View
         // Contextual Documents entry is an external destination, not a sixth
         // content pane; keep it inside the existing project tab strip.
         $html .= '<a href="' . $e(rtrim($basePath, '/') . '/documenten?project_id=' . $projectId) . '">Documenten</a>';
+        if (getenv('OFFICE_BASE_PATH') === '/office-test'
+            && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'enabled'
+            && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED') === 'enabled') {
+            foreach (['kwaliteit'=>'Kwaliteit','risicos'=>'Risico’s','inkoop'=>'Inkoop'] as $route=>$label) {
+                $html .= '<a href="' . $e(rtrim($basePath, '/') . '/' . $route . '?project_id=' . $projectId) . '">' . $e($label) . '</a>';
+            }
+        }
         $html .= '</nav><main class="project-v3-content">';
         if ($tab === 'overzicht' && !isset($sections['overzicht'])) {
             $html .= '<section aria-label="Projectdashboard"><h2>Projectdashboard</h2>'

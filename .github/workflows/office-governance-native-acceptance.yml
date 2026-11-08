@@ -1,0 +1,73 @@
+name: Office native quality risk procurement acceptance
+on:
+  push:
+    branches: ['integration/quality-risk-procurement-20261108']
+    paths:
+      - 'office-independent/src/Governance/**'
+      - 'office-independent/public/office-governance.php'
+      - 'office-independent/tests/OfficeGovernance*'
+      - '.github/workflows/office-governance-native-acceptance.yml'
+  pull_request:
+    paths:
+      - 'office-independent/src/Governance/**'
+      - 'office-independent/public/office-governance.php'
+      - 'office-independent/tests/OfficeGovernance*'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - '.github/workflows/office-governance-native-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-only
+          MYSQL_DATABASE: governance_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pfixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql
+          coverage: none
+      - name: Lint and enforce native dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          find office-independent/src/Governance -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l office-independent/public/office-governance.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Intake/OfficeNavigation.php
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          if grep -REn 'Drupal\\|node_field_data|project_nid|office_finance_project_mapping|brebo_procurement_' office-independent/src/Governance office-independent/public/office-governance.php; then
+            echo 'Native modules must use only Office identities and contracts'
+            exit 1
+          fi
+      - name: SQLite business and authorization chains
+        run: php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: MySQL persistence and rollback chains
+        env:
+          GOVERNANCE_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=governance_ci;charset=utf8mb4'
+          GOVERNANCE_TEST_USER: root
+          GOVERNANCE_TEST_PASSWORD: fixture-only
+        run: php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: Verify navigation and migration proposal
+        run: |
+          php office-independent/tests/OfficeNavigationV2Test.php
+          php office-independent/tests/OfficeGovernanceNavigationTest.php
+          php office-independent/deployment/hostinger/office-governance-schema-plan.php > /tmp/office-governance-review.sql
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-governance-schema-review
+          path: /tmp/office-governance-review.sql
