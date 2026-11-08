@@ -47,6 +47,28 @@ jobs:
             test -f "$f"
             php -l "$f"
           done
+      - name: Read-only conflicting Calc file audit (hash and syntax only)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          local_file=office-independent/src/Calculation/OfficeCalcLaunchToken.php
+          echo "CALC_AUDIT_REPO_SHA256=$(sha256sum "$local_file" | cut -d' ' -f1)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_stage -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          target=$(OFFICE_CONFIG_PATH="$base/config/config.php" php -r '$c=require getenv("OFFICE_CONFIG_PATH"); if (!is_array($c)) exit(1); echo $c["OFFICE_PRIVATE_ROOT"] ?? "";')
+          target=$(realpath "$target")
+          case "$target" in "$base"/release-*/private) ;; *) echo CALC_AUDIT=BLOCKED_TARGET; exit 1;; esac
+          file="$target/src/Calculation/OfficeCalcLaunchToken.php"
+          test -f "$file" && test ! -L "$file"
+          echo "CALC_AUDIT_SERVER_SHA256=$(sha256sum "$file" | cut -d' ' -f1)"
+          echo "CALC_AUDIT_SERVER_SIZE=$(wc -c < "$file")"
+          php -l "$file"
+          echo CALC_AUDIT=READ_ONLY_COMPLETE
+          REMOTE
       - name: Stage only previously absent PHP bridge files in active release
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
