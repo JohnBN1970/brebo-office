@@ -28,7 +28,7 @@ if ($governanceProjectId > 0 && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'en
     $governanceQuery = '?project_id=' . rawurlencode((string) $governanceProjectId);
     $financeHtml .= '<section class="module"><!-- governance-project-links-v1 --><h3>Projectbeheersing</h3><p>'
         . '<a href="/office-test/kwaliteit' . $governanceQuery . '">Kwaliteit</a> &middot; '
-        . '<a href="/office-test/risicos' . $governanceQuery . '">Risico\'s</a> &middot; '
+        . '<a href="/office-test/risicos' . $governanceQuery . '">Risico\\'s</a> &middot; '
         . '<a href="/office-test/inkoop' . $governanceQuery . '">Inkoop</a>'
         . '</p><p>Projectgebonden dossiers; toegang wordt per onderdeel gecontroleerd.</p></section>';
 }
@@ -43,7 +43,9 @@ try:
     with os.fdopen(fd, "wb") as f:
         f.write(new)
     os.chmod(tmp, target.stat().st_mode & 0o777)
-    if subprocess.run(["php", "-l", tmp], capture_output=True).returncode:
+    lint = subprocess.run(["php", "-l", tmp], capture_output=True, text=True)
+    if lint.returncode:
+        print(lint.stderr.strip()[:1000])
         sys.exit("PROJECT_LINKS_CANDIDATE_PHP_INVALID")
     if target.read_bytes() != old:
         sys.exit("PROJECT_LINKS_CONCURRENT_CHANGE_ABORT")
