@@ -23,3 +23,8 @@ jobs:
               *) echo "GOVERNANCE_PUBLIC_$route=FAILED_HTTP_$code"; exit 1 ;;
             esac
           done
+          code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' --max-redirs 0 "https://brebobv.nl/office-test/projecten/detail?id=1" || true)"
+          case "$code" in
+            200|301|302|303|307|308|401|403|404) echo "PROJECT_DETAIL_UNAUTHENTICATED_HTTP_$code" ;;
+            *) echo "PROJECT_DETAIL_HTTP_FAILED_$code"; exit 1 ;;
+          esac
