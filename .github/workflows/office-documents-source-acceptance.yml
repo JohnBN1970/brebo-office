@@ -37,7 +37,7 @@ jobs:
           set -eu
           php -r '
             $page = file_get_contents("office-independent/public/office-documents.php");
-            foreach (["FILTER_VALIDATE_INT", "!is_int($operatorId)", "OfficeNativeProjectAccess", "canRead($operatorId, $projectId)"] as $marker) {
+            foreach (["FILTER_VALIDATE_INT", "!is_int(\$operatorId)", "OfficeNativeProjectAccess", "canRead(\$operatorId, \$projectId)"] as $marker) {
               if (strpos($page, $marker) === false) {
                 fwrite(STDERR, "Missing project access protection\n"); exit(1);
               }
