@@ -28,8 +28,8 @@ foreach ([
     'CREATE TABLE office_calc_work_budget_baselines (id INTEGER PRIMARY KEY AUTOINCREMENT, acceptance_transfer_id INTEGER REFERENCES office_calc_crm_acceptance_transfers(id), version_number INTEGER NOT NULL, locked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(acceptance_transfer_id,version_number))',
     'CREATE TABLE office_calc_work_budget_lines (id INTEGER PRIMARY KEY AUTOINCREMENT, baseline_id INTEGER NOT NULL REFERENCES office_calc_work_budget_baselines(id), source_line_id TEXT, cost_type TEXT, quantity INTEGER, unit_cost_cents INTEGER, budget_cents INTEGER, activity_ref TEXT, UNIQUE(baseline_id,source_line_id))',
 ] as $sql) $db->exec($sql);
-$db->exec("INSERT INTO accepted_calc VALUES ('41',501,'r7','accepted'),('42',502,'r3','accepted'),('43',503,'r1','accepted'),('44',504,'r1','accepted')");
-$db->exec("INSERT INTO accepted_calc_lines VALUES ('41','line-a','labor',2,100),('42','line-b','material',3,200),('43','line-c','other',1,300),('44','line-d','labor',1,400)");
+$db->exec("INSERT INTO accepted_calc VALUES ('41',501,'r7','accepted'),('42',502,'r3','accepted'),('43',503,'r1','accepted'),('44',504,'r1','accepted'),('45',505,'r1','accepted')");
+$db->exec("INSERT INTO accepted_calc_lines VALUES ('41','line-a','labor',2,100),('42','line-b','material',3,200),('43','line-c','other',1,300),('44','line-d','labor',1,400),('45','line-e','material',2,500)");
 $service = new OfficeCalcCrmTransferService($db);
 $accept = static fn(string $id,int $calc,string $rev):array => ['crm_opportunity_id'=>$id,'calculation_id'=>$calc,'accepted_revision'=>$rev,'status'=>'accepted'];
 $line = static fn(string $id,string $type,int $qty,int $cost):array => ['line_id'=>$id,'cost_type'=>$type,'quantity'=>$qty,'unit_cost_cents'=>$cost];
@@ -84,5 +84,14 @@ $reject(static fn()=> $service->transfer($accept('44',504,'r1'),[$line('line-d',
 if ($count('office_projects')!==1 || $count('office_calc_crm_acceptance_transfers')!==1
     || $count('office_calc_work_budget_baselines')!==1 || $count('office_calc_work_budget_lines')!==1) {
     throw new RuntimeException('Atomic rollback failed after line persistence error');
+}
+// A database-side mutation must not pass the persistence verification.
+$reject(static fn()=> $service->transfer($accept('45',505,'r1'),[$line('line-e','material',2,500)],
+    static function(PDO $pdo,array $a)use($create):int {
+        $pdo->exec("CREATE TRIGGER alter_line AFTER INSERT ON office_calc_work_budget_lines BEGIN UPDATE office_calc_work_budget_lines SET budget_cents=budget_cents+1 WHERE id=NEW.id; END");
+        return $create($pdo,$a);
+    },$verify),'persisted amount tampering');
+if ($count('office_projects')!==1 || $count('office_calc_crm_acceptance_transfers')!==1) {
+    throw new RuntimeException('Persisted value mismatch was not rolled back');
 }
 echo "CRM_CALC_TRANSFER_ATOMIC_SQLITE=PASS\n";
