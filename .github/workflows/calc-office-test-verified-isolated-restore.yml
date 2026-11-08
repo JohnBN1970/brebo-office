@@ -1,5 +1,9 @@
 name: Calc Office-test verified isolated database restore
 on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-office-test-verified-isolated-restore.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -28,7 +32,12 @@ jobs:
           RESTORE_PASSWORD: ${{ secrets.CALC_RESTORE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          test "$CONFIRMATION" = RESTORE-CALC-ISOLATED
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            test "$CONFIRMATION" = RESTORE-CALC-ISOLATED
+          else
+            test "$GITHUB_EVENT_NAME" = "push"
+            test "$GITHUB_REF" = "refs/heads/develop"
+          fi
           for key in SSH_KEY SSH_HOST SSH_PORT SSH_USER RESTORE_HOST RESTORE_NAME RESTORE_USER RESTORE_PASSWORD; do
             test -n "${!key}" || { echo "CALC_RESTORE=BLOCKED_MISSING_$key"; exit 1; }
           done
