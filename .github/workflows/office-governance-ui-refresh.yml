@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Use Docker-bundled SSH action to avoid the external drone-ssh release download (HTTP 504).
+# Refresh ACL-scoped navigation and prioritized governance actions with Docker-bundled SSH.
 on:
   push:
     branches: [develop]
