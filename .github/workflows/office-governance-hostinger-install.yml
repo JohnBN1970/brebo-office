@@ -1,0 +1,60 @@
+name: Office governance explicit test schema installation
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to install governance tables on isolated Office-test
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-test-schema-install
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated installer
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/install-office-governance-test.php
+          php -l office-independent/src/Governance/OfficeGovernanceSchema.php
+          php office-independent/tests/OfficeGovernanceIntegrationTest.php
+  install:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage installer outside webroot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/install-office-governance-test.php,office-independent/src/Governance/OfficeGovernanceSchema.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-install-stage
+          overwrite: true
+      - name: Install only absent governance tables in isolated test schema
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            STAGE="$ROOT/.governance-install-stage/office-independent"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$STAGE/deployment/hostinger/install-office-governance-test.php"
+            test -f "$STAGE/src/Governance/OfficeGovernanceSchema.php"
+            "$PHP" -l "$STAGE/deployment/hostinger/install-office-governance-test.php"
+            "$PHP" -l "$STAGE/src/Governance/OfficeGovernanceSchema.php"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_SCHEMA_INSTALL=explicit
+            "$PHP" "$STAGE/deployment/hostinger/install-office-governance-test.php"
