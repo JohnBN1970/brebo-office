@@ -1,0 +1,46 @@
+name: CRM billing fields schema preflight
+
+on:
+  push:
+    branches: [feature/crm-relation-detail-billing-20261108]
+    paths:
+      - .github/workflows/office-crm-billing-schema-preflight.yml
+      - office-independent/public/office-crm-relation-detail.php
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint relation detail
+        uses: actions/checkout@v4
+      - run: php -l office-independent/public/office-crm-relation-detail.php
+      - name: Verify active CRM billing schema without reading customer data
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            root="$HOME/domains/brebobv.nl/office_calc_test"
+            active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+            case "$active" in "$root"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 20;; esac
+            php -r '
+              $env=require $argv[1];
+              $keys=["OFFICE_INTAKE_PDO_DSN","OFFICE_INTAKE_DB_USER","OFFICE_INTAKE_DB_PASSWORD"];
+              foreach ($keys as $key) if (!getenv($key) && isset($env[$key])) putenv($key."=".$env[$key]);
+              $db=new PDO(getenv("OFFICE_INTAKE_PDO_DSN"),getenv("OFFICE_INTAKE_DB_USER"),getenv("OFFICE_INTAKE_DB_PASSWORD"),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+              $found=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=\x27office_crm_relations\x27")->fetchAll(PDO::FETCH_COLUMN);
+              foreach (["invoice_email","offer_email","billing_street","billing_postal_code","billing_city","billing_country_code"] as $column) {
+                echo $column."=". (in_array($column,$found,true)?"PRESENT":"MISSING").PHP_EOL;
+                if (!in_array($column,$found,true)) $missing=true;
+              }
+              if (!empty($missing)) exit(1);
+              echo "CRM_BILLING_SCHEMA_OK".PHP_EOL;
+            ' "$active/config/config.php"
