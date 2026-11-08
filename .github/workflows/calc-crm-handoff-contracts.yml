@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calc-acceptance-proposed.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
@@ -19,6 +20,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -43,6 +45,7 @@ jobs:
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
             office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php \
             office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
@@ -55,6 +58,7 @@ jobs:
             office-independent/tests/OfficeCalcPersistedAcceptanceVerifierTest.php \
             office-independent/tests/OfficeCalcAcceptanceSnapshotWriterTest.php \
             office-independent/tests/OfficeCalcAcceptanceToBudgetIntegrationTest.php \
+            office-independent/tests/OfficeCalcCrmDraftIdentityTest.php \
             office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
             office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
             php -l "$f"
