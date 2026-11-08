@@ -1,0 +1,32 @@
+name: Office documents live source read-only audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read active Documents PHP source over existing SSH connection
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT="$HOME/domains/brebobv.nl/office_calc_test"
+            ACTIVE=$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$ROOT/config/config.php")
+            FILE="$ACTIVE/public/office-documents.php"
+            test -f "$FILE"
+            php -l "$FILE"
+            echo 'BREBO_DOCUMENTS_SOURCE_BEGIN'
+            base64 "$FILE" | tr -d '\n'
+            echo
+            echo 'BREBO_DOCUMENTS_SOURCE_END'
+            echo 'BREBO_DOCUMENTS_READ_ONLY_COMPLETE'
