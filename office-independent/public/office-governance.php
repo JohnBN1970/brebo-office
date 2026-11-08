@@ -35,6 +35,14 @@ try {
     $store=new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
     $service=new \Brebo\Office\Governance\OfficeGovernanceService($store);
     $contexts=$store->contexts($operator->operatorId,$module);
+// A project link may carry only project_id; resolve the building only when unambiguous.
+$requestedProject=filter_var(($_GET['project_id']??null),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+$requestedBuilding=filter_var(($_GET['building_id']??null),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id'])) {
+    $matching=array_values(array_filter($contexts,static fn(array $c):bool=>(int)$c['project_id']===$requestedProject));
+    if(count($matching)===1) $_GET['building_id']=(string)$matching[0]['building_id'];
+}
+
     if ($contexts===[]) {http_response_code(403);exit('Geen toegang tot dit onderdeel.');}
     $input=$method==='POST'?$_POST:$_GET;
     $project=filter_var($input['project_id']??0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -157,7 +165,7 @@ header('Content-Type: text/html; charset=utf-8');
 <!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><?= $e($titles[$module]) ?> · BREBO Office</title>
 <style>body{margin:0;font:16px system-ui;background:#f4f6fa;color:#203247}main{max-width:1100px;margin:auto;padding:28px}a{color:#175a91}section{background:white;padding:22px;margin:18px 0;border:1px solid #dce3eb;border-radius:10px}label{display:block;margin:14px 0 5px}input,textarea,select{box-sizing:border-box;width:100%;padding:10px;border:1px solid #bdcbd7;border-radius:6px;font:inherit}textarea{min-height:85px}button{margin-top:18px;padding:12px 22px;background:#175a91;color:white;border:0;border-radius:6px;font:inherit}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.kpi{border:1px solid #dce3eb;border-radius:10px;padding:16px;background:#fff}.kpi strong{font-size:26px;display:block}.kpi small{color:#536779}.kpi.warn{border-left:5px solid #d18c21}.kpi.danger{border-left:5px solid #b33d37}.tabs{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.tabs a{display:inline-block;background:#e7eef5;border-radius:7px;padding:10px 14px;text-decoration:none}.tabs a.current{background:#175a91;color:white}table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #dce3eb;padding:12px}.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 20px}</style></head><body><main>
 <a href="/office-test/">BREBO Office</a><h1><?= $e($titles[$module]) ?></h1>
-<section><h2>Project en gebouw</h2><?php foreach($contexts as $c): ?><p><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$c['project_id'],'building_id'=>$c['building_id']])) ?>"><?= $e($c['title']) ?> · <?= $e($c['building_name']) ?></a></p><?php endforeach; ?></section>
+<section><h2>Project en gebouw</h2><?php if(count($contexts)>1): ?><p>Kies het gebouw waarvoor je de dossiers wilt bekijken. Projectgegevens blijven gekoppeld aan het juiste gebouw.</p><?php endif; ?><?php foreach($contexts as $c): ?><p><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$c['project_id'],'building_id'=>$c['building_id']])) ?>"><?= $e($c['title']) ?> · <?= $e($c['building_name']) ?></a></p><?php endforeach; ?></section>
 <?php if (is_int($project)&&is_int($building)): ?>
 <section><h2>Projectbeheersing · totaaloverzicht</h2><div class="kpis"><?php foreach($projectOverview as $key=>$stats): ?><div class="kpi <?= ($stats['blocking']||$stats['high'])?'danger':($stats['overdue']?'warn':'') ?>"><small><?= $e($titles[$key]) ?></small><strong><?= $stats['open'] ?> open</strong><p><?= $stats['overdue'] ?> te laat<?php if($key==='quality'): ?> · <?= $stats['blocking'] ?> blokkades<?php elseif($key==='risk'): ?> · <?= $stats['high'] ?> hoog<?php else: ?> · € <?= $e(number_format($stats['commitments']/100,2,',','.')) ?> verplicht<?php endif; ?></p><a href="<?= $e('/office-test/'.$stats['route'].'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>">Bekijk dossiers</a></div><?php endforeach; ?></div><p><a href="<?= $e('/office-test/projecten/detail?id='.$project) ?>">Terug naar projectdashboard</a></p></section>
 <nav class="tabs" aria-label="Projectbeheersing"><?php foreach($moduleLinks as $key=>$route): ?><a class="<?= $key===$module?'current':'' ?>" href="<?= $e('/office-test/'.$route.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>"><?= $e($titles[$key]) ?></a><?php endforeach; ?></nav>
