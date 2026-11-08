@@ -1,0 +1,57 @@
+name: Office-test project budget read-only runtime audit
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/office-project-budget-runtime-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read-only Office-test schema and flag audit
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            BASE=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            CONFIG="$BASE/config/config.php"
+            test -f "$CONFIG"
+            OFFICE_CONFIG_PATH="$CONFIG" "$PHP" <<'PHP'
+            <?php
+            declare(strict_types=1);
+            $c=require getenv('OFFICE_CONFIG_PATH');
+            if(!is_array($c) || ($c['OFFICE_BASE_PATH']??'')!=='/office-test')exit(2);
+            $get=static function(string $key)use($c):string{
+                $v=getenv($key);if(is_string($v)&&$v!=='')return $v;
+                $v=$c[$key]??'';return is_string($v)?$v:'';
+            };
+            $root=$get('OFFICE_PRIVATE_ROOT');
+            if(!str_starts_with($root,dirname(getenv('OFFICE_CONFIG_PATH')).'/release-') && !str_starts_with($root,dirname(getenv('OFFICE_CONFIG_PATH')).'/../release-')){
+                echo "BUDGET_AUDIT=INVALID_RELEASE_SCOPE\n";exit(3);
+            }
+            $target=$root.'/public/office-project.php';
+            echo 'BUDGET_CONTROLLER_PATCH='.(is_file($target)&&str_contains((string)file_get_contents($target),'OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED')?'PRESENT':'MISSING')."\n";
+            echo 'BUDGET_KPI_FLAG='.($get('OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED')==='enabled'?'ENABLED':'DISABLED')."\n";
+            $dsn=$get('OFFICE_INTAKE_PDO_DSN');
+            if(!str_starts_with($dsn,'mysql:')){echo "BUDGET_SCHEMA=UNKNOWN_DSN\n";exit(4);}
+            $db=new PDO($dsn,$get('OFFICE_INTAKE_DB_USER'),$get('OFFICE_INTAKE_DB_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+            $expected=['office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines'];
+            $q=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')");
+            $found=$q->fetchAll(PDO::FETCH_COLUMN);sort($found);sort($expected);
+            echo 'BUDGET_SCHEMA='.($found===$expected?'THREE_TABLES_PRESENT':('PARTIAL_OR_MISSING_'.count($found)))."\n";
+            if($found===$expected){
+                $q=$db->query("SELECT COUNT(*) FROM office_calc_work_budget_baselines WHERE locked_at IS NOT NULL");
+                echo 'BUDGET_LOCKED_BASELINE_COUNT='.(int)$q->fetchColumn()."\n";
+            }
+            PHP
