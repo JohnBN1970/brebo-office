@@ -57,6 +57,11 @@ jobs:
             test ! -L "$TARGET"
             grep -Fq 'OfficeProcurementOrderSource' "$TARGET"
             grep -Fq 'OfficeProjectDetailV3View' "$TARGET"
+            echo PROJECT_BUDGET_ACTIVE_ANCHOR_DIAGNOSTICS
+            for MARKER in 'Read-only Office procurement commitments:' 'OfficeProcurementOrderSource' 'awardedProjectCommitment' 'Verplichtingen zijn geen geboekte kosten' 'financialSectionHtml' 'moduleHtml' 'OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED'; do
+              COUNT=$(grep -Fc "$MARKER" "$TARGET" || true)
+              echo "MARKER_COUNT=$COUNT MARKER=$MARKER"
+            done
             for FILE in OfficeWorkBudgetBaselineReader.php OfficeWorkBudgetCommitmentComparison.php; do
               "$PHP" -l "$STAGE/src/Governance/$FILE"
             done
