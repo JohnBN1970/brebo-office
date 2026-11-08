@@ -118,6 +118,14 @@ try {
         $memberships = (int)$db->query("SELECT COUNT(*) FROM office_project_memberships")->fetchColumn();
         echo "ACTIVE_OPERATOR_COUNT=$activeOperators\n";
         echo "PROJECT_MEMBERSHIP_COUNT=$memberships\n";
+        $managers = (int)$db->query("SELECT COUNT(DISTINCT a.id) FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id WHERE a.active=1 AND m.permission='manage'")->fetchColumn();
+        echo "ACTIVE_PROJECT_MANAGERS=$managers\n";
+        $otherPermissions = $db->query("SELECT module,permission,COUNT(*) AS count_records FROM office_module_permissions GROUP BY module,permission ORDER BY module,permission")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($otherPermissions as $entry) {
+            $module = preg_replace('/[^a-z0-9_]/', '_', strtolower((string)$entry['module']));
+            $permission = preg_replace('/[^a-z0-9_]/', '_', strtolower((string)$entry['permission']));
+            echo "EXISTING_MODULE_RIGHT_".strtoupper($module)."_".strtoupper($permission)."=".(int)$entry['count_records']."\n";
+        }
     }
     $foreign = $db->prepare('SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME IN (?,?,?)');
     $foreign->execute(['u213420663_office_test','office_quality_checks','office_risks','office_procurement_orders']);
