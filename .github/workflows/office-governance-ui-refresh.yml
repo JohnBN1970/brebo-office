@@ -33,14 +33,19 @@ jobs:
           target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-ui-stage
           overwrite: true
       - name: Replace isolated test governance controller with guarded backup
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          script_stop: true
-          script: |
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\\n' "$DEPLOY_SSH_KEY" > ~/.ssh/governance_deploy_key
+          chmod 600 ~/.ssh/governance_deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -i ~/.ssh/governance_deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'sh -se' <<'REMOTE'
+
             set -eu
             ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
             PHP=/opt/alt/php83/usr/bin/php
@@ -67,3 +72,4 @@ jobs:
             "$PHP" -l "$TARGET"
             grep -Fq 'Termijn verstreken' "$TARGET"
             echo GOVERNANCE_UI_REFRESH_INSTALLED_WITH_BACKUP
+          REMOTE
