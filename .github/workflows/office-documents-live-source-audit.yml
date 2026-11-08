@@ -1,4 +1,4 @@
-name: Office documents live source read-only audit
+name: Office documents live types read-only audit
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - name: Read active Documents PHP source over existing SSH connection
+      - name: Read active document types dependency using SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -27,11 +27,12 @@ jobs:
             set -eu
             ROOT="$HOME/domains/brebobv.nl/office_calc_test"
             ACTIVE=$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$ROOT/config/config.php")
-            FILE="$ACTIVE/public/office-documents.php"
-            test -f "$FILE"
+            case "$ACTIVE" in "$ROOT"/release-*/private) ;; *) echo ABORT_INVALID_RELEASE; exit 20;; esac
+            FILE="$ACTIVE/src/Documents/OfficeDocumentTypes.php"
+            test -f "$FILE" && test ! -L "$FILE"
             php -l "$FILE"
-            echo 'BREBO_DOCUMENTS_SOURCE_BEGIN'
+            echo 'BREBO_TYPES_SOURCE_BEGIN'
             base64 "$FILE" | tr -d '\n'
             echo
-            echo 'BREBO_DOCUMENTS_SOURCE_END'
-            echo 'BREBO_DOCUMENTS_READ_ONLY_COMPLETE'
+            echo 'BREBO_TYPES_SOURCE_END'
+            echo 'BREBO_TYPES_READ_ONLY_COMPLETE'
