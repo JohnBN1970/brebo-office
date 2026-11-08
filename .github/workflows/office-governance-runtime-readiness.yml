@@ -1,0 +1,51 @@
+name: Office governance runtime readiness (read only)
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'office-independent/deployment/hostinger/audit-office-governance-runtime.php'
+      - '.github/workflows/office-governance-runtime-readiness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-runtime-readonly
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate read-only readiness audit
+        run: php -l office-independent/deployment/hostinger/audit-office-governance-runtime.php
+      - name: Stage audit outside webroot
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/deployment/hostinger/audit-office-governance-runtime.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-audit-stage
+          overwrite: true
+      - name: Inspect active Office-test release and verify governance schema
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            FILE="$ROOT/.governance-audit-stage/office-independent/deployment/hostinger/audit-office-governance-runtime.php"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$FILE"
+            "$PHP" -l "$FILE"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_GOVERNANCE_RUNTIME_AUDIT=read-only
+            "$PHP" "$FILE"
