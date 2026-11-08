@@ -1,0 +1,25 @@
+name: CRM opportunity HTTP contracts
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/public/office-crm-opportunit*.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/deployment/hostinger/install-office-crm-opportunities-test.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/tests/OfficeCrmOpportunityHttpContractsTest.php'
+      - '.github/workflows/office-crm-opportunity-http-contracts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          php -l office-independent/public/office-crm-opportunities.php
+          php -l office-independent/public/office-crm-opportunity-create.php
+          php -l office-independent/public/office-crm-opportunity-transition.php
+          php -l office-independent/deployment/hostinger/install-office-crm-opportunities-test.php
+          php office-independent/tests/OfficeCrmOpportunityHttpContractsTest.php
