@@ -596,6 +596,40 @@ try {
     error_log('Office project finance overview unavailable: ' . $e->getCode());
     $financeHtml = '<p>Het financiële overzicht is nog niet beschikbaar.</p>';
 }
+
+// Read-only Office procurement commitments: independent of invoicing and bank transactions.
+// Show only after Finance ACL succeeded, and only with explicit governance activation.
+if (is_array($financeContracts)
+    && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED') === 'enabled') {
+    try {
+        require_once dirname(__DIR__) . '/src/Governance/bootstrap.php';
+        require_once dirname(__DIR__) . '/src/Governance/OfficeProcurementOrderSource.php';
+        $scopeQuery = $db->prepare('SELECT building_id FROM office_project_buildings WHERE project_id = ? ORDER BY building_id');
+        $scopeQuery->execute([(int) $projectId]);
+        $buildingIds = array_map('intval', $scopeQuery->fetchAll(PDO::FETCH_COLUMN));
+        if ($buildingIds === []) {
+            $financeHtml .= '<section class="module"><h3>Inkoopverplichtingen</h3><p>Geen gebouwen gekoppeld; totaal niet beschikbaar.</p></section>';
+        } else {
+            $source = new \\Brebo\\Office\\Governance\\OfficeProcurementOrderSource(
+                new \\Brebo\\Office\\Governance\\OfficeGovernanceService(
+                    new \\Brebo\\Office\\Governance\\Infrastructure\\PdoOfficeGovernanceStore($db)
+                )
+            );
+            $commitment = $source->awardedProjectCommitment((string) $operator->operatorId, (int) $projectId, $buildingIds);
+            $financeHtml .= '<section class="module"><h3>Verstrekte inkoopverplichtingen</h3><dl>'
+                . '<dt>Totaal excl. btw</dt><dd><strong>€ '
+                . number_format($commitment['commitment_cents'] / 100, 2, ',', '.')
+                . '</strong></dd><dt>Aantal opdrachten</dt><dd>' . (int) $commitment['awarded_order_count']
+                . '</dd></dl><p>Verplichtingen zijn geen geboekte kosten, facturen of betalingen.</p></section>';
+        }
+    } catch (\\DomainException | \\InvalidArgumentException $e) {
+        $financeHtml .= '<p>Inkoopverplichtingen niet beschikbaar: onvoldoende inkooprechten of ongeldige projectscope.</p>';
+    } catch (\\PDOException $e) {
+        error_log('Office procurement commitment read unavailable: ' . $e->getCode());
+        $financeHtml .= '<p>Inkoopverplichtingen tijdelijk niet beschikbaar.</p>';
+    }
+}
 $financialSectionHtml .= $financeHtml;
 
 // The overview only uses verified project and building data. CRM, planning and finance
