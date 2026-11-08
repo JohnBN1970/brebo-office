@@ -22,7 +22,7 @@ try {
     if (!is_string($rawId) || !preg_match('/^[1-9][0-9]{0,18}$/D',$rawId)) { http_response_code(400); exit('Ongeldig relatienummer.'); }
     $id=filter_var($rawId,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
     if (!is_int($id)) { http_response_code(400); exit('Ongeldig relatienummer.'); }
-    $stmt=$db->prepare('SELECT id,relation_kind,display_name,legal_name,chamber_of_commerce,vat_number,email,phone,street,postal_code,city,country_code,status FROM office_crm_relations WHERE id=? LIMIT 1');
+    $stmt=$db->prepare('SELECT id,relation_kind,display_name,legal_name,chamber_of_commerce,vat_number,email,invoice_email,offer_email,billing_street,billing_postal_code,billing_city,billing_country_code,phone,street,postal_code,city,country_code,status FROM office_crm_relations WHERE id=? LIMIT 1');
     $stmt->execute([$id]); $relation=$stmt->fetch(PDO::FETCH_ASSOC);
     if (!$relation) { http_response_code(404); exit('Relatie niet gevonden.'); }
     $stmt=$db->prepare('SELECT role_code FROM office_crm_relation_roles WHERE relation_id=? ORDER BY role_code');
@@ -48,7 +48,7 @@ if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled') {
 }
 echo '<p>Status: '.$h(['active'=>'Actief','inactive'=>'Inactief','archived'=>'Gearchiveerd'][$relation['status']]??$relation['status']).'</p>';
 echo '<section><h2>Relatiegegevens</h2><dl>';
-$fields=['legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
+$fields=['legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'Algemene e-mail','invoice_email'=>'Factuur e-mail','offer_email'=>'Offerte e-mail','billing_street'=>'Factuuradres: straat en huisnummer','billing_postal_code'=>'Factuuradres: postcode','billing_city'=>'Factuuradres: plaats','billing_country_code'=>'Factuuradres: landcode','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 foreach ($fields as $key=>$label) echo '<dt>'.$label.'</dt><dd>'.$h($relation[$key]??'').'</dd>';
 echo '</dl></section><section><h2>Relatierollen</h2><p>'.$h(implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roles))?:'Geen rollen vastgelegd').'</p></section><section><h2>Contactpersonen</h2>';
 if (!$contacts) echo '<p>Geen contactpersonen vastgelegd.</p>';
