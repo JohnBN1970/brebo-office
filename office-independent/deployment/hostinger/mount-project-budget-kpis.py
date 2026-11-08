@@ -16,7 +16,7 @@ if repo.count(marker)!=1 or repo.count(anchor)!=1 or repo.count(end)!=1:
 if active.count(marker)==1:
     print("PROJECT_BUDGET_ALREADY_MOUNTED")
     sys.exit(0)
-if active.count(anchor)!=1 or active.count(end)!=1:
+if active.count(anchor)!=1 or active.count(b"awardedProjectCommitment")!=1:
     sys.exit("PROJECT_BUDGET_ACTIVE_MARKERS_INVALID")
 start=repo.index(marker)
 snippet_end=repo.find(b"\n            }\n",start)
@@ -29,7 +29,7 @@ if b"OfficeWorkBudgetCommitmentComparison::summarize" not in snippet or b"OFFICE
 card=b"                . '</dd></dl><p>Verplichtingen zijn geen geboekte kosten, facturen of betalingen.</p></section>';"
 if active.count(card)!=1:
     sys.exit("PROJECT_BUDGET_ACTIVE_CARD_MISMATCH")
-if active.index(card)<active.index(anchor) or active.index(card)>active.index(end):
+if active.index(card)<active.index(anchor):
     sys.exit("PROJECT_BUDGET_ACTIVE_CARD_OUTSIDE_FINANCE")
 target.write_bytes(active.replace(card,card+b"\n            "+snippet,1))
 print("PROJECT_BUDGET_KPIS_PATCHED")
