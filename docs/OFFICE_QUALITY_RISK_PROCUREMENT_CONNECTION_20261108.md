@@ -128,3 +128,11 @@ De contractaanvulling is **geen FinanceCenter-scherminbedding** en bewijst geen 
 Het native projectdossier `office-independent/public/office-project.php` toont in de Finance-tab nu een afzonderlijke read-only totalisatie van verstrekte/ontvangen inkoopopdrachten. De bron is uitsluitend `OfficeProcurementOrderSource`, over alle gekoppelde projectgebouwen (niet de tot 100 regels beperkte presentatielijst). De weergave vereist een geslaagde Finance-project-ACL én de bestaande procurement-module-ACL, plus beide governance-featureflags. Een ontbrekende scope of ontbrekend mandaat wordt als niet beschikbaar getoond, nooit als nul. Bedragen blijven exclusief btw, in centen berekend; er wordt geen boeking, leveranciersfactuur of betaling aangemaakt.
 
 **Niet geverifieerd:** PHP-lint, CI op deze nieuwe commits, schema-installatie, modulemandaten en browseracceptatie. De code staat op de PR-branch, niet bewezen in de actieve Office-testrelease. Controleer tijdens review ook de bestaande project-Finance-ACL en rechtenmatrix voor gebruikers die wel Finance maar geen Inkoop mogen lezen.
+
+## Gecontroleerde CI-acceptatie — commit 4479475
+
+GitHub Actions op commit `44794752e11ba770e92bdc419d3551487f003b89`: **14/14 workflows geslaagd**, inclusief native governance-acceptatie, PHP-lint, projectdetail V3, projectdashboard, CRM, Inzet, calculatie en MySQL-intakeketens. Governance-run: https://github.com/JohnBN1970/brebo-office/actions/runs/42444570064.
+
+De Finance-tab heeft nu een read-only inkoopverplichtingenblok. Een onverwachte fout in de procurement-lezer wordt afzonderlijk afgevangen, zodat het contractoverzicht niet door deze optionele bron uitvalt. De oudere passages hierboven beschrijven de toenmalige tussenstand; dit onderdeel is de actuele code-/CI-status.
+
+**Openstaande productie- en testgates:** geen bewijs van SQL-uitvoering op de host, rechtenuitgifte, secretconfiguratie, live routeacceptatie of deploy van de PR-branch. Een groene CI of rollout-gate is geen bewijs van actieve serverinstallatie. Eerst schema-/back-upcontrole en expliciete mandaten, daarna gecontroleerde testdeployment en browseracceptatie. Geen productieaanpassing.
