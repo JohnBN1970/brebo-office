@@ -90,6 +90,35 @@ try {
         $check('SCHEMA_' . strtoupper($table), $engine === 'InnoDB'
             && count(array_diff($fields, $available)) === 0);
     }
+    $dependencies = [
+        'office_operator_accounts' => ['id','username','active'],
+        'office_project_memberships' => ['operator_id','project_id','permission'],
+        'office_module_permissions' => ['operator_id','module','permission'],
+        'office_crm_relations' => ['id','display_name','status'],
+        'office_crm_relation_roles' => ['relation_id','role_code'],
+        'office_inspections' => ['id','building_id','project_id'],
+        'office_inspection_findings' => ['id','inspection_id','observation'],
+    ];
+    $dependenciesReady = true;
+    foreach ($dependencies as $table => $fields) {
+        $metadata->execute(['u213420663_office_test', $table]);
+        $engine = $metadata->fetchColumn();
+        $columns->execute(['u213420663_office_test', $table]);
+        $available = $columns->fetchAll(PDO::FETCH_COLUMN);
+        $valid = $engine === 'InnoDB' && count(array_diff($fields, $available)) === 0;
+        $check('DEPENDENCY_' . strtoupper($table), $valid);
+        if (!$valid) $dependenciesReady = false;
+    }
+    if ($dependenciesReady) {
+        $reads = $db->query("SELECT module,COUNT(*) AS n FROM office_module_permissions WHERE module IN ('quality','risk','procurement') AND permission='read' GROUP BY module")->fetchAll(PDO::FETCH_KEY_PAIR);
+        foreach (['quality','risk','procurement'] as $module) {
+            echo 'EXPLICIT_READ_GRANTS_' . strtoupper($module) . '=' . (int)($reads[$module] ?? 0) . "\n";
+        }
+        $activeOperators = (int)$db->query("SELECT COUNT(*) FROM office_operator_accounts WHERE active=1")->fetchColumn();
+        $memberships = (int)$db->query("SELECT COUNT(*) FROM office_project_memberships")->fetchColumn();
+        echo "ACTIVE_OPERATOR_COUNT=$activeOperators\n";
+        echo "PROJECT_MEMBERSHIP_COUNT=$memberships\n";
+    }
     $foreign = $db->prepare('SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND REFERENCED_TABLE_NAME IS NOT NULL AND TABLE_NAME IN (?,?,?)');
     $foreign->execute(['u213420663_office_test','office_quality_checks','office_risks','office_procurement_orders']);
     $keys = [];
