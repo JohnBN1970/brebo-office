@@ -631,10 +631,10 @@ if (is_array($financeContracts)
                     require_once dirname(__DIR__) . '/src/Governance/OfficeWorkBudgetBaselineReader.php';
                     require_once dirname(__DIR__) . '/src/Governance/OfficeWorkBudgetCommitmentComparison.php';
                     require_once dirname(__DIR__) . '/src/Project/OfficeProjectBudgetKpiView.php';
-                    $baseline = (new \\Brebo\\Office\\Governance\\OfficeWorkBudgetBaselineReader($db))->forProject((int) $projectId);
-                    $comparison = \\Brebo\\Office\\Governance\\OfficeWorkBudgetCommitmentComparison::summarize($baseline, $commitment);
-                    $financeHtml .= \\Brebo\\Office\\Project\\OfficeProjectBudgetKpiView::render($comparison);
-                } catch (\\Throwable $budgetError) {
+                    $baseline = (new \Brebo\Office\Governance\OfficeWorkBudgetBaselineReader($db))->forProject((int) $projectId);
+                    $comparison = \Brebo\Office\Governance\OfficeWorkBudgetCommitmentComparison::summarize($baseline, $commitment);
+                    $financeHtml .= \Brebo\Office\Project\OfficeProjectBudgetKpiView::render($comparison);
+                } catch (\Throwable $budgetError) {
                     error_log('Office locked work budget KPI unavailable: ' . get_class($budgetError));
                     $financeHtml .= '<p>Vergelijking met de vastgestelde werkbegroting tijdelijk niet beschikbaar.</p>';
                 }
