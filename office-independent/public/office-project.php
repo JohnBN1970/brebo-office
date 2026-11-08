@@ -404,6 +404,21 @@ $calcOpenLink = static function (int $calcId) use ($launchIds, $projectId, $esca
   return '<a href="' . $escape('/office-test/calc-werkbank?project_id='
     . (int)$projectId . '&calculation_id=' . $calcId) . '">Openen in Calc</a>';
 };
+// Linked housing-type calculations use the same per-calculation authorization.
+if (is_array($calculationScopes)) {
+  $housingLaunchHtml = '<h3>Woningtypecalculaties</h3><ul>';
+  $housingLaunchCount = 0;
+  foreach ($calculationScopes as $scope) {
+    if (($scope['scope_kind'] ?? '') !== 'housing_type') continue;
+    $calcId = filter_var($scope['calc_calculation_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!is_int($calcId) || $calcId <= 0) continue;
+    $housingLaunchCount++;
+    $housingLaunchHtml .= '<li>' . $escape((string)($scope['scope_label'] ?? 'Woningtype'))
+      . ': ' . $calcOpenLink($calcId) . '</li>';
+  }
+  $housingLaunchHtml .= '</ul>';
+  if ($housingLaunchCount > 0) $housingHtml .= $housingLaunchHtml;
+}
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
