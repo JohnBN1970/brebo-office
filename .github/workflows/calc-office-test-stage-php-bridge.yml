@@ -29,7 +29,7 @@ jobs:
           chmod 600 ~/.ssh/id_calc_stage
       - uses: actions/checkout@v4
         with:
-          ref: fix/calc-reconnect-rebased-20261106
+          ref: develop
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
