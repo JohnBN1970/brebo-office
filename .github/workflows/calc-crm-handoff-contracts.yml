@@ -49,6 +49,7 @@ jobs:
             office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
             office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
             office-independent/tests/OfficeCalcCrmTransferAtomicSqliteTest.php \
+            office-independent/tests/OfficeCalcPersistedAcceptanceVerifierTest.php \
             office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
             office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
             php -l "$f"
