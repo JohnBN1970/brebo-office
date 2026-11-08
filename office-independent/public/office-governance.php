@@ -128,6 +128,7 @@ usort($visibleRecords,static function(array $a,array $b):int {
 
 $moduleLinks=['quality'=>'kwaliteit','risk'=>'risicos','procurement'=>'inkoop'];
 $projectOverview=[];
+$projectActions=[];
 if(is_int($project)&&is_int($building)) {
     // Cross-module overview is read-only and respects each module's live object ACL.
     foreach($moduleLinks as $key=>$route) {
@@ -142,6 +143,18 @@ if(is_int($project)&&is_int($building)) {
                 $open++;
                 if(is_string($payload['due_date']??null)&&$payload['due_date']<$today) $overdue++;
             }
+            if(!$finished) {
+                $due=is_string($payload['due_date']??null)?$payload['due_date']:'';
+                $isLate=$due!=='' && $due<$today;
+                $isBlock=$key==='quality'&&!empty($payload['blocks_release']);
+                $isHigh=$key==='risk'&&(int)($payload['probability']??0)*(int)($payload['impact']??0)>=15;
+                if($isLate||$isBlock||$isHigh) {
+                    $projectActions[]=['module'=>$key,'route'=>$route,'id'=>(int)$item['id'],
+                        'title'=>(string)($item['title']??''),'due'=>$due,
+                        'reason'=>$isBlock?'Vrijgave geblokkeerd':($isHigh?'Hoog risico':'Termijn verstreken'),
+                        'priority'=>$isBlock?0:($isHigh?1:2)];
+                }
+            }
             if($key==='quality'&&!$finished&&!empty($payload['blocks_release'])) $blocking++;
             if($key==='risk'&&!$finished&&(int)($payload['probability']??0)*(int)($payload['impact']??0)>=15) $high++;
             if($key==='procurement'&&in_array($state,['ordered','received'],true)) {
@@ -153,6 +166,9 @@ if(is_int($project)&&is_int($building)) {
     }
 }
 
+usort($projectActions,static fn(array $a,array $b):int=>
+    ($a['priority']<=>$b['priority']) ?: strcmp($a['due']?:'9999-12-31',$b['due']?:'9999-12-31')
+    ?: ($a['id']<=>$b['id']));
 $values=$record['payload']??[];
 $labels=[];
 foreach($choices as $key=>$options) foreach($options as $option) $labels[$key][(string)$option['id']]=$option['label'];
@@ -168,6 +184,7 @@ header('Content-Type: text/html; charset=utf-8');
 <section><h2>Project en gebouw</h2><?php if(count($contexts)>1): ?><p>Kies het gebouw waarvoor je de dossiers wilt bekijken. Projectgegevens blijven gekoppeld aan het juiste gebouw.</p><?php endif; ?><?php foreach($contexts as $c): ?><p><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$c['project_id'],'building_id'=>$c['building_id']])) ?>"><?= $e($c['title']) ?> · <?= $e($c['building_name']) ?></a></p><?php endforeach; ?></section>
 <?php if (is_int($project)&&is_int($building)): ?>
 <section><h2>Projectbeheersing · totaaloverzicht</h2><div class="kpis"><?php foreach($projectOverview as $key=>$stats): ?><div class="kpi <?= ($stats['blocking']||$stats['high'])?'danger':($stats['overdue']?'warn':'') ?>"><small><?= $e($titles[$key]) ?></small><strong><?= $stats['open'] ?> open</strong><p><?= $stats['overdue'] ?> te laat<?php if($key==='quality'): ?> · <?= $stats['blocking'] ?> blokkades<?php elseif($key==='risk'): ?> · <?= $stats['high'] ?> hoog<?php else: ?> · € <?= $e(number_format($stats['commitments']/100,2,',','.')) ?> verplicht<?php endif; ?></p><a href="<?= $e('/office-test/'.$stats['route'].'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>">Bekijk dossiers</a></div><?php endforeach; ?></div><p><a href="<?= $e('/office-test/projecten/detail?id='.$project) ?>">Terug naar projectdashboard</a></p></section>
+<section><h2>Acties met prioriteit</h2><p>Openstaande vrijgaveblokkades, hoge risico’s en verlopen termijnen uit de onderdelen waarvoor toegang bestaat.</p><?php if($projectActions===[]): ?><p>Geen prioritaire acties geregistreerd.</p><?php else: ?><table><thead><tr><th>Onderdeel</th><th>Actie</th><th>Prioriteit</th><th>Termijn</th></tr></thead><tbody><?php foreach(array_slice($projectActions,0,25) as $action): ?><tr><td><?= $e($titles[$action['module']]) ?></td><td><a href="<?= $e('/office-test/'.$action['route'].'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$action['id']])) ?>"><?= $e($action['title']) ?></a></td><td><?= $e($action['reason']) ?></td><td><?= $e($action['due']) ?></td></tr><?php endforeach; ?></tbody></table><?php if(count($projectActions)>25): ?><p>Toont 25 van <?= count($projectActions) ?> prioritaire acties.</p><?php endif; ?><?php endif; ?></section>
 <nav class="tabs" aria-label="Projectbeheersing"><?php foreach($moduleLinks as $key=>$route): ?><a class="<?= $key===$module?'current':'' ?>" href="<?= $e('/office-test/'.$route.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>"><?= $e($titles[$key]) ?></a><?php endforeach; ?></nav>
 <div class="kpis"><div class="kpi"><small>Registraties</small><strong><?= count($records) ?></strong></div><div class="kpi"><small>Openstaand</small><strong><?= $activeCount ?></strong></div><div class="kpi <?= $late?'warn':'' ?>"><small>Termijn verstreken</small><strong><?= $late ?></strong></div><?php if($module!=='procurement'): ?><div class="kpi <?= $urgent?'danger':'' ?>"><small><?= $module==='quality'?'Vrijgaveblokkades':'Hoge risico’s (15+)' ?></small><strong><?= $urgent ?></strong></div><?php else: ?><div class="kpi"><small>Verstrekte opdrachten excl. btw</small><strong>€ <?= $e(number_format($amount/100,2,',','.')) ?></strong></div><?php endif; ?></div>
 <p><a href="/office-test/projecten/detail?id=<?= $e($project) ?>">Terug naar project</a> · Gebouw <?= $e($building) ?></p>
