@@ -40,6 +40,12 @@ $validRelease = is_string($release) && $realBase !== false
     && preg_match('~/release-[^/]+/private$~D', $release) === 1;
 $check('ACTIVE_TEST_RELEASE', $validRelease);
 if ($validRelease) {
+    $projectFile = $release . '/public/office-project.php';
+    $projectContent = is_file($projectFile) ? file_get_contents($projectFile) : false;
+    echo 'OPTIONAL_PROJECT_FINANCE_PROCUREMENT_WIDGET='
+        . (is_string($projectContent) && str_contains($projectContent, 'awardedProjectCommitment')
+            && str_contains($projectContent, 'OfficeProcurementOrderSource') ? 'PRESENT' : 'NOT_INSTALLED')
+        . "\n";
     foreach ([
         'public/office-governance.php',
         'src/Governance/bootstrap.php',
