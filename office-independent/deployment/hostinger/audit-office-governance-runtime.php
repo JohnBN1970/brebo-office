@@ -46,6 +46,11 @@ if ($validRelease) {
         echo 'PROJECT_FINANCE_MARKER_' . strtoupper(preg_replace('/[^a-zA-Z0-9]+/', '_', $token)) . '='
             . (is_string($projectContent) ? substr_count($projectContent, $token) : 0) . "\n";
     }
+    if (is_string($projectContent)) {
+        $pos = strrpos($projectContent, '$financeHtml');
+        $window = $pos === false ? '' : substr($projectContent, max(0, $pos - 110), 230);
+        echo 'PROJECT_FINANCE_LAST_USAGE_CONTEXT=' . preg_replace('/[^a-zA-Z0-9_$=;().\[\]{}+ \n-]/', '_', $window) . "\n";
+    }
     echo 'OPTIONAL_PROJECT_FINANCE_PROCUREMENT_WIDGET='
         . (is_string($projectContent) && str_contains($projectContent, 'awardedProjectCommitment')
             && str_contains($projectContent, 'OfficeProcurementOrderSource') ? 'PRESENT' : 'NOT_INSTALLED')
