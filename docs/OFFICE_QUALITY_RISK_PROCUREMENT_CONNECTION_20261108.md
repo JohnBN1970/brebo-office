@@ -107,7 +107,11 @@ expliciet toegekend. Geen automatische verheffing van bestaande gebruikers.
 - Lokale SQLite-ketentest en navigatieregressies zijn groen: project/gebouwgrenzen,
   lees-/schrijf-/beoordelingsmandaten, inactieve actor, ongeoorloofde eigenaar,
   inspectieherkomst, lifecycle, vier ogen, revisie, deduplicatie, auditrollback en CSRF.
-- CI voert dezelfde opslagketen uit tegen SQLite én een tijdelijke MySQL 8-database.
+- HTTP-fixtures testen alle drie pagina’s, projectlinks, sessie, leesrechten, verkeerde
+  context, Origin/CSRF, POST-redirect en HTML-escaping.
+- CI [42443511036](https://github.com/JohnBN1970/brebo-office/actions/runs/42443511036)
+  is groen op de eerste native commit, inclusief SQLite en MySQL 8. De aanvullende
+  HTTP-regressietest draait ook in de vervolgcommit.
 - Nieuwe migratie, modulemandaten, secret, testdeploy en gebruikersacceptatie zijn
   **nog niet uitgevoerd**. Gebouwde code betekent niet dat de modules al live staan.
 

@@ -94,6 +94,13 @@ $check(count($service->read('reader','procurement',10,100))===1,'authorized list
 $expect(fn()=>$service->read('outsider','procurement',10,100),'cross-project read');
 $check(count($store->contexts('outsider','risk'))===1,'context scoped');
 $check(count($store->choices('one','procurement',10,100)['supplier_relation_id'])===1,'supplier choices');
+if ($driver==='sqlite' && getenv('GOVERNANCE_RENDER_FIXTURE')) {
+    $db->exec('ALTER TABLE office_operator_accounts ADD COLUMN can_edit_crm INTEGER NOT NULL DEFAULT 0');
+    $db->exec('CREATE TABLE office_operator_sessions (token_hash CHAR(64) PRIMARY KEY,operator_id VARCHAR(128),expires_at DATETIME,revoked_at DATETIME NULL)');
+    $q=$db->prepare('INSERT INTO office_operator_sessions VALUES (?,?,?,NULL)');
+    foreach(['one','reader','outsider'] as $a)$q->execute([hash('sha256',hash('sha256',$a)),$a,gmdate('Y-m-d H:i:s',time()+3600)]);
+    $db->exec('VACUUM INTO '.$db->quote(getenv('GOVERNANCE_RENDER_FIXTURE')));
+}
 // Simulate audit persistence failure: the registration and deduplication record must roll back together.
 $db->exec('DROP TABLE office_governance_audit');
 $before=(int)$db->query('SELECT COUNT(*) FROM office_risks')->fetchColumn();

@@ -56,6 +56,8 @@ jobs:
           fi
       - name: SQLite business and authorization chains
         run: php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: Authenticated HTTP chains
+        run: python3 office-independent/tests/OfficeGovernanceHttpTest.py
       - name: MySQL persistence and rollback chains
         env:
           GOVERNANCE_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=governance_ci;charset=utf8mb4'

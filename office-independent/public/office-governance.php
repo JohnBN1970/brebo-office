@@ -14,6 +14,7 @@ if ($module===null || getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED')!=='enabled') {
     http_response_code(404);exit('Onderdeel niet beschikbaar.');
 }
+if (getenv('OFFICE_CRM_SESSION_MODE')!=='enabled') {http_response_code(503);exit('Sessievoorziening niet beschikbaar.');}
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) {header('Allow: GET, POST');http_response_code(405);exit;}
 $host=getenv('OFFICE_PUBLIC_HOST');
