@@ -1,0 +1,55 @@
+name: Office Documents source acceptance
+
+on:
+  push:
+    branches: [fix/documents-project-operator-id-20261108]
+    paths:
+      - .github/workflows/office-documents-source-acceptance.yml
+      - office-independent/public/office-documents.php
+      - office-independent/src/Documents/OfficeNewDocumentMenu.php
+      - office-independent/src/Documents/OfficeDocumentTypes.php
+  pull_request:
+    branches: [develop]
+    paths:
+      - .github/workflows/office-documents-source-acceptance.yml
+      - office-independent/public/office-documents.php
+      - office-independent/src/Documents/OfficeNewDocumentMenu.php
+      - office-independent/src/Documents/OfficeDocumentTypes.php
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint actual Documents page and menu dependencies
+        run: |
+          set -eu
+          php -l office-independent/public/office-documents.php
+          php -l office-independent/src/Documents/OfficeNewDocumentMenu.php
+          php -l office-independent/src/Documents/OfficeDocumentTypes.php
+      - name: Verify project isolation and new-document menu contract
+        run: |
+          set -eu
+          php -r '
+            $page = file_get_contents("office-independent/public/office-documents.php");
+            foreach (["FILTER_VALIDATE_INT", "!is_int(\$operatorId)", "OfficeNativeProjectAccess", "canRead(\$operatorId, \$projectId)"] as $marker) {
+              if (strpos($page, $marker) === false) {
+                fwrite(STDERR, "Missing project access protection\n"); exit(1);
+              }
+            }
+            require "office-independent/src/Documents/OfficeNewDocumentMenu.php";
+            $menu = \Brebo\Office\Documents\OfficeNewDocumentMenu::render("documenten", ["project_id" => 1]);
+            if (strpos($menu, "/office-test/inspectie?project_id=1") === false || strpos($menu, "aria-disabled") === false) {
+              fwrite(STDERR, "Document menu contract failed\n"); exit(1);
+            }
+            $untrusted = \Brebo\Office\Documents\OfficeNewDocumentMenu::render("documenten", ["project_id" => "1&admin=1"]);
+            if (strpos($untrusted, "project_id=") !== false) {
+              fwrite(STDERR, "Untrusted project query was accepted\n"); exit(1);
+            }
+            echo "DOCUMENTS_SOURCE_ACCEPTANCE_OK\n";
+          '
