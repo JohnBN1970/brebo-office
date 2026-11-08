@@ -15,13 +15,13 @@ assertDashboard(str_contains($schema, 'office_dashboard_preferences'), 'Missing 
 assertDashboard(str_contains($schema, 'operator_id BIGINT UNSIGNED NOT NULL PRIMARY KEY'), 'Operator scope missing');
 assertDashboard(!str_contains($schema, 'role_id'), 'Preferences must not store role grants');
 
-if (!extension_loaded('pdo_sqlite')) {
-  echo "Dashboard preference database test skipped: pdo_sqlite unavailable\n";
+$dsn = getenv('OFFICE_DASHBOARD_TEST_MYSQL_DSN');
+if (!is_string($dsn) || $dsn === '') {
+  echo "Dashboard MySQL integration test skipped: no isolated test DSN\\n";
   exit(0);
 }
-$db = new PDO('sqlite::memory:');
-$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$db->exec('CREATE TABLE office_dashboard_preferences (operator_id INTEGER PRIMARY KEY, layout_json TEXT NOT NULL, updated_at TEXT)');
+$db = new PDO($dsn, getenv('OFFICE_DASHBOARD_TEST_MYSQL_USER') ?: '', getenv('OFFICE_DASHBOARD_TEST_MYSQL_PASSWORD') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$db->exec($schema);
 $repo = new OfficeDashboardPreferences($db);
 $permitted = ['projects', 'tasks', 'quality'];
 assertDashboard($repo->load(17, $permitted) === $permitted, 'Default layout incorrect');
