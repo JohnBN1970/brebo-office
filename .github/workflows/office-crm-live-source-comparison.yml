@@ -54,5 +54,11 @@ jobs:
               echo "LIVE_MISSING $file"
             fi
           done
+          file="$active/public/office-crm-relation-manage.php"
+          test -f "$file" && test ! -L "$file"
+          echo CRM_MANAGE_SOURCE_BEGIN
+          base64 "$file" | tr -d '\\n'
+          echo
+          echo CRM_MANAGE_SOURCE_END
           echo CRM_READ_ONLY_AUDIT_OK
           REMOTE
