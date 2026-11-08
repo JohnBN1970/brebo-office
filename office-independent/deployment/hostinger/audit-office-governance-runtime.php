@@ -120,6 +120,8 @@ try {
         echo "PROJECT_MEMBERSHIP_COUNT=$memberships\n";
         $managers = (int)$db->query("SELECT COUNT(DISTINCT a.id) FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id WHERE a.active=1 AND m.permission='manage'")->fetchColumn();
         echo "ACTIVE_PROJECT_MANAGERS=$managers\n";
+        $eligible = (int)$db->query("SELECT COUNT(DISTINCT a.id) FROM office_operator_accounts a JOIN office_project_memberships m ON m.operator_id=a.id JOIN office_module_permissions mp ON mp.operator_id=a.id AND mp.module='settings' AND mp.permission='manage' WHERE a.active=1 AND m.permission='manage'")->fetchColumn();
+        echo "ACTIVE_PROJECT_MANAGERS_WITH_SETTINGS_MANDATE=$eligible\n";
         $otherPermissions = $db->query("SELECT module,permission,COUNT(*) AS count_records FROM office_module_permissions GROUP BY module,permission ORDER BY module,permission")->fetchAll(PDO::FETCH_ASSOC);
         foreach ($otherPermissions as $entry) {
             $module = preg_replace('/[^a-z0-9_]/', '_', strtolower((string)$entry['module']));
