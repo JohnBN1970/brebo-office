@@ -11,7 +11,7 @@ final class OfficeCrmFunnel {
     public const STAGES = [
         'lead' => 'Lead',
         'prospect' => 'Prospect',
-        'request' => 'Aanvraag',
+        'opportunity' => 'Verkoopkans',
         'proposal' => 'Offerte',
         'negotiation' => 'Onderhandeling',
         'won' => 'Akkoord',
@@ -19,8 +19,8 @@ final class OfficeCrmFunnel {
     ];
     public const NEXT = [
         'lead' => ['prospect', 'lost'],
-        'prospect' => ['request', 'lost'],
-        'request' => ['proposal', 'lost'],
+        'prospect' => ['opportunity', 'lost'],
+        'opportunity' => ['proposal', 'lost'],
         'proposal' => ['negotiation', 'won', 'lost'],
         'negotiation' => ['proposal', 'won', 'lost'],
         'won' => [],

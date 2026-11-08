@@ -11,7 +11,7 @@ if (count($statements)!==2) throw new RuntimeException('Expected opportunity and
 foreach (['office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people','next_action_at','opname_required'] as $marker) {
     if (!str_contains(implode("\n",$statements),$marker)) throw new RuntimeException('Missing '.$marker);
 }
-if (!OfficeCrmFunnel::canTransition('prospect','request')) throw new RuntimeException('Prospect to request must be allowed');
+if (!OfficeCrmFunnel::canTransition('prospect','opportunity')) throw new RuntimeException('Prospect to opportunity must be allowed');
 if (OfficeCrmFunnel::canTransition('lead','won')) throw new RuntimeException('Invalid shortcut');
 $ref = new ReflectionClass(OfficeCrmOpportunityRepository::class);
 foreach (['listForViews','create','transition'] as $method) if (!$ref->hasMethod($method)) throw new RuntimeException('Missing '.$method);
