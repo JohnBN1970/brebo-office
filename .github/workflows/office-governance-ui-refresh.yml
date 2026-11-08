@@ -1,4 +1,5 @@
 name: Office governance UI guarded refresh on test
+# Includes deadline-prioritized dossier filters.
 on:
   push:
     branches: [develop]
