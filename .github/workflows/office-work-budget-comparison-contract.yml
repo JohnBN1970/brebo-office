@@ -7,6 +7,9 @@ on:
       - 'office-independent/src/Governance/OfficeWorkBudgetBaselineReader.php'
       - 'office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php'
       - 'office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php'
+      - 'office-independent/src/Governance/OfficeProjectProcurementBudgetService.php'
+      - 'office-independent/src/Project/OfficeProjectBudgetKpiView.php'
+      - 'office-independent/tests/OfficeProjectBudgetKpiViewTest.php'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,4 +26,8 @@ jobs:
           php -l office-independent/src/Governance/OfficeWorkBudgetBaselineReader.php
           php -l office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php
           php -l office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
+          php -l office-independent/src/Governance/OfficeProjectProcurementBudgetService.php
+          php -l office-independent/src/Project/OfficeProjectBudgetKpiView.php
+          php -l office-independent/tests/OfficeProjectBudgetKpiViewTest.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
+          php office-independent/tests/OfficeProjectBudgetKpiViewTest.php
