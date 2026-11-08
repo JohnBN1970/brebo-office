@@ -1,4 +1,4 @@
-name: Office-test project Documenten HTTP 500 diagnostic
+name: Office-test project Documenten HTTP 500 runtime contract diagnostic
 on:
   workflow_dispatch:
 permissions:
@@ -17,7 +17,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Inspect active Documenten entrypoint and error categories
+      - name: Inspect runtime Documenten method and class contracts
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -37,19 +37,25 @@ jobs:
             test -f "$file" && test ! -L "$file" || { echo ABORT_FILE_MISSING; exit 21; }
             php -l "$file"
           done
-          DOCS="$docs" VIEW="$view" python3 - <<'PY'
+          DOCS="$docs" VIEW="$view" ACTIVE="$active" python3 - <<'PY'
           import os,pathlib,re
           docs=pathlib.Path(os.environ["DOCS"]).read_text()
           view=pathlib.Path(os.environ["VIEW"]).read_text()
-          markers=["OfficeNewDocumentMenu::render","OfficeNativeProjectAccess","OfficeMount::route","OfficeMount::basePath","project_id","canRead","require_once","OfficeDocumentContextLinks"]
-          for marker in markers:
+          active=pathlib.Path(os.environ["ACTIVE"])
+          for marker in ("OfficeNewDocumentMenu::render","OfficeNativeProjectAccess","OfficeMount::route","OfficeMount::basePath","project_id","canRead","require_once"):
               print("DOCUMENTS_MARKER_"+re.sub("[^A-Z0-9]","_",marker.upper())+"="+str(docs.count(marker)),flush=True)
           print("V3_CONTEXT_LINK="+str(view.count("/documenten?project_id=")),flush=True)
-          for m in re.finditer(r"OfficeMount::(route|basePath)",docs):
-              print("DOCS_MOUNT_CALL_LINE="+str(docs.count("\n",0,m.start())+1)+" METHOD="+m.group(1),flush=True)
-          for m in re.finditer(r"OfficeNewDocumentMenu::render|OfficeNativeProjectAccess|OfficeDocumentContextLinks",docs):
-              print("DOCS_COMPONENT_LINE="+str(docs.count("\n",0,m.start())+1)+" NAME="+m.group(0),flush=True)
-          print("DOCUMENTS_SOURCE_DIAGNOSTIC_OK",flush=True)
+          mount=active/"src/Intake/OfficeMount.php"
+          if mount.is_file():
+              txt=mount.read_text()
+              print("DOCUMENTS_MOUNT_ROUTE_METHOD="+str(bool(re.search(r"function\\s+route\\s*\\(",txt))),flush=True)
+              print("DOCUMENTS_MOUNT_BASEPATH_METHOD="+str(bool(re.search(r"function\\s+basePath\\s*\\(",txt))),flush=True)
+          else:
+              print("DOCUMENTS_MOUNT_CLASS_FILE_MISSING",flush=True)
+          menu=active/"src/Document/OfficeNewDocumentMenu.php"
+          print("DOCUMENTS_MENU_EXPECTED_PATH_EXISTS="+str(menu.is_file()),flush=True)
+          # No raw source, PII or secrets are printed.
+          print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
           # Do not expose request paths, IPs, cookies or raw exception messages.
           # Only count recent PHP error categories, with no user data.
