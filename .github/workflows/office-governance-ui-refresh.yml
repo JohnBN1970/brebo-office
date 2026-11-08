@@ -1,5 +1,5 @@
 name: Office governance UI guarded refresh on test
-# Includes deadline-prioritized dossier filters.
+# Includes ACL-scoped cross-module project control overview and deadline filters.
 on:
   push:
     branches: [develop]
