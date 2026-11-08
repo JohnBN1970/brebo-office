@@ -1,0 +1,68 @@
+name: Office governance UI guarded refresh on test
+on:
+  push:
+    branches: [develop]
+    paths: ['.github/workflows/office-governance-ui-refresh.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-governance-ui-refresh-test
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate native governance controller
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-governance.php
+          php office-independent/tests/OfficeGovernanceIntegrationTest.php
+      - name: Stage only governance controller
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          source: office-independent/public/office-governance.php
+          target: /home/u213420663/domains/brebobv.nl/office_calc_test/.governance-ui-stage
+          overwrite: true
+      - name: Replace isolated test governance controller with guarded backup
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            CONFIG="$ROOT/config/config.php"
+            STAGED="$ROOT/.governance-ui-stage/office-independent/public/office-governance.php"
+            test -f "$STAGED"
+            "$PHP" -l "$STAGED"
+            RELEASE=$("$PHP" -r '$c=require $argv[1];if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test" || ($c["OFFICE_TEST_GOVERNANCE_ENABLED"]??"")!=="enabled")exit(3);echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$CONFIG")
+            case "$RELEASE" in "$ROOT"/release-*/private) ;; *) echo GOVERNANCE_UI_SCOPE_DENIED; exit 2;; esac
+            TARGET="$RELEASE/public/office-governance.php"
+            test -f "$TARGET"
+            test ! -L "$TARGET"
+            grep -Fq 'OfficeGovernanceService' "$TARGET"
+            grep -Fq 'OfficeGovernanceCsrf' "$TARGET"
+            grep -Fq 'OfficeGovernanceService' "$STAGED"
+            grep -Fq 'OfficeGovernanceCsrf' "$STAGED"
+            BACKUP="$TARGET.before-ui-refresh-$(date -u +%Y%m%d%H%M%S)"
+            cp -p "$TARGET" "$BACKUP"
+            chmod 600 "$BACKUP"
+            TMP="$TARGET.candidate.$$"
+            cp -p "$STAGED" "$TMP"
+            "$PHP" -l "$TMP"
+            mv "$TMP" "$TARGET"
+            "$PHP" -l "$TARGET"
+            grep -Fq 'Termijn verstreken' "$TARGET"
+            echo GOVERNANCE_UI_REFRESH_INSTALLED_WITH_BACKUP
