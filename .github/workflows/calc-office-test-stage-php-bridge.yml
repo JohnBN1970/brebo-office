@@ -1,5 +1,9 @@
 name: Calc Office-test stage PHP bridge (flags off)
 on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-office-test-stage-php-bridge.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -22,7 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           value="$(printf '%s' "$CONFIRMATION" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-          test "$value" = STAGE-CALC-PHP
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            test "$value" = STAGE-CALC-PHP
+          fi
           test -n "$KEY"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_stage
