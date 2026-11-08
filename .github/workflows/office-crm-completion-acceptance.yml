@@ -1,0 +1,68 @@
+name: CRM completion acceptance
+on:
+  push:
+    branches: ['integration/crm-completion-20261108']
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/public/office-crm-opportunit*.php'
+      - 'office-independent/public/office-crm-calculation-context.php'
+      - 'office-independent/tests/OfficeCrmCompletion*'
+      - '.github/workflows/office-crm-completion-acceptance.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/public/office-crm-opportunit*.php'
+      - 'office-independent/public/office-crm-calculation-context.php'
+      - 'office-independent/tests/OfficeCrm*'
+      - '.github/workflows/office-crm-completion-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-only
+          MYSQL_DATABASE: crm_completion_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pfixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, mbstring
+          coverage: none
+      - name: Lint CRM and enforce native context
+        shell: bash
+        run: |
+          set -euo pipefail
+          find office-independent/src/Crm -name '*.php' -print0 | xargs -0 -n1 php -l
+          for file in office-independent/public/office-crm-opportunit*.php office-independent/public/office-crm-calculation-context.php; do php -l "$file"; done
+          if grep -En 'Drupal\\|node_field_data|project_nid' office-independent/src/Crm/OfficeCrmOpportunity*.php office-independent/src/Crm/OfficeCrmCalculationContext.php; then exit 1; fi
+      - name: SQLite full commercial chain
+        run: php office-independent/tests/OfficeCrmCompletionIntegrationTest.php
+      - name: Authenticated HTTP chain
+        run: python3 office-independent/tests/OfficeCrmCompletionHttpTest.py
+      - name: MySQL full commercial chain
+        env:
+          CRM_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=crm_completion_ci;charset=utf8mb4'
+          CRM_TEST_USER: root
+          CRM_TEST_PASSWORD: fixture-only
+        run: php office-independent/tests/OfficeCrmCompletionIntegrationTest.php
+      - name: Existing CRM contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in office-independent/tests/OfficeCrm*Test.php; do
+            case "$test" in *CompletionIntegrationTest.php) continue;; esac
+            php "$test"
+          done
+          php office-independent/tests/OfficeNavigationV2Test.php

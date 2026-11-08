@@ -78,6 +78,7 @@ final class OfficeNavigation {
       && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED')==='enabled';
     $groups=[
       ['Mijn werkplek','werkplek',[['Startpagina','/office-test/']]],
+      ['Marketing','marketing',$crmAvailable&&getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled'?[['Leads','/office-test/marketing/leads']]:[]],
       ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
       ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten']]:[]],
       ['Personeel','personeel',$projectsAvailable?[
@@ -102,7 +103,8 @@ final class OfficeNavigation {
       ['Kennis & kwaliteit','kennis',self::governanceVisible()?[['Kwaliteit','/office-test/kwaliteit'],['Risico’s','/office-test/risicos']]:[]],
     ];
     $selected='werkplek';
-    if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
+    if(str_starts_with($path,'/office-test/marketing/'))$selected='marketing';
+    elseif(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
