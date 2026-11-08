@@ -116,3 +116,9 @@ expliciet toegekend. Geen automatische verheffing van bestaande gebruikers.
   **nog niet uitgevoerd**. Gebouwde code betekent niet dat de modules al live staan.
 
 Geen productiemigratie, geen Drupal-migratie, geen wijziging aan de website.
+
+## Aansluiting projectbrede inkoopverplichtingen — 8 november 2026
+
+Het canonieke read-contract `OfficeProcurementOrderSource` ondersteunt nu ook `awardedProjectOrders(actor, project, buildingIds)` en `awardedProjectCommitment(actor, project, buildingIds)`. Deze totaliseren alleen verstrekte/ontvangen opdrachten over expliciet doorgegeven projectgebouwen, dedupliceren gebouw-ID's en opdracht-ID's en hanteren de bestaande native project- en module-ACL. Het resultaat is in exacte eurocenten exclusief btw; dit is een **inkoopverplichting**, geen geboekte factuur, betaling of marge.
+
+De contractaanvulling is **geen FinanceCenter-scherminbedding** en bewijst geen serverdeployed functionaliteit. Gebruik in een volgende afzonderlijke integratiestap een projectgebouwenlijst uit een geautoriseerde Office-bron, scheid financiële leesrechten van procurement-rechten, en voorkom dubbele kostenregistratie. Browseracceptatie, migratie en modulemandaten blijven openstaande gates.
