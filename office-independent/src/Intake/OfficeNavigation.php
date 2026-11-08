@@ -96,6 +96,7 @@ final class OfficeNavigation {
       ['Bedrijfsvoering','bedrijfsvoering',array_merge(self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+        ...(getenv('OFFICE_FINANCE_SALES_READ_ENABLED')==='enabled' ? [['Verkoopfacturen','/office-test/finance/verkoopfacturen']] : []),
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[],self::governanceVisible()?[['Inkoop','/office-test/inkoop']]:[])],
       ['Rapporten','rapporten',getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' ? [['Inspectierapporten','/office-test/inspecties']] : []],
