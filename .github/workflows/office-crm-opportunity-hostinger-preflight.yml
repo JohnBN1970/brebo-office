@@ -1,0 +1,42 @@
+name: CRM opportunities Hostinger read-only preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax check
+        run: php -l office-independent/deployment/hostinger/audit-office-crm-opportunities-readonly.php
+      - name: Stage audit on isolated Office-test
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/audit-office-crm-opportunities-readonly.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.crm-opportunity-preflight-stage"
+          overwrite: true
+      - name: Execute read-only audit, no schema writes
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            SCRIPT="$ROOT/.crm-opportunity-preflight-stage/office-independent/deployment/hostinger/audit-office-crm-opportunities-readonly.php"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$SCRIPT"
+            "$PHP" -l "$SCRIPT"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"
+            "$PHP" "$SCRIPT"
