@@ -53,6 +53,12 @@ final class OfficeProjectDetailV3View
                 . '<article><small>Voortgang</small><strong>—</strong><p>Uitvoeringsbron nog niet gekoppeld</p></article>'
                 . '</div></section>';
         }
+        // An authorized controller may supply a pre-rendered, read-only budget KPI panel.
+        // Never query finance or procurement here: this class remains presentation-only.
+        if ($tab === 'financieel' && isset($sections['inkoopbudget_kpis'])
+            && is_string($sections['inkoopbudget_kpis'])) {
+            $html .= $sections['inkoopbudget_kpis'];
+        }
         if (isset($sections[$tab]) && is_string($sections[$tab])) {
             // Trusted HTML only, supplied by existing authorized Office renderers.
             $html .= $sections[$tab];
