@@ -95,8 +95,8 @@ foreach($records as $item) {
     if(!$done && is_string($payload['due_date']??null) && $payload['due_date']<$today) $late++;
     if($module==='quality' && !$done && !empty($payload['blocks_release'])) $urgent++;
     if($module==='risk' && !$done && (int)($payload['score']??((int)($payload['probability']??0)*(int)($payload['impact']??0)))>=15) $urgent++;
-    if($module==='procurement' && in_array($state,['approved','ordered','received'],true)) {
-        $amount+=(int)($payload['quantity']??0)*(int)($payload['unit_price_cents']??0);
+    if($module==='procurement' && in_array($state,['ordered','received'],true)) {
+        $amount+=(int)($payload['amount_cents']??0);
     }
 }
 $activeCount=count($records)-array_sum(array_intersect_key($counts,array_flip(['accepted','closed','received','cancelled'])));
@@ -136,7 +136,7 @@ if(is_int($project)&&is_int($building)) {
             }
             if($key==='quality'&&!$finished&&!empty($payload['blocks_release'])) $blocking++;
             if($key==='risk'&&!$finished&&(int)($payload['probability']??0)*(int)($payload['impact']??0)>=15) $high++;
-            if($key==='procurement'&&in_array($state,['approved','ordered','received'],true)) {
+            if($key==='procurement'&&in_array($state,['ordered','received'],true)) {
                 $commitments+=(int)($payload['amount_cents']??0);
             }
         }
@@ -161,7 +161,7 @@ header('Content-Type: text/html; charset=utf-8');
 <?php if (is_int($project)&&is_int($building)): ?>
 <section><h2>Projectbeheersing · totaaloverzicht</h2><div class="kpis"><?php foreach($projectOverview as $key=>$stats): ?><div class="kpi <?= ($stats['blocking']||$stats['high'])?'danger':($stats['overdue']?'warn':'') ?>"><small><?= $e($titles[$key]) ?></small><strong><?= $stats['open'] ?> open</strong><p><?= $stats['overdue'] ?> te laat<?php if($key==='quality'): ?> · <?= $stats['blocking'] ?> blokkades<?php elseif($key==='risk'): ?> · <?= $stats['high'] ?> hoog<?php else: ?> · € <?= $e(number_format($stats['commitments']/100,2,',','.')) ?> verplicht<?php endif; ?></p><a href="<?= $e('/office-test/'.$stats['route'].'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>">Bekijk dossiers</a></div><?php endforeach; ?></div><p><a href="<?= $e('/office-test/projecten/detail?id='.$project) ?>">Terug naar projectdashboard</a></p></section>
 <nav class="tabs" aria-label="Projectbeheersing"><?php foreach($moduleLinks as $key=>$route): ?><a class="<?= $key===$module?'current':'' ?>" href="<?= $e('/office-test/'.$route.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building])) ?>"><?= $e($titles[$key]) ?></a><?php endforeach; ?></nav>
-<div class="kpis"><div class="kpi"><small>Registraties</small><strong><?= count($records) ?></strong></div><div class="kpi"><small>Openstaand</small><strong><?= $activeCount ?></strong></div><div class="kpi <?= $late?'warn':'' ?>"><small>Termijn verstreken</small><strong><?= $late ?></strong></div><?php if($module!=='procurement'): ?><div class="kpi <?= $urgent?'danger':'' ?>"><small><?= $module==='quality'?'Vrijgaveblokkades':'Hoge risico’s (15+)' ?></small><strong><?= $urgent ?></strong></div><?php else: ?><div class="kpi"><small>Goedgekeurd / besteld / ontvangen excl. btw</small><strong>€ <?= $e(number_format($amount/100,2,',','.')) ?></strong></div><?php endif; ?></div>
+<div class="kpis"><div class="kpi"><small>Registraties</small><strong><?= count($records) ?></strong></div><div class="kpi"><small>Openstaand</small><strong><?= $activeCount ?></strong></div><div class="kpi <?= $late?'warn':'' ?>"><small>Termijn verstreken</small><strong><?= $late ?></strong></div><?php if($module!=='procurement'): ?><div class="kpi <?= $urgent?'danger':'' ?>"><small><?= $module==='quality'?'Vrijgaveblokkades':'Hoge risico’s (15+)' ?></small><strong><?= $urgent ?></strong></div><?php else: ?><div class="kpi"><small>Verstrekte opdrachten excl. btw</small><strong>€ <?= $e(number_format($amount/100,2,',','.')) ?></strong></div><?php endif; ?></div>
 <p><a href="/office-test/projecten/detail?id=<?= $e($project) ?>">Terug naar project</a> · Gebouw <?= $e($building) ?></p>
 <section><h2>Dossieroverzicht</h2><nav class="tabs" aria-label="Dossierfilter"><?php foreach(['all'=>'Alles','open'=>'Openstaand','overdue'=>'Te laat','closed'=>'Afgerond'] as $key=>$label): ?><a class="<?= $filterStatus===$key?'current':'' ?>" href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'status'=>$key])) ?>"><?= $e($label) ?> (<?= $key==='all'?count($records):($key==='open'?$activeCount:($key==='overdue'?$late:count($records)-$activeCount)) ?>)</a><?php endforeach; ?></nav><table><thead><tr><th>Onderwerp</th><th>Status</th><th>Eigenaar</th><th>Termijn</th></tr></thead><tbody>
 <?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
