@@ -375,6 +375,35 @@ if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTe
     ? '<button type="submit">Calculatie koppelen</button></form>'
     : '</form><p>Geen voorbereid woningtype of toegankelijke ongekoppelde Calc-calculatie beschikbaar.</p>';
 }
+// Launch links are derived from current Office authorization, never from a linked ID alone.
+$launchIds = [];
+if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_CALC_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled'
+    && is_array($calculationScopes)) {
+  try {
+    require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcLaunchAccess.php';
+    $launchAccess = new \Brebo\Office\Calculation\OfficeCalcLaunchAccess($db);
+    foreach ($calculationScopes as $scope) {
+      $calcId = filter_var($scope['calc_calculation_id'] ?? null, FILTER_VALIDATE_INT);
+      if (!is_int($calcId) || $calcId <= 0) continue;
+      $launchIds[$calcId] = true;
+      if (!$launchAccess->canLaunch((int)$operator->operatorId, (int)$projectId, (int)$calcId)) {
+        unset($launchIds[$calcId]);
+      }
+    }
+  } catch (Throwable) {
+    $launchIds = [];
+  }
+}
+$calcOpenLink = static function (int $calcId) use ($launchIds, $projectId, $escape): string {
+  if (!isset($launchIds[$calcId])) return 'Koppeling geregistreerd; openen nog niet beschikbaar';
+  return '<a href="' . $escape('/office-test/calc-werkbank?project_id='
+    . (int)$projectId . '&calculation_id=' . $calcId) . '">Openen in Calc</a>';
+};
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
@@ -386,7 +415,7 @@ if ($calculationScopes === null) {
   foreach ($calculationScopes as $scope) {
     $kind = (string) $scope['scope_kind'];
     if ($kind === 'housing_type') continue;
-    $scopeHtml .= '<tr><td>' . $escape((string) $scope['scope_label']) . '</td><td>' . $escape($scopeNames[$kind] ?? $kind) . '</td><td>' . ($scope['calc_calculation_id'] === null ? 'Nog niet gekoppeld' : 'Koppeling geregistreerd; openen nog niet beschikbaar') . '</td></tr>';
+    $scopeHtml .= '<tr><td>' . $escape((string) $scope['scope_label']) . '</td><td>' . $escape($scopeNames[$kind] ?? $kind) . '</td><td>' . ($scope['calc_calculation_id'] === null ? 'Nog niet gekoppeld' : $calcOpenLink((int)$scope['calc_calculation_id'])) . '</td></tr>';
   }
   $scopeHtml .= '</tbody></table>';
 }
