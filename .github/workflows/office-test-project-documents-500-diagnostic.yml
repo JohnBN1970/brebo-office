@@ -88,6 +88,33 @@ jobs:
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
+          # Lint the menu file and verify the declared class/method contract without executing the page.
+          menu_file="$active/src/Documents/OfficeNewDocumentMenu.php"
+          if test -f "$menu_file" && test ! -L "$menu_file"; then
+            php -l "$menu_file"
+            MENU_FILE="$menu_file" php -r '
+              require $GLOBALS["argv"][1];
+              $class="Brebo\\Office\\Documents\\OfficeNewDocumentMenu";
+              echo "DOCUMENTS_MENU_CLASS_LOADABLE=".(class_exists($class)?"true":"false").PHP_EOL;
+              if (class_exists($class) && method_exists($class,"render")) {
+                $method=new ReflectionMethod($class,"render");
+                echo "DOCUMENTS_MENU_RENDER_STATIC=".($method->isStatic()?"true":"false").PHP_EOL;
+                echo "DOCUMENTS_MENU_RENDER_REQUIRED_ARGS=".$method->getNumberOfRequiredParameters().PHP_EOL;
+              }
+            ' "$menu_file"
+          else
+            echo DOCUMENTS_MENU_RUNTIME_FILE_MISSING
+          fi
+          # Anonymous HTTP smoke check; no cookies, credentials, body, or redirect targets logged.
+          for route in /office-test/documenten /office-test/documenten/nieuw /office-test/projecten; do
+            case "$route" in
+              /office-test/documenten) label=documents ;;
+              /office-test/documenten/nieuw) label=documents_new ;;
+              *) label=projects ;;
+            esac
+            status="$(curl -sS -L --max-redirs 0 --connect-timeout 8 --max-time 20 -o /dev/null -w '%{http_code}' "https://brebobv.nl$route" 2>/dev/null)" || status=transport_error
+            echo "DOCUMENTS_HTTP_${label}=$status"
+          done
           # Do not expose request paths, IPs, cookies or raw exception messages.
           # Only count recent PHP error categories, with no user data.
           for log in "$active/error_log" "$active/public/error_log" "$root/error_log"; do
