@@ -13,7 +13,7 @@ final class OfficeProcurementOrderSource
      */
     public function awardedProjectOrders(string $actor, int $project, array $buildingIds): array
     {
-        if ($project < 1 || $buildingIds === []) return [];
+        if ($project < 1 || $buildingIds === []) throw new \InvalidArgumentException('Project en gebouwscope vereist.');
         $seen = [];
         $all = [];
         foreach ($buildingIds as $buildingId) {
