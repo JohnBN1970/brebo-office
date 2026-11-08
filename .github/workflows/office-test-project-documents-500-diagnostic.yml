@@ -61,6 +61,14 @@ jobs:
               print("DOCUMENTS_MOUNT_CLASS_FILE_MISSING",flush=True)
           menu=active/"src/Document/OfficeNewDocumentMenu.php"
           print("DOCUMENTS_MENU_EXPECTED_PATH_EXISTS="+str(menu.is_file()),flush=True)
+          candidates=list((active/"src").rglob("*NewDocumentMenu*.php"))
+          print("DOCUMENTS_MENU_CANDIDATE_COUNT="+str(len(candidates)),flush=True)
+          for candidate in candidates[:10]:
+              print("DOCUMENTS_MENU_CANDIDATE_RELATIVE="+str(candidate.relative_to(active)),flush=True)
+          for line in docs.splitlines():
+              if "OfficeNewDocumentMenu" in line:
+                  print("DOCUMENTS_MENU_REFERENCE_KIND="+("require" if "require" in line else "render" if "::render" in line else "other"),flush=True)
+          print("DOCUMENTS_MENU_CLASS_DECLARATION_COUNT="+str(sum("class OfficeNewDocumentMenu" in x.read_text(errors="replace") for x in candidates)),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
