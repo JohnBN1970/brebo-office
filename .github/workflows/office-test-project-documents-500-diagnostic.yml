@@ -1,6 +1,13 @@
 name: Office-test project Documenten HTTP 500 runtime contract diagnostic
 on:
   workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-test-project-documents-500-diagnostic.yml'
+      - 'office-independent/public/office-documents.php'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
 permissions:
   contents: read
 jobs:
