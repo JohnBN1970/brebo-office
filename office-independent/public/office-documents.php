@@ -1,104 +1,122 @@
 <?php
 declare(strict_types=1);
 
-// Authenticated, read-only central Documents landing. No file data is exposed
-// until document schema and per-context grants have been verified.
+/**
+ * Central Office document landing page.
+ * Inspection documents remain in their existing authorized repository.
+ */
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET');
     http_response_code(405);
     exit;
 }
-if (getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled'
+if (getenv('OFFICE_BASE_PATH') !== '/office-test') {
+    http_response_code(404);
+    exit;
+}
+$host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+$allowedHost = getenv('OFFICE_PUBLIC_HOST');
+if (!is_string($allowedHost) || $allowedHost === '' || !hash_equals($allowedHost, $host)
     || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
-    http_response_code(503);
-    exit('Documenten tijdelijk niet beschikbaar.');
+    http_response_code(403);
+    exit;
 }
 try {
     foreach ([
-        'OfficeMount.php',
-        'WebsiteCrmOperatorContext.php',
+        'OfficeMount.php', 'WebsiteCrmOperatorContext.php',
         'WebsiteCrmOperatorSessionProviderInterface.php',
-        'WebsiteOfficeCrmSessionRepository.php',
-        'WebsiteOfficeCrmCookieSessionProvider.php',
+        'WebsiteOfficeCrmSessionRepository.php', 'WebsiteOfficeCrmCookieSessionProvider.php'
     ] as $file) {
         require_once dirname(__DIR__) . '/src/Intake/' . $file;
     }
-    $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
-    if (!is_string($dsn) || $dsn === '') {
-        throw new RuntimeException('Office database unavailable');
-    }
-    $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '',
+    $db = new PDO(
+        getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
+        getenv('OFFICE_INTAKE_DB_USER') ?: '',
         getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
-    $operator = (new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    );
+    $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
         new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time()
-    ))->currentOperator();
+    );
+    $operator = $provider->currentOperator();
     if ($operator === null) {
         header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
         exit;
     }
-    $projectId = null;
-    if (isset($_GET['project_id'])) {
-        $projectId = filter_var($_GET['project_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        if (!is_int($projectId)) {
-            http_response_code(400);
-            exit('Ongeldig project.');
-        }
-        require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
-        $operatorId = filter_var($operator->operatorId, FILTER_VALIDATE_INT,
-            ['options' => ['min_range' => 1]]);
-        if (!is_int($operatorId) || !(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canRead($operatorId, $projectId)) {
-            http_response_code(404);
-            exit('Dossier niet gevonden.');
-        }
-    }
-    $isNew = ($_SERVER['OFFICE_DOCUMENTS_VIEW'] ?? '') === 'new';
-    $base = \Brebo\Office\Intake\OfficeMount::route('documenten',
-        $projectId === null ? [] : ['project_id' => $projectId]);
-    $new = \Brebo\Office\Intake\OfficeMount::route('documenten/nieuw',
-        $projectId === null ? [] : ['project_id' => $projectId]);
-    $home = \Brebo\Office\Intake\OfficeMount::route('home');
-} catch (Throwable $error) {
+} catch (Throwable $e) {
     http_response_code(503);
     exit('Documenten tijdelijk niet beschikbaar.');
 }
-$e = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$projectId = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if (array_key_exists('project_id', $_GET) && !is_int($projectId)) {
+    http_response_code(400);
+    exit('Ongeldig projectnummer.');
+}
+if (is_int($projectId)) {
+    try {
+        require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
+
+        $access = new \Brebo\Office\Project\OfficeNativeProjectAccess($db);
+
+        $operatorId = filter_var(
+            $operator->operatorId,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+
+        if (!is_int($operatorId) || !$access->canRead($operatorId, $projectId)) {
+            http_response_code(404);
+            exit('Project niet gevonden.');
+        }
+    } catch (\Throwable $error) {
+        http_response_code(503);
+        exit('Projectdocumenten tijdelijk niet beschikbaar.');
+    }
+}
+$documentScope = is_int($projectId) ? ['project_id' => $projectId] : [];
+$inspectionUrl = '/office-test/inspecties' . (is_int($projectId) ? '?project_id=' . $projectId : '');
+require_once dirname(__DIR__) . '/src/Documents/OfficeNewDocumentMenu.php';
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Documenten · BREBO Office</title>
+<title>Documenten - BREBO Office</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#17283a;font:16px system-ui,sans-serif}
-header{background:#17283a;color:#fff;padding:18px clamp(18px,4vw,56px)}
-header a{color:#fff;margin-right:24px}main{max-width:1120px;margin:auto;padding:32px 22px}
-.top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
-h1{margin:0 0 8px}.muted{color:#536479}.button{display:inline-block;padding:12px 18px;background:#1b5b86;color:#fff;text-decoration:none;border-radius:7px}
-section{background:#fff;border:1px solid #dce4ed;border-radius:10px;padding:22px;margin-top:20px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
-.tile{display:block;padding:18px;border:1px solid #dce4ed;border-radius:8px;color:#17283a;text-decoration:none}
-.tile:hover{border-color:#1b5b86}details{margin-top:14px}summary{cursor:pointer;font-weight:600}
-</style></head><body>
-<header><strong>BREBO Office</strong> &nbsp; <a href="<?= $e($home) ?>">Mijn werkplek</a><a href="<?= $e($base) ?>">Documenten</a></header>
-<main><div class="top"><div><h1><?= $isNew ? 'Nieuw document' : 'Documenten' ?></h1>
-<p class="muted"><?= $projectId === null ? 'Centraal documentbeheer' : 'Documenten binnen het geautoriseerde projectdossier' ?></p></div>
-<?php if (!$isNew): ?><a class="button" href="<?= $e($new) ?>">+ Nieuw document</a><?php endif; ?></div>
-<?php if ($isNew): ?>
-<section><h2>Kies documentsoort</h2><div class="grid">
-<?php foreach (['Offerte','Contract','Rapport','Inspectie','Brief','Factuur','Overig document'] as $type): ?>
-<div class="tile"><strong><?= $e($type) ?></strong><p class="muted">Invoer wordt beschikbaar na controle van de documentrechten en registratie.</p></div>
-<?php endforeach; ?></div>
-<p><a href="<?= $e($base) ?>">Terug naar documenten</a></p></section>
-<?php else: ?>
-<section><h2>Documenten per onderdeel</h2><div class="grid">
-<?php foreach (['Projecten','Gebouwen','Klanten en contacten','Personeel','Bedrijfsvoering'] as $type): ?>
-<div class="tile"><strong><?= $e($type) ?></strong><p class="muted">Dossiergebonden documenten</p></div>
-<?php endforeach; ?></div></section>
-<section><h2>Documentenoverzicht</h2><p>De beveiligde documentregistratie wordt hier aangesloten zodra de tabellen en toegangsrechten zijn geverifieerd. Er worden nog geen documenten getoond.</p></section>
-<?php endif; ?>
-</main></body></html>
+*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#1b2c3c;font:15px system-ui,sans-serif}
+main{max-width:1050px;margin:32px auto;padding:0 20px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+h1{margin:0}section{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:24px;margin:20px 0}
+a{color:#1c5f8d}.muted{color:#5d6b79}.office-new-document{position:relative}
+.office-new-document summary{cursor:pointer;background:#1d587c;color:#fff;border-radius:8px;padding:12px 16px}
+.office-new-document ul{list-style:none;padding:8px;margin:6px 0;background:#fff;border:1px solid #dce3eb;border-radius:8px;min-width:280px}
+.office-new-document li{padding:7px}.office-new-document span[aria-disabled]{color:#697685}
+</style></head><body><main>
+<header><div><h1>Documenten</h1><p class="muted">Centraal toegangspunt voor documenten in BREBO Office.</p></div>
+<?php
+try {
+    echo \Brebo\Office\Documents\OfficeNewDocumentMenu::render('documenten', $documentScope);
+} catch (\Throwable $error) {
+    echo '<p>Documentmenu tijdelijk niet beschikbaar.</p>';
+}
+?>
+</header>
+<section class="office-document-context-navigation" aria-label="Documenten per onderdeel">
+<h2>Documenten per onderdeel</h2>
+<p>Open documenten vanuit het bijbehorende onderdeel. Bestaande rechten en projectafscherming blijven van toepassing.</p>
+<nav aria-label="Documentcontexten" style="display:flex;flex-wrap:wrap;gap:12px">
+<a href="/office-test/projecten">Projecten</a>
+<a href="/office-test/crm/relaties">Klanten en relaties</a>
+<a href="/office-test/gebouwen">Gebouwen</a>
+<a href="/office-test/personeel/medewerkers">Personeel</a>
+<a href="/office-test/finance">Bedrijfsvoering</a>
+</nav></section>
+<section><h2>Documentenoverzicht</h2>
+<p>De bestaande inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.<?= is_int($projectId) ? " Projectfilter: " . (int) $projectId . "." : "" ?></p>
+<p><a href="<?= htmlspecialchars($inspectionUrl, ENT_QUOTES, "UTF-8") ?>">Inspectierapporten bekijken</a></p>
+<p class="muted">Andere documentsoorten worden hier zichtbaar zodra hun centrale registratie en autorisatie zijn aangesloten.</p>
+</section></main></body></html>
