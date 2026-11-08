@@ -1,0 +1,24 @@
+name: Calc building scope contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcBuildingScope.php'
+      - 'office-independent/tests/OfficeCalcBuildingScopeTest.php'
+      - '.github/workflows/calc-building-scope-contracts.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcBuildingScope.php'
+      - 'office-independent/tests/OfficeCalcBuildingScopeTest.php'
+      - '.github/workflows/calc-building-scope-contracts.yml'
+permissions:
+  contents: read
+jobs:
+  scope:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate calculation scope
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcBuildingScope.php
+          php office-independent/tests/OfficeCalcBuildingScopeTest.php
