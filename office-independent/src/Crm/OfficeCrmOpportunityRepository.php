@@ -96,7 +96,7 @@ final class OfficeCrmOpportunityRepository
     public function createLead(string $actor,string $title,string $description,string $source,string $key): int
     {
         $title=trim($title);$description=trim($description);$source=trim($source);
-        if($title===''||strlen($title)>255||strlen($description)>12000||strlen($source)>128)throw new \InvalidArgumentException('Controleer naam, bron en toelichting van de lead.');
+        if($title===''||!mb_check_encoding($title,'UTF-8')||!mb_check_encoding($description,'UTF-8')||!mb_check_encoding($source,'UTF-8')||mb_strlen($title,'UTF-8')>255||mb_strlen($description,'UTF-8')>12000||mb_strlen($source,'UTF-8')>128)throw new \InvalidArgumentException('Controleer naam, bron en toelichting van de lead.');
         return $this->transaction($actor,$key,['lead',$title,$description,$source],function()use($title,$description,$source):array{
             $q=$this->db->prepare("INSERT INTO office_crm_opportunities (title,stage,currency,description,source) VALUES (?,'lead','EUR',?,?)");$q->execute([$title,$description,$source]);
             return [(int)$this->db->lastInsertId(),'lead_created','Marketing-lead vastgelegd',['source'=>$source]];
