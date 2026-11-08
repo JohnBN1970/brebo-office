@@ -153,3 +153,7 @@ Dit hoofdstuk vervangt de eerdere, historische tussenstanden hierboven.
 **Nog uit te voeren:** browseracceptatie met een aangemelde, gemandateerde Office-operator; veilige proefregistratie per module; afzonderlijke tweepersoonsmandaten voor goedkeuring en opdrachtverstrekking; en bevestigen of de project-Finance read-only inkoopverplichtingenweergave ook daadwerkelijk in de actieve release staat. De laatstgenoemde Finance-code bestaat in `develop`, maar is niet door de code-only governancedeployment overgezet.
 
 Geen wijzigingen in productie, geen Drupal-afhankelijkheid.
+
+## Aanvullende project-Finance audit
+
+De onafhankelijke read-only serveraudit [42457760318](https://github.com/JohnBN1970/brebo-office/actions/runs/42457760318) eindigde opnieuw met `GOVERNANCE_RUNTIME_READY`, maar rapporteert `OPTIONAL_PROJECT_FINANCE_PROCUREMENT_WIDGET=NOT_INSTALLED`. De governancefuncties zelf zijn actief; de afzonderlijke Finance-blokweergave van inkoopverplichtingen is **nog niet** in de actieve projectdetailpagina geplaatst. Een latere, versie-gecontroleerde gerichte wijziging van `office-project.php` is nodig; vervang niet blind de bestaande actieve projectpagina.
