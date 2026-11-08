@@ -55,8 +55,8 @@ jobs:
           mount=active/"src/Intake/OfficeMount.php"
           if mount.is_file():
               txt=mount.read_text()
-              print("DOCUMENTS_MOUNT_ROUTE_METHOD="+str(bool(re.search(r"function\\s+route\\s*\\(",txt))),flush=True)
-              print("DOCUMENTS_MOUNT_BASEPATH_METHOD="+str(bool(re.search(r"function\\s+basePath\\s*\\(",txt))),flush=True)
+              print("DOCUMENTS_MOUNT_ROUTE_METHOD="+str(bool(re.search(r"function\s+route\s*\(",txt))),flush=True)
+              print("DOCUMENTS_MOUNT_BASEPATH_METHOD="+str(bool(re.search(r"function\s+basePath\s*\(",txt))),flush=True)
           else:
               print("DOCUMENTS_MOUNT_CLASS_FILE_MISSING",flush=True)
           menu=active/"src/Document/OfficeNewDocumentMenu.php"
