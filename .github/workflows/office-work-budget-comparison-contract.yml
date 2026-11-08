@@ -8,6 +8,7 @@ on:
       - 'office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php'
       - 'office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php'
       - 'office-independent/src/Governance/OfficeProjectProcurementBudgetService.php'
+      - 'office-independent/src/Governance/OfficeProjectProcurementBudgetPanel.php'
       - 'office-independent/src/Project/OfficeProjectBudgetKpiView.php'
       - 'office-independent/tests/OfficeProjectBudgetKpiViewTest.php'
       - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
@@ -29,6 +30,7 @@ jobs:
           php -l office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php
           php -l office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
           php -l office-independent/src/Governance/OfficeProjectProcurementBudgetService.php
+          php -l office-independent/src/Governance/OfficeProjectProcurementBudgetPanel.php
           php -l office-independent/src/Project/OfficeProjectBudgetKpiView.php
           php -l office-independent/tests/OfficeProjectBudgetKpiViewTest.php
           php -l office-independent/src/Project/OfficeProjectDetailV3View.php
