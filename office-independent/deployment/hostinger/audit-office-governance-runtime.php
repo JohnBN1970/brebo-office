@@ -42,6 +42,10 @@ $check('ACTIVE_TEST_RELEASE', $validRelease);
 if ($validRelease) {
     $projectFile = $release . '/public/office-project.php';
     $projectContent = is_file($projectFile) ? file_get_contents($projectFile) : false;
+    foreach (['$financialSectionHtml .= $financeHtml;', '$financeHtml', 'OfficeProjectDetailV3View', 'OfficeProjectFinanceOverview', 'create_project_contract'] as $token) {
+        echo 'PROJECT_FINANCE_MARKER_' . strtoupper(preg_replace('/[^a-zA-Z0-9]+/', '_', $token)) . '='
+            . (is_string($projectContent) ? substr_count($projectContent, $token) : 0) . "\n";
+    }
     echo 'OPTIONAL_PROJECT_FINANCE_PROCUREMENT_WIDGET='
         . (is_string($projectContent) && str_contains($projectContent, 'awardedProjectCommitment')
             && str_contains($projectContent, 'OfficeProcurementOrderSource') ? 'PRESENT' : 'NOT_INSTALLED')
