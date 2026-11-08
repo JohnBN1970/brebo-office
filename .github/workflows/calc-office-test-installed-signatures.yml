@@ -1,5 +1,9 @@
 name: Calc Office-test installed API signatures (read only)
 on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/calc-office-test-installed-signatures.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -18,7 +22,9 @@ jobs:
           CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
-          test "$(printf '%s' "$CONFIRMATION" | xargs)" = AUDIT-CALC-SIGNATURES
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            test "$(printf '%s' "$CONFIRMATION" | xargs)" = AUDIT-CALC-SIGNATURES
+          fi
           test -n "$KEY"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_signatures
