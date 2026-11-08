@@ -75,9 +75,9 @@ jobs:
                   print("DOCUMENTS_MENU_INCLUDE_USES_DOCUMENT="+str("/Document/" in line),flush=True)
           for candidate in candidates[:10]:
               source=candidate.read_text(errors="replace")
-              namespace=re.search(r"namespace\\s+([A-Za-z0-9_\\\\]+)\\s*;",source)
+              namespace=re.search(r"namespace\s+([A-Za-z0-9_\\]+)\s*;",source)
               print("DOCUMENTS_MENU_NAMESPACE="+(namespace.group(1) if namespace else "none"),flush=True)
-              print("DOCUMENTS_MENU_HAS_STATIC_RENDER="+str(bool(re.search(r"static\\s+function\\s+render\\s*\\(",source))),flush=True)
+              print("DOCUMENTS_MENU_HAS_STATIC_RENDER="+str(bool(re.search(r"static\s+function\s+render\s*\(",source))),flush=True)
           # No raw source, PII or secrets are printed.
           print("DOCUMENTS_500_RUNTIME_CONTRACT_INSPECTED",flush=True)
           PY
