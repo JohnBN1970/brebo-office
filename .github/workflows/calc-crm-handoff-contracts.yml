@@ -1,0 +1,52 @@
+name: Office Calc CRM-first acceptance contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
+      - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
+      - 'office-independent/tests/OfficeCalc*'
+      - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
+      - '.github/workflows/calc-crm-handoff-contracts.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
+      - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
+      - 'office-independent/tests/OfficeCalc*'
+      - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
+      - '.github/workflows/calc-crm-handoff-contracts.yml'
+permissions:
+  contents: read
+jobs:
+  crm-calc-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: PHP lint and CRM-first Calc contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
+            office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
+            office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
+            office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
+            php -l "$f"
+          done
+          for f in \
+            office-independent/tests/OfficeCalcAcceptanceIdentityTest.php \
+            office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
+            office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
+            office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
+            office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
+            php -l "$f"
+            php "$f"
+          done
