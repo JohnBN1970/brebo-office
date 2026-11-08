@@ -1,0 +1,26 @@
+name: Native work budget procurement comparison contract
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-work-budget-comparison-contract.yml'
+      - 'office-independent/src/Governance/OfficeWorkBudgetBaselineReader.php'
+      - 'office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php'
+      - 'office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Lint and test read-only work budget contract
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Governance/OfficeWorkBudgetBaselineReader.php
+          php -l office-independent/src/Governance/OfficeWorkBudgetCommitmentComparison.php
+          php -l office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeWorkBudgetCommitmentComparisonTest.php
