@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - '.github/workflows/project-detail-v3-deploy.yml'
+      - 'office-independent/src/Project/Workspace/**'
+      - 'office-independent/public/office-project-workspace.php'
+      - 'office-independent/modules/project-workspace/**'
+      - 'office-independent/tests/OfficeProjectWorkspaceTest.php'
+      - 'office-independent/deployment/hostinger/office-project-workspace-install.php'
   workflow_dispatch:
     inputs:
       confirm_test_only:
@@ -95,3 +100,66 @@ jobs:
           php -l "$target" || { cp -p "$backup" "$target"; exit 27; }
           echo PROJECT_DETAIL_V3_TEST_DEPLOYED
           REMOTE
+
+
+  workspace-test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-only
+          MYSQL_DATABASE: office_workspace_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -pfixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql
+      - name: Lint and test native project controls and four task views
+        run: |
+          set -euo pipefail
+          find office-independent/src/Project/Workspace -name '*.php' -exec php -l {} \;
+          php -l office-independent/public/office-project-workspace.php
+          php -l office-independent/deployment/hostinger/office-project-workspace-install.php
+          php office-independent/tests/OfficeProjectWorkspaceTest.php
+      - name: Test task transactions and sources against disposable MySQL
+        env:
+          WORKSPACE_TEST_DSN: 'mysql:host=127.0.0.1;dbname=office_workspace_test;charset=utf8mb4'
+          WORKSPACE_TEST_USER: root
+          WORKSPACE_TEST_PASSWORD: fixture-only
+        run: php office-independent/tests/OfficeProjectWorkspaceTest.php
+  workspace-deploy:
+    needs: [validate, workspace-test]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST-PROJECT-WORKSPACE' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure isolated test SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Bundle and apply native project workspace in Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          STAGE: office-project-stage-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          package="${RUNNER_TEMP}/${STAGE}.tar.gz"
+          tar -czf "$package" -C office-independent src/Project/Workspace public/office-project-workspace.php modules/project-workspace deployment/hostinger/office-project-workspace-install.php
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "umask 077; mkdir -p \"\$HOME/domains/brebobv.nl/office_calc_test/$STAGE\""
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" "$package" "$USER@$HOST:domains/brebobv.nl/office_calc_test/$STAGE/bundle.tar.gz"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "cd \"\$HOME/domains/brebobv.nl/office_calc_test/$STAGE\" && tar -xzf bundle.tar.gz && php deployment/hostinger/office-project-workspace-install.php --apply-office-test"
