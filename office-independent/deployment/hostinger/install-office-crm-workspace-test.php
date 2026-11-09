@@ -46,7 +46,7 @@ try{
         $target=$active.'/'.$relative;$parent=dirname($target);
         if(!is_dir($parent)||is_link($target)||!str_starts_with((string)realpath($parent),$active.'/'))throw new RuntimeException('package_target');
         $prior=is_file($target)?file_get_contents($target):null;
-        if($prior!==null&&!in_array(hash('sha256',$prior),array_filter([$spec['prior_sha256']??null,$spec['sha256']]),true))throw new RuntimeException('unknown_active_source');
+        if($prior!==null&&!in_array(hash('sha256',$prior),array_filter([$spec['prior_sha256']??null,$spec['sha256']]),true))throw new RuntimeException('unknown_active_source:'.$relative);
         $before[$target]=$prior;$candidates[$target]=file_get_contents($source);
     }
     if(count($manifest['files']??[])!==12)throw new RuntimeException('package_count');
@@ -96,6 +96,6 @@ try{
     }
     // Emit only a fixed, non-sensitive reason code; never expose config, paths or credentials.
     $reason=$e->getMessage();
-    if(in_array($reason,['router_conflict','router_anchor','rewrite_anchor','navigation_anchor','navigation_funnel_anchor','navigation_selection_anchor','shared_target','package_path','package_hash','package_target','unknown_active_source','package_count','configuration_scope','release_scope','release_lock'],true))fwrite(STDERR,'CRM_INSTALL_BLOCKED_REASON='.$reason."\n");
+    if(str_starts_with($reason,'unknown_active_source:')){\n        $relative=substr($reason,strlen('unknown_active_source:'));\n        if(preg_match('~^(?:src/Crm/OfficeCrm[A-Za-z]+\\.php|public/office-crm-[a-z-]+\\.php)$~D',$relative)){\n            fwrite(STDERR,'CRM_INSTALL_BLOCKED_FILE='.$relative."\\n");\n        }\n        $reason='unknown_active_source';\n    }\n    if(in_array($reason,['router_conflict','router_anchor','rewrite_anchor','navigation_anchor','navigation_funnel_anchor','navigation_selection_anchor','shared_target','package_path','package_hash','package_target','unknown_active_source','package_count','configuration_scope','release_scope','release_lock'],true))fwrite(STDERR,'CRM_INSTALL_BLOCKED_REASON='.$reason."\n");
     fwrite(STDERR,'CRM_INSTALL_BLOCKED_PHASE='.$phase."\nCRM_ADDITIVE_SCHEMA_IS_NEVER_DROPPED_AUTOMATICALLY\n");exit(1);
 }
