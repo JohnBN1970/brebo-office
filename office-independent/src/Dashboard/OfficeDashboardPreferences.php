@@ -21,8 +21,8 @@ final class OfficeDashboardPreferences {
   }
 
   /** @return list<string> */
-  public function load(int $authenticatedOperatorId, array $permitted): array {
-    if ($authenticatedOperatorId <= 0) throw new RuntimeException('Authenticated operator required');
+  public function load(string $authenticatedOperatorId, array $permitted): array {
+    if (!ctype_digit($authenticatedOperatorId) || (int)$authenticatedOperatorId <= 0) throw new RuntimeException('Authenticated operator required');
     $statement = $this->db->prepare('SELECT layout_json FROM office_dashboard_preferences WHERE operator_id = :id');
     $statement->execute([':id' => $authenticatedOperatorId]);
     $json = $statement->fetchColumn();
@@ -32,8 +32,8 @@ final class OfficeDashboardPreferences {
   }
 
   /** @return list<string> */
-  public function save(int $authenticatedOperatorId, array $requested, array $permitted): array {
-    if ($authenticatedOperatorId <= 0) throw new RuntimeException('Authenticated operator required');
+  public function save(string $authenticatedOperatorId, array $requested, array $permitted): array {
+    if (!ctype_digit($authenticatedOperatorId) || (int)$authenticatedOperatorId <= 0) throw new RuntimeException('Authenticated operator required');
     $layout = OfficePersonalDashboard::layout($requested, $permitted);
     $statement = $this->db->prepare(
       'INSERT INTO office_dashboard_preferences (operator_id, layout_json) VALUES (:id, :layout) '
