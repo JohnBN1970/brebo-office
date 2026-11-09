@@ -19,20 +19,20 @@ final class OfficeConfirmedPaymentEvidence {
       if (!is_array($row)) {
         throw new \InvalidArgumentException('Invalid allocation record.');
       }
-      if ((int) ($row['invoice_id'] ?? 0) !== $invoiceId) {
-        continue;
-      }
-      $id = trim((string) ($row['allocation_id'] ?? ''));
-      $bankId = trim((string) ($row['bank_mutation_id'] ?? ''));
+      $rowInvoiceId = $row['invoice_id'] ?? null;
+      $id = $row['allocation_id'] ?? null;
+      $bankId = $row['bank_mutation_id'] ?? null;
       $cents = $row['amount_cents'] ?? null;
-      if ($id === '' || $bankId === '' || !is_int($cents) || $cents <= 0) {
+      if (!is_int($rowInvoiceId) || $rowInvoiceId <= 0 || !is_string($id) || trim($id) === '' || !is_string($bankId) || trim($bankId) === '' || !is_int($cents) || $cents <= 0) {
         throw new \InvalidArgumentException('Invalid payment allocation evidence.');
       }
+      // Check allocation identity across the entire evidence set, not just one invoice.
+      // Multiple allocations from one bank mutation remain valid for split payments.
       if (isset($seen[$id])) {
         throw new \UnexpectedValueException('Duplicate payment allocation identifier.');
       }
       $seen[$id] = true;
-      if (($row['status'] ?? '') !== 'confirmed' || ($row['match_status'] ?? '') !== 'unique') {
+      if ($rowInvoiceId !== $invoiceId || ($row['status'] ?? '') !== 'confirmed' || ($row['match_status'] ?? '') !== 'unique') {
         continue;
       }
       if ($sum > PHP_INT_MAX - $cents) {
