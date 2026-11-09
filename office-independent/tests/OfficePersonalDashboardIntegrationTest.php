@@ -14,7 +14,7 @@ $provider=file_get_contents($root.'/src/Dashboard/OfficeDashboardKpis.php');
 foreach ([$router,$home,$page,$provider] as $s) must(is_string($s), 'Missing source');
 must(str_contains($router,"'/office-test/mijn-dashboard' => 'office-personal-dashboard.php'"),'Router missing');
 must(str_contains($home,'/office-test/mijn-dashboard'),'Workspace link missing');
-must(str_contains($page,'currentOperator()') && str_contains($page,'active=1'),'Session or account guard missing');
+must(str_contains($page,'currentOperator()') && str_contains($page,'active = 1'),'Session or account guard missing');
 must(str_contains($page,'OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED'),'Migration gating missing');
 must(str_contains($page,"hash_hmac('sha256'") && str_contains($page,'hash_equals($expected, $token)'),'CSRF protection missing');
 must(!str_contains($page,"\$_GET['operator_id']") && !str_contains($page,"\$_POST['operator_id']"),'Client identity accepted');
