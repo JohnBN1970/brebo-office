@@ -10,6 +10,8 @@ on:
       - 'office-independent/tests/OfficeMoneybirdBankReadServiceTest.php'
       - 'office-independent/src/Finance/OfficeInvoicePaymentStatus.php'
       - 'office-independent/tests/OfficeInvoicePaymentStatusTest.php'
+      - 'office-independent/src/Finance/OfficeConfirmedPaymentEvidence.php'
+      - 'office-independent/tests/OfficeConfirmedPaymentEvidenceTest.php'
       - 'integration-api/src/**'
       - 'integration-api/test/**'
       - 'web/modules/custom/brebo_finance/src/Service/**'
@@ -77,6 +79,9 @@ jobs:
           php -l office-independent/src/Finance/OfficeInvoicePaymentStatus.php
           php -l office-independent/tests/OfficeInvoicePaymentStatusTest.php
           php office-independent/tests/OfficeInvoicePaymentStatusTest.php
+          php -l office-independent/src/Finance/OfficeConfirmedPaymentEvidence.php
+          php -l office-independent/tests/OfficeConfirmedPaymentEvidenceTest.php
+          php office-independent/tests/OfficeConfirmedPaymentEvidenceTest.php
       - name: Validate bank reconciliation boundary
         run: |
           set -euo pipefail
