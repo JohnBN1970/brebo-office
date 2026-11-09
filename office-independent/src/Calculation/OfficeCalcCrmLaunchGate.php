@@ -21,6 +21,7 @@ final class OfficeCalcCrmLaunchGate
             || strlen($csrfExpected) < 32 || $csrfSubmitted === ''
             || !hash_equals($csrfExpected,$csrfSubmitted)) return null;
         try {
+            require_once dirname(__DIR__).'/Intake/WebsiteCrmOperatorContext.php';
             require_once dirname(__DIR__).'/Intake/WebsiteOfficeCrmSessionRepository.php';
             require_once __DIR__.'/OfficeCalcCrmDraftAccess.php';
             $operator = (new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($this->db))
