@@ -43,7 +43,7 @@ try {
     if ($method === 'POST') { http_response_code(403); exit; }
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302); exit;
   }
-  $active = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=:id AND active=1 LIMIT 1');
+  $active = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=:id AND active = 1 LIMIT 1');
   $active->execute([':id' => $operator->operatorId]);
   if ($active->fetchColumn() === false) { http_response_code(403); exit('Geen Office-toegang.'); }
   $kpis = (new \Brebo\Office\Dashboard\OfficeDashboardKpis($db))->forOperator($operator->operatorId);
