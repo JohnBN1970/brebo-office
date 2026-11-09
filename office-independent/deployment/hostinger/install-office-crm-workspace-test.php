@@ -11,9 +11,11 @@ try{
         ||!in_array($config['OFFICE_INTAKE_PDO_DSN']??null,['mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4','mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4'],true)
         ||($config['OFFICE_INTAKE_DB_USER']??null)!=='u213420663_office_test'
         ||($config['OFFICE_TEST_CRM_ENABLED']??null)!=='enabled'||($config['OFFICE_CRM_AUTH_MODE']??null)!=='session_only'
-        ||($config['OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED']??null)==='enabled'
-        ||($config['OFFICE_CRM_OPPORTUNITIES_WORKSPACE_SCHEMA_VERIFIED']??null)==='enabled'
-        ||($config['OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED']??null)==='enabled')throw new RuntimeException('configuration_scope');
+        )throw new RuntimeException('configuration_scope');
+    // Existing enabled flags are valid on repeat installations; never disable or reset them.
+    foreach(['OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_WORKSPACE_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED'] as $flag){
+        if(!in_array($config[$flag]??null,['enabled','disabled',null],true))throw new RuntimeException('unexpected_flag_state');
+    }
     $active=realpath($config['OFFICE_PRIVATE_ROOT']??'');$stage=realpath($argv[1]??'');
     if(!$active||!str_starts_with($active,$base.'/release-')||!str_ends_with($active,'/private')
         ||!$stage||!str_starts_with($stage,$base.'/.crm-completion-stage/'))throw new RuntimeException('release_scope');
