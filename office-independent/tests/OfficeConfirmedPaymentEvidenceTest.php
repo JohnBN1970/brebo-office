@@ -19,4 +19,22 @@ foreach ([array_merge($rows,[$rows[0]]),array_merge($rows,[['invoice_id'=>11,'al
   try { OfficeConfirmedPaymentEvidence::sumForInvoice(10,$bad); throw new RuntimeException('Invalid evidence accepted.'); }
   catch (InvalidArgumentException|UnexpectedValueException $expected) {}
 }
+// Never count one bank mutation twice through two confirmed invoice allocations.
+// A mutation may be split, but only if the source amount and split ledger are validated elsewhere.
+$malformed = [
+  ['invoice_id'=>'10','allocation_id'=>'string-invoice','bank_mutation_id'=>'m6','amount_cents'=>100,'status'=>'confirmed','match_status'=>'unique'],
+  ['invoice_id'=>10,'allocation_id'=>'bad-amount','bank_mutation_id'=>'m7','amount_cents'=>'100','status'=>'confirmed','match_status'=>'unique'],
+  ['invoice_id'=>10,'allocation_id'=>'','bank_mutation_id'=>'m8','amount_cents'=>100,'status'=>'confirmed','match_status'=>'unique'],
+];
+foreach ($malformed as $row) {
+  try {
+    OfficeConfirmedPaymentEvidence::sumForInvoice(10, [$row]);
+    throw new RuntimeException('Malformed allocation accepted');
+  } catch (InvalidArgumentException $expected) {}
+}
+// The invoice projection must reject an overpayment even if its bank evidence is confirmed.
+try {
+  OfficeInvoicePaymentStatus::project(1000, 0, 1001, '2026-11-15', '2026-11-09');
+  throw new RuntimeException('Overpayment was accepted');
+} catch (InvalidArgumentException $expected) {}
 echo "OFFICE_CONFIRMED_PAYMENT_EVIDENCE_TEST=PASS\n";
