@@ -208,6 +208,11 @@ foreach ($navItems as [$groupName, $description, $links]) {
     echo '<a href="' . $e($url) . '">' . $e($name) . '</a>';
   }
 }
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED') === 'enabled'
+  && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED') === 'enabled') {
+  echo '<h2>Persoonlijk</h2><a href="/office-test/mijn-dashboard">Mijn dashboard</a>';
+}
 echo '</nav></aside><div class="workspace">';
 if ($isTestEnvironment) {
   echo '<div class="testbanner" role="status">TESTOMGEVING — geen productiegegevens</div>';
@@ -221,6 +226,12 @@ if ($importReviewEnabled) {
   $workspaceSummary .= '<div><strong>Importcontrole</strong><p class="number">' . ($importIssueCount === null ? 'Niet beschikbaar' : (string)(int)$importIssueCount) . '</p></div>';
 }
 $workspaceSummary .= '</div></section>';
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED') === 'enabled'
+  && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED') === 'enabled') {
+  $navItems[] = ['Mijn dashboard', 'Persoonlijke KPI-indeling',
+    [['Mijn dashboard', \Brebo\Office\Intake\OfficeMount::basePath() . '/mijn-dashboard']]];
+}
 echo '<header class="topbar"><strong>Mijn werkplek</strong><form method="post" action="' . $e($logoutUrl) . '"><button type="submit">Uitloggen</button></form></header><main class="content"><nav class="office-home-tabs" aria-label="Werkplek tabbladen"><a class="office-home-tab" aria-current="page" href="' . $e(\Brebo\Office\Intake\OfficeMount::basePath() . '/') . '">Overzicht</a></nav><h1>Goedemorgen, welkom in Office</h1><p class="intro">Jouw projecten, aandachtspunten en beschikbare werkzaamheden.</p><div class="cards">';
 if ($projectsEnabled && $myProjectCount !== null) {
   echo '<section class="panel"><h2>Mijn projecten</h2><div class="number">' . $myProjectCount . '</div><p class="muted-text">Projecten waartoe je toegang hebt</p><a href="' . $e((string)$projectsUrl) . '">Open projecten →</a></section>';
