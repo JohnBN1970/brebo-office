@@ -1,21 +1,23 @@
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
+  test: { exclude: [...configDefaults.exclude, 'scripts/*.test.mjs'] },
   plugins: [
     cloudflareTest({
+        remoteBindings: false,
         wrangler: { configPath: "./wrangler.jsonc" },
         miniflare: {
           bindings: {
             OPENAI_API_KEY: "test-openai-key",
             BREBO_SHARED_SECRET: "test-shared-secret-with-sufficient-length",
-            OPENAI_TIMEOUT_MS: "25",
+            OPENAI_TIMEOUT_MS: "250",
           },
           outboundService: async (request) => {
             const payload: unknown = await request.json();
             const userText = extractUserText(payload);
             if (userText.includes("Timeout")) {
-              await new Promise((resolve) => setTimeout(resolve, 100));
+              await new Promise((resolve) => setTimeout(resolve, 1000));
             }
             if (!isPrivacySafeProviderRequest(payload)) {
               return Response.json({ error: "unsafe provider request" }, { status: 400 });
@@ -53,3 +55,4 @@ function extractUserText(value: unknown): string {
 function isPrivacySafeProviderRequest(value: unknown): boolean {
   return Boolean(value && typeof value === "object" && "store" in value && value.store === false);
 }
+

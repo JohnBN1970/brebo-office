@@ -3,9 +3,16 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type ACTIVATE-FINANCE-PRESENTATION-TEST
+        description: Type ACTIVATE-FINANCE-PRESENTATION-TEST, or SET-FINANCE-PRESENTATION-TEST for mode selection
         required: true
         type: string
+      presentation_mode:
+        description: Presentation masking; disabled shows authorized Finance data
+        type: choice
+        options:
+          - enabled
+          - disabled
+        default: enabled
 permissions:
   contents: read
 jobs:
@@ -117,3 +124,66 @@ jobs:
           echo ORIGINAL_CONFIG_BACKUP_PRESERVED
           echo PRODUCTION_CONFIG_UNCHANGED
           REMOTE
+
+  configure:
+    if: ${{ inputs.confirmation == 'SET-FINANCE-PRESENTATION-TEST' }}
+    runs-on: ubuntu-latest
+    concurrency:
+      group: office-test-finance-presentation
+      cancel-in-progress: false
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Change only the test presentation flag
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          MODE: ${{ inputs.presentation_mode }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in enabled|disabled) ;; *) exit 1;; esac
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "PRESENTATION_MODE='$MODE' CHANGE_ID='$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT' php -d display_errors=0" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          ini_set('display_errors','0');
+          umask(0077);
+          $temp=null;
+          try {
+            $mode=getenv('PRESENTATION_MODE');
+            $id=getenv('CHANGE_ID');
+            if (!in_array($mode,['enabled','disabled'],true) || !preg_match('/^\d+-\d+$/D',$id)) throw new RuntimeException('Invalid mode');
+            $base=rtrim((string)getenv('HOME'),'/').'/domains/brebobv.nl/office_calc_test';
+            $file=$base.'/config/config.php';
+            if (!is_file($file) || is_link($file) || realpath($file)!==$file) throw new RuntimeException('Unsafe config');
+            $before=hash_file('sha256',$file);
+            $level=ob_get_level(); ob_start();
+            try { $old=require $file; } finally { while(ob_get_level()>$level) ob_end_clean(); }
+            $root=$old['OFFICE_PRIVATE_ROOT']??'';
+            if (!is_array($old) || ($old['OFFICE_BASE_PATH']??'')!=='/office-test' || !str_starts_with($root,$base.'/release-') || !str_ends_with($root,'/private') || realpath($root)!==$root) throw new RuntimeException('Wrong scope');
+            if (($old['OFFICE_MONEYBIRD_BANK_READ_ENABLED']??'')!=='enabled' || ($old['OFFICE_MONEYBIRD_BANK_API_URL']??'')!=='https://brebo-integration-api.john-boon.workers.dev/v1/accounting/bank-data') throw new RuntimeException('Bank activation missing');
+            $backup=$base.'/config/config.php.presentation-before-'.$id.'.php';
+            if (file_exists($backup)) throw new RuntimeException('Backup already exists');
+            $out=fopen($backup,'x');
+            try { $source=file_get_contents($file); if (fwrite($out,$source)!==strlen($source)) throw new RuntimeException('Backup failed'); } finally { fclose($out); }
+            chmod($backup,0600);
+            if (hash_file('sha256',$backup)!==$before) throw new RuntimeException('Source changed');
+            $wrapper="<?php\ndeclare(strict_types=1);\n\$config = require __DIR__ . '/".basename($backup)."';\n\$config['OFFICE_FINANCE_PRESENTATION_MODE'] = ".var_export($mode,true).";\nreturn \$config;\n";
+            $temp=tempnam(dirname($file),'.finance-presentation-'); chmod($temp,0600);
+            if (file_put_contents($temp,$wrapper,LOCK_EX)!==strlen($wrapper)) throw new RuntimeException('Write failed');
+            $level=ob_get_level(); ob_start();
+            try { $new=require $temp; } finally { while(ob_get_level()>$level) ob_end_clean(); }
+            $expected=$old; $expected['OFFICE_FINANCE_PRESENTATION_MODE']=$mode;
+            if ($new!==$expected || hash_file('sha256',$file)!==$before) throw new RuntimeException('Unexpected configuration change');
+            if (!rename($temp,$file)) throw new RuntimeException('Atomic config update failed');
+            $temp=null;
+            echo 'OFFICE_TEST_PRESENTATION_MODE='.$mode."\nONLY_PRESENTATION_FLAG_CHANGED=1\nBANK_CONFIGURATION_PRESERVED=1\n";
+          } catch (Throwable $ignored) { echo "OFFICE_TEST_PRESENTATION_CHANGE_FAILED=1\n"; exit(1); }
+          finally { if (is_string($temp) && is_file($temp)) unlink($temp); }
+          PHP
