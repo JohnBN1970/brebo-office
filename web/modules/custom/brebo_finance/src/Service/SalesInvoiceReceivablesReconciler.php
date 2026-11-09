@@ -23,6 +23,9 @@ final class SalesInvoiceReceivablesReconciler {
 
   /** @return array{received:int,updated:int,unchanged:int,unmatched:int} */
   public function sync(): array {
+    throw new \RuntimeException('Moneybird-to-Office receivables sync is disabled; payment status belongs to BREBO Office.');
+
+    // Legacy reconciler retained temporarily for migration review; unreachable.
     $startedAt = time();
     try {
       $received = $this->client->fetchAll();
