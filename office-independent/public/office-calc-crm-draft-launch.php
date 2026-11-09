@@ -29,7 +29,7 @@ $origin=$_SERVER['HTTP_ORIGIN']??null;
 if (!is_string($origin)||!hash_equals('https://'.$host,$origin)) $deny(403);
 $type=$_SERVER['CONTENT_TYPE']??'';
 $length=$_SERVER['CONTENT_LENGTH']??'';
-if (!is_string($type)||!preg_match('/^application\\/x-www-form-urlencoded(?:\\s*;\\s*charset=UTF-8)?$/iD',$type)
+if (!is_string($type)||!preg_match('/^application\/x-www-form-urlencoded(?:\s*;\s*charset=UTF-8)?$/iD',$type)
     ||!is_string($length)||!ctype_digit($length)
     ||(int)$length<1||(int)$length>2048) $deny(415);
 $draft=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT);
@@ -39,7 +39,7 @@ if (!is_int($draft)||$draft<1||!is_string($csrf)||!is_string($expected)) $deny(4
 try {
     require_once dirname(__DIR__).'/src/Intake/OfficeMount.php';
     require_once dirname(__DIR__).'/src/Calculation/OfficeCalcCrmLaunchIssuer.php';
-    $token=$_COOKIE[\\Brebo\\Office\\Intake\\OfficeMount::cookieName('session')]??null;
+    $token=$_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')]??null;
     if (!is_string($token)) $deny(403);
     $db=new PDO(getenv('OFFICE_INTAKE_PDO_DSN')?:'',
         getenv('OFFICE_INTAKE_DB_USER')?:'',
@@ -52,7 +52,7 @@ try {
         $q->execute([$opportunity,$actor]);
         return $q->fetchColumn()!==false;
     };
-    $reference=(new \\Brebo\\Office\\Calculation\\OfficeCalcCrmLaunchIssuer($db))
+    $reference=(new \Brebo\Office\Calculation\OfficeCalcCrmLaunchIssuer($db))
         ->issue($token,$csrf,$expected,$draft,time(),$owner);
     if ($reference===null) $deny(403);
     echo json_encode(['ok'=>true,'reference'=>$reference,'draft_id'=>$draft],JSON_THROW_ON_ERROR);
