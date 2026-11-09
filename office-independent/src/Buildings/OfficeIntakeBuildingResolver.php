@@ -5,6 +5,8 @@ namespace Brebo\Office\Buildings;
 
 use PDO;
 
+require_once __DIR__ . '/OfficeBuildingColumnResolver.php';
+
 /**
  * Read-only building lookup for Office-test canonical intake.
  * Exact normalized address/postcode/city only. Ambiguity is never auto-linked.
@@ -28,14 +30,29 @@ final class OfficeIntakeBuildingResolver
             return ['status' => 'required', 'building_id' => null, 'candidates' => 0];
         }
 
+        // The native Office schema uses street_address; legacy uses address_line.
+        // Only a whitelisted column identifier can enter this SQL statement.
+        // Intake needs only the address field, not the display-name field.
+        $schemaRows = $this->db->query('SHOW COLUMNS FROM office_buildings')->fetchAll(PDO::FETCH_ASSOC);
+        $fieldNames = array_column($schemaRows, 'Field');
+        $addressColumn = in_array('street_address', $fieldNames, true) ? 'street_address'
+            : (in_array('address_line', $fieldNames, true) ? 'address_line' : null);
+        if ($addressColumn === null) {
+            throw new \RuntimeException('Building address field unavailable');
+        }
         $query = $this->db->prepare(
-            'SELECT id, address_line, postal_code, city FROM office_buildings '
-            . 'WHERE UPPER(REPLACE(postal_code, \' \', \'\')) = ? '
-            . 'ORDER BY id LIMIT 100'
+            "SELECT id, {$addressColumn} AS address_line, postal_code, city FROM office_buildings "
+            . "WHERE UPPER(REPLACE(postal_code, ' ', '')) = ? "
+            . "ORDER BY id LIMIT 101"
         );
         $query->execute([$postalCode]);
+        $buildings = $query->fetchAll(PDO::FETCH_ASSOC);
+        // A capped result set cannot establish uniqueness. Never auto-link.
+        if (count($buildings) > 100) {
+            return ['status' => 'ambiguous', 'building_id' => null, 'candidates' => count($buildings)];
+        }
         $matches = [];
-        foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $building) {
+        foreach ($buildings as $building) {
             if (self::normalize((string) $building['address_line']) === $address
                 && self::normalize((string) $building['city']) === $city) {
                 $matches[] = (string) $building['id'];
