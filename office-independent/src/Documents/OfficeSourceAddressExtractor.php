@@ -117,6 +117,9 @@ final class OfficeSourceAddressExtractor
             $body = quoted_printable_decode($body);
         }
         if (preg_match('/^Content-Type:\s*text\/html/im', $headers)) $body = strip_tags($body);
+        elseif (preg_match('/^Content-Type:\s*(?!text\/plain|text\/html)[^\r\n]+/im', $headers)) {
+            return [['location' => 'email:body', 'values' => ['_unsupported_multipart_']]];
+        }
         $lines = preg_split('/\r\n|\r|\n/', $body) ?: [];
         $result = [];
         foreach (array_slice($lines, 0, 1000) as $index => $line) {
@@ -171,7 +174,12 @@ final class OfficeSourceAddressExtractor
                 $issues[] = ['location' => $entry['location'], 'reason' => 'unmapped_columns'];
                 continue;
             }
-            if ($candidate === []) continue;
+            if ($candidate === []) {
+                if (count($values) === 1 && $values[0] !== '') {
+                    $issues[] = ['location' => $entry['location'], 'reason' => 'unrecognized_address_text'];
+                }
+                continue;
+            }
             foreach ($headerKeys as $key) $candidate[$key] = trim((string)($candidate[$key] ?? ''));
             if ($candidate['address'] === '' || $candidate['postal_code'] === '' || $candidate['city'] === '') {
                 $issues[] = ['location' => $entry['location'], 'reason' => 'incomplete_address'];
