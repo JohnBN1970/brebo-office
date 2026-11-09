@@ -15,7 +15,7 @@ $paid = OfficeConfirmedPaymentEvidence::sumForInvoice(10,$rows);
 if ($paid !== 3000) throw new RuntimeException('Unconfirmed or ambiguous evidence counted.');
 $status = OfficeInvoicePaymentStatus::project(10000,0,$paid,'2026-11-15','2026-11-09');
 if ($status['status'] !== 'partial' || $status['outstanding_cents'] !== 7000) throw new RuntimeException('Wrong payment projection.');
-foreach ([array_merge($rows,[$rows[0]]),[['invoice_id'=>10,'allocation_id'=>'x','bank_mutation_id'=>'m','amount_cents'=>-1,'status'=>'confirmed','match_status'=>'unique']]] as $bad) {
+foreach ([array_merge($rows,[$rows[0]]),array_merge($rows,[['invoice_id'=>11,'allocation_id'=>'a1','bank_mutation_id'=>'m6','amount_cents'=>100,'status'=>'confirmed','match_status'=>'unique']]),[['invoice_id'=>10,'allocation_id'=>'x','bank_mutation_id'=>'m','amount_cents'=>-1,'status'=>'confirmed','match_status'=>'unique']]] as $bad) {
   try { OfficeConfirmedPaymentEvidence::sumForInvoice(10,$bad); throw new RuntimeException('Invalid evidence accepted.'); }
   catch (InvalidArgumentException|UnexpectedValueException $expected) {}
 }
