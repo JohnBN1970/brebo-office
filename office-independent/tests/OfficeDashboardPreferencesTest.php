@@ -24,14 +24,14 @@ $db = new PDO($dsn, getenv('OFFICE_DASHBOARD_TEST_MYSQL_USER') ?: '', getenv('OF
 $db->exec($schema);
 $repo = new OfficeDashboardPreferences($db);
 $permitted = ['projects', 'tasks', 'quality'];
-assertDashboard($repo->load(17, $permitted) === $permitted, 'Default layout incorrect');
-$saved = $repo->save(17, ['invoices', 'tasks', 'tasks', 'quality'], $permitted);
+assertDashboard($repo->load('17', $permitted) === $permitted, 'Default layout incorrect');
+$saved = $repo->save('17', ['invoices', 'tasks', 'tasks', 'quality'], $permitted);
 assertDashboard($saved === ['tasks', 'quality'], 'Unauthorized widget stored');
-assertDashboard($repo->load(17, $permitted) === $saved, 'Preference roundtrip failed');
-assertDashboard($repo->load(18, $permitted) === $permitted, 'Other operator preference leaked');
-assertDashboard($repo->load(17, ['projects']) === ['projects'], 'Revoked permission still visible');
+assertDashboard($repo->load('17', $permitted) === $saved, 'Preference roundtrip failed');
+assertDashboard($repo->load('18', $permitted) === $permitted, 'Other operator preference leaked');
+assertDashboard($repo->load('17', ['projects']) === ['projects'], 'Revoked permission still visible');
 try {
-  $repo->save(0, ['tasks'], $permitted);
+  $repo->save('0', ['tasks'], $permitted);
   throw new RuntimeException('Invalid operator accepted');
 } catch (RuntimeException $e) {
   if ($e->getMessage() === 'Invalid operator accepted') throw $e;
