@@ -26,7 +26,7 @@ final class OfficeCalcCrmLaunchGate
             require_once __DIR__.'/OfficeCalcCrmDraftAccess.php';
             $operator = (new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($this->db))
                 ->findActive($sessionToken,$now);
-            if ($operator === null || !ctype_digit($operator->operatorId)) return null;
+            if ($operator === null || !$operator->canEditCrm || !ctype_digit($operator->operatorId)) return null;
             $actorId = (int)$operator->operatorId;
             if ($actorId < 1 || !(new OfficeCalcCrmDraftAccess($this->db))
                 ->canManage($actorId,$draftId,$canManageOpportunity)) return null;
