@@ -94,5 +94,8 @@ try{
     foreach(array_reverse(array_keys($installed)) as $file)if(is_file($file)&&hash_equals($installed[$file],hash_file('sha256',$file))){
         if($before[$file]===null){@unlink($file);}else{$temp=tempnam(dirname($file),'.crm-rollback-');file_put_contents($temp,$before[$file]);chmod($temp,$file===$configPath?0600:0644);rename($temp,$file);}
     }
+    // Emit only a fixed, non-sensitive reason code; never expose config, paths or credentials.
+    $reason=$e->getMessage();
+    if(in_array($reason,['router_conflict','router_anchor','rewrite_anchor','navigation_anchor','navigation_funnel_anchor','navigation_selection_anchor','shared_target','package_path','package_hash','package_target','unknown_active_source','package_count','configuration_scope','release_scope','release_lock'],true))fwrite(STDERR,'CRM_INSTALL_BLOCKED_REASON='.$reason."\n");
     fwrite(STDERR,'CRM_INSTALL_BLOCKED_PHASE='.$phase."\nCRM_ADDITIVE_SCHEMA_IS_NEVER_DROPPED_AUTOMATICALLY\n");exit(1);
 }
