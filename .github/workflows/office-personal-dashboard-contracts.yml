@@ -1,0 +1,25 @@
+name: Office personal dashboard contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Dashboard/**'
+      - 'office-independent/public/office-personal-dashboard.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/src/Intake/OfficeNavigation.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/Office*Dashboard*Test.php'
+      - '.github/workflows/office-personal-dashboard-contracts.yml'
+  workflow_dispatch:
+jobs:
+  dashboard-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint and dashboard tests
+        run: |
+          set -eu
+          for f in office-independent/src/Dashboard/*.php office-independent/public/office-personal-dashboard.php office-independent/tests/Office*Dashboard*Test.php; do php -l "$f"; done
+          php office-independent/tests/OfficePersonalDashboardTest.php
+          php office-independent/tests/OfficePersonalDashboardRouteTest.php
+          php office-independent/tests/OfficeDashboardPreferencesTest.php
+          php office-independent/tests/OfficePersonalDashboardIntegrationTest.php
