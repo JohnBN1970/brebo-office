@@ -7,6 +7,7 @@ on:
     paths:
       - 'office-independent/src/Crm/OfficeCrmOpportunity*.php'
       - 'office-independent/tests/OfficeCrmOpportunityContractTest.php'
+      - 'office-independent/tests/OfficeCrmFunnelClosedStagesTest.php'
       - 'office-independent/tests/OfficeCrmLegacyMigrationSafetyTest.php'
       - 'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php'
       - '.github/workflows/office-crm-opportunities-acceptance.yml'
@@ -21,5 +22,6 @@ jobs:
           php -l office-independent/src/Crm/OfficeCrmOpportunitySchema.php
           php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
           php office-independent/tests/OfficeCrmOpportunityContractTest.php
+          php office-independent/tests/OfficeCrmFunnelClosedStagesTest.php
           php -l office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php
           php office-independent/tests/OfficeCrmLegacyMigrationSafetyTest.php
