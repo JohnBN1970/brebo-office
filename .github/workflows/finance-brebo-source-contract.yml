@@ -11,6 +11,9 @@ on:
       - 'integration-api/src/**'
       - 'integration-api/test/**'
       - 'web/modules/custom/brebo_finance/src/Service/**'
+      - 'web/modules/custom/brebo_finance/brebo_finance.module'
+      - '.github/workflows/finance-moneybird-receivables-sync.yml'
+      - '.github/workflows/finance-moneybird-purchase-sync.yml'
       - '.github/workflows/finance-brebo-source-contract.yml'
   workflow_dispatch:
 permissions:
@@ -30,6 +33,25 @@ jobs:
             php -l "$file"
             grep -Fq 'Moneybird financial import disabled' "$file"
           done
+      - name: Enforce no legacy Moneybird invoice import or payment recipient read
+        run: |
+          set -euo pipefail
+          module=web/modules/custom/brebo_finance/brebo_finance.module
+          importer=web/modules/custom/brebo_finance/src/Service/PurchaseInvoiceImporter.php
+          reconciler=web/modules/custom/brebo_finance/src/Service/SalesInvoiceReceivablesReconciler.php
+          php -l "$module"
+          php -l "$importer"
+          php -l "$reconciler"
+          ! grep -Fq "purchase_invoice_importer')->sync()" "$module"
+          ! grep -Fq "sales_invoice_receivables_reconciler')->sync()" "$module"
+          grep -Fq "purchase invoice import is disabled" "$importer"
+          grep -Fq "receivables sync is disabled" "$reconciler"
+          ! grep -Fq 'client->fetchAll()' "$importer"
+          grep -Fq 'Payment preparation blocked: verified supplier IBAN' "$importer"
+          ! grep -Fq -- '->sync();' .github/workflows/finance-moneybird-receivables-sync.yml
+          ! grep -Fq '->sync();' .github/workflows/finance-moneybird-purchase-sync.yml
+          ! grep -Fq 'schedule:' .github/workflows/finance-moneybird-receivables-sync.yml
+          echo BREBO_FINANCE_LEGACY_IMPORT_GUARD=PASS
       - name: Test standalone Office bank projection
         run: |
           set -euo pipefail
