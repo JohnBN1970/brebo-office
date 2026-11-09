@@ -117,7 +117,7 @@ final class OfficeSourceAddressExtractor
             $body = quoted_printable_decode($body);
         }
         if (preg_match('/^Content-Type:\s*text\/html/im', $headers)) $body = strip_tags($body);
-        elseif (preg_match('/^Content-Type:\s*(?!text\/plain|text\/html)[^\r\n]+/im', $headers)) {
+        elseif (preg_match('/^Content-Type:[ \t]*(?!text\/plain(?:[; \t]|$)|text\/html(?:[; \t]|$))[^\r\n]+/im', $headers)) {
             return [['location' => 'email:body', 'values' => ['_unsupported_multipart_']]];
         }
         $lines = preg_split('/\r\n|\r|\n/', $body) ?: [];
