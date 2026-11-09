@@ -1,0 +1,19 @@
+name: Dashboard installation preflight contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/dashboard-install-preflight.php'
+      - '.github/workflows/dashboard-install-preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint and validate safe preflight
+        run: |
+          set -eu
+          php -l office-independent/deployment/hostinger/dashboard-install-preflight.php
+          php -r '$s=file_get_contents("office-independent/deployment/hostinger/dashboard-install-preflight.php"); foreach(["SELECT DATABASE()","information_schema.TABLES","office_project_memberships","PENDING MIGRATION"] as $x) if(!str_contains($s,$x)) exit(1); if(preg_match("/\\b(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|REPLACE)\\s+(?:TABLE|INTO|FROM|[a-z_])/i",$s)) exit(2); echo "Read-only contract passed\\n";'
