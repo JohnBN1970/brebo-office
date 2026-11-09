@@ -8,6 +8,8 @@ on:
       - 'office-independent/tests/OfficeMoneybirdBankApiClientTest.php'
       - 'office-independent/tests/OfficeMoneybirdBankSnapshotTest.php'
       - 'office-independent/tests/OfficeMoneybirdBankReadServiceTest.php'
+      - 'office-independent/src/Finance/OfficeInvoicePaymentStatus.php'
+      - 'office-independent/tests/OfficeInvoicePaymentStatusTest.php'
       - 'integration-api/src/**'
       - 'integration-api/test/**'
       - 'web/modules/custom/brebo_finance/src/Service/**'
@@ -69,6 +71,12 @@ jobs:
           php office-independent/tests/OfficeMoneybirdBankReadServiceTest.php
           php -l office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeMoneybirdBankSnapshotTest.php
+      - name: Test Office-owned payment status projection
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Finance/OfficeInvoicePaymentStatus.php
+          php -l office-independent/tests/OfficeInvoicePaymentStatusTest.php
+          php office-independent/tests/OfficeInvoicePaymentStatusTest.php
       - name: Validate bank reconciliation boundary
         run: |
           set -euo pipefail
