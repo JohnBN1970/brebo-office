@@ -12,6 +12,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCrmLaunchGrantRepository.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmLaunchRedeemer.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmLaunchIssuer.php'
+      - 'office-independent/public/office-calc-crm-draft-launch.php'
       - 'office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calc-acceptance-proposed.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
@@ -61,6 +62,7 @@ jobs:
             office-independent/src/Calculation/OfficeCalcCrmLaunchGrantRepository.php \
             office-independent/src/Calculation/OfficeCalcCrmLaunchRedeemer.php \
             office-independent/src/Calculation/OfficeCalcCrmLaunchIssuer.php \
+            office-independent/public/office-calc-crm-draft-launch.php \
             office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
