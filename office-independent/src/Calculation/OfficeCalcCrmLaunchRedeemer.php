@@ -31,7 +31,8 @@ final class OfficeCalcCrmLaunchRedeemer
                 'INNER JOIN office_operator_accounts a ON a.id=g.actor_id '.
                 'WHERE g.reference=? AND g.session_hash=? AND g.actor_id=? AND g.draft_id=? '.
                 'AND g.consumed_at IS NULL AND g.revoked_at IS NULL AND g.expires_at>? '.
-                'AND s.revoked_at IS NULL AND s.expires_at>? AND a.active=1'.$lock
+                'AND s.operator_id=a.id AND s.revoked_at IS NULL AND s.expires_at>? ' .
+                'AND a.active=1 AND a.can_edit_crm=1'.$lock
             );
             $at=gmdate('Y-m-d H:i:s',$now);
             $q->execute([$reference,$sessionHash,$actorId,$draftId,$at,$at]);
