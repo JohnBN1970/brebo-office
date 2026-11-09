@@ -19,6 +19,9 @@ final class PurchaseInvoiceImporter {
 
   /** @return array{received:int,inserted:int,updated:int,unchanged:int} */
   public function sync(): array {
+    throw new RuntimeException('Moneybird-to-Office purchase invoice import is disabled; BREBO Office is authoritative.');
+
+    // Legacy importer retained temporarily for migration review; unreachable.
     $received = $this->client->fetchAll();
     $result = ['received' => count($received), 'inserted' => 0, 'updated' => 0, 'unchanged' => 0];
     $now = time();
