@@ -14,6 +14,12 @@ final class OfficeCrmRelationsSchema {
                 chamber_of_commerce VARCHAR(32) NULL,
                 vat_number VARCHAR(48) NULL,
                 email VARCHAR(254) NULL,
+                invoice_email VARCHAR(254) NULL,
+                offer_email VARCHAR(254) NULL,
+                billing_street VARCHAR(255) NULL,
+                billing_postal_code VARCHAR(32) NULL,
+                billing_city VARCHAR(128) NULL,
+                billing_country_code CHAR(2) NULL,
                 phone VARCHAR(48) NULL,
                 street VARCHAR(255) NULL,
                 postal_code VARCHAR(32) NULL,
@@ -60,3 +66,4 @@ final class OfficeCrmRelationsSchema {
         ];
     }
 }
+

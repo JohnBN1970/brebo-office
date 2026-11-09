@@ -1,0 +1,73 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/src/Finance/OfficeFinanceAccess.php';
+require dirname(__DIR__).'/src/Finance/Center/Schema.php';
+require dirname(__DIR__).'/src/Finance/Center/Report.php';
+require dirname(__DIR__).'/src/Sales/OfficeSalesSchema.php';
+require dirname(__DIR__).'/src/Sales/OfficeSalesService.php';
+use Brebo\Office\Finance\Center\{Schema,Ledger,Planning,Report,Amounts};
+use Brebo\Office\Sales\{OfficeSalesSchema,OfficeSalesService,OfficeSalesParties};
+set_error_handler(static function(int $n,string $s):never{throw new RuntimeException($s);});
+function ok(bool $v,string $s):void{if(!$v)throw new RuntimeException($s);}
+function rejects(callable $f):void{try{$f();}catch(DomainException|InvalidArgumentException|PDOException $e){return;}throw new LogicException('Expected rejection');}
+$dsn=getenv('FINANCE_TEST_DSN')?:'sqlite::memory:';$mysql=str_starts_with($dsn,'mysql:');if($mysql&&!preg_match('/^mysql:host=127\.0\.0\.1;port=3306;dbname=finance_center_test;charset=utf8mb4$/D',$dsn))throw new RuntimeException('Disposable CI test database only');
+$db=new PDO($dsn,getenv('FINANCE_TEST_USER')?:null,getenv('FINANCE_TEST_PASSWORD')?:null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
+foreach(array_merge(Schema::statements(!$mysql),OfficeSalesSchema::statements(!$mysql)) as $s)$db->exec($s);
+$fixture="CREATE TABLE office_operator_accounts(id INTEGER PRIMARY KEY,active INTEGER);INSERT INTO office_operator_accounts VALUES(1,1),(2,1);
+CREATE TABLE office_module_permissions(operator_id INTEGER,module TEXT,permission TEXT);INSERT INTO office_module_permissions VALUES(1,'finance','read'),(1,'finance','draft_edit'),(1,'finance','bank_read'),(2,'finance','read'),(2,'finance','draft_edit');
+CREATE TABLE office_projects(id INTEGER PRIMARY KEY,title TEXT);INSERT INTO office_projects VALUES(10,'A'),(20,'B');
+CREATE TABLE office_project_memberships(operator_id INTEGER,project_id INTEGER,permission TEXT);INSERT INTO office_project_memberships VALUES(1,10,'manage'),(2,20,'manage');
+CREATE TABLE office_finance_invoices(id INTEGER PRIMARY KEY,supplier_id TEXT,supplier_name TEXT,invoice_number TEXT,invoice_date TEXT,due_date TEXT,currency TEXT,subtotal TEXT,vat_total TEXT,total TEXT,status TEXT,created_by TEXT);
+INSERT INTO office_finance_invoices VALUES(1,'s1','Supplier','I-1','2026-11-01','2026-11-15','EUR','100.00','21.00','121.00','draft','1');
+CREATE TABLE office_finance_invoice_lines(id INTEGER PRIMARY KEY,invoice_id INTEGER,line_number INTEGER,description TEXT,quantity TEXT,unit_price TEXT,net_amount TEXT,vat_amount TEXT,office_project_id INTEGER);
+INSERT INTO office_finance_invoice_lines VALUES(1,1,1,'Material','1','100','100.00','21.00',10);
+CREATE TABLE office_finance_invoice_events(id INTEGER PRIMARY KEY,invoice_id INTEGER,event_type TEXT,operator_id TEXT,event_data TEXT);
+CREATE TABLE office_inzet_people(id INTEGER PRIMARY KEY);INSERT INTO office_inzet_people VALUES(7);
+CREATE TABLE office_onsite_event_inbox(event_id TEXT,person_id INTEGER,project_id TEXT,occurred_at_utc TEXT);INSERT INTO office_onsite_event_inbox VALUES('in',7,'10','2026-11-02T07:00:00Z'),('out',7,'10','2026-11-02T08:30:00Z');
+CREATE TABLE office_onsite_hours_reviews(id INTEGER PRIMARY KEY,person_id INTEGER,project_id TEXT,in_event_id TEXT,out_event_id TEXT,reviewed_seconds INTEGER,revision INTEGER,approval_status TEXT,approved_at TEXT);INSERT INTO office_onsite_hours_reviews VALUES(1,7,'10','in','out',5400,1,'approved','2026-11-03');
+CREATE TABLE office_crm_relations(id INTEGER PRIMARY KEY,display_name TEXT,legal_name TEXT,email TEXT,invoice_email TEXT,offer_email TEXT,street TEXT,postal_code TEXT,city TEXT,country_code TEXT,vat_number TEXT,status TEXT);
+INSERT INTO office_crm_relations VALUES(4,'Client','Client BV','general@example.com','invoice@example.com','offer@example.com','Street 1','1234AB','Town','NL','NL123','active');
+CREATE TABLE office_crm_contact_people(id INTEGER PRIMARY KEY,given_name TEXT,family_name TEXT,email TEXT,status TEXT);INSERT INTO office_crm_contact_people VALUES(8,'Jan','Test','jan@example.com','active');
+CREATE TABLE office_crm_relation_contacts(relation_id INTEGER,contact_id INTEGER,is_primary INTEGER);INSERT INTO office_crm_relation_contacts VALUES(4,8,1);
+CREATE TABLE office_crm_assignment_parties(assignment_type TEXT,assignment_id TEXT,party_role TEXT,relation_id INTEGER);INSERT INTO office_crm_assignment_parties VALUES('office_project','10','invoice_debtor',4);
+CREATE TABLE office_crm_external_identities(relation_id INTEGER,provider_code TEXT,external_id TEXT);INSERT INTO office_crm_external_identities VALUES(4,'moneybird','42');";
+if($mysql)$fixture=str_replace('id INTEGER PRIMARY KEY','id INTEGER PRIMARY KEY AUTO_INCREMENT',$fixture);$db->exec($fixture);
+putenv('OFFICE_FINANCE_CENTER_ENABLED=enabled');$today='2026-11-07';$l=new Ledger($db,'1');$other=new Ledger($db,'2');$planning=new Planning($db,'1');$report=new Report($db,'1');
+ok((new Report($db,'2'))->read($today)['opening']===null,'No bank access leaks');
+rejects(fn()=>$other->purchase(1));rejects(fn()=>$l->bookPurchase(1,'stale',$today));
+$purchase=$l->purchase(1);$pid=$l->bookPurchase(1,Amounts::hash($purchase),$today,'20.00');ok($l->get($pid)['net_cents']===10000,'Exact native cost');
+rejects(fn()=>$l->bookPurchase(1,Amounts::hash($purchase),$today));rejects(fn()=>$other->get($pid));
+rejects(fn()=>$l->payment('expense',$pid,1,'21','2026-11-03','PAY-X','g',$today));ok((int)$l->get($pid)['paid_cents']===0,'Wrong bucket rolls back');
+$l->payment('expense',$pid,1,'20','2026-11-03','PAY-1','g',$today);rejects(fn()=>$l->reverse($pid,2,'Wrong supplier'));rejects(fn()=>$l->payment('expense',$pid,2,'1','2026-11-03','PAY-1','regular',$today));ok((int)$l->get($pid)['paid_cents']===2000,'Unique bank reference rolls back all state');
+rejects(fn()=>$l->valueHours(1,1,$today));$l->rate(7,'2026-01-01','40.00','Confirmed salary basis',$today);$hid=$l->valueHours(1,1,$today);ok((int)$l->get($hid)['net_cents']===6000,'Approved duration and effective hourly cost');rejects(fn()=>$l->valueHours(1,1,$today));
+$input=['date'=>'2026-11-02','category'=>'overhead','project_id'=>'','net'=>'10.00','vat'=>'2.10','reference'=>'OH-1','description'=>'Office expense','command_key'=>str_repeat('a',32),'cash_due'=>'yes','due_date'=>'2026-11-20'];$oid=$l->manual($input,$today);rejects(fn()=>$l->manual($input,$today));
+$transient=$input;$transient['command_key']=str_repeat('b',32);$transient['reference']='Correction';$cid=$l->manual($transient,$today);$l->reverse($cid,1,'Duplicate supplier document');ok($l->get($cid)['status']==='reversed','Correction preserves original snapshot');
+$service=new OfficeSalesService($db,'1');ok(OfficeSalesParties::billing($db,10)['contact_id']===8,'Canonical project debtor and primary contact');
+$invoice=['relation_id'=>4,'contact_id'=>8,'office_project_id'=>'','invoice_date'=>$today,'due_date'=>'2026-11-21','reference'=>'Client ref','lines'=>[['description'=>'Service','quantity'=>'1','price'=>'100','vat'=>'21']]];
+$id=$service->save($invoice);$row=$service->get($id);$party=json_decode($row['customer_json'],true);ok($party['email']==='invoice@example.com'&&$party['contact_name']==='Jan Test','Invoice address snapshot');
+rejects(fn()=>$service->prepare($id,1,'invoice','invoice@example.com','Invoice',['21'=>'99'],$today));$service->requestApproval($id,1,'invoice@example.com','Invoice');
+putenv('OFFICE_FINANCE_DUAL_APPROVAL_ENABLED=enabled');rejects(fn()=>$service->approve($id,1));putenv('OFFICE_FINANCE_DUAL_APPROVAL_ENABLED');$service->approve($id,1);
+$service->save($invoice,$id,1);ok(!isset($service->get($id)['_approval']),'Edited concept invalidates approval');rejects(fn()=>$service->prepare($id,2,'invoice','invoice@example.com','Invoice',['21'=>'99'],$today));
+$service->requestApproval($id,2,'invoice@example.com','Invoice');$service->approve($id,2);rejects(fn()=>$service->prepare($id,2,'invoice','other@example.com','Invoice',['21'=>'99'],$today));
+$delivery=$service->prepare($id,2,'invoice','invoice@example.com','Invoice',['21'=>'99'],$today);$service->dispatch($delivery,fn()=>['status'=>'ok','sales_invoice'=>['id'=>'77','invoice_id'=>'2026-1','state'=>'open','sent_at'=>$today,'contact_id'=>'42','workflow_id'=>'5','identity_id'=>'6','document_style_id'=>'7']],$today);
+rejects(fn()=>$l->payment('sale',$id,3,'1',$today,'SALE-X','g',$today));ok((int)$service->get($id)['paid_cents']===0,'Shared receipt transaction rolls back native receipt');
+$l->payment('sale',$id,3,'21',$today,'SALE-1','regular',$today);ok((int)$service->get($id)['paid_cents']===2100,'Central native receipt');
+$planning->add(['direction'=>'out','bucket'=>'regular','amount'=>'50','due_date'=>'2026-11-30','description'=>'Payroll cash','reference'=>'PAYROLL-1'],$today);$plan=$planning->plans()[0];$planning->settle((int)$plan['id'],'10',$today,'PLAN-1',$today);rejects(fn()=>$planning->settle((int)$plan['id'],'41',$today,'PLAN-X',$today));
+$r=$report->read($today);ok($r['gross_margin_cents']===null&&$r['forecast']===null,'Unconfirmed completeness never yields zero-cost profit or balance');
+$planning->opening('2026-11-01','Bank closing',['a'=>['reference'=>'Ordinary bank','bucket'=>'regular','balance'=>'1000'],'b'=>['reference'=>'Blocked account','bucket'=>'g','balance'=>'100']],$today);
+$r=$report->read($today);$report->confirm(['source_hash'=>$r['source_hash'],'costs_complete'=>'yes','hours_complete'=>'yes','overhead_complete'=>'yes','cash_complete'=>'yes','reference'=>'Checked all native records'],$today);
+$r=$report->read($today);ok($r['gross_margin_cents']===-6000&&$r['operating_result_cents']===-7000,'Revenue less actual direct/labor/overhead costs');
+$f=$r['forecast']['horizons'][30];ok($f['opening']===['regular'=>101100,'g'=>8000],'Verified actual cash since closing balance');ok($f['ending']===['regular'=>95790,'g'=>8000],'30 day cash: partial receipts, G payment, purchase, overhead and partial plan');
+$otherInput=$input;$otherInput['project_id']='20';$otherInput['category']='direct';$otherInput['command_key']=str_repeat('c',32);$other->manual($otherInput,$today);
+$r=$report->read($today);ok($r['forecast']===null&&str_contains(implode(' ',$r['forecast_reasons']),'scope'),'No company balance with incomplete ACL scope');
+rejects(fn()=>Amounts::cents('1e3'));rejects(fn()=>Amounts::date('2026-02-30'));ok((int)$db->query('SELECT COUNT(*) FROM office_finance_center_audit')->fetchColumn()>10,'Audit retained');
+require dirname(__DIR__).'/src/Finance/Center/View.php';require dirname(__DIR__).'/src/Finance/Center/Parties.php';
+putenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED=enabled');$parties=new \Brebo\Office\Finance\Center\Parties($db,'1');$before=$parties->current(10);$parties->bind(10,4,Amounts::hash($before));rejects(fn()=>(new \Brebo\Office\Finance\Center\Parties($db,'2'))->bind(10,4,Amounts::hash($before)));rejects(fn()=>$parties->bind(10,4,'old'));
+$r['bank_access']=true;$r['customers']=$service->customers();$r['project_parties']=[10=>$parties->current(10)];$r['purchase_preview']=$purchase;$r['posting_preview']=$l->get($pid);
+foreach(['overview','purchases','hours','payments','planning','review','customers'] as $tab){$html=\Brebo\Office\Finance\Center\View::render($r,$l->projects(),'CSRF',true,$tab,str_repeat('a',32),'Invalid <script>input</script>',['description'=>'<script>value</script>']);ok(!str_contains($html,'<script>input</script>')&&!str_contains($html,'<script>value</script>'),'Escaped UI');ok(str_contains($html,'Financiële administratie'),'All administrative pages render');}
+if(($n=array_search('--fixture',$argv,true))!==false&&isset($argv[$n+1]))file_put_contents($argv[$n+1],\Brebo\Office\Finance\Center\View::render($r,$l->projects(),'CSRF',true,'overview',str_repeat('a',32)));
+echo "OFFICE_FINANCE_CENTER_OK\n";
+if(($n=array_search('--sales-fixture',$argv,true))!==false&&isset($argv[$n+1])){
+  require dirname(__DIR__).'/src/Sales/OfficeSalesView.php';
+  file_put_contents($argv[$n+1],\Brebo\Office\Sales\OfficeSalesView::render([],null,$service->customers(),$service->projects(),[],'CSRF',true,false,$today,'',true,false,[],'TEST-NONCE'));
+}

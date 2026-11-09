@@ -125,3 +125,4 @@ foreach (['archive'=>'Archiveren','restore'=>'Herstellen'] as $action=>$label) {
  echo '<form method="post"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_manage_csrf']).'"><input type="hidden" name="action" value="'.$action.'"><button type="submit">'.$label.'</button></form>';
 }
 echo '<p>Definitief verwijderen is beveiligd tegen verlies van gekoppelde gegevens.</p><form method="post"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_manage_csrf']).'"><input type="hidden" name="action" value="delete"><label>Typ DELETE om verwijdering te controleren<input name="confirm_delete" autocomplete="off"></label><button class="danger" type="submit">Verwijderen controleren</button></form></section></main></body></html>';
+

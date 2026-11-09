@@ -1,0 +1,44 @@
+name: Office FinanceCenter checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/Center/**'
+      - 'office-independent/src/Sales/**'
+      - 'office-independent/public/office-finance-center.php'
+      - 'office-independent/tests/OfficeFinanceCenter*'
+      - 'office-independent/deployment/hostinger/office-finance-center*'
+      - '.github/workflows/office-finance-center-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  finance:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: finance_center_test
+          MYSQL_USER: finance_test
+          MYSQL_PASSWORD: ci_disposable_only
+          MYSQL_ROOT_PASSWORD: ci_disposable_root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pci_disposable_root"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate source and transactional behavior with SQLite
+        run: |
+          set -euo pipefail
+          find office-independent/src/Finance/Center -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l office-independent/public/office-finance-center.php
+          php -l office-independent/deployment/hostinger/office-finance-center-install.php
+          php office-independent/tests/OfficeFinanceCenterTest.php
+      - name: Validate the MySQL production dialect in a disposable database
+        env:
+          FINANCE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=finance_center_test;charset=utf8mb4
+          FINANCE_TEST_USER: finance_test
+          FINANCE_TEST_PASSWORD: ci_disposable_only
+        run: php office-independent/tests/OfficeFinanceCenterTest.php

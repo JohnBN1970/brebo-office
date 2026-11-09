@@ -20,6 +20,13 @@ final class OfficeFinanceView {
     if ($value === null || $value === '' || $value === 0 || $value === '0') return '—';
     return ctype_digit((string)$value) ? gmdate('d-m-Y', (int)$value) : self::e($value);
   }
+
+  /** Native, accessible graphical management overview. */
+  private static function overview(array $data, callable $url): string {
+    require_once __DIR__.'/OfficeFinanceDashboard.php';
+    return OfficeFinanceDashboard::render($data,$url);
+  }
+
   public static function render(array $data, string $view = 'dashboard', string $queue = '', int $page = 1, string $search = ''): string {
     $e = self::e(...);
     $project = $data['project'] ?? null;
@@ -32,9 +39,11 @@ final class OfficeFinanceView {
       *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17283a;font:16px system-ui,sans-serif}a{color:#155c87}a:focus-visible,input:focus-visible,button:focus-visible{outline:3px solid #e9a72c;outline-offset:3px}.shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}aside{background:#162639;color:white;padding:26px 18px}aside strong{display:block;font-size:21px;margin-bottom:24px}aside a{display:block;color:white;padding:12px}main{padding:28px clamp(16px,4vw,52px);min-width:0}nav{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px}nav a{padding:10px 0}h1{margin:0 0 8px}h2{font-size:20px}.muted,small{color:#536479}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:24px 0}.card,section{background:white;border:1px solid #dce4ed;border-radius:10px;padding:20px}.card strong{display:block;font-size:26px;margin:8px 0}.table{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dce4ed}td.amount{text-align:right;white-space:nowrap}form{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}input,button{padding:9px;border:1px solid #bfcbd7;border-radius:6px;background:white}.notice{padding:12px;background:#fff0b3;color:#473500}.queues a{display:inline-block;padding:10px 14px;background:#e6edf5;border-radius:6px;text-decoration:none}.queues [aria-current]{background:#162639;color:white}@media(max-width:760px){.shell{display:block}aside{padding:14px}aside strong{margin-bottom:10px}aside a{display:inline-block}main{padding:20px 14px}}
       </style></head><body>';
     if (OfficeMount::isTest()) $html .= '<div class="notice" role="status">TESTOMGEVING — ' . (getenv('OFFICE_FINANCE_SOURCE_KIND') === 'live_read_only' ? 'echte Finance-bron, uitsluitend lezen' : 'geen productiegegevens') . '</div>';
-    $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a></nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
+    $html .= '<div class="shell"><aside><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="'.$home.'">Mijn werkplek</a><a href="'.$dashboard.'" aria-current="page">Finance</a></nav></aside><main><nav aria-label="Finance"><a href="'.$dashboard.'">Overzicht</a><a href="'.$payments.'">Betaalcentrum</a><a href="'.$newInvoice.'">Nieuwe inkoopfactuur</a>'.(getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'?'<a href="/office-test/finance/administratie">Administratie</a>':'').'</nav><h1>'.($view === 'new' ? 'Nieuwe inkoopfactuur' : ($view === 'invoice' ? 'Factuurcontrole' : ($view === 'payments' ? 'Betaalcentrum' : 'Finance'))).'</h1>';
     $html .= '<p class="muted">' . ($project === null ? 'Facturen en betaalcontrole voor jouw toegankelijke projecten.' : 'Project: ' . $e($project['title'])) . '</p>';
-    if ($view === 'payments') {
+    if ($view === 'dashboard' && OfficeMount::isTest()) $html .= self::overview($data, $url);
+    if ($view === 'dashboard' && OfficeMount::isTest()) return $html . '</main></div></body></html>';
+    if ($view === 'payments' && OfficeMount::isTest() && ($data['bank_read_allowed'] ?? false) === true) {
       $html .= OfficeFinanceBankPanel::render($data['bank_snapshot'] ?? null);
     }
     if ($view === 'dossier') {
@@ -474,7 +483,11 @@ JS;
     $count = array_sum($data['counts']);
     $amount = array_sum(array_map('floatval', $data['amounts_inc_vat']));
     $html .= '<p class="muted">Bron: Finance-inkoopfacturen · Peildatum: '.$e(gmdate('d-m-Y H:i', $data['generated_at'])).' UTC · Bedragen inclusief btw.</p>';
+    if (OfficeMount::isTest()) {
+    $html .= '<div class="cards"><div class="card">Open facturen<strong>'.$count.'</strong>'.self::money($amount).'</div><div class="card">Geblokkeerd<strong>'.$data['counts']['blocked'].'</strong>'.self::money($data['amounts_inc_vat']['blocked']).'</div><div class="card"><a href="'.$e($url('finance/betaalcentrum', ['queue'=>'to_approve'])).'">Ter goedkeuring</a><strong>'.$data['counts']['to_approve'].'</strong>'.self::money($data['amounts_inc_vat']['to_approve']).'</div><div class="card"><a href="'.$e($url('finance/betaalcentrum', ['queue'=>'ready_to_pay'])).'">Goedgekeurde vrijgave</a><strong>'.$data['counts']['ready_to_pay'].'</strong>'.self::money($data['amounts_inc_vat']['ready_to_pay']).'<small>Geen bewijs van bankbetaling.</small></div></div>';
+    } else {
     $html .= '<div class="cards"><div class="card">Open facturen<strong>'.$count.'</strong>'.self::money($amount).'</div><div class="card">Geblokkeerd<strong>'.$data['counts']['blocked'].'</strong>'.self::money($data['amounts_inc_vat']['blocked']).'</div><div class="card">Ter goedkeuring<strong>'.$data['counts']['to_approve'].'</strong>'.self::money($data['amounts_inc_vat']['to_approve']).'</div></div>';
+    }
     if ($view !== 'payments') {
       if (isset($data['registered_drafts'])) {
         $html .= '<section><h2>Geregistreerde conceptfacturen</h2>';
@@ -789,3 +802,4 @@ JS;
     return $html . '</tbody></table></div></details><p>Wijzigingen en betalingen zijn hier nog niet beschikbaar.</p></section>';
   }
 }
+
