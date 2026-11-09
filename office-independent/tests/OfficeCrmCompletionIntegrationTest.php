@@ -55,17 +55,32 @@ $other=$repo->create(2,'Andere kans',2,'editor',[],str_repeat('e',32));
 $reject(fn()=>$repo->completeActivity('editor',$other,1,(int)$activities[0]['id'],str_repeat('f',32)),'cross opportunity activity');
 $repo->completeActivity('editor',$lead,4,(int)$activities[0]['id'],str_repeat('f',32));
 $item=$repo->detail('editor',$lead);$assert($item['next_action']==='Nabellen','next pending action advances');
+$calendar=$repo->calendar('editor');
+$assert(count($calendar)===1 && $calendar[0]['next_action']==='Nabellen','completed activity absent from active calendar');
+$assert(!str_contains(OfficeCrmFunnelViews::render($calendar,'calendar'), 'Inmeting'),'completed activity absent from rendered calendar');
 $reject(fn()=>$repo->transition($lead,'prospect','won','editor',5,'Akkoord',str_repeat('1',32)),'no shortcut');
 $repo->transition($lead,'prospect','opportunity','editor',5,'',str_repeat('1',32));
 $repo->transition($lead,'opportunity','proposal','editor',6,'',str_repeat('2',32));
 $reject(fn()=>$repo->transition($lead,'proposal','won','editor',7,'',str_repeat('3',32)),'acceptance evidence');
 $repo->transition($lead,'proposal','won','editor',7,'Opdrachtbevestiging DOC-1',str_repeat('3',32));
 $assert(count($repo->listForViews('reader'))===2,'won visible to reader');
+$assert($repo->calendar('reader')===[],'won opportunity keeps historical activity but has no pending calendar work');
+$assert(count($repo->detail('reader',$lead)['activities'])>=2,'won opportunity activity audit preserved');
 foreach(['kanban','list'] as $view){$html=OfficeCrmFunnelViews::render($repo->listForViews('reader'),$view);$assert(str_contains($html,'Advies gevel'),'closed won appears in '.$view);}
 $reject(fn()=>OfficeCrmCalculationContext::fromOpportunity($repo->detail('editor',$lead)),'closed opportunity no editable Calc context');
 $repo->transition($other,'prospect','lost','editor',1,'Niet gegund',str_repeat('4',32));
+$assert(count(array_filter($repo->listForViews('reader'),static fn($row)=>$row['stage']==='lost'))===1,'lost opportunity remains in views');
+$assert($repo->calendar('reader')===[],'lost opportunity has no calendar work');
+foreach(['kanban','list'] as $view){$html=OfficeCrmFunnelViews::render($repo->listForViews('reader'),$view);$assert(str_contains($html,'Andere kans'),'closed lost appears in '.$view);}
 $repo->transition($other,'lost','prospect','editor',2,'Nieuwe aanvraag',str_repeat('5',32));
 $assert($repo->detail('editor',$other)['status']==='open','lost can reopen');
+// Historical wins/losses must not evict active opportunities from the funnel (>500 records).
+$insert=$db->prepare("INSERT INTO office_crm_opportunities (relation_id,title,stage,status,next_action_at) VALUES (1,?,?, 'closed',?)");
+for($n=0;$n<620;$n++)$insert->execute(['Historical '. $n,$n%2===0?'won':'lost','2026-01-01 09:00:00']);
+$rows=$repo->listForViews('reader');
+$assert(count($rows)>=622,'all active and closed opportunities available without historical 500-row cutoff');
+$assert(count(array_filter($rows,static fn($row)=>$row['status']==='open'))===1,'active opportunity not evicted by historical records');
+$assert(count(array_filter($rows,static fn($row)=>$row['status']==='closed' && in_array($row['stage'],['won','lost'],true)))===621,'historical won and lost remain visible');
 $reject(fn()=>$repo->create(1,'Onbevoegd',null,'reader',[],str_repeat('6',32)),'read-only actor cannot create');
 // Duplicate key with different body is rejected without another record.
 $reject(fn()=>$repo->createLead('editor','Anders','','',str_repeat('a',32)),'idempotency body binding');

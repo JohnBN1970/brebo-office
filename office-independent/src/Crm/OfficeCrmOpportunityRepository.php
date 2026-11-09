@@ -33,7 +33,7 @@ final class OfficeCrmOpportunityRepository
             DATE(a.scheduled_at) AS due_date,a.scheduled_at,a.completed_at,a.activity_type,a.id AS activity_id
             FROM office_crm_opportunity_activities a JOIN office_crm_opportunities o ON o.id=a.opportunity_id
             LEFT JOIN office_crm_relations r ON r.id=o.relation_id
-            WHERE a.scheduled_at IS NOT NULL AND $scope ORDER BY a.scheduled_at,a.id");
+            WHERE a.scheduled_at IS NOT NULL AND a.completed_at IS NULL AND o.status='open' AND $scope ORDER BY a.scheduled_at,a.id");
     }
     public function detail(string $actor,int $id): array
     {
