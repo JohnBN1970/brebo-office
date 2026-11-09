@@ -83,6 +83,7 @@ jobs:
             office-independent/tests/OfficeCalcCrmDraftIdentityTest.php \
             office-independent/tests/OfficeCalcCrmDraftAccessTest.php \
             office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php \
+            office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php \
             office-independent/tests/OfficeCalcCrmLaunchGateTest.php \
             office-independent/tests/OfficeCalcCrmLaunchGrantRepositoryTest.php \
             office-independent/tests/OfficeCalcCrmLaunchRedeemerTest.php \
