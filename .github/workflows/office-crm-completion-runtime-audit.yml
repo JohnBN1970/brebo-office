@@ -37,7 +37,26 @@ jobs:
               $root=realpath($c['OFFICE_PRIVATE_ROOT']??'');
               if (!$root||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private')) throw new RuntimeException();
               foreach(['OFFICE_TEST_CRM_ENABLED','OFFICE_CRM_AUTH_MODE','OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED'] as $flag) echo $flag.'='.(in_array($c[$flag]??null,['enabled','session_only'],true)?'ON':'OFF')."\n";
-              foreach(['src/Crm/OfficeCrmOpportunityRepository.php','public/office-crm-opportunities.php','public/office-crm-opportunity-create.php','public/office-crm-opportunity-transition.php'] as $file) echo 'FILE '.$file.' '.(is_file($root.'/'.$file)?hash_file('sha256',$root.'/'.$file):'MISSING')."\n";
+              // Audit all twelve files checked by the controlled CRM installer; do not modify or trust unknown source.
+              $installerFiles=[
+                  'src/Crm/OfficeCrmFunnel.php',
+                  'src/Crm/OfficeCrmFunnelViews.php',
+                  'src/Crm/OfficeCrmOpportunityPolicy.php',
+                  'src/Crm/OfficeCrmOpportunityRepository.php',
+                  'src/Crm/OfficeCrmOpportunitySchema.php',
+                  'src/Crm/OfficeCrmCalculationContext.php',
+                  'public/office-crm-opportunities.php',
+                  'public/office-crm-opportunity-bootstrap.php',
+                  'public/office-crm-opportunity-create.php',
+                  'public/office-crm-opportunity-detail.php',
+                  'public/office-crm-opportunity-transition.php',
+                  'public/office-crm-calculation-context.php',
+              ];
+              foreach($installerFiles as $file){
+                  $path=$root.'/'.$file;
+                  if(is_link($path)){echo 'FILE '.$file.' SYMLINK_BLOCKED'."\n";continue;}
+                  echo 'FILE '.$file.' '.(is_file($path)?hash_file('sha256',$path):'MISSING')."\n";
+              }
               $db=new PDO($c['OFFICE_INTAKE_PDO_DSN'],$c['OFFICE_INTAKE_DB_USER'],$c['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
               $db->exec('SET TRANSACTION READ ONLY');$db->beginTransaction();
               $tables=['office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people','office_crm_relation_contacts','office_crm_relation_roles'];
