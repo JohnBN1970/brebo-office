@@ -23,4 +23,24 @@ $deny=static fn(PDO $db,int $actor,int $opp):bool=>false;
 if($redeemer->redeem($ref,$hash,7,9,$now,$deny))throw new RuntimeException('Unauthorized grant accepted');
 if(!$redeemer->redeem($ref,$hash,7,9,$now,$allow))throw new RuntimeException('Valid grant rejected');
 if($redeemer->redeem($ref,$hash,7,9,$now,$allow))throw new RuntimeException('Replay accepted');
+// Revocation and stale CRM context must invalidate even unconsumed grants.
+$next=str_repeat('c',64);
+$db->prepare('INSERT INTO office_calc_crm_launch_grants VALUES(?,?,?,?,?,NULL,NULL)')
+    ->execute([$next,$hash,7,9,gmdate('Y-m-d H:i:s',1090)]);
+$db->exec('UPDATE office_operator_sessions SET revoked_at="2026-01-01 00:00:00"');
+if($redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Revoked Office session accepted');
+$db->exec('UPDATE office_operator_sessions SET revoked_at=NULL');
+$db->exec('UPDATE office_crm_opportunities SET revision=5 WHERE id=11');
+if($redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Stale CRM revision accepted');
+$db->exec('UPDATE office_crm_opportunities SET revision=4 WHERE id=11');
+$db->exec('UPDATE office_operator_accounts SET active=0 WHERE id=7');
+if($redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Inactive operator accepted');
+$db->exec('UPDATE office_operator_accounts SET active=1 WHERE id=7');
+$db->exec('UPDATE office_calc_crm_drafts SET project_id=25 WHERE id=9');
+if($redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Transferred draft accepted');
+$db->exec('UPDATE office_calc_crm_drafts SET project_id=NULL WHERE id=9');
+$db->exec("UPDATE office_crm_opportunities SET stage='won',status='closed' WHERE id=11");
+if($redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Closed opportunity accepted');
+$db->exec("UPDATE office_crm_opportunities SET stage='proposal',status='open' WHERE id=11");
+if(!$redeemer->redeem($next,$hash,7,9,$now,$allow))throw new RuntimeException('Failed redemption consumed the grant');
 echo "CRM_CALC_LAUNCH_REDEEMER=PASS\n";
