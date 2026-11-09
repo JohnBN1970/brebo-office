@@ -41,7 +41,7 @@ final class OfficeCrmOpportunityPolicy
     {
         if(!OfficeCrmFunnel::canTransition($from,$to))throw new \DomainException('Deze faseovergang is niet toegestaan.');
         $note=trim($note);
-        if(strlen($note)>4000)throw new \InvalidArgumentException('Toelichting is te lang.');
+        if(!mb_check_encoding($note,'UTF-8')||mb_strlen($note,'UTF-8')>4000)throw new \InvalidArgumentException('Toelichting is te lang.');
         if(in_array($to,['won','lost'],true)&&$note==='')throw new \InvalidArgumentException($to==='won'?'Leg de opdrachtbevestiging of akkoordreferentie vast.':'Leg de reden van niet gunnen vast.');
         return ['stage'=>$to,'status'=>in_array($to,['won','lost'],true)?'closed':'open','outcome_note'=>$note];
     }
@@ -59,7 +59,7 @@ final class OfficeCrmOpportunityPolicy
     private static function text(array $input,string $key,int $limit,bool $required=true): string
     {
         $value=$input[$key]??'';
-        if(!is_string($value)||strlen(trim($value))>$limit||($required&&trim($value)===''))throw new \InvalidArgumentException('Controleer het veld '.$key.'.');
+        if(!is_string($value)||!mb_check_encoding(trim($value),'UTF-8')||mb_strlen(trim($value),'UTF-8')>$limit||($required&&trim($value)===''))throw new \InvalidArgumentException('Controleer het veld '.$key.'.');
         return trim($value);
     }
     private static function date(string $s): void
