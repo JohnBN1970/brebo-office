@@ -1,0 +1,55 @@
+name: Office personal dashboard Hostinger preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type CHECK-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-personal-dashboard-host-preflight
+  cancel-in-progress: false
+jobs:
+  preflight:
+    if: ${{ inputs.confirmation == 'CHECK-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          persist-credentials: false
+      - name: Validate local preflight
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/dashboard-install-preflight.php
+          php office-independent/tests/OfficePersonalDashboardTest.php
+          php office-independent/tests/OfficePersonalDashboardRouteTest.php
+          php office-independent/tests/OfficeDashboardPreferencesTest.php
+          php office-independent/tests/OfficePersonalDashboardIntegrationTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+      - name: Read-only Hostinger database preflight
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          scp -o StrictHostKeyChecking=accept-new -P "$PORT" office-independent/deployment/hostinger/dashboard-install-preflight.php "$remote:domains/brebobv.nl/office_calc_test/dashboard-install-preflight.php"
+          ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          php "$base/dashboard-install-preflight.php" "$base/config/config.php"
+          rm -f "$base/dashboard-install-preflight.php"
+          REMOTE
