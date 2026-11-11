@@ -1,0 +1,85 @@
+name: Office working budget test-only installation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-WORK-BUDGET-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: ${{ inputs.confirmation == 'INSTALL-WORK-BUDGET-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate mount and source
+        run: |
+          set -euo pipefail
+          python3 office-independent/deployment/hostinger/test-working-budget-mount.py
+          php -l office-independent/public/office-project.php
+          for f in office-independent/src/WorkingBudget/{LockedBaselineLines,WorkingBudgetKpiProjection,ProjectBudgetReadModel,ProjectBudgetPanel,OnSiteLaborEvidence}.php; do php -l "$f"; done
+  install:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Stage isolated installation payload
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -o ConnectionAttempts=2 -i $HOME/.ssh/id_deploy -p $PORT"
+          $SSH "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.work-budget-install-staging/WorkingBudget"'
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -i "$HOME/.ssh/id_deploy" -P "$PORT" office-independent/deployment/hostinger/mount-working-budget-panel.py office-independent/public/office-project.php "$USER@$HOST:office_calc_test/.work-budget-install-staging/"
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -i "$HOME/.ssh/id_deploy" -P "$PORT" office-independent/src/WorkingBudget/{LockedBaselineLines,WorkingBudgetKpiProjection,ProjectBudgetReadModel,ProjectBudgetPanel,OnSiteLaborEvidence}.php "$USER@$HOST:office_calc_test/.work-budget-install-staging/WorkingBudget/"
+      - name: Install test-only with hash pin and backup
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -o ConnectionAttempts=2 -i "$HOME/.ssh/id_deploy" -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          stage="$HOME/office_calc_test/.work-budget-install-staging"
+          target="$base/public/office-project.php"
+          test -f "$target" && test ! -L "$target"
+          test -f "$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test ! -e "$target.pre-working-budget.bak"
+          test "$(grep -Fc '// Read-only Office procurement commitments: independent of invoicing and bank transactions.' "$target")" = 1
+          test "$(grep -Fc 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' "$target" || true)" = 0
+          mkdir -p "$base/src/WorkingBudget"
+          # Do not overwrite pre-existing classes: deployment is additive only.
+          for name in LockedBaselineLines WorkingBudgetKpiProjection ProjectBudgetReadModel ProjectBudgetPanel OnSiteLaborEvidence; do
+            test ! -e "$base/src/WorkingBudget/$name.php" || cmp -s "$stage/WorkingBudget/$name.php" "$base/src/WorkingBudget/$name.php"
+            php -l "$stage/WorkingBudget/$name.php" >/dev/null
+          done
+          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_MOUNT=explicit python3 "$stage/mount-working-budget-panel.py" "$target" "$stage/office-project.php"
+          for name in LockedBaselineLines WorkingBudgetKpiProjection ProjectBudgetReadModel ProjectBudgetPanel OnSiteLaborEvidence; do
+            if test ! -e "$base/src/WorkingBudget/$name.php"; then
+              cp -p "$stage/WorkingBudget/$name.php" "$base/src/WorkingBudget/$name.php"
+            fi
+          done
+          expected="$(sha256sum "$target" | cut -d ' ' -f 1)"
+          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_MOUNT=explicit OFFICE_WORK_BUDGET_APPLY=explicit OFFICE_WORK_BUDGET_EXPECTED_SHA256="$expected" python3 "$stage/mount-working-budget-panel.py" "$target" "$stage/office-project.php"
+          php -l "$target"
+          test -f "$target.pre-working-budget.bak"
+          grep -Fq 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' "$target"
+          echo WORK_BUDGET_TEST_INSTALL_VERIFIED_FLAG_UNCHANGED
+          REMOTE
