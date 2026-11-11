@@ -1,0 +1,70 @@
+name: Office working budget Hostinger preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_test_only:
+        description: Type OFFICE-TEST to run read-only checks
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate mount scripts and project syntax
+        run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/audit-working-budget-test-mount.py office-independent/deployment/hostinger/mount-working-budget-panel.py
+          python3 office-independent/deployment/hostinger/test-working-budget-mount.py
+          php -l office-independent/public/office-project.php
+  audit:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_test_only == 'OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect active Office-test release without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl"
+          base="$root/office_calc_test/release-office-test-contractform-20261030/private"
+          target="$base/public/office-project.php"
+          test -f "$target" && test ! -L "$target" || { echo "WORK_BUDGET_ACTIVE_PROJECT_MISSING"; exit 20; }
+          test -f "$root/public_html/office-test/index.php" || { echo "WORK_BUDGET_TEST_ROUTER_MISSING"; exit 21; }
+          for marker in 'OfficeNativeProjectAccess($db))->canRead' 'is_array($financeContracts)' '$financialSectionHtml .= $financeHtml;'; do
+            grep -Fq "$marker" "$target" || { echo "WORK_BUDGET_ACTIVE_ANCHOR_MISSING"; exit 22; }
+          done
+          printf 'WORK_BUDGET_ACTIVE_SHA256='
+          sha256sum "$target" | cut -d ' ' -f 1
+          if grep -Fq 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' "$target"; then
+            echo WORK_BUDGET_PANEL_PRESENT
+          else
+            echo WORK_BUDGET_PANEL_NOT_MOUNTED
+          fi
+          for name in LockedBaselineLines WorkingBudgetKpiProjection ProjectBudgetReadModel ProjectBudgetPanel OnSiteLaborEvidence; do
+            if test -f "$base/src/WorkingBudget/$name.php"; then
+              echo "WORK_BUDGET_DEPENDENCY_PRESENT=$name"
+            else
+              echo "WORK_BUDGET_DEPENDENCY_MISSING=$name"
+            fi
+          done
+          echo WORK_BUDGET_PREFLIGHT_READ_ONLY_OK
+          REMOTE
