@@ -43,13 +43,16 @@ try {
   }
   $mailboxes = [];
   $messages = [];
+  $proposals = [];
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
     $operatorId = filter_var($operator->operatorId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (!is_int($operatorId)) throw new RuntimeException('Ongeldige Office-gebruiker.');
-    $mailRepo = new \\Brebo\\Office\\Mail\\OfficeNativeMailboxRepository($db);
+    $mailRepo = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
     $mailboxes = $mailRepo->visibleMailboxes($operatorId);
+    require_once dirname(__DIR__) . '/src/Mail/OfficeMailClassificationRepository.php';
+    $proposals = (new \Brebo\Office\Mail\OfficeMailClassificationRepository($db))->pendingForOperator($operatorId);
     $requested = filter_var($_GET['mailbox'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (is_int($requested)) $messages = $mailRepo->inbox($requested, $operatorId);
   }
@@ -86,12 +89,27 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <article><h2>Verzonden</h2><p>Verzonden correspondentie vanuit Office.</p><p class="status">Nog niet aangesloten</p></article>
 <article><h2>Persoonlijke e-mail</h2><p>Alleen expliciet geselecteerde berichten gaan naar Office.</p><p class="status">Native push nog niet aangesloten</p></article>
 <article><h2>Mailcontrole</h2><p>Beoordeel voorgestelde dossierkoppelingen voordat ze worden toegepast.</p>
+<?php if ($mailSchemaReady): ?>
+<p><a href="#mailvoorstellen">Open controlewachtrij (<?= count($proposals) ?>)</a></p>
+<?php endif; ?>
 <?php if ($reviewEnabled): ?>
 <p><a href="/office-test/mail/controle">Open mailcontrole</a></p>
 <?php else: ?>
 <p class="status">Wacht op geverifieerde Office-identiteit</p>
 <?php endif; ?></article>
 </div>
+<?php if ($mailSchemaReady): ?>
+<section id="mailvoorstellen"><h2>Controlewachtrij</h2>
+<?php if ($proposals === []): ?><p>Geen voorstellen ter controle.</p>
+<?php else: ?><table><thead><tr><th>Mailbox</th><th>Afzender</th><th>Onderwerp</th><th>Voorgestelde module</th><th>Toelichting</th></tr></thead><tbody>
+<?php foreach ($proposals as $proposal): ?>
+<tr><td><?= htmlspecialchars((string)$proposal['mailbox_label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+<td><?= htmlspecialchars((string)$proposal['sender'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+<td><?= htmlspecialchars((string)$proposal['subject'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+<td><?= htmlspecialchars((string)$proposal['proposed_module'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
+<td><?= htmlspecialchars((string)$proposal['reason'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td></tr>
+<?php endforeach; ?></tbody></table><?php endif; ?></section>
+<?php endif; ?>
 <?php if ($messages !== []): ?>
 <section><h2>Berichten</h2><table><thead><tr><th>Afzender</th><th>Onderwerp</th><th>Ontvangen</th></tr></thead><tbody>
 <?php foreach ($messages as $message): ?>
