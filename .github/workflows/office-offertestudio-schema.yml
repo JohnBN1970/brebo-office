@@ -1,0 +1,71 @@
+name: Office-test Offertestudio schema verification and install
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-OFFERTSTUDIO-SCHEMA to create quotation tables; leave empty for audit
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-offertestudio-20261111
+          persist-credentials: false
+      - name: Verify schema source
+        run: |
+          set -euo pipefail
+          test -s office-independent/database/office-quotation-schema.sql
+          grep -c '^CREATE TABLE IF NOT EXISTS office_quotation' office-independent/database/office-quotation-schema.sql
+      - name: Upload isolated schema file
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_schema
+          chmod 600 ~/.ssh/id_schema
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.quotation-schema-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_schema -p "$PORT" "$remote" "mkdir -p \"\$HOME/$stage\""
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_schema -P "$PORT" office-independent/database/office-quotation-schema.sql "$remote:$stage/schema.sql"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_schema -p "$PORT" "$remote" "STAGE=$stage CONFIRM=$CONFIRM bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          file="$HOME/$STAGE/schema.sql"
+          config="$base/config/config.php"
+          test -f "$file" && test -f "$config"
+          php -r '
+          $c=require $argv[1];
+          if (!is_array($c) || ($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(21);
+          $dsn=$c["OFFICE_INTAKE_PDO_DSN"]??"";
+          if (!preg_match("/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D",$dsn)) exit(22);
+          $pdo=new PDO($dsn,$c["OFFICE_INTAKE_DB_USER"]??"",$c["OFFICE_INTAKE_DB_PASSWORD"]??"",[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          $names=["office_quotations","office_quotation_sections","office_quotation_instalments","office_quotation_assets","office_quotation_versions"];
+          $found=[];
+          foreach($names as $name) { $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");$q->execute([$name]);$found[$name]=(int)$q->fetchColumn();echo "SCHEMA_BEFORE $name ".$found[$name]."\n"; }
+          if (($argv[3]??"")!=="INSTALL-OFFERTSTUDIO-SCHEMA") {echo "SCHEMA_AUDIT_ONLY\n";exit(0);}
+          $sql=file_get_contents($argv[2]); if (!is_string($sql)) exit(23);
+          $statements=array_values(array_filter(array_map("trim",preg_split("/;\\s*(?:\\r?\\n|$)/",$sql)),fn($s)=>$s!=="" && !str_starts_with($s,"--")));
+          $sql=preg_replace("/^--[^\n]*\n/m","",$sql);
+          $statements=array_values(array_filter(array_map("trim",explode(";",$sql))));
+          if(count($statements)!==5) {echo "SCHEMA_STATEMENT_COUNT_INVALID ".count($statements)."\n";exit(24);}
+          foreach($statements as $statement) {
+            if(!preg_match("/^CREATE TABLE IF NOT EXISTS office_quotation(?:s|_[a-z]+) \\(/i",$statement)) exit(25);
+            $pdo->exec($statement);
+          }
+          foreach($names as $name) { $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?");$q->execute([$name]);if((int)$q->fetchColumn()!==1) exit(26);echo "SCHEMA_VERIFIED $name\n"; }
+          echo "SCHEMA_INSTALLED_NO_FLAGS_CHANGED\n";
+          ' "$config" "$file" "$CONFIRM"
+          rm -rf "$HOME/$STAGE"
+          REMOTE
