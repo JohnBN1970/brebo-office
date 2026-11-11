@@ -559,8 +559,20 @@ if (!$inzetView) {
   echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
 }
 if ($ganttView) {
-  require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
-  echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($projects, $base);
+  $criticalOnly = ($_GET['filter'] ?? '') === 'kritiek';
+  echo '<nav aria-label="Gantt filters" style="display:flex;gap:12px;margin:12px 0">'
+    . '<a href="' . $escape($base . '/projecten?view=gantt') . '"' . (!$criticalOnly ? ' aria-current="page"' : '') . '>Alle projecten</a>'
+    . '<a href="' . $escape($base . '/projecten?view=gantt&filter=kritiek') . '"' . ($criticalOnly ? ' aria-current="page"' : '') . '>Alleen kritiek</a></nav>';
+  $visibleProjects = $criticalOnly
+    ? array_values(array_filter($projects, static fn(array $project): bool =>
+        in_array(strtolower(trim((string)($project['status'] ?? ''))), ['kritiek', 'critical'], true)))
+    : $projects;
+  if ($visibleProjects === []) {
+    echo '<p>Geen projecten gevonden voor dit filter.</p>';
+  } else {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
+    echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base);
+  }
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
