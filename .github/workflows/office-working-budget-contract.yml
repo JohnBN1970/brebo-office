@@ -23,7 +23,7 @@ jobs:
       - name: PHP syntax
         run: |
           set -eu
-          for f in office-independent/src/WorkingBudget/*.php office-independent/tests/WorkingBudgetForecastTest.php office-independent/tests/LockedBaselineLinesTest.php office-independent/tests/ProcurementCommitmentReconciliationTest.php office-independent/tests/OfficeProcurementBudgetAdapterTest.php office-independent/tests/FinanceCostAllocationTest.php office-independent/tests/ProcurementCostBridgeTest.php; do
+          for f in office-independent/src/WorkingBudget/*.php office-independent/tests/WorkingBudgetForecastTest.php office-independent/tests/LockedBaselineLinesTest.php office-independent/tests/ProcurementCommitmentReconciliationTest.php office-independent/tests/OfficeProcurementBudgetAdapterTest.php office-independent/tests/FinanceCostAllocationTest.php office-independent/tests/ProcurementCostBridgeTest.php office-independent/tests/WorkingBudgetKpiProjectionTest.php; do
             php -l "$f"
           done
       - name: Budget contract tests
@@ -35,3 +35,4 @@ jobs:
           php office-independent/tests/OfficeProcurementBudgetAdapterTest.php
           php office-independent/tests/FinanceCostAllocationTest.php
           php office-independent/tests/ProcurementCostBridgeTest.php
+          php office-independent/tests/WorkingBudgetKpiProjectionTest.php
