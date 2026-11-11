@@ -37,7 +37,14 @@ final class OfficeProjectDocumentService
             throw new InvalidArgumentException('invalid_document_metadata');
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($tmpPath);
-        if (!is_string($mime) || !in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'], true)) {
+        if (!is_string($mime) || !in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream', 'message/rfc822'], true)) {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
+        if (in_array($mime, ['application/zip', 'application/octet-stream'], true) && strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'xlsx') {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
+        if (in_array($mime, ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'message/rfc822'], true)
+            && !in_array(strtolower(pathinfo($filename, PATHINFO_EXTENSION)), ['csv', 'eml'], true)) {
             throw new InvalidArgumentException('unsupported_document_type');
         }
         $stored = $this->storage->put($tmpPath);
@@ -46,6 +53,26 @@ final class OfficeProjectDocumentService
         $id = $this->registry->register($stored, $title, $filename, $mime, 'office_project_upload');
         $this->registry->attachContext($id, 'project', (string) $projectId, 'origin');
         return $id;
+    }
+
+    /**
+     * Authorized, review-only document evidence. Call after the proposal schema
+     * has been explicitly installed. No canonical building/resident mutations.
+     */
+    public function proposeProjectAddresses(int $operatorId, int $projectId, int $documentId): array
+    {
+        $document = $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeSourceAddressExtractor.php';
+        require_once __DIR__ . '/OfficeAddressProposalService.php';
+        require_once dirname(__DIR__) . '/Buildings/OfficeIntakeBuildingResolver.php';
+        $service = new OfficeAddressProposalService(
+            $this->db,
+            new OfficeSourceAddressExtractor(),
+            new \\Brebo\\Office\\Buildings\\OfficeIntakeBuildingResolver($this->db)
+        );
+        return $service->propose(
+            $documentId, $document['path'], $document['mime_type'], $document['filename']
+        );
     }
 
     /** Returns the file path only after a trusted server-side Office project grant. */
