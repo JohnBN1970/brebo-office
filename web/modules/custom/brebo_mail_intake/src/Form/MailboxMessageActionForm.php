@@ -166,13 +166,13 @@ final class MailboxMessageActionForm extends FormBase {
             'requested_at' => time(),
           ]);
           if ($queued === FALSE) {
-            throw new \\RuntimeException('Queue item kon niet worden opgeslagen.');
+            throw new \RuntimeException('Queue item kon niet worden opgeslagen.');
           }
           $this->state->set($key, ['actor_uid' => (int) $this->currentAccount->id(), 'queued_at' => time()]);
           $this->messenger()->addStatus($this->t('Bericht aangemeld voor Office-verwerking; dossierkoppeling is nog niet uitgevoerd.'));
         }
       }
-      catch (\\Throwable $e) {
+      catch (\Throwable $e) {
         $this->getLogger('brebo_mail_intake')->error('Persoonlijke mailpush kon niet worden aangemeld: @error', ['@error' => $e->getMessage()]);
         $this->messenger()->addError($this->t('Office-verwerking kon niet worden aangemeld. Probeer later opnieuw.'));
         return;
