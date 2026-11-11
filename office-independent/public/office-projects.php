@@ -666,6 +666,16 @@ if ($kanbanView) {
       $portfolioScope->execute([':operator_id' => $operator->operatorId]);
       $authorizedPortfolio = $portfolioScope->fetchAll(PDO::FETCH_ASSOC);
       $portfolioTotals['accessible_project_count'] = count($authorizedPortfolio);
+      try {
+        require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioPlannedHours.php';
+        $weekNow = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels'));
+        $portfolioTotals['planned_week_seconds'] = \Brebo\Office\Project\OfficeProjectPortfolioPlannedHours::forWeek(
+          $db, (string)$operator->operatorId, (int)$weekNow->format('o'), (int)$weekNow->format('W')
+        );
+        $portfolioTotals['planned_week_label'] = $weekNow->format('o') . '-W' . $weekNow->format('W');
+      } catch (\Throwable $exception) {
+        // Planning is unavailable independently of financial KPI sources.
+      }
       // Independent sources: a missing budget must not suppress a valid contract KPI.
       try {
         $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $authorizedPortfolio);
