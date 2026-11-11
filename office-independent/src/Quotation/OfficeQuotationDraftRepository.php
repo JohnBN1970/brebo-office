@@ -82,4 +82,71 @@ final class OfficeQuotationDraftRepository
             throw $e;
         }
     }
+    /** Return only drafts owned by the authenticated operator. */
+    public function listOwn(int $operatorId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT q.id, q.title, q.quotation_type, q.updated_at, r.display_name AS relation_name
+             FROM office_quotations q
+             JOIN office_crm_relations r ON r.id = q.relation_id
+             WHERE q.created_by = ? AND q.status = 'draft'
+             ORDER BY q.updated_at DESC LIMIT 100"
+        );
+        $stmt->execute([$operatorId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function getOwnDraft(int $quotationId, int $operatorId): ?array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT id, relation_id, quotation_type, title, status
+             FROM office_quotations
+             WHERE id = ? AND created_by = ? AND status = 'draft' LIMIT 1"
+        );
+        $stmt->execute([$quotationId, $operatorId]);
+        $quote = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$quote) return null;
+        $sections = $this->db->prepare(
+            'SELECT section_key, body FROM office_quotation_sections WHERE quotation_id = ? ORDER BY sort_order'
+        );
+        $sections->execute([$quotationId]);
+        $quote['sections'] = [];
+        foreach ($sections->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $quote['sections'][$row['section_key']] = $row['body'];
+        }
+        return $quote;
+    }
+
+    public function updateOwnDraft(int $quotationId, int $operatorId, array $sections): void
+    {
+        if ($quotationId <= 0 || $operatorId <= 0) throw new InvalidArgumentException('Invalid quotation');
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT quotation_type FROM office_quotations
+                 WHERE id = ? AND created_by = ? AND status = 'draft' FOR UPDATE"
+            );
+            $stmt->execute([$quotationId, $operatorId]);
+            $type = $stmt->fetchColumn();
+            if ($type === false) throw new RuntimeException('Draft not accessible');
+            $allowed = OfficeQuotationComposer::sections((string)$type);
+            foreach ($sections as $key => $body) {
+                if (!in_array($key, $allowed, true) || !is_string($body)
+                    || mb_strlen($body, 'UTF-8') > 50000) {
+                    throw new InvalidArgumentException('Invalid section');
+                }
+            }
+            $stmt = $this->db->prepare(
+                'UPDATE office_quotation_sections SET body = ?, provenance = ? WHERE quotation_id = ? AND section_key = ?'
+            );
+            foreach ($sections as $key => $body) {
+                $stmt->execute([$body, 'manual', $quotationId, $key]);
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
 }
