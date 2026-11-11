@@ -651,6 +651,31 @@ if (is_array($financeContracts)
         $financeHtml .= '<p>Inkoopverplichtingen tijdelijk niet beschikbaar.</p>';
     }
 }
+// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only.
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED') === 'enabled'
+    && is_array($financeContracts)) {
+    try {
+        require_once dirname(__DIR__) . '/src/WorkingBudget/LockedBaselineLines.php';
+        require_once dirname(__DIR__) . '/src/WorkingBudget/WorkingBudgetKpiProjection.php';
+        require_once dirname(__DIR__) . '/src/WorkingBudget/ProjectBudgetReadModel.php';
+        require_once dirname(__DIR__) . '/src/WorkingBudget/ProjectBudgetPanel.php';
+        // Reuse the already ACL-scoped OnSite project overview; never book presence as costs.
+        $laborEvidence = null;
+        if (isset($inzetOverview) && is_array($inzetOverview)) {
+            require_once dirname(__DIR__) . '/src/WorkingBudget/OnSiteLaborEvidence.php';
+            $laborEvidence = \Brebo\Office\WorkingBudget\OnSiteLaborEvidence::summarize(
+                $inzetOverview, (int)$projectId
+            );
+        }
+        $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
+            ->forAuthorizedProject((int)$projectId, null, null, $laborEvidence);
+        $financeHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
+    } catch (\Throwable $workBudgetError) {
+        error_log('Office work budget panel unavailable: ' . get_class($workBudgetError));
+        $financeHtml .= '<p>Werkbegroting tijdelijk niet beschikbaar.</p>';
+    }
+}
 $financialSectionHtml .= $financeHtml;
 
 // The overview only uses verified project and building data. CRM, planning and finance
