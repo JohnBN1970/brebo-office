@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Read-only, session-protected Offertestudio preview.
+ * Session-protected Offertestudio draft editor; writes require explicit flags.
  * No database writes, approval, PDF issuance or financial side effects.
  */
 header('Cache-Control: no-store, private');
@@ -69,19 +69,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $postedType = is_string($_POST['type'] ?? null) ? $_POST['type'] : '';
     $title = is_string($_POST['title'] ?? null) ? trim($_POST['title']) : '';
     $sectionValues = $_POST['sections'] ?? null;
-    if (!$relationId || !is_array($sectionValues) || !array_key_exists($postedType, \\Brebo\\Office\\Quotation\\OfficeQuotationComposer::TEMPLATES)) {
+    if (!$relationId || !is_array($sectionValues) || !array_key_exists($postedType, \Brebo\\Office\\Quotation\\OfficeQuotationComposer::TEMPLATES)) {
         http_response_code(400); exit('Ongeldige offertegegevens.');
     }
     try {
         require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationDraftRepository.php';
-        $id = (new \\Brebo\\Office\\Quotation\\OfficeQuotationDraftRepository($db))
+        $id = (new \Brebo\\Office\\Quotation\\OfficeQuotationDraftRepository($db))
             ->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
         $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
         header('Location: /office-test/crm/offertes?type=' . rawurlencode($postedType) . '&created=' . $id, true, 303);
         exit;
-    } catch (\\InvalidArgumentException $e) {
+    } catch (\InvalidArgumentException $e) {
         $message = 'Controleer de relatie, titel en hoofdstukteksten.';
-    } catch (\\Throwable $e) {
+    } catch (\Throwable $e) {
         http_response_code(503); exit('Conceptofferte kon niet worden opgeslagen.');
     }
 }
@@ -89,7 +89,7 @@ $relations = [];
 if ($storageReady) {
     try {
         $relations = $db->query("SELECT id, display_name FROM office_crm_relations WHERE status = 'active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
-    } catch (\\Throwable $e) { http_response_code(503); exit('Relaties niet beschikbaar.'); }
+    } catch (\Throwable $e) { http_response_code(503); exit('Relaties niet beschikbaar.'); }
 }
 
 $type = (string) ($_GET['type'] ?? 'project');
@@ -125,7 +125,7 @@ if ($storageReady) {
     echo '<section class="panel"><h2>Nieuw offerteconcept</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
     foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'">'.$escape((string)$relation['display_name']).'</option>';
     echo '</select></label></p><p><label>Offertetitel <input name="title" maxlength="255" required></label></p>';
-    foreach (\\Brebo\\Office\\Quotation\\OfficeQuotationComposer::sections($type) as $key) {
+    foreach (\Brebo\\Office\\Quotation\\OfficeQuotationComposer::sections($type) as $key) {
         echo '<p><label>'.$escape($sectionLabels[$key] ?? $key).'<textarea name="sections['.$escape($key).']" rows="4" maxlength="50000"></textarea></label></p>';
     }
     echo '<button type="submit">Concept opslaan</button></form></section>';
