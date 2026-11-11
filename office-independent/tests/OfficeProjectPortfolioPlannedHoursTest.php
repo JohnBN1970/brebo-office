@@ -17,9 +17,13 @@ $autumn = OfficeProjectPortfolioPlannedHours::utcWeekBounds(2026, 43);
 if ((strtotime($autumn['end'] . ' UTC') - strtotime($autumn['start'] . ' UTC')) !== 169 * 3600) {
     throw new RuntimeException('Autumn DST week must have 169 elapsed hours');
 }
+$rejectedInvalidWeek = false;
 try {
     OfficeProjectPortfolioPlannedHours::utcWeekBounds(2026, 53);
-    throw new RuntimeException('Nonexistent ISO week was accepted');
 } catch (InvalidArgumentException $expected) {
+    $rejectedInvalidWeek = true;
+}
+if (!$rejectedInvalidWeek) {
+    throw new RuntimeException('Nonexistent ISO week was accepted');
 }
 echo "PORTFOLIO_PLANNED_HOURS_OK\n";
