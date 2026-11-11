@@ -1,0 +1,41 @@
+name: Office-test Offertestudio rewrite repair
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repair missing Office-test Apache rewrite
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_offertestudio
+          chmod 600 ~/.ssh/id_offertestudio
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_offertestudio -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          web="$HOME/domains/brebobv.nl/public_html/office-test"
+          ht="$web/.htaccess"
+          router="$web/index.php"
+          test -f "$ht" && test ! -L "$ht" && test -f "$router"
+          grep -Fq "'/office-test/crm/offertes'" "$router"
+          grep -Fq 'RewriteRule ^(?:crm/verkoopkansen' "$ht"
+          backup="$ht.backup-offertestudio-$(date +%Y%m%d%H%M%S)"
+          cp -p "$ht" "$backup"
+          if ! grep -Fq 'RewriteRule ^crm/offertes/?$ index.php [END,QSA]' "$ht"; then
+            sed '/RewriteRule \^(?:crm\/verkoopkansen/i\RewriteRule ^crm/offertes/?$ index.php [END,QSA]' "$ht" > "$ht.candidate"
+            grep -Fq 'RewriteRule ^crm/offertes/?$ index.php [END,QSA]' "$ht.candidate"
+            cat "$ht.candidate" > "$ht"
+            rm -f "$ht.candidate"
+          fi
+          code="$(curl -ksS --max-time 15 -o /dev/null -w '%{http_code}' https://brebobv.nl/office-test/crm/offertes)"
+          echo "QUOTATION_HTTP=$code"
+          case "$code" in 200|302|403|503) echo QUOTATION_REWRITE_VERIFIED;; *) cp -p "$backup" "$ht"; echo QUOTATION_REWRITE_ROLLBACK; exit 42;; esac
+          REMOTE
