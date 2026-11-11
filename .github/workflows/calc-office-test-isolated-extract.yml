@@ -1,0 +1,68 @@
+name: Calc Office-test isolated release extraction
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-office-test-isolated-extract.yml'
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-test-isolated-extract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify and extract Calc in private, non-web folder
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          command_timeout: 5m
+          script: |
+            set -eu
+            root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            stage="$root/.calc-app-staging"
+            archive=calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.tgz
+            release="$root/.calc-app-private-releases/a4ee44b39b437ba742b1f66b5224cd2ada7061fe"
+            node=/opt/alt/alt-nodejs22/root/usr/bin/node
+            test -d "$root"
+            test -f "$root/config/config.php"
+            test ! -L "$root"
+            test ! -L "$stage"
+            test ! -L "$release"
+            test -x "$node"
+            cd "$stage"
+            sha256sum -c "$archive.sha256" >/dev/null
+            test -f "$archive"
+            if tar -tzf "$archive" | grep -E '(^/|(^|/)\.\.(/|$))' >/dev/null; then
+              echo "CALC_ARCHIVE_PATH_SAFETY=FAIL"
+              exit 1
+            fi
+            echo "CALC_ARCHIVE_SHA256=PASS"
+            parent="$root/.calc-app-private-releases"
+            test ! -L "$parent"
+            mkdir -p -m 700 "$parent"
+            if [ -d "$release" ]; then
+              echo "CALC_PRIVATE_RELEASE_ALREADY_PRESENT=YES"
+            else
+              mkdir -m 700 "$release"
+              tar -xzf "$archive" -C "$release"
+              echo "CALC_PRIVATE_RELEASE_EXTRACTED=YES"
+            fi
+            test -f "$release/apps/api/dist/index.js"
+            test -f "$release/apps/web/dist/index.html"
+            test -f "$release/node_modules/express/package.json"
+            test -f "$release/startup.js"
+            "$node" --check "$release/apps/api/dist/index.js"
+            "$node" --check "$release/startup.js"
+            echo "CALC_PRIVATE_NODE22_SYNTAX=PASS"
+            echo "CALC_NODE_APP_STARTED=NO"
+            echo "CALC_PUBLIC_WEBROOT_CHANGED=NO"
+            echo "CALC_DATABASE_CHANGED=NO"
+            echo "CALC_OLD_CALCULATIONS_IMPORTED=NO"
