@@ -16,7 +16,7 @@ final class OfficeCrmWonTransition
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function apply(int $opportunityId, string $from, ?array $acceptedCalculation = null): array
+    public function apply(int $opportunityId, string $from): array
     {
         require_once __DIR__ . '/OfficeCrmFunnel.php';
         require_once __DIR__ . '/OfficeCrmOpportunityRepository.php';
