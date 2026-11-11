@@ -367,6 +367,19 @@ jobs:
               echo "ORIGIN_FIX_MARKER_".strtoupper(str_replace(["-",":"," "],"_",$token))."=".(str_contains($s,$token)?"PRESENT":"MISSING")."\n";
             }
             '
+            echo "SECTION=CRM_CALC_POST_NO_ORIGIN_NEGATIVE_TEST"
+            headers=$(mktemp)
+            trap 'rm -f "$headers"' EXIT
+            status=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' \
+              --request POST --data-urlencode 'opportunity_id=3' --data-urlencode 'csrf=test-only-invalid' \
+              'https://brebobv.nl/office-test/calculatie/start' || true)
+            reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
+            echo "CRM_CALC_NO_ORIGIN_NEGATIVE_HTTP=$status"
+            echo "CRM_CALC_NO_ORIGIN_NEGATIVE_REASON=$reason"
+            if test "$status" != 403; then
+              echo "CRM_CALC_NO_ORIGIN_PROTECTION=UNEXPECTED"
+              exit 1
+            fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
