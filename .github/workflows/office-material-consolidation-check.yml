@@ -9,6 +9,7 @@ on:
       - 'office-independent/src/WorkingBudget/MaterialProcurementProjection.php'
       - 'office-independent/tests/MaterialProcurementProjectionTest.php'
       - 'office-independent/src/WorkingBudget/PurchaseReceiptService.php'
+      - 'office-independent/src/WorkingBudget/PurchaseOrderService.php'
       - 'office-independent/deployment/hostinger/sql/office-work-budget-procurement.sql'
       - 'office-independent/tests/MaterialConsolidationTest.php'
       - '.github/workflows/office-material-consolidation-check.yml'
@@ -29,6 +30,7 @@ jobs:
           php -l office-independent/src/WorkingBudget/MaterialProcurementProjection.php
           php -l office-independent/tests/MaterialProcurementProjectionTest.php
           php -l office-independent/src/WorkingBudget/PurchaseReceiptService.php
+          php -l office-independent/src/WorkingBudget/PurchaseOrderService.php
       - name: Material consolidation regression tests
         run: |
           php office-independent/tests/MaterialConsolidationTest.php
