@@ -18,6 +18,8 @@ $account = [
 ];
 check(Policy::validIban($account['iban']), 'Valid IBAN rejected');
 check(!Policy::validIban('NL00ABNA0417164300'), 'Invalid IBAN accepted');
+check(!Policy::validIban('NL91ABNA0417-164300'), 'Punctuated IBAN accepted');
+check(!Policy::validIban('NL91ABNA0417164300!'), 'Malformed IBAN accepted');
 $first = Policy::verifiedSnapshot($account, 17, 2000);
 check($first['iban'] === 'NL91ABNA0417164300', 'IBAN not normalized');
 check(!blocked($account), 'Verified recipient blocked');
