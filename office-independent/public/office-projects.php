@@ -653,7 +653,19 @@ if ($kanbanView) {
     $financeAccess = new \Brebo\Office\Finance\OfficeFinanceAccess($db, (string)$operator->operatorId);
     if ($financeAccess->allows('read')) {
       require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioTotals.php';
-      $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
+      // The visible project list is capped at 100; financial portfolio totals must
+      // use the complete ACL-scoped set, never a truncated page.
+      $portfolioScope = $db->prepare(
+        "SELECT DISTINCT p.id
+         FROM office_projects p
+         INNER JOIN office_project_memberships m ON m.project_id = p.id
+         INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+         WHERE m.operator_id = :operator_id
+           AND m.permission IN ('read','manage') AND a.active = 1"
+      );
+      $portfolioScope->execute([':operator_id' => $operator->operatorId]);
+      $authorizedPortfolio = $portfolioScope->fetchAll(PDO::FETCH_ASSOC);
+      $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $authorizedPortfolio);
       $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
     }
   } catch (\Throwable $exception) {
