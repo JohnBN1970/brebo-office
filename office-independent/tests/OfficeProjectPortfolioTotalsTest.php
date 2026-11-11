@@ -58,7 +58,9 @@ $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
 if (!str_contains($html, '/office-test/projecten?week=2025-W52')
     || !str_contains($html, '/office-test/projecten?week=2026-W02')
     || !str_contains($html, 'Vorige week')
-    || !str_contains($html, 'Volgende week')) {
+    || !str_contains($html, 'Volgende week')
+    || !str_contains($html, 'type="week" name="week" required value="2026-W01"')
+    || !str_contains($html, 'method="get" action="/office-test/projecten"')) {
     throw new RuntimeException('ISO week navigation must cross year boundaries');
 }
 $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
