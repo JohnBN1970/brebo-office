@@ -8,6 +8,7 @@ changes routes, environment flags, databases or production configuration.
 import hashlib
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 
@@ -57,6 +58,26 @@ if os.environ.get("OFFICE_WORK_BUDGET_APPLY") != "explicit":
 expected = os.environ.get("OFFICE_WORK_BUDGET_EXPECTED_SHA256", "")
 if expected != hashlib.sha256(active).hexdigest():
     sys.exit("WORK_BUDGET_MOUNT_EXPECTED_HASH_MISMATCH")
+# Ensure all PHP classes referenced by the new mount are staged before any write.
+required_classes = ("LockedBaselineLines.php", "WorkingBudgetKpiProjection.php",
+                    "ProjectBudgetReadModel.php", "ProjectBudgetPanel.php",
+                    "OnSiteLaborEvidence.php")
+working_budget_dir = resolved.parent.parent / "src" / "WorkingBudget"
+if not all((working_budget_dir / name).is_file() and not (working_budget_dir / name).is_symlink()
+           for name in required_classes):
+    sys.exit("WORK_BUDGET_MOUNT_DEPENDENCIES_MISSING")
+php = os.environ.get("OFFICE_PHP_BINARY", "php")
+with tempfile.NamedTemporaryFile(prefix=".work-budget-lint-", suffix=".php",
+                                 dir=str(target.parent), delete=False) as candidate:
+    candidate.write(updated)
+    candidate_path = pathlib.Path(candidate.name)
+try:
+    lint = subprocess.run([php, "-l", str(candidate_path)], capture_output=True,
+                          text=True, check=False, timeout=30)
+    if lint.returncode != 0:
+        sys.exit("WORK_BUDGET_MOUNT_PHP_LINT_FAILED")
+finally:
+    candidate_path.unlink(missing_ok=True)
 backup = target.with_name(target.name + ".pre-working-budget.bak")
 if backup.exists() or backup.is_symlink():
     sys.exit("WORK_BUDGET_MOUNT_BACKUP_ALREADY_EXISTS")
