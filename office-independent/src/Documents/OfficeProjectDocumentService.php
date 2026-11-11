@@ -47,6 +47,27 @@ final class OfficeProjectDocumentService
             && !in_array(strtolower(pathinfo($filename, PATHINFO_EXTENSION)), ['csv', 'eml'], true)) {
             throw new InvalidArgumentException('unsupported_document_type');
         }
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if ($extension === 'xlsx') {
+            if (!class_exists(\\ZipArchive::class)) {
+                throw new InvalidArgumentException('xlsx_validation_unavailable');
+            }
+            $zip = new \\ZipArchive();
+            if ($zip->open($tmpPath, \\ZipArchive::RDONLY) !== true) {
+                throw new InvalidArgumentException('invalid_xlsx_container');
+            }
+            try {
+                if ($zip->locateName('xl/worksheets/sheet1.xml') === false
+                    && $zip->locateName('xl/workbook.xml') === false) {
+                    throw new InvalidArgumentException('invalid_xlsx_structure');
+                }
+            } finally {
+                $zip->close();
+            }
+        } elseif (in_array($mime, ['application/zip', 'application/octet-stream',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], true)) {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
         $stored = $this->storage->put($tmpPath);
         // Keep the unlinked document invisible if context attachment fails.
         // A compensating repair job can reconcile such incomplete registrations.
