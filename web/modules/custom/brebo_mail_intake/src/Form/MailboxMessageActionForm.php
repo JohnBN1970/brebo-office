@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
+use Drupal\brebo_mail_intake\Service\MailboxRepository;
+use Drupal\Core\Queue\QueueFactory;
 use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -20,6 +22,8 @@ final class MailboxMessageActionForm extends FormBase {
     private readonly MailboxStorageRepositoryInterface $storage,
     private readonly MailboxAccessPolicy $accessPolicy,
     private readonly AccountProxyInterface $currentAccount,
+    private readonly MailboxRepository $mailboxes,
+    private readonly QueueFactory $queueFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -27,6 +31,8 @@ final class MailboxMessageActionForm extends FormBase {
       $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
       $container->get('current_user'),
+      $container->get('brebo_mail_intake.mailbox_repository'),
+      $container->get('queue'),
     );
   }
 
@@ -49,6 +55,17 @@ final class MailboxMessageActionForm extends FormBase {
     $form['mailbox_id'] = ['#type' => 'hidden', '#value' => $mailbox_id];
     $form['communication_id'] = ['#type' => 'hidden', '#value' => $communication_id];
     $form['return_state'] = ['#type' => 'hidden', '#value' => $mail_state];
+
+    $mailbox = $this->mailboxes->load($mailbox_id);
+    if (($mailbox['privacy_type'] ?? '') === 'personal'
+      && (int) ($mailbox['owner_uid'] ?? 0) === (int) $this->currentAccount->id()) {
+      $form['push_to_office'] = [
+        '#type' => 'submit',
+        '#name' => 'push_to_office',
+        '#value' => $this->t('Push naar Office'),
+        '#attributes' => ['class' => ['brebo-mail-action', 'brebo-mail-action--primary']],
+      ];
+    }
 
     $form['read'] = [
       '#type' => 'submit',
@@ -115,6 +132,29 @@ final class MailboxMessageActionForm extends FormBase {
     }
 
     $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? '');
+    if ($trigger === 'push_to_office') {
+      $mailbox = $this->mailboxes->load($mailboxId);
+      if (($mailbox['privacy_type'] ?? '') !== 'personal'
+        || empty($mailbox['active'])
+        || (int) ($mailbox['owner_uid'] ?? 0) !== (int) $this->currentAccount->id()) {
+        $this->messenger()->addError($this->t('Geen toestemming om dit bericht te pushen.'));
+        return;
+      }
+      // Stage only: queue consumers must perform durable deduplication, audit,
+      // classification and human review before any native dossier linkage.
+      $this->queueFactory->get('brebo_personal_mail_push')->createItem([
+        'mailbox_id' => $mailboxId,
+        'communication_id' => $communicationId,
+        'actor_uid' => (int) $this->currentAccount->id(),
+        'requested_at' => time(),
+      ]);
+      $this->messenger()->addStatus($this->t('Bericht aangemeld voor Office-verwerking; dossierkoppeling is nog niet uitgevoerd.'));
+      $form_state->setRedirect('brebo_mail_intake.mailbox_message', [
+        'mailbox_id' => $mailboxId, 'mail_state' => $returnState, 'communication_id' => $communicationId,
+      ]);
+      return;
+    }
+
     $fields = ['changed' => time()];
     $redirectState = $returnState;
 
