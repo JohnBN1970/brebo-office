@@ -106,7 +106,6 @@ final class OfficeCalcCrmDraftLineRepository
             $total=$q->fetchColumn();
             $q=$this->db->prepare('UPDATE calculation_versions SET direct_cost=? WHERE id=? AND status=?');
             $q->execute([(string)$total,$version,'draft']);
-            if ($q->rowCount()!==1) throw new DomainException('Calc version not writable');
             $this->db->commit();
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
