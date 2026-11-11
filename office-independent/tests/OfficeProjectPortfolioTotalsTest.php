@@ -67,4 +67,13 @@ $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
 if (!str_contains($html, '/office-test/projecten?week=2027-W01')) {
     throw new RuntimeException('Week 53 must navigate to next ISO year');
 }
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => 3600, 'planned_week_label' => '2026-W46',
+]);
+if (!str_contains($html, 'Geplande uren (geselecteerde week)')
+    || !str_contains($html, 'geselecteerde ISO-week')
+    || !str_contains($html, '</div><p class="office-portfolio-total-scope">')
+    || !str_contains($html, '</nav><section class="office-portfolio-attention"')) {
+    throw new RuntimeException('Selected week label or KPI grid layout regression');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
