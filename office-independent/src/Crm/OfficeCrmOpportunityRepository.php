@@ -129,6 +129,7 @@ final class OfficeCrmOpportunityRepository
             if(($data['stage']==='prospect'&&empty($old['relation_id']))||($data['stage']==='lead'&&!empty($old['relation_id'])))throw new \DomainException('De gekozen fase past niet bij de relatiekwalificatie.');
             if($from==='lead'&&$data['stage']==='prospect')throw new \DomainException('Koppel eerst een relatie via leadkwalificatie.');
             if($old['stage']!==$from)throw new \UnexpectedValueException('De fase is intussen gewijzigd.');
+            if($data['stage']==='won'&&empty($old['relation_id']))throw new \DomainException('Koppel eerst een relatie voordat de opdracht wordt bevestigd.');
             $q=$this->db->prepare('UPDATE office_crm_opportunities SET stage=?,status=?,outcome_note=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND revision=?');
             $q->execute([$data['stage'],$data['status'],$data['outcome_note'],$id,$revision]);
             return [$id,'stage','Fase gewijzigd: '.OfficeCrmFunnel::label($data['stage']),['from'=>$from]+$data];
