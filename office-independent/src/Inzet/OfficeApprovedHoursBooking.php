@@ -53,7 +53,7 @@ final class OfficeApprovedHoursBooking
             ':reviewer' => $entry['approved_by'],
         ]);
         if ($authority->fetchColumn() === false) {
-            throw new \\DomainException('Reviewer is not authorized to approve hours for this project');
+            throw new \DomainException('Reviewer is not authorized to approve hours for this project');
         }
         // A source identifier is unique: retries cannot double-book approved hours.
         $stmt = $this->db->prepare('INSERT INTO office_inzet_approved_hours
