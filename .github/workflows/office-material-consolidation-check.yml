@@ -6,6 +6,8 @@ on:
       - 'office-independent/src/WorkingBudget/MaterialConsolidation.php'
       - 'office-independent/src/WorkingBudget/MaterialIdentityReadModel.php'
       - 'office-independent/src/WorkingBudget/LockedBaselineLines.php'
+      - 'office-independent/src/WorkingBudget/MaterialProcurementProjection.php'
+      - 'office-independent/tests/MaterialProcurementProjectionTest.php'
       - 'office-independent/tests/MaterialConsolidationTest.php'
       - '.github/workflows/office-material-consolidation-check.yml'
 permissions:
@@ -22,8 +24,12 @@ jobs:
           php -l office-independent/src/WorkingBudget/MaterialIdentityReadModel.php
           php -l office-independent/src/WorkingBudget/LockedBaselineLines.php
           php -l office-independent/tests/MaterialConsolidationTest.php
+          php -l office-independent/src/WorkingBudget/MaterialProcurementProjection.php
+          php -l office-independent/tests/MaterialProcurementProjectionTest.php
       - name: Material consolidation regression tests
-        run: php office-independent/tests/MaterialConsolidationTest.php
+        run: |
+          php office-independent/tests/MaterialConsolidationTest.php
+          php office-independent/tests/MaterialProcurementProjectionTest.php
       - name: Verify additive migration only
         run: |
           set -euo pipefail
