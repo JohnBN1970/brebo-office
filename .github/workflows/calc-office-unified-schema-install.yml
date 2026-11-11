@@ -2,8 +2,6 @@ name: Office-test unified Calc schema install
 on:
   push:
     branches: [audit/calc-office-test-host-access-20261111]
-    paths:
-      - '.github/workflows/calc-office-unified-schema-install.yml'
   workflow_dispatch:
 permissions:
   contents: read
