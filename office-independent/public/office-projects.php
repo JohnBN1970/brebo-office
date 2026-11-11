@@ -564,7 +564,7 @@ if ($inzetView) {
 }
 if (!$inzetView || $activeInzetTab === 'overzicht') {
 if (!$inzetView) {
-  echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
+  echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a><a href="' . $escape($base . '/projecten?view=kanban') . '">Kanban</a></nav>';
 }
 if ($kanbanView) {
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectTrafficLight.php';
