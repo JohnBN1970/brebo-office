@@ -48,3 +48,15 @@ CREATE TABLE IF NOT EXISTS office_mail_attachments (
   CONSTRAINT fk_office_mail_attachment_message FOREIGN KEY (message_id)
     REFERENCES office_mail_messages (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Explicit functional mailbox permissions; personal mailbox access is owner-only.
+CREATE TABLE IF NOT EXISTS office_mail_mailbox_access (
+  mailbox_id BIGINT UNSIGNED NOT NULL,
+  operator_id BIGINT UNSIGNED NOT NULL,
+  can_read TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (mailbox_id, operator_id),
+  KEY ix_office_mail_access_operator (operator_id, can_read),
+  CONSTRAINT fk_office_mail_access_mailbox FOREIGN KEY (mailbox_id)
+    REFERENCES office_mail_mailboxes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
