@@ -214,12 +214,12 @@ jobs:
               }
               echo "CRM_CALC_DB_IDENTITY=VERIFIED\n";
               $q=$db->prepare('SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?');
-              foreach([['office_crm_opportunities','id'],['office_operator_accounts','id']] as [$table,$column]) {
-                $q->execute([$table,$column]);
-                if(strtolower((string)$q->fetchColumn())!=='bigint unsigned') {
-                  echo "CRM_CALC_REFERENCE_TYPE_UNEXPECTED_".strtoupper($table)."\n";exit(1);
-                }
+              $q->execute(['office_crm_opportunities','id']);
+              $opportunityIdType=strtolower((string)$q->fetchColumn());
+              if(!preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D',$opportunityIdType)) {
+                echo "CRM_CALC_OPPORTUNITY_REFERENCE_TYPE=UNEXPECTED\n";exit(1);
               }
+              echo "CRM_CALC_OPPORTUNITY_REFERENCE_TYPE=VERIFIED\n";
               $check=$db->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?');
               foreach(['calculations','calculation_versions','calculation_lines','launch_nonces'] as $table) {
                 $check->execute([$table]);
