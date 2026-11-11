@@ -1,6 +1,12 @@
-name: Office-test Offertestudio installation preflight
+name: Office-test Offertestudio installation
 on:
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-OFFERTSTUDIO-OFFICE-TEST to install code and route; blank means preflight only
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
 jobs:
@@ -9,14 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/office-offertestudio-20261111
-      - name: Validate quotation code
+          ref: 1f7660622f41605865e82d800f25ed71f6b3a8a9
+          persist-credentials: false
+      - name: Validate quotation code and guarded installer
         run: |
           set -euo pipefail
           php -l office-independent/public/office-quotation-studio.php
           php -l office-independent/src/Quotation/OfficeQuotationComposer.php
           php -l office-independent/src/Quotation/OfficeQuotationDraftRepository.php
           php office-independent/tests/OfficeQuotationComposerTest.php
+          bash -n office-independent/deployment/hostinger/install-offertestudio-office-test.sh
       - name: Inspect isolated Hostinger Office-test without changes
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -32,15 +40,50 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"
-          config="$base/config/config.php"
-          test -f "$config" || { echo OFFICE_TEST_CONFIG_MISSING; exit 21; }
-          test -d "$base" || exit 22
-          echo "OFFICE_TEST_RELEASES"
-          find "$base" -maxdepth 2 -type d -name private -print
-          echo "OFFICE_TEST_ROUTER"
-          test -f "$HOME/domains/brebobv.nl/public_html/office-test/index.php" || { echo ROUTER_MISSING; exit 23; }
-          grep -Fq '/office-test/crm/offertes' "$HOME/domains/brebobv.nl/public_html/office-test/index.php" && echo QUOTATION_ROUTE_PRESENT || echo QUOTATION_ROUTE_NOT_INSTALLED
-          echo "OFFICE_TEST_QUOTATION_FILES"
-          find "$base" -maxdepth 5 -type f \( -name 'office-quotation-studio.php' -o -name 'OfficeQuotationDraftRepository.php' \) -print
-          echo "PREFLIGHT_READ_ONLY_COMPLETE"
+          test -f "$base/config/config.php" || { echo OFFICE_TEST_CONFIG_MISSING; exit 21; }
+          router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$router" || { echo ROUTER_MISSING; exit 23; }
+          grep -Fq "'/office-test/crm/offertes'" "$router" && echo QUOTATION_ROUTE_PRESENT || echo QUOTATION_ROUTE_NOT_INSTALLED
+          echo PREFLIGHT_READ_ONLY_COMPLETE
+          REMOTE
+  deploy:
+    needs: preflight
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'INSTALL-OFFERTSTUDIO-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1f7660622f41605865e82d800f25ed71f6b3a8a9
+          persist-credentials: false
+      - name: Package only quotation files and guarded installer
+        run: |
+          set -euo pipefail
+          tar -czf quotation-package.tar.gz \
+            office-independent/public/office-quotation-studio.php \
+            office-independent/src/Quotation/OfficeQuotationComposer.php \
+            office-independent/src/Quotation/OfficeQuotationDraftRepository.php \
+            office-independent/deployment/hostinger/install-offertestudio-office-test.sh
+      - name: Install on active isolated Office-test release with backup and rollback
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation
+          chmod 600 ~/.ssh/id_quotation
+          remote="$USER@$HOST"
+          remote_stage="domains/brebobv.nl/office_calc_test/.quotation-stage-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$remote" "mkdir -p \"\$HOME/$remote_stage\""
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -P "$PORT" quotation-package.tar.gz "$remote:$remote_stage/quotation-package.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$remote" "RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          stage="$HOME/domains/brebobv.nl/office_calc_test/.quotation-stage-$RUN_ID"
+          test -f "$stage/quotation-package.tar.gz"
+          tar -xzf "$stage/quotation-package.tar.gz" -C "$stage"
+          bash "$stage/office-independent/deployment/hostinger/install-offertestudio-office-test.sh" "$stage"
+          rm -rf "$stage"
           REMOTE
