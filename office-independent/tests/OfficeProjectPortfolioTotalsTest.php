@@ -78,4 +78,19 @@ if (!str_contains($html, 'Geplande uren (geselecteerde week)')
     || !str_contains($html, '</nav><section class="office-portfolio-attention"')) {
     throw new RuntimeException('Selected week label or KPI grid layout regression');
 }
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => 7200, 'approved_week_seconds' => 5400,
+    'planned_week_label' => '2026-W46',
+]);
+if (!str_contains($html, 'Goedgekeurde uren (geselecteerde week)')
+    || !str_contains($html, '1,50 uur')
+    || !str_contains($html, 'afzonderlijke goedkeuringsregister')) {
+    throw new RuntimeException('Approved hours KPI missing');
+}
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'approved_week_seconds' => -3600, 'planned_week_label' => '2026-W46',
+]);
+if (str_contains($html, '-1,00 uur')) {
+    throw new RuntimeException('Invalid approved hours must fail closed');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
