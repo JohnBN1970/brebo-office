@@ -13,9 +13,15 @@ $fail = static function (int $status, string $code): never {
 };
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || getenv('OFFICE_PERSONAL_MAIL_PUSH_RECEIVER_ENABLED') !== 'enabled'
+  || getenv('OFFICE_PERSONAL_MAIL_NATIVE_IDENTITY_VERIFIED') !== 'enabled'
   || ($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST'
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
   $fail(404, 'not_found');
+}
+$host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+$allowedHost = getenv('OFFICE_PUBLIC_HOST');
+if (!is_string($allowedHost) || $allowedHost === '' || !hash_equals($allowedHost, $host)) {
+  $fail(403, 'forbidden_host');
 }
 $secret = getenv('OFFICE_PERSONAL_MAIL_PUSH_SECRET');
 if (!is_string($secret) || strlen($secret) < 32) {
