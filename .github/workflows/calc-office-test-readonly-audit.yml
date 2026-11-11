@@ -1,5 +1,8 @@
 name: Calc Office-test Hostinger read-only audit
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-office-test-readonly-audit.yml'
   push:
     branches: [audit/calc-office-test-host-access-20261111]
     paths:
