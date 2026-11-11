@@ -209,8 +209,7 @@ jobs:
               old=hashlib.sha256(previous.stdout).hexdigest() if previous.returncode==0 else '-'
               print(relative,current,old)
           PY
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" 'bash -se' < <(
-            cat <<'REMOTE'
+          remote_script=$(cat <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"
           config="$base/config/config.php"
@@ -227,6 +226,6 @@ jobs:
             echo "SOURCE_STATUS=$path $state SHA256=$actual"
           done
           REMOTE
-            cat /tmp/crm-source-hashes.txt
           )
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "bash -c $(printf '%q' "$remote_script")" < /tmp/crm-source-hashes.txt
           rm -f /tmp/crm-source-hashes.txt
