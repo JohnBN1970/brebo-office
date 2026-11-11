@@ -49,11 +49,11 @@ final class OfficeProjectDocumentService
         }
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         if ($extension === 'xlsx') {
-            if (!class_exists(\\ZipArchive::class)) {
+            if (!class_exists(\ZipArchive::class)) {
                 throw new InvalidArgumentException('xlsx_validation_unavailable');
             }
-            $zip = new \\ZipArchive();
-            if ($zip->open($tmpPath, \\ZipArchive::RDONLY) !== true) {
+            $zip = new \ZipArchive();
+            if ($zip->open($tmpPath, \ZipArchive::RDONLY) !== true) {
                 throw new InvalidArgumentException('invalid_xlsx_container');
             }
             try {
