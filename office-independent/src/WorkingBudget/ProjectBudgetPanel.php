@@ -41,7 +41,31 @@ final class ProjectBudgetPanel
             if (!is_scalar($source) || !is_scalar($state)) throw new InvalidArgumentException('Invalid source state.');
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
-        $html .= '</dl><p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
+        $html .= '</dl><h3>Begrotingsregels</h3>';
+        $lines = $view['cost_lines'] ?? [];
+        if (!is_array($lines)) throw new InvalidArgumentException('Invalid budget lines.');
+        if ($lines === []) {
+            $html .= '<p>Geen vastgestelde begrotingsregels beschikbaar.</p>';
+        } else {
+            $types = ['labor'=>'Arbeid', 'material'=>'Materiaal', 'equipment'=>'Materieel',
+                'subcontract'=>'Onderaanneming', 'other'=>'Overige kosten'];
+            $html .= '<table><thead><tr><th scope="col">Regel</th><th scope="col">Kostensoort</th>'
+                . '<th scope="col">Activiteit</th><th scope="col">Begroot excl. btw</th></tr></thead><tbody>';
+            foreach ($lines as $line) {
+                if (!is_array($line) || !is_string($line['code'] ?? null)
+                    || !isset($types[$line['cost_type'] ?? ''])
+                    || !is_int($line['baseline_cents'] ?? null) || $line['baseline_cents'] < 0) {
+                    throw new InvalidArgumentException('Invalid budget line.');
+                }
+                $activity = $line['activity_ref'] ?? '';
+                if (!is_string($activity)) throw new InvalidArgumentException('Invalid activity.');
+                $html .= '<tr><td>'.self::e($line['code']).'</td><td>'
+                    . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
+                    . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
+            }
+            $html .= '</tbody></table>';
+        }
+        $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
         return $html;
     }
 
