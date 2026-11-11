@@ -160,6 +160,28 @@ foreach ($labels as $key => $label) {
     echo '<a class="'.($key === $type ? 'selected' : '').'" href="?type='.$escape($key).'">'.$escape($label).'</a>';
 }
 echo '</nav></header>';
+$calculationImport = null;
+if ($editing !== null && !empty($editing['calculation_id']) && $storageReady) {
+    try {
+        $importQuery = $db->prepare(
+            "SELECT v.snapshot_json FROM office_quotation_versions v
+             INNER JOIN office_quotations q ON q.id = v.quotation_id
+             WHERE q.id = ? AND q.created_by = ? AND q.status = 'draft'
+             ORDER BY v.version DESC LIMIT 20"
+        );
+        $importQuery->execute([(int)$editing['id'], $quotationOperatorId]);
+        foreach ($importQuery->fetchAll(PDO::FETCH_COLUMN) as $rawSnapshot) {
+            $candidate = json_decode((string)$rawSnapshot, true);
+            if (is_array($candidate) && ($candidate['kind'] ?? '') === 'calculation_sales_import'
+                && isset($candidate['source']['calculation_id'], $candidate['sales_lines'])) {
+                $calculationImport = $candidate;
+                break;
+            }
+        }
+    } catch (\\Throwable $e) {
+        error_log('OFFERTSTUDIO_CALC_IMPORT_READ_FAILED: '.get_class($e));
+    }
+}
 if ($editing !== null) {
     echo '<section class="panel print-document" id="documentvoorbeeld"><small>CONCEPT · NIET VERZONDEN</small><h2>'.$escape((string)$editing['title']).'</h2>';
     foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $chapter) {
@@ -169,6 +191,14 @@ if ($editing !== null) {
     }
     echo '<p><small>Dit document is uitsluitend een conceptvoorbeeld en geen goedgekeurde of verzonden offerte.</small></p>';
     echo '<button type="button" onclick="window.print()">Documentvoorbeeld afdrukken / bewaren als PDF</button></section>';
+}
+if ($calculationImport !== null) {
+    echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Overgenomen calculatie</h2><p><small>Calculatie #'.(int)$calculationImport['source']['calculation_id'].' · versie '.(int)$calculationImport['source']['calculation_version'].'</small></p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Omschrijving</th><th>Aantal</th><th>Eenheid</th><th style="text-align:right">Verkoop excl. btw</th></tr></thead><tbody>';
+    foreach ($calculationImport['sales_lines'] as $line) {
+        if (!is_array($line)) continue;
+        echo '<tr><td>'.$escape((string)($line['description'] ?? '')).'</td><td>'.(float)($line['quantity'] ?? 0).'</td><td>'.$escape((string)($line['unit'] ?? '')).'</td><td style="text-align:right">€ '.number_format(((int)($line['amount_ex_vat_cents'] ?? 0))/100, 2, ',', '.').'</td></tr>';
+    }
+    echo '</tbody></table><p><strong>Totaal excl. btw: € '.number_format(((int)$calculationImport['total_ex_vat_cents'])/100, 2, ',', '.').'</strong></p><small>Intern conceptoverzicht; geen klantdocument.</small></section>';
 }
 echo '<section class="panel chapter-nav"><h2>Hoofdstukken · '.$escape($labels[$type]).'</h2><div class="sections">';
 foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $index => $key) {
