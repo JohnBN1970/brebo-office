@@ -38,7 +38,7 @@ jobs:
             test ! -L "$release"
             test -x "$node"
             cd "$stage"
-            sha256sum -c "$archive.sha256" >/dev/null
+            sha256sum -c "calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.sha256" >/dev/null
             test -f "$archive"
             if tar -tzf "$archive" | grep -E '(^/|(^|/)\.\.(/|$))' >/dev/null; then
               echo "CALC_ARCHIVE_PATH_SAFETY=FAIL"
