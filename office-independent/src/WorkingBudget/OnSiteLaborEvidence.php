@@ -23,9 +23,10 @@ final class OnSiteLaborEvidence
         if (!is_array($sessions) || !is_array($exceptions)) {
             throw new InvalidArgumentException('Invalid OnSite evidence.');
         }
+        if (count($sessions) > 10000) throw new InvalidArgumentException('Too many OnSite sessions.');
         $seconds = 0;
         foreach ($sessions as $session) {
-            if (!is_array($session) || ($session['project_id'] ?? null) !== $projectId) {
+            if (!is_array($session) || (int)($session['project_id'] ?? 0) !== $projectId) {
                 throw new InvalidArgumentException('Cross-project OnSite evidence.');
             }
             $duration = $session['duration_seconds'] ?? null;
