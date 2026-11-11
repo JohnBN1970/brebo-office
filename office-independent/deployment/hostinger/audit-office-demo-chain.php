@@ -50,6 +50,42 @@ try {
     $result = \Brebo\Office\Demo\OfficeDemoProcessChain::monitor($evidence);
     $result['audit'] = 'READ_ONLY_SCHEMA_CANDIDATE_PREFLIGHT';
     $result['schema_evidence_scope'] = 'Candidate table names only; absence may mean another canonical table name';
+    // Identify actual candidate schema names for the unresolved business modules.
+    // Metadata only: no rows, credentials, or financial figures are exposed.
+    $patterns = [
+        'crm' => ['crm', 'intake', 'lead'],
+        'opportunity' => ['opportunit', 'lead'],
+        'inspectieopdracht' => ['inspect', 'finding'],
+        'calculatie' => ['calc', 'calculat', 'scope', 'quantity'],
+        'offerte' => ['offer', 'offert', 'quotation'],
+        'contractacceptatie' => ['contract', 'accept'],
+        'projecten' => ['project'],
+        'gebouwen' => ['building', 'housing'],
+        'definitieve_inmeting' => ['measure', 'inmet'],
+        'contracten' => ['contract', 'term'],
+        'inkoop' => ['purchase', 'procure', 'supplier'],
+        'personeel' => ['personnel', 'inzet_people', 'employee'],
+        'inzet_onsite' => ['onsite', 'inzet', 'presence'],
+        'uitvoering' => ['milestone', 'plan_item', 'execution'],
+        'finance' => ['finance', 'invoice', 'payment', 'bank'],
+        'mjop' => ['mjop', 'maintenance'],
+        'rapportage' => ['report', 'rapport', 'kpi'],
+    ];
+    $result['schema_candidates'] = [];
+    foreach ($patterns as $stage => $terms) {
+        $candidates = [];
+        foreach (array_keys($tables) as $tableName) {
+            foreach ($terms as $term) {
+                if (stripos($tableName, $term) !== false) {
+                    $candidates[] = $tableName;
+                    break;
+                }
+            }
+        }
+        sort($candidates);
+        $result['schema_candidates'][$stage] = array_slice($candidates, 0, 30);
+        $result['schema_candidates_truncated'][$stage] = count($candidates) > 30;
+    }
     $result['project_id'] = null;
     if (isset($tables['office_projects'])) {
         $stmt = $db->prepare('SELECT id FROM office_projects WHERE code = ?');
