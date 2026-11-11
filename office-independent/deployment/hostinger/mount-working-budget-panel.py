@@ -28,7 +28,8 @@ if os.environ.get("OFFICE_BASE_PATH") != "/office-test" or os.environ.get("OFFIC
 active, repo = target.read_bytes(), source.read_bytes()
 start = b"// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only."
 end = b"$financialSectionHtml .= $financeHtml;"
-if repo.count(start) != 1 or repo.count(end) != 1 or active.count(end) != 1:
+mount_anchor = b"// Read-only Office procurement commitments: independent of invoicing and bank transactions."
+if repo.count(start) != 1 or repo.count(end) != 1 or active.count(mount_anchor) != 1:
     sys.exit("WORK_BUDGET_MOUNT_ANCHOR_INVALID")
 begin = repo.index(start)
 finish = repo.index(end, begin)
@@ -47,8 +48,8 @@ if active.count(start) != 0 or b"OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" in activ
 if b"OfficeNativeProjectAccess($db))->canRead" not in active or b"is_array($financeContracts)" not in active:
     sys.exit("WORK_BUDGET_MOUNT_ACTIVE_AUTH_MISSING")
 # Require exact financial section anchor and preserve all other bytes.
-updated = active.replace(end, snippet + end, 1)
-if updated.replace(snippet + end, end, 1) != active:
+updated = active.replace(mount_anchor, snippet + mount_anchor, 1)
+if updated.replace(snippet + mount_anchor, mount_anchor, 1) != active:
     sys.exit("WORK_BUDGET_MOUNT_INTEGRITY_FAILED")
 print("WORK_BUDGET_MOUNT_SOURCE_SHA256=" + hashlib.sha256(active).hexdigest())
 print("WORK_BUDGET_MOUNT_TARGET_SHA256=" + hashlib.sha256(updated).hexdigest())
