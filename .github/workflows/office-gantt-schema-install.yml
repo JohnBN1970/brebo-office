@@ -1,0 +1,50 @@
+name: Office-test Gantt schema install
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/install-office-gantt-plan-test.php'
+      - 'office-independent/deployment/hostinger/sql/office-project-gantt-plan.sql'
+      - '.github/workflows/office-gantt-schema-install.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type GANTT-SCHEMA-DRY-RUN or GANTT-SCHEMA-APPLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/deployment/hostinger/install-office-gantt-plan-test.php
+  install:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.confirmation == 'GANTT-SCHEMA-DRY-RUN' || inputs.confirmation == 'GANTT-SCHEMA-APPLY') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Install native Gantt schema in isolated Office-test
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/domains/brebobv.nl/office_calc_test/gantt-schema-stage/sql"'
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/install-office-gantt-plan-test.php "$remote:domains/brebobv.nl/office_calc_test/gantt-schema-stage/"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/sql/office-project-gantt-plan.sql "$remote:domains/brebobv.nl/office_calc_test/gantt-schema-stage/sql/"
+          if [ "$CONFIRM" = 'GANTT-SCHEMA-APPLY' ]; then mode=--apply; else mode=--dry-run; fi
+          ssh $opts -p "$PORT" "$remote" "cd \$HOME/domains/brebobv.nl/office_calc_test/gantt-schema-stage && OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php install-office-gantt-plan-test.php '$mode'"
