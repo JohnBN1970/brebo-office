@@ -54,6 +54,27 @@ final class OfficeProjectPortfolioGantt {
         $html .= '<span class="portfolio-gantt-empty">Planning nog niet beschikbaar</span>';
       }
       $html .= '</div></div>';
+      // Render real stored planning phases as separate rows under the project.
+      foreach (($project['plan_items'] ?? []) as $phase) {
+        $phaseStart = self::date($phase['planned_start'] ?? null);
+        $phaseEnd = self::date($phase['planned_end'] ?? null);
+        if (!$phaseStart || !$phaseEnd || $phaseEnd < $phaseStart) continue;
+        $startDay = (int)$from->diff($phaseStart)->format('%r%a');
+        $endDay = (int)$from->diff($phaseEnd)->format('%r%a') + 1;
+        $left = max(0, min($days, $startDay));
+        $right = max(0, min($days, $endDay));
+        $phaseStatus = strtolower(trim((string)($phase['status'] ?? '')));
+        $phaseColors = ['critical'=>'#b91c1c','kritiek'=>'#b91c1c','waiting'=>'#b45309','in wacht'=>'#b45309','done'=>'#2563eb','gereed'=>'#2563eb','ontrack'=>'#247b55','op schema'=>'#247b55'];
+        $phaseTitle = (string)($phase['title'] ?? 'Planningsfase');
+        $phaseNote = trim((string)($phase['critical_note'] ?? ''));
+        $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name" style="padding-left:25px"><a href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'">'.$e($phaseTitle).'</a></div><div class="portfolio-gantt-track" style="--today:'.$todayOffset.'%"><span class="portfolio-gantt-today"></span>';
+        if ($right > $left) {
+          $html .= '<a class="portfolio-gantt-bar" href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'" style="background:'.($phaseColors[$phaseStatus] ?? '#64748b').';left:'.round($left/$days*100,3).'%;width:'.round(($right-$left)/$days*100,3).'%" title="'.$e($phaseNote !== '' ? $phaseNote : $phaseTitle).'"></a>';
+        } else {
+          $html .= '<span class="portfolio-gantt-empty">Buiten zichtbare periode</span>';
+        }
+        $html .= '</div></div>';
+      }
     }
     return $html.'</div></div>';
   }
