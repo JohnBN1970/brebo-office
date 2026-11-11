@@ -19,7 +19,7 @@ if ((strtotime($autumn['end'] . ' UTC') - strtotime($autumn['start'] . ' UTC')) 
 }
 $rejectedInvalidWeek = false;
 try {
-    OfficeProjectPortfolioPlannedHours::utcWeekBounds(2026, 53);
+    OfficeProjectPortfolioPlannedHours::utcWeekBounds(2027, 53);
 } catch (InvalidArgumentException $expected) {
     $rejectedInvalidWeek = true;
 }
