@@ -12,7 +12,7 @@ No Drupal dependency. This is an **operator runbook**, not proof of deployment.
 
 ## Schema and config (controlled)
 - Review `office-independent/database/office_native_mail.sql`; apply **once** after backup to Office-test.
-- Verify all six tables exist: mailboxes, messages, attachments, mailbox_access, classification_proposals, board_routes, board_moves (seven tables).
+- Verify all seven tables exist: mailboxes, messages, attachments, mailbox_access, classification_proposals, board_routes, board_moves (seven tables).
 - Apply `office_mail_remove_buildings_destination.sql` only when legacy routes exist, after backup, once.
 - Create mailbox registry rows with `active=0`; grant explicit functional access only to intended operators.
 - Configure private credential references, never actual passwords in SQL or GitHub.
