@@ -15,7 +15,7 @@ $projects = [
 ];
 $html = OfficeProjectPortfolioView::render($projects, '/office-test');
 foreach (['Projecten die aandacht vragen', 'Levering vertraagd', 'Onbekend', 'Afgesloten', 'Op schema (planning)',
-          '/office-test/projecten/detail?id=1', 'Met planningsregels'] as $required) {
+          '/office-test/projecten/detail?id=1', 'Met planningsregels', 'Planning / aandacht', 'Kritiek: Gevel: Levering vertraagd'] as $required) {
     if (!str_contains($html, $required)) throw new RuntimeException('Missing: ' . $required);
 }
 if (str_contains($html, '2</strong> Op schema')) {
