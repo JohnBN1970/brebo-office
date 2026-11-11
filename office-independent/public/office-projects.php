@@ -51,13 +51,16 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
     exit;
   }
+  $ganttDemoRequest = \Brebo\Office\Intake\OfficeMount::isTest()
+    && ($_GET['view'] ?? '') === 'gantt' && ($_GET['demo'] ?? '') === '1';
+  $demoSql = $ganttDemoRequest ? " AND (UPPER(p.code) LIKE 'DEMO-%' OR UPPER(p.code) LIKE 'TEST-%')" : '';
   $statement = $db->prepare(
     "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
      FROM office_projects p
      INNER JOIN office_project_memberships m ON m.project_id = p.id
      INNER JOIN office_operator_accounts a ON a.id = m.operator_id
      LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
-     WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
+     WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1" . $demoSql . "
      GROUP BY p.id, p.code, p.title, p.status
      ORDER BY p.id DESC LIMIT 100"
   );
@@ -564,8 +567,8 @@ if ($ganttView) {
   if ($demo) {
     // Only genuine Office database rows, already scoped by operator membership.
     $projects = array_values(array_filter($projects, static fn(array $project): bool =>
-      str_starts_with(strtoupper((string)($project['code'] ?? '')), 'DEMO-')));
-    echo '<p role="status" style="padding:12px;background:#fff3cf"><strong>TESTPROJECTEN UIT OFFICE-DATABASE.</strong> Geen fictieve PHP-records. Alleen projecten met code DEMO- en bestaande toegangsrechten.</p>';
+      preg_match('/^(DEMO|TEST)-/i', (string)($project['code'] ?? '')) === 1));
+    echo '<p role="status" style="padding:12px;background:#fff3cf"><strong>TESTPROJECTEN UIT OFFICE-DATABASE.</strong> Geen fictieve PHP-records. Alleen projecten met code DEMO- of TEST- en bestaande toegangsrechten.</p>';
   }
   $criticalOnly = ($_GET['filter'] ?? '') === 'kritiek';
   $sortOptions = ['name_asc'=>'Naam A-Z','name_desc'=>'Naam Z-A','newest'=>'Nieuwste eerst','oldest'=>'Oudste eerst','status'=>'Status','buildings'=>'Meeste gebouwen'];
