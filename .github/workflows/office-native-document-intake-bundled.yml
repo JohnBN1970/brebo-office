@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Documents/**'
+      - 'office-independent/public/office-document-address-proposals.php'
       - 'office-independent/src/Buildings/OfficeIntakeBuildingResolver.php'
       - 'office-independent/tests/OfficeSourceAddressExtractorTest.php'
       - 'office-independent/tests/OfficeAddressProposalContractTest.php'
@@ -47,6 +48,7 @@ jobs:
             office-independent/src/Documents/OfficeAddressProposalService.php \
             office-independent/src/Documents/OfficeAddressProposalReviewService.php \
             office-independent/src/Documents/OfficeProjectDocumentService.php \
+            office-independent/public/office-document-address-proposals.php \
             office-independent/src/Buildings/OfficeIntakeBuildingResolver.php \
             office-independent/tests/OfficeSourceAddressExtractorTest.php \
             office-independent/tests/OfficeAddressProposalContractTest.php \
