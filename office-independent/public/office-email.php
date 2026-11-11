@@ -122,26 +122,26 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <article><h2>Modulebord</h2><p>Office AI stelt een eigenaar voor; verplaats berichten naar de juiste module.</p><p><a href="#mailbord">Open modulebord</a></p></article>
 </div>
 <?php if ($mailSchemaReady): ?>
-<section id="mailbord"><h2>E-mail per module</h2>
+<section id="mailbord"><h2>E-mail per module</h2><p class="muted">Persoonlijke berichten staan uitsluitend voor de eigenaar in Privé. Overdracht naar een zakelijke module vereist een afzonderlijke, expliciete actie en is nog niet beschikbaar.</p>
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
 <div class="board">
-<?php foreach (['nieuw'=>'Nieuw','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
+<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
 <section class="lane" data-module="<?= $key ?>"><h3><?= $label ?></h3>
 <?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
 <article class="mail-card" draggable="true" data-message="<?= (int)$card['id'] ?>">
 <strong><?= htmlspecialchars((string)$card['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
 <p><?= htmlspecialchars((string)$card['sender'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></p>
 <?php if (!empty($card['suggested_module'])): ?><small>AI-voorstel: <?= htmlspecialchars((string)$card['suggested_module'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small><?php endif; ?>
-<form method="post" action="/office-test/email">
+<?php if ($key !== 'prive'): ?><form method="post" action="/office-test/email">
 <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES,'UTF-8') ?>">
 <input type="hidden" name="message_id" value="<?= (int)$card['id'] ?>">
 <label>Verplaatsen <select name="module">
-<?php foreach (['nieuw'=>'Nieuw','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $destination=>$destinationLabel): ?>
+<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $destination=>$destinationLabel): ?>
 <option value="<?= $destination ?>" <?= $destination===$key?'selected':'' ?>><?= $destinationLabel ?></option>
 <?php endforeach; ?></select></label><button type="submit">Verplaats</button>
-</form></article>
+</form><?php else: ?><small>Privé: niet automatisch deelbaar</small><?php endif; ?></article>
 <?php endforeach; ?></section>
 <?php endforeach; ?></div>
 <script>
