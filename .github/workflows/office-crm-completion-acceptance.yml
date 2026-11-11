@@ -227,5 +227,21 @@ jobs:
           done
           REMOTE
           )
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "bash -c $(printf '%q' "$remote_script")" < /tmp/crm-source-hashes.txt
-          rm -f /tmp/crm-source-hashes.txt
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "bash -c $(printf '%q' "$remote_script")" < /tmp/crm-source-hashes.txt | tee /tmp/crm-source-status.txt
+          python3 - <<'PY'
+          import hashlib,subprocess
+          from pathlib import Path
+          for line in Path('/tmp/crm-source-status.txt').read_text().splitlines():
+              if ' UNKNOWN SHA256=' not in line or not line.startswith('SOURCE_STATUS='): continue
+              path=line.split()[0].split('=',1)[1]
+              actual=line.split('SHA256=',1)[1].strip()
+              source='office-independent/'+path
+              history=subprocess.check_output(['git','log','--all','--format=%H','--',source],text=True).splitlines()
+              matched=[]
+              for commit in history:
+                  candidate=subprocess.run(['git','show',commit+':'+source],capture_output=True)
+                  if candidate.returncode==0 and hashlib.sha256(candidate.stdout).hexdigest()==actual:
+                      matched.append(commit[:12])
+              print('HISTORY_MATCH='+path+' '+(','.join(matched[:8]) if matched else 'NONE'))
+          PY
+          rm -f /tmp/crm-source-hashes.txt /tmp/crm-source-status.txt
