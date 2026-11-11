@@ -1,0 +1,42 @@
+name: Office native document intake bundled acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/**'
+      - 'office-independent/src/Buildings/OfficeIntakeBuildingResolver.php'
+      - 'office-independent/tests/OfficeSourceAddressExtractorTest.php'
+      - 'office-independent/tests/OfficeAddressProposalContractTest.php'
+      - 'office-independent/tests/OfficeProjectDocumentAccessContractTest.php'
+      - '.github/workflows/office-native-document-intake-bundled.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  all-in-one:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP dependencies
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-mbstring php-xml php-zip
+      - name: Lint all touched Office services and tests
+        run: |
+          set -eu
+          for file in \
+            office-independent/src/Documents/OfficeSourceAddressExtractor.php \
+            office-independent/src/Documents/OfficeAddressProposalSchema.php \
+            office-independent/src/Documents/OfficeAddressProposalService.php \
+            office-independent/src/Documents/OfficeProjectDocumentService.php \
+            office-independent/src/Buildings/OfficeIntakeBuildingResolver.php \
+            office-independent/tests/OfficeSourceAddressExtractorTest.php \
+            office-independent/tests/OfficeAddressProposalContractTest.php \
+            office-independent/tests/OfficeProjectDocumentAccessContractTest.php; do
+            php -l "$file"
+          done
+      - name: CSV XLSX EML extraction and duplicate names
+        run: php office-independent/tests/OfficeSourceAddressExtractorTest.php
+      - name: Proposal schema and source contracts
+        run: php office-independent/tests/OfficeAddressProposalContractTest.php
+      - name: Existing project access regression
+        run: php office-independent/tests/OfficeProjectDocumentAccessContractTest.php
