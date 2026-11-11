@@ -54,11 +54,20 @@ foreach ($mailboxes as $mailbox) {
     $cursor->execute([':id' => $id]);
     $saved = $cursor->fetch(PDO::FETCH_ASSOC);
     $lastUid = $saved && (string)$saved['uidvalidity'] === (string)$uidValidity ? (int)$saved['last_uid'] : 0;
-    $first = $lastUid > 0 ? (int)imap_msgno($stream, $lastUid) : 0;
-    $start = $first > 0 ? $first + 1 : 1;
-    for ($n = $start; $n <= $last; ++$n) {
+    // IMAP sequence numbers change when mail is deleted. Find the first
+    // message with UID above our cursor via binary search on monotonic UIDs.
+    $lo = 1;
+    $hi = $last + 1;
+    while ($lo < $hi) {
+      $mid = intdiv($lo + $hi, 2);
+      $midUid = imap_uid($stream, $mid);
+      if (!$midUid) throw new RuntimeException('IMAP UID lookup failed.');
+      if ($midUid <= $lastUid) $lo = $mid + 1;
+      else $hi = $mid;
+    }
+    for ($n = $lo; $n <= $last; ++$n) {
       $uid = imap_uid($stream, $n);
-      if (!$uid) continue;
+      if (!$uid) throw new RuntimeException('IMAP UID lookup failed.');
       $head = imap_headerinfo($stream, $n);
       if (!$head) continue;
       $date = isset($head->udate) && (int) $head->udate > 0 ? (int) $head->udate : time();
