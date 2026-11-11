@@ -23,6 +23,7 @@ try {
     if (getenv('OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Verkoopkansen wijzigen niet ingeschakeld.'); }
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmFunnel.php';
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
+    require_once dirname(__DIR__).'/src/Workflow/OfficeCrmWorkflowBridge.php';
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 $id=filter_var($_GET['id']??0,FILTER_VALIDATE_INT)?:0;
 if ($id<1) { http_response_code(400); exit('Ongeldige verkoopkans.'); }
@@ -42,8 +43,15 @@ if ($method==='POST') {
     if (!is_string($_POST['csrf']??null) || !hash_equals((string)$_SESSION['crm_opportunity_csrf'],$_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
     if (!in_array($to,$next,true)) { http_response_code(400); exit('Ongeldige faseovergang.'); }
-    try {
-        $ok=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
+    // A CRM stage is not contractual acceptance evidence. Until an auditable
+    // acceptance record is implemented, block 'won' instead of guessing.
+    if ($to === 'won') {
+        http_response_code(409);
+        $error='Akkoord registreren vereist eerst een controleerbaar opdrachtacceptatierecord. Deze overgang is nog niet vrijgegeven.';
+    } else try {
+        \Brebo\Office\Workflow\OfficeCrmWorkflowBridge::mappedState((string)$item['stage']);
+        \Brebo\Office\Workflow\OfficeCrmWorkflowBridge::mappedState($to);
+        $ok=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
         if (!$ok) { http_response_code(409); exit('De verkoopkans is intussen gewijzigd. Vernieuw de pagina.'); }
         $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
         header('Location: /office-test/crm/verkoopkansen?updated='.$id,true,303); exit;
