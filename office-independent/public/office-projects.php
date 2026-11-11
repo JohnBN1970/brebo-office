@@ -582,12 +582,12 @@ if ($ganttView) {
   foreach ($groupOptions as $key=>$label) echo '<option value="' . $escape($key) . '"' . ($group === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
   echo '</select></label><button type="submit">Toepassen</button></form>';
   usort($visibleProjects, static function(array $a,array $b) use ($sort): int {
-    $name = static fn(array $p): string => mb_strtolower((string)($p['title'] ?? ''), 'UTF-8');
+    $name = static fn(array $p): string => (string)($p['title'] ?? '');
     return match($sort) {
-      'name_desc' => strcmp($name($b),$name($a)),
+      'name_desc' => strnatcasecmp($name($b),$name($a)),
       'newest' => (int)$b['id'] <=> (int)$a['id'],
       'oldest' => (int)$a['id'] <=> (int)$b['id'],
-      'status' => strcmp((string)$a['status'],(string)$b['status']) ?: strcmp($name($a),$name($b)),
+      'status' => strcmp((string)$a['status'],(string)$b['status']) ?: strnatcasecmp($name($a),$name($b)),
       'buildings' => (int)$b['building_count'] <=> (int)$a['building_count'],
       default => strcmp($name($a),$name($b)),
     };
