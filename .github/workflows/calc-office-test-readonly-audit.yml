@@ -235,6 +235,22 @@ jobs:
                 *) echo "OFFICE_NATIVE_CALC_WORKBENCH_ANONYMOUS_HTTP=$status" ;;
               esac
             done
+            echo "SECTION=OFFICE_NATIVE_CALC_CONFIG_FORMAT"
+            php -r '
+            $file="/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $s=file_get_contents($file);
+            if (!is_string($s)) exit(1);
+            echo "CALC_CONFIG_RETURN_ARRAY_BRACKET_COUNT=".preg_match_all("/\\breturn\\s*\\[/",$s)."\n";
+            echo "CALC_CONFIG_RETURN_ARRAY_CALL_COUNT=".preg_match_all("/\\breturn\\s+array\\s*\\(/",$s)."\n";
+            echo "CALC_CONFIG_PHP_OPEN_AT_START=".(str_starts_with(ltrim($s),"<?php")?"YES":"NO")."\n";
+            echo "CALC_CONFIG_DECLARATION_STRICT=".(str_contains($s,"declare(strict_types=1)")?"YES":"NO")."\n";
+            '
+            active_views=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";')
+            if test -f "$active_views"; then
+              sha256sum "$active_views" | cut -d ' ' -f 1 | sed 's/^/OFFICE_LIVE_CRM_FUNNEL_VIEWS_SHA256=/'
+            else
+              echo "OFFICE_LIVE_CRM_FUNNEL_VIEWS=MISSING"
+            fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
