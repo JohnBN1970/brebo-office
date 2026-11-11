@@ -65,7 +65,7 @@ final class OfficeProjectPortfolioView
             $html .= '</ul>';
         }
         $html .= '</section>';
-        $html .= '</div><p class="office-portfolio-kpi-explanation">Dit zijn aantallen uit de projectenlijst, geen prestatie-KPI’s. Planning, uren, werkbegroting, marge, kwaliteit en risico worden pas als stuurinformatie getoond zodra hun brongegevens per project zijn gecontroleerd.</p><h2>Projectenlijst</h2>'
+        $html .= '<p class="office-portfolio-kpi-explanation">Dit zijn aantallen uit de projectenlijst, geen prestatie-KPI’s. Planning, uren, werkbegroting, marge, kwaliteit en risico worden pas als stuurinformatie getoond zodra hun brongegevens per project zijn gecontroleerd.</p><h2>Projectenlijst</h2>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
             . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
