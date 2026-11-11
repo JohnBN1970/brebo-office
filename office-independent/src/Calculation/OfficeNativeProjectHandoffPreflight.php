@@ -30,6 +30,6 @@ final class OfficeNativeProjectHandoffPreflight
                 if (!in_array($column, $present, true)) $missing[] = $table . '.' . $column;
             }
         }
-        return ['ready' => $missing === [], 'missing' => $missing];
+        // Column presence alone does not prove that a project can be created.\n        // Return the exact table columns to review required native project fields.\n        $projectColumns = $db->query(\n            "SELECT COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT, EXTRA FROM information_schema.COLUMNS " .\n            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_projects' ORDER BY ORDINAL_POSITION"\n        )->fetchAll(PDO::FETCH_ASSOC);\n        $requiredProjectInputs = [];\n        foreach ($projectColumns as $column) {\n            if ($column['IS_NULLABLE'] === 'NO'\n                && $column['COLUMN_DEFAULT'] === null\n                && !str_contains(strtolower((string)$column['EXTRA']), 'auto_increment')\n                && !str_contains(strtolower((string)$column['EXTRA']), 'generated')) {\n                $requiredProjectInputs[] = (string)$column['COLUMN_NAME'];\n            }\n        }\n        return [\n            'ready' => $missing === [],\n            'missing' => $missing,\n            'native_project_required_inputs' => $requiredProjectInputs,\n            'project_factory_connected' => false,\n        ];
     }
 }
