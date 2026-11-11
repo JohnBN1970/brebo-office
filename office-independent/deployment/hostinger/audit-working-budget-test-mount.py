@@ -22,7 +22,7 @@ checks = {
     "REPO_PANEL": b"ProjectBudgetPanel::render($workBudgetView)" in repo,
     "REPO_READ_MODEL": b"ProjectBudgetReadModel($db)" in repo,
     "ACTIVE_PROJECT_AUTH": b"OfficeNativeProjectAccess($db))->canRead" in active,
-    "ACTIVE_FINANCE_SECTION": b"$financialSectionHtml .= $financeHtml;" in active,
+    "ACTIVE_FINANCE_SECTION": active.count(b"// Read-only Office procurement commitments: independent of invoicing and bank transactions.") == 1,
 }
 for key, valid in checks.items():
     print(f"{key}={'OK' if valid else 'FAIL'}")
