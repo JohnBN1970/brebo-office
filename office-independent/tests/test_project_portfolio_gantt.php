@@ -40,4 +40,21 @@ $invalid = OfficeProjectPortfolioGantt::render([
 ], '/office-test');
 checkGantt(str_contains($invalid, 'Planning nog niet beschikbaar'), 'invalid schedule never rendered as valid');
 checkGantt(!str_contains($invalid, 'portfolio-gantt-bar"'), 'invalid schedule has no bar');
+$phases = OfficeProjectPortfolioGantt::render([
+  ['id'=>11,'title'=>'Faseproject','status'=>'concept',
+   'planned_start'=>(new DateTimeImmutable('today'))->modify('-7 days')->format('Y-m-d'),
+   'planned_end'=>(new DateTimeImmutable('today'))->modify('+28 days')->format('Y-m-d'),
+   'plan_items'=>[
+     ['title'=>'DEMO-GANTT | Opname','status'=>'done',
+      'planned_start'=>(new DateTimeImmutable('today'))->modify('-7 days')->format('Y-m-d'),
+      'planned_end'=>(new DateTimeImmutable('today'))->modify('+2 days')->format('Y-m-d')],
+     ['title'=>'DEMO-GANTT | Levering','status'=>'critical','critical_note'=>'Faselevering vertraagd',
+      'planned_start'=>(new DateTimeImmutable('today'))->modify('+4 days')->format('Y-m-d'),
+      'planned_end'=>(new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d')],
+   ]],
+], '/office-test');
+checkGantt(str_contains($phases, 'DEMO-GANTT | Opname'), 'stored planning phase visible');
+checkGantt(str_contains($phases, 'DEMO-GANTT | Levering'), 'critical planning phase visible');
+checkGantt(str_contains($phases, 'Faselevering vertraagd'), 'planning blocker shown');
+checkGantt(substr_count($phases, 'portfolio-gantt-bar"') >= 3, 'project plus phase bars rendered');
 echo "GANTT_RENDER_TEST_OK\n";
