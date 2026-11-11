@@ -21,7 +21,7 @@ final class OfficeProjectPortfolioView
         // Financial and labour totals are deliberately unavailable until sourced
         // from authorized, reconciled Office aggregates (never inferred from counts).
         foreach ([
-            'Totale opdrachtwaarde' => 'Niet beschikbaar',
+            'Totale opdrachtwaarde' => isset($totals['contract_value_cents']) && is_int($totals['contract_value_cents']) ? '€ ' . number_format($totals['contract_value_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Werkelijke kosten' => 'Niet beschikbaar',
             'Geplande uren' => 'Niet beschikbaar',
@@ -35,8 +35,11 @@ final class OfficeProjectPortfolioView
             ? ' Vastgestelde inkoopbegrotingen: ' . max(0, (int)$totals['procurement_covered'])
                 . ' van ' . max(0, (int)$totals['procurement_total']) . ' toegankelijke projecten.'
             : ' Dekking van de inkoopbegrotingen is niet beschikbaar.';
+        $contractCoverage = isset($totals['contract_covered'], $totals['contract_total'])
+            ? ' Geaccepteerde contracten: ' . max(0, (int)$totals['contract_covered']) . ' van ' . max(0, (int)$totals['contract_total']) . ' projecten.'
+            : ' Dekking van contractwaarden is niet beschikbaar.';
         $html .= '<p class="office-portfolio-total-scope">Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
-            . $escape($coverage) . '</p>';
+            . $escape($coverage . $contractCoverage) . '</p>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
