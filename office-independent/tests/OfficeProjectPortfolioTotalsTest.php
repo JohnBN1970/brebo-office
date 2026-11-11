@@ -46,4 +46,10 @@ $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
 if (!str_contains($html, '6,50 uur') || !str_contains($html, '2026-W46')) {
     throw new RuntimeException('Planned weekly hours KPI missing');
 }
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => -3600, 'planned_week_label' => '2026-W46',
+]);
+if (str_contains($html, '-1,00 uur') || !str_contains($html, 'geannuleerde diensten uitgesloten')) {
+    throw new RuntimeException('Negative planned hours or cancelled-shift disclosure regression');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
