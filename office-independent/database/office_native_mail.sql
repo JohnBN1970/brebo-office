@@ -104,3 +104,14 @@ CREATE TABLE IF NOT EXISTS office_mail_board_moves (
   CONSTRAINT fk_office_mail_board_move_message FOREIGN KEY (message_id)
     REFERENCES office_mail_messages (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Incremental IMAP synchronization cursor. Reset on UIDVALIDITY changes.
+CREATE TABLE IF NOT EXISTS office_mail_sync_cursors (
+  mailbox_id BIGINT UNSIGNED NOT NULL,
+  uidvalidity VARCHAR(32) NOT NULL,
+  last_uid BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (mailbox_id),
+  CONSTRAINT fk_office_mail_sync_mailbox FOREIGN KEY (mailbox_id)
+    REFERENCES office_mail_mailboxes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
