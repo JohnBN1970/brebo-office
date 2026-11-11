@@ -41,7 +41,20 @@ $opportunity = filter_var(
 if (!is_int($opportunity) || $opportunity < 1) $deny(400,'OPPORTUNITY_ID');
 
 if ($method === 'POST') {
-    if (!hash_equals('https://' . $host, (string)($_SERVER['HTTP_ORIGIN'] ?? ''))) $deny(403,'ORIGIN');
+    // Native browser form POSTs can omit Origin (e.g. privacy settings).
+    // Never accept a mismatched Origin. Missing Origin requires trustworthy
+    // same-origin Fetch Metadata or an exact-origin Referer, plus CSRF below.
+    $expectedOrigin = 'https://' . $host;
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+    $referer = $_SERVER['HTTP_REFERER'] ?? null;
+    $fetchSite = $_SERVER['HTTP_SEC_FETCH_SITE'] ?? null;
+    if (is_string($origin) && $origin !== '') {
+        if (!hash_equals($expectedOrigin, $origin)) $deny(403,'ORIGIN');
+    } elseif ($fetchSite !== 'same-origin'
+        && !(is_string($referer)
+          && (str_starts_with($referer, $expectedOrigin . '/')))) {
+        $deny(403,'ORIGIN');
+    }
     $size = $_SERVER['CONTENT_LENGTH'] ?? '';
     if (!is_string($size) || !ctype_digit($size) || (int)$size > 2048) $deny(413,'BODY_SIZE');
     if (!preg_match('/^application\/x-www-form-urlencoded(?:\s*;\s*charset=UTF-8)?$/iD',
