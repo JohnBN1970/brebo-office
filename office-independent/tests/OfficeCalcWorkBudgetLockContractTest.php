@@ -10,7 +10,7 @@ $status = file_get_contents($root . '/src/Crm/OfficeCrmWorkBudgetHandoffStatus.p
 if (!is_string($sql) || !is_string($service) || !is_string($status)) {
     throw new RuntimeException('Missing work-budget handoff contract files');
 }
-if (!preg_match('/CREATE TABLE IF NOT EXISTS office_calc_work_budget_baselines\s*\\((.*?)\\) ENGINE=/s', $sql, $match)) {
+if (!preg_match('/CREATE TABLE IF NOT EXISTS office_calc_work_budget_baselines\s*\((.*?)\) ENGINE=/s', $sql, $match)) {
     throw new RuntimeException('Work-budget baseline table missing');
 }
 if (!preg_match('/locked_at\s+DATETIME\s+NOT NULL\s+DEFAULT\s+CURRENT_TIMESTAMP/i', $match[1])) {
