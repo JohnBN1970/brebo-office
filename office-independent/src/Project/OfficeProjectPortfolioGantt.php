@@ -31,7 +31,9 @@ final class OfficeProjectPortfolioGantt {
       ];
       [$label,$class] = $statuses[$status] ?? [($status !== '' ? $project['status'] : 'Onbekend'),''];
       $url = $base.'/projecten/detail?id='.(int)$project['id'];
-      $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name"><a href="'.$e($url).'">'.$e($project['title']).'</a><br><span class="portfolio-gantt-badge '.$e($class).'">'.$e($label).'</span></div>';
+      $criticalNote = trim((string)($project['critical_note'] ?? ''));
+      $hoverNote = $criticalNote !== '' ? ' title="'.$e($criticalNote).'"' : '';
+      $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name"><a href="'.$e($url).'"'.$hoverNote.'>'.$e($project['title']).'</a><br><span class="portfolio-gantt-badge '.$e($class).'"'.$hoverNote.'>'.$e($label).'</span></div>';
       $html .= '<div class="portfolio-gantt-track" style="--today:'.$todayOffset.'%"><span class="portfolio-gantt-today" aria-label="Standlijn vandaag"></span>';
       $start = self::date($project['planned_start'] ?? null);
       $end = self::date($project['planned_end'] ?? null);
