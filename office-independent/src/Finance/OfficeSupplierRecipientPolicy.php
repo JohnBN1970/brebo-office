@@ -26,6 +26,26 @@ final class OfficeSupplierRecipientPolicy {
         return $remainder === 1;
     }
 
+    /** Fingerprint must be persisted when independently approving exact account details. */
+    public static function accountFingerprint(array $account): string {
+        $rawIban = (string) ($account['iban'] ?? '');
+        if (!self::validIban($rawIban)) {
+            throw new \RuntimeException('Invalid supplier IBAN.');
+        }
+        $holder = trim((string) ($account['account_holder'] ?? ''));
+        $relationId = (int) ($account['relation_id'] ?? 0);
+        $type = (string) ($account['account_type'] ?? '');
+        if ($holder === '' || $relationId <= 0 || !in_array($type, ['regular', 'g_account'], true)) {
+            throw new \RuntimeException('Invalid supplier bank identity.');
+        }
+        return hash('sha256', json_encode([
+            'relation_id' => $relationId,
+            'account_type' => $type,
+            'iban' => self::normalizeIban($rawIban),
+            'account_holder' => $holder,
+        ], JSON_THROW_ON_ERROR));
+    }
+
     /** @param array<string,mixed> $account Office-owned account and verification record */
     public static function verifiedSnapshot(array $account, int $invoiceId, int $now): array {
         $rawIban = (string) ($account['iban'] ?? '');
@@ -40,7 +60,10 @@ final class OfficeSupplierRecipientPolicy {
             || ($account['status'] ?? '') !== 'active'
             || ($account['verification_status'] ?? '') !== 'verified'
             || $verifiedAt <= 0 || $verifiedAt > $now || $verifiedBy <= 0
-            || $evidenceId === '' || $changedAt > $verifiedAt) {
+            || $evidenceId === '' || $changedAt > $verifiedAt
+            || !isset($account['verified_fingerprint'])
+            || !is_string($account['verified_fingerprint'])
+            || !hash_equals(self::accountFingerprint($account), $account['verified_fingerprint'])) {
             throw new \RuntimeException('Payment blocked: Office supplier recipient is not independently verified.');
         }
         $canonical = [
