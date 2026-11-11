@@ -52,4 +52,19 @@ $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
 if (str_contains($html, '-1,00 uur') || !str_contains($html, 'geannuleerde diensten uitgesloten')) {
     throw new RuntimeException('Negative planned hours or cancelled-shift disclosure regression');
 }
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => 3600, 'planned_week_label' => '2026-W01',
+]);
+if (!str_contains($html, '/office-test/projecten?week=2025-W52')
+    || !str_contains($html, '/office-test/projecten?week=2026-W02')
+    || !str_contains($html, 'Vorige week')
+    || !str_contains($html, 'Volgende week')) {
+    throw new RuntimeException('ISO week navigation must cross year boundaries');
+}
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => 3600, 'planned_week_label' => '2026-W53',
+]);
+if (!str_contains($html, '/office-test/projecten?week=2027-W01')) {
+    throw new RuntimeException('Week 53 must navigate to next ISO year');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
