@@ -82,7 +82,7 @@ section{background:white;border:1px solid #dce3eb;border-radius:12px;padding:24p
 table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #e2e8f0}
 th{color:#40566c}a{color:#1c5f8d}.muted{color:#5d6b79}
 </style></head><body><main>
-<h1>Mailcontrole</h1>
+<h1>Mailcontrole</h1>\n<p class="muted">Native Office-test · beveiligde toegang · alleen eigen voorstellen</p>
 <p class="muted">Persoonlijke berichten die expliciet naar Office zijn gestuurd. Voorstellen zijn nog geen dossierkoppelingen.</p>
 <section><h2>Te beoordelen berichten</h2>
 <?php if ($rows === []): ?>
