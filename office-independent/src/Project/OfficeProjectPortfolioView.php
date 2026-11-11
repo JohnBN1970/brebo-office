@@ -74,7 +74,7 @@ final class OfficeProjectPortfolioView
         $html .= '</section>';
         $html .= '<p class="office-portfolio-kpi-explanation">Dit zijn aantallen uit de projectenlijst, geen prestatie-KPI’s. Planning, uren, werkbegroting, marge, kwaliteit en risico worden pas als stuurinformatie getoond zodra hun brongegevens per project zijn gecontroleerd.</p><h2>Projectenlijst</h2>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
-            . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Gebouwen</th>'
+            . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Planning / aandacht</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
         foreach ($projects as $project) {
             $id = (int) ($project['id'] ?? 0);
@@ -83,9 +83,10 @@ final class OfficeProjectPortfolioView
             $html .= '<tr><td>' . $escape($project['code'] ?? '') . '</td>'
                 . '<td><a href="' . $escape($url) . '">' . $escape($project['title'] ?? '') . '</a></td>'
                 . '<td>' . $escape(OfficeProjectPageStructure::statusLabel((string) ($project['status'] ?? ''))) . '</td>'
+                . '<td>' . OfficeProjectTrafficLight::render($project) . '</td>'
                 . '<td>' . max(0, (int) ($project['building_count'] ?? 0)) . '</td></tr>';
         }
-        if (!$projects) $html .= '<tr><td colspan="4">Geen toegankelijke projecten gevonden.</td></tr>';
+        if (!$projects) $html .= '<tr><td colspan="5">Geen toegankelijke projecten gevonden.</td></tr>';
         return $html . '</tbody></table></div></section>';
     }
 
