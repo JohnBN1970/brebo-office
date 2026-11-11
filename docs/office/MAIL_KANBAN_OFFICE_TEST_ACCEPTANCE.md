@@ -12,7 +12,7 @@ No Drupal dependency. This is an **operator runbook**, not proof of deployment.
 
 ## Schema and config (controlled)
 - Review `office-independent/database/office_native_mail.sql`; apply **once** after backup to Office-test.
-- Verify all seven tables exist: mailboxes, messages, attachments, mailbox_access, classification_proposals, board_routes, board_moves (seven tables).
+- Verify all eight tables exist: mailboxes, messages, attachments, mailbox_access, classification_proposals, board_routes, board_moves, sync_cursors (eight tables).
 - Apply `office_mail_remove_buildings_destination.sql` only when legacy routes exist, after backup, once.
 - Create mailbox registry rows with `active=0`; grant explicit functional access only to intended operators.
 - Configure private credential references, never actual passwords in SQL or GitHub.
@@ -44,5 +44,5 @@ Restore the previous code release. Preserve database records and audit; do not d
 - Native personal-mail push/handoff is not ready.
 - IMAP support and live mailbox credentials have not been verified.
 - No actual AI classification; current rules are conservative keyword matching.
-- The latest-100 IMAP polling strategy needs gap-handling review before production use.
+- Incremental IMAP UID cursor requires a live deletion/UIDVALIDITY/reconnect acceptance test before production use.
 - No evidence of live Office-test deployment until the above checks have been executed and recorded.
