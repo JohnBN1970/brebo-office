@@ -1,0 +1,47 @@
+name: Office-test Gantt synthetic planning seed
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/seed-office-gantt-test.php'
+      - '.github/workflows/office-gantt-test-seed.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type GANTT-DEMO-DRY-RUN or GANTT-DEMO-APPLY
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/deployment/hostinger/seed-office-gantt-test.php
+  seed:
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.confirmation == 'GANTT-DEMO-DRY-RUN' || inputs.confirmation == 'GANTT-DEMO-APPLY') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Seed synthetic milestones under existing authorized TEST project
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/seed-office-gantt-test.php "$remote:/tmp/seed-office-gantt-test.php"
+          if [ "$CONFIRM" = 'GANTT-DEMO-APPLY' ]; then mode=--apply; else mode=--dry-run; fi
+          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php /tmp/seed-office-gantt-test.php '$mode'"
