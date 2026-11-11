@@ -559,16 +559,13 @@ if (!$inzetView) {
   echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
 }
 if ($ganttView) {
-  echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Open ingevulde interactieve Gantt-demo</a></p>';
+  echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Toon echte DEMO-projectrecords uit testdatabase</a></p>';
   $demo = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['demo'] ?? '') === '1';
   if ($demo) {
-    require_once dirname(__DIR__) . '/src/Project/OfficeProjectGanttDemo.php';
-    $projects = \Brebo\Office\Project\OfficeProjectGanttDemo::projects();
-    echo '<p role="status" style="padding:12px;background:#fff3cf"><strong>DEMO — fictieve projectgegevens.</strong> Alleen-lezen, niet opgeslagen in de projectadministratie.</p>';
-    $demoProject = filter_var($_GET['demo_project'] ?? null, FILTER_VALIDATE_INT);
-    if ($demoProject) foreach ($projects as $project) if ((int)$project['id'] === $demoProject) {
-      echo '<article><h2>' . $escape($project['title']) . '</h2><p>Projectcode: ' . $escape($project['code']) . ' · Status: ' . $escape($project['status']) . '</p><p>Start: ' . $escape($project['planned_start']) . ' · Einde: ' . $escape($project['planned_end']) . '</p><p>Kritiek punt: ' . $escape($project['critical_note'] ?: 'Geen') . '</p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Terug naar demo Gantt</a></article>';
-    }
+    // Only genuine Office database rows, already scoped by operator membership.
+    $projects = array_values(array_filter($projects, static fn(array $project): bool =>
+      str_starts_with(strtoupper((string)($project['code'] ?? '')), 'DEMO-')));
+    echo '<p role="status" style="padding:12px;background:#fff3cf"><strong>TESTPROJECTEN UIT OFFICE-DATABASE.</strong> Geen fictieve PHP-records. Alleen projecten met code DEMO- en bestaande toegangsrechten.</p>';
   }
   $criticalOnly = ($_GET['filter'] ?? '') === 'kritiek';
   $sortOptions = ['name_asc'=>'Naam A-Z','name_desc'=>'Naam Z-A','newest'=>'Nieuwste eerst','oldest'=>'Oudste eerst','status'=>'Status','buildings'=>'Meeste gebouwen'];
@@ -612,7 +609,7 @@ if ($ganttView) {
   } else {
     require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
     if ($group === 'none') {
-      echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base, $demo);
+      echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base);
     } else {
       $groups = [];
       foreach ($visibleProjects as $project) {
@@ -626,7 +623,7 @@ if ($ganttView) {
       ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
       foreach ($groups as $label=>$groupProjects) {
         echo '<details open style="margin:14px 0"><summary style="font-weight:700;cursor:pointer">' . $escape($label) . ' (' . count($groupProjects) . ')</summary>';
-        echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($groupProjects, $base, $demo);
+        echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($groupProjects, $base);
         echo '</details>';
       }
     }
