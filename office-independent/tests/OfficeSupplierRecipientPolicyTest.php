@@ -16,6 +16,8 @@ $account = [
     'verification_status' => 'verified', 'verified_at' => 1000, 'verified_by' => 8,
     'verification_evidence_id' => 'evidence-1', 'changed_at' => 900,
 ];
+$account['account_type'] = 'regular';
+$account['verified_fingerprint'] = Policy::accountFingerprint($account);
 check(Policy::validIban($account['iban']), 'Valid IBAN rejected');
 check(!Policy::validIban('NL00ABNA0417164300'), 'Invalid IBAN accepted');
 check(!Policy::validIban('NL91ABNA0417-164300'), 'Punctuated IBAN accepted');
@@ -29,7 +31,10 @@ check(blocked(array_replace($account, ['changed_at'=>1001])), 'Changed account a
 check(blocked(array_replace($account, ['account_holder'=>''])), 'Missing holder accepted');
 check(blocked(array_replace($account, ['status'=>'inactive'])), 'Inactive supplier account accepted');
 check(blocked(array_replace($account, ['iban'=>'NL00ABNA0417164300'])), 'Invalid account accepted');
-$second = Policy::verifiedSnapshot(array_replace($account, ['account_holder'=>'Andere rekeninghouder']), 17, 2000);
+check(blocked(array_replace($account, ['account_holder'=>'Andere rekeninghouder'])), 'Holder edit with stale approval accepted');
+$changedHolder = array_replace($account, ['account_holder'=>'Andere rekeninghouder']);
+$changedHolder['verified_fingerprint'] = Policy::accountFingerprint($changedHolder);
+$second = Policy::verifiedSnapshot($changedHolder, 17, 2000);
 check($first['recipient_hash'] !== $second['recipient_hash'], 'Changed account holder did not invalidate snapshot');
 check(!Policy::canRelease(false, true, true, 3, 4, false), 'Unauthorized release accepted');
 check(!Policy::canRelease(true, true, false, 3, 4, false), 'Changed recipient accepted');
@@ -42,6 +47,7 @@ check(blocked(array_replace($account, ['verified_by'=>0])), 'Missing verifier ac
 check(blocked(array_replace($account, ['relation_id'=>0])), 'Missing supplier accepted');
 check(blocked(array_replace($account, ['verification_evidence_id'=>''])), 'Empty evidence accepted');
 check(blocked(array_replace($account, ['changed_at'=>1000 + 1])), 'Post-verification change accepted');
+check(blocked(array_replace($account, ['verified_fingerprint'=>str_repeat('0',64)])), 'Tampered fingerprint accepted');
 $changedEvidence = Policy::verifiedSnapshot(array_replace($account, ['verification_evidence_id'=>'evidence-2']), 17, 2000);
 check($first['recipient_hash'] !== $changedEvidence['recipient_hash'], 'Changed verification evidence did not invalidate snapshot');
 $changedVerifier = Policy::verifiedSnapshot(array_replace($account, ['verified_by'=>9]), 17, 2000);
