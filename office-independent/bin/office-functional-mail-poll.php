@@ -41,6 +41,9 @@ foreach ($mailboxes as $mailbox) {
   $stream = @imap_open('{'.$server.':993/imap/ssl/validate-cert}INBOX', $username, $password, OP_READONLY, 1);
   if ($stream === false) { ++$failures; continue; }
   try {
+    $status = imap_status($stream, '{'.$server.':993/imap/ssl/validate-cert}INBOX', SA_UIDVALIDITY);
+    if (!$status || empty($status->uidvalidity)) throw new RuntimeException('IMAP UIDVALIDITY unavailable.');
+    $uidValidity = (int) $status->uidvalidity;
     $overview = imap_check($stream);
     $last = $overview ? (int) $overview->Nmsgs : 0;
     $start = max(1, $last - 99);
@@ -54,7 +57,7 @@ foreach ($mailboxes as $mailbox) {
       $subject = isset($head->subject) ? imap_utf8((string) $head->subject) : '';
       // Body/attachments require MIME-safe extraction in a separate, reviewed step.
       $ingest->store($id, [
-        'source_id' => 'imap-uidvalidity-pending:' . $uid,
+        'source_id' => 'imap:' . $uidValidity . ':' . $uid,
         'sender' => substr($sender, 0, 320),
         'recipient' => '',
         'subject' => substr($subject, 0, 512),
