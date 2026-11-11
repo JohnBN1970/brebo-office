@@ -13,8 +13,10 @@ final class OfficeSupplierRecipientPolicy {
     }
 
     public static function validIban(string $iban): bool {
+        // Only spacing is tolerated. Never silently strip punctuation or other characters.
+        if (!preg_match('/^[A-Za-z0-9\\s]+$/D', $iban)) return false;
         $iban = self::normalizeIban($iban);
-        if (!preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/', $iban)) return false;
+        if (!preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/D', $iban)) return false;
         $rearranged = substr($iban, 4) . substr($iban, 0, 4);
         $remainder = 0;
         foreach (str_split($rearranged) as $char) {
@@ -26,14 +28,15 @@ final class OfficeSupplierRecipientPolicy {
 
     /** @param array<string,mixed> $account Office-owned account and verification record */
     public static function verifiedSnapshot(array $account, int $invoiceId, int $now): array {
-        $iban = self::normalizeIban((string) ($account['iban'] ?? ''));
+        $rawIban = (string) ($account['iban'] ?? '');
+        $iban = self::normalizeIban($rawIban);
         $holder = trim((string) ($account['account_holder'] ?? ''));
         $relationId = (int) ($account['relation_id'] ?? 0);
         $verifiedAt = (int) ($account['verified_at'] ?? 0);
         $verifiedBy = (int) ($account['verified_by'] ?? 0);
         $changedAt = (int) ($account['changed_at'] ?? 0);
         $evidenceId = trim((string) ($account['verification_evidence_id'] ?? ''));
-        if ($invoiceId <= 0 || $relationId <= 0 || !self::validIban($iban) || $holder === ''
+        if ($invoiceId <= 0 || $relationId <= 0 || !self::validIban($rawIban) || $holder === ''
             || ($account['status'] ?? '') !== 'active'
             || ($account['verification_status'] ?? '') !== 'verified'
             || $verifiedAt <= 0 || $verifiedAt > $now || $verifiedBy <= 0
