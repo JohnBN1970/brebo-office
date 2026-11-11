@@ -17,7 +17,7 @@ final class OfficeProjectPortfolioGantt {
 
     $html .= '<p class="portfolio-gantt-note">Peildatum: '.$e($today->format('d-m-Y')).'. De stippellijn is vandaag. Planning, voortgang en kritieke-padmeldingen worden uitsluitend getoond wanneer de geautoriseerde bron deze levert.</p>';
     $html .= '<div class="portfolio-gantt"><div class="portfolio-gantt-grid"><div class="portfolio-gantt-row"><strong>Project / status</strong><div class="portfolio-gantt-weeks">';
-    for ($w=0;$w<12;$w++) $html .= '<span>W'.$e($from->modify('+'.($w*7).' days')->format('W')).'</span>';
+    for ($w=0;$w<12;$w++) $html .= '<span>W'.$e($from->modify('+'.($w*7).' days')->format('W / o')).'</span>';
     $html .= '</div></div>';
     $todayOffset = max(0,min(100,((int)$from->diff($today)->format('%r%a') / $days)*100));
     foreach ($projects as $project) {
@@ -31,9 +31,21 @@ final class OfficeProjectPortfolioGantt {
       ];
       [$label,$class] = $statuses[$status] ?? [($status !== '' ? $project['status'] : 'Onbekend'),''];
       $url = $demo ? $base.'/projecten?view=gantt&demo=1&demo_project='.(int)$project['id'] : $base.'/projecten/detail?id='.(int)$project['id'];
+      $risks = [];
+      foreach (($project['plan_items'] ?? []) as $phase) {
+        $phaseStatus = strtolower(trim((string)($phase['status'] ?? '')));
+        $phaseNote = trim((string)($phase['critical_note'] ?? ''));
+        if (in_array($phaseStatus, ['critical','kritiek','waiting','in wacht','on hold'], true) || $phaseNote !== '') {
+          $risks[] = trim((string)($phase['title'] ?? 'Planningsfase')).': '.($phaseNote !== '' ? $phaseNote : ($phaseStatus === 'waiting' ? 'In wacht' : 'Aandacht vereist'));
+        }
+      }
       $criticalNote = trim((string)($project['critical_note'] ?? ''));
-      $hoverNote = $criticalNote !== '' ? ' title="'.$e($criticalNote).'"' : '';
-      $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name"><a href="'.$e($url).'"'.$hoverNote.'>'.$e($project['title']).'</a><br><span class="portfolio-gantt-badge '.$e($class).'"'.$hoverNote.'>'.$e($label).'</span></div>';
+      if ($criticalNote !== '' && !in_array($criticalNote, $risks, true)) $risks[] = $criticalNote;
+      $riskText = $risks === [] ? 'Geen geregistreerde planningsrisico’s.' : implode(' | ', array_unique($risks));
+      if ($risks !== [] && $class !== 'done') { $label = 'Aandacht'; $class = 'critical'; }
+      $hoverNote = ' title="'.$e($riskText).'"';
+      $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name"><a href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'"'.$hoverNote.'>'.$e($project['title']).'</a><br><span class="portfolio-gantt-badge '.$e($class).'"'.$hoverNote.'>'.$e($label).'</span>';
+      $html .= '<details class="portfolio-gantt-risk"><summary aria-label="Projectrisico’s bekijken" title="'.$e($riskText).'">ⓘ Risico</summary><div class="portfolio-gantt-risk-panel"><strong>Wat brengt dit project in gevaar?</strong><p>'.$e($riskText).'</p><a href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'">Projectdetails bekijken</a></div></details></div>';
       $html .= '<div class="portfolio-gantt-track" style="--today:'.$todayOffset.'%"><span class="portfolio-gantt-today" aria-label="Standlijn vandaag"></span>';
       $start = self::date($project['planned_start'] ?? null);
       $end = self::date($project['planned_end'] ?? null);
@@ -44,7 +56,7 @@ final class OfficeProjectPortfolioGantt {
         $right = max(0,min($days,$endDay));
         if ($right > $left) {
           $note = trim((string)($project['critical_note'] ?? ''));
-          $title = $note !== '' ? $note : 'Kritiek pad: nog niet vastgesteld';
+          $title = $riskText;
           $barColor = ['critical'=>'#b91c1c','waiting'=>'#b45309','done'=>'#2563eb','ontrack'=>'#247b55'][$class] ?? '#64748b';
           $html .= '<a class="portfolio-gantt-bar" href="'.$e($url).'" title="'.$e($title).'" aria-label="'.$e($project['title'].': '.$title).'" style="background:'.$barColor.';left:'.round($left/$days*100,3).'%;width:'.round(($right-$left)/$days*100,3).'%"></a>';
         } else {
@@ -54,27 +66,7 @@ final class OfficeProjectPortfolioGantt {
         $html .= '<span class="portfolio-gantt-empty">Planning nog niet beschikbaar</span>';
       }
       $html .= '</div></div>';
-      // Render real stored planning phases as separate rows under the project.
-      foreach (($project['plan_items'] ?? []) as $phase) {
-        $phaseStart = self::date($phase['planned_start'] ?? null);
-        $phaseEnd = self::date($phase['planned_end'] ?? null);
-        if (!$phaseStart || !$phaseEnd || $phaseEnd < $phaseStart) continue;
-        $startDay = (int)$from->diff($phaseStart)->format('%r%a');
-        $endDay = (int)$from->diff($phaseEnd)->format('%r%a') + 1;
-        $left = max(0, min($days, $startDay));
-        $right = max(0, min($days, $endDay));
-        $phaseStatus = strtolower(trim((string)($phase['status'] ?? '')));
-        $phaseColors = ['critical'=>'#b91c1c','kritiek'=>'#b91c1c','waiting'=>'#b45309','in wacht'=>'#b45309','done'=>'#2563eb','gereed'=>'#2563eb','ontrack'=>'#247b55','op schema'=>'#247b55'];
-        $phaseTitle = (string)($phase['title'] ?? 'Planningsfase');
-        $phaseNote = trim((string)($phase['critical_note'] ?? ''));
-        $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name" style="padding-left:25px"><a href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'">'.$e($phaseTitle).'</a></div><div class="portfolio-gantt-track" style="--today:'.$todayOffset.'%"><span class="portfolio-gantt-today"></span>';
-        if ($right > $left) {
-          $html .= '<a class="portfolio-gantt-bar" href="'.$e($base.'/projecten/detail?id='.(int)$project['id']).'" style="background:'.($phaseColors[$phaseStatus] ?? '#64748b').';left:'.round($left/$days*100,3).'%;width:'.round(($right-$left)/$days*100,3).'%" title="'.$e($phaseNote !== '' ? $phaseNote : $phaseTitle).'"></a>';
-        } else {
-          $html .= '<span class="portfolio-gantt-empty">Buiten zichtbare periode</span>';
-        }
-        $html .= '</div></div>';
-      }
+
     }
     return $html.'</div></div>';
   }
