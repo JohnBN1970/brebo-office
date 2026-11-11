@@ -6,6 +6,8 @@ on:
       - 'office-independent/public/office-email.php'
       - 'office-independent/tests/office_mail_routing_suggestions_smoke.php'
       - 'office-independent/database/office_native_mail.sql'
+      - 'office-independent/bin/office-mail-preflight.php'
+      - 'office-independent/bin/office-functional-mail-poll.php'
       - '.github/workflows/office-mail-board-ci.yml'
   push:
     branches:
@@ -25,5 +27,8 @@ jobs:
           php -l office-independent/src/Mail/OfficeFunctionalMailIngest.php
           php -l office-independent/src/Mail/OfficeMailClassificationRepository.php
           php -l office-independent/tests/office_mail_routing_suggestions_smoke.php
+          php -l office-independent/bin/office-mail-preflight.php
+          php -l office-independent/bin/office-functional-mail-poll.php
+          php -l office-independent/src/Mail/OfficeImapTextExtractor.php
       - name: Routing suggestion smoke
         run: php office-independent/tests/office_mail_routing_suggestions_smoke.php
