@@ -94,6 +94,51 @@ try {
         if (count($ids) === 1) $result['project_id'] = (int)$ids[0];
         else $result['project_identity_warning'] = 'Expected exactly one test project';
     }
+    // Verify concrete project-linked records without exposing business data.
+    // The relationships below are accepted only when both project_id and id
+    // exist in the actual table. No guessed cross-module join is treated as proof.
+    $projectEvidenceTables = [
+        'projecten' => ['office_projects'],
+        'gebouwen' => ['office_project_buildings'],
+        'inspectieopdracht' => ['office_inspections'],
+        'calculatie' => ['office_project_calculation_scopes'],
+        'contracten' => ['office_project_contracts'],
+        'inkoop' => ['office_procurement_orders'],
+        'personeel' => ['office_inzet_project_team'],
+        'inzet_onsite' => ['office_inzet_shifts'],
+        'uitvoering' => ['office_project_plan_items', 'office_project_control_milestones'],
+        'finance' => ['office_finance_invoices'],
+    ];
+    $columnsStmt = $db->query('SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()');
+    $columns = [];
+    foreach ($columnsStmt->fetchAll(PDO::FETCH_ASSOC) as $column) {
+        $columns[$column['TABLE_NAME']][$column['COLUMN_NAME']] = true;
+    }
+    $result['project_record_evidence'] = [];
+    foreach ($projectEvidenceTables as $stage => $names) {
+        $checks = [];
+        foreach ($names as $name) {
+            if (!isset($tables[$name])) {
+                $checks[$name] = ['state' => 'TABLE_NOT_FOUND'];
+                continue;
+            }
+            if (!isset($columns[$name]['project_id'])) {
+                $checks[$name] = ['state' => 'NO_DIRECT_PROJECT_ID'];
+                continue;
+            }
+            if ($result['project_id'] === null) {
+                $checks[$name] = ['state' => 'PROJECT_ID_UNVERIFIED'];
+                continue;
+            }
+            // Table identifiers come from the hardcoded allowlist above.
+            $stmt = $db->prepare('SELECT COUNT(*) FROM `' . $name . '` WHERE project_id = ?');
+            $stmt->execute([$result['project_id']]);
+            $count = (int)$stmt->fetchColumn();
+            $checks[$name] = ['state' => $count > 0 ? 'LINKED_RECORDS_PRESENT' : 'NO_LINKED_RECORDS', 'count' => $count];
+        }
+        $result['project_record_evidence'][$stage] = $checks;
+    }
+    $result['record_evidence_scope'] = 'Direct project_id counts only; no workflow or financial correctness inferred';
     echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 } catch (Throwable $e) {
     fwrite(STDERR, 'DEMO_CHAIN_AUDIT_FAILED: ' . $e->getMessage() . "\n");
