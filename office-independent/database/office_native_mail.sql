@@ -60,3 +60,21 @@ CREATE TABLE IF NOT EXISTS office_mail_mailbox_access (
   CONSTRAINT fk_office_mail_access_mailbox FOREIGN KEY (mailbox_id)
     REFERENCES office_mail_mailboxes (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Classification suggestions are not dossier links; approval is a separate operation.
+CREATE TABLE IF NOT EXISTS office_mail_classification_proposals (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  message_id BIGINT UNSIGNED NOT NULL,
+  proposed_module VARCHAR(32) NOT NULL,
+  proposed_target_id BIGINT UNSIGNED DEFAULT NULL,
+  reason VARCHAR(1000) NOT NULL DEFAULT '',
+  status ENUM('pending_review','approved','rejected') NOT NULL DEFAULT 'pending_review',
+  reviewed_by_operator_id BIGINT UNSIGNED DEFAULT NULL,
+  reviewed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_office_mail_classification_message (message_id),
+  KEY ix_office_mail_classification_status (status, created_at),
+  CONSTRAINT fk_office_mail_classification_message FOREIGN KEY (message_id)
+    REFERENCES office_mail_messages (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
