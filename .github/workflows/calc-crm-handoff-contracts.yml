@@ -5,6 +5,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -15,6 +16,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -38,6 +40,7 @@ jobs:
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
+            office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
           done
@@ -46,7 +49,11 @@ jobs:
             office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
             office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
             office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
-            office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
+            office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php \
+            office-independent/tests/OfficeCalcWorkBudgetLockContractTest.php \
+            office-independent/tests/OfficeCalcFiveCostCarriersHandoffTest.php \
+            office-independent/tests/OfficeCalcCostCarrierHandoffMapperTest.php \
+            office-independent/tests/OfficeCalcNativeTransferIntegrationTest.php; do
             php -l "$f"
             php "$f"
           done
