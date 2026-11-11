@@ -69,7 +69,7 @@ foreach ($mailboxes as $mailbox) {
       $uid = imap_uid($stream, $n);
       if (!$uid) throw new RuntimeException('IMAP UID lookup failed.');
       $head = imap_headerinfo($stream, $n);
-      if (!$head) continue;
+      if (!$head) throw new RuntimeException('IMAP header lookup failed.');
       $date = isset($head->udate) && (int) $head->udate > 0 ? (int) $head->udate : time();
       $sender = isset($head->from[0]) ? (($head->from[0]->mailbox ?? '') . '@' . ($head->from[0]->host ?? '')) : '';
       $subject = isset($head->subject) ? imap_utf8((string) $head->subject) : '';
