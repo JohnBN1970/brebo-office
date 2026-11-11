@@ -132,6 +132,30 @@ jobs:
               echo "OFFICE_CALC_DB_READONLY_CHECK=FAILED\n"; exit(1);
             }
             '
+            echo "SECTION=CRM_CALC_COLUMN_CONTRACT"
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $dsn=$cfg["OFFICE_INTAKE_PDO_DSN"]??"";
+            if (!is_string($dsn) || strpos($dsn,"dbname=u213420663_office_test;")===false) exit(1);
+            $db=new PDO($dsn,$cfg["OFFICE_INTAKE_DB_USER"]??"",$cfg["OFFICE_INTAKE_DB_PASSWORD"]??"",[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION
+            ]);
+            if ($db->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") exit(1);
+            $checks=[
+              "office_crm_opportunities"=>["id","revision","stage","status"],
+              "office_operator_accounts"=>["id","active"],
+              "calculations"=>["office_project_id","office_calculation_id","code","status"],
+              "calculation_versions"=>["calculation_id","version_no","direct_cost","status"],
+              "calculation_lines"=>["version_id","code","description","quantity"]
+            ];
+            $q=$db->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?");
+            foreach($checks as $table=>$cols) {
+              foreach($cols as $col) {
+                $q->execute([$table,$col]);
+                echo "COLUMN_".strtoupper($table."_".$col)."=".((int)$q->fetchColumn()===1?"PRESENT":"ABSENT")."\n";
+              }
+            }
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
