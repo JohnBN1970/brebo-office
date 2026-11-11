@@ -20,7 +20,9 @@ final class OfficeProjectPlanReader {
       ORDER BY project_id, planned_start, id");
     $stmt->execute($ids);
     $byProject = [];
+    $itemsByProject = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
+      $itemsByProject[$id = (int)$item['project_id']][] = $item;
       $id = (int)$item['project_id'];
       if (!isset($byProject[$id])) {
         $byProject[$id] = [
@@ -38,6 +40,7 @@ final class OfficeProjectPlanReader {
     foreach ($projects as &$project) {
       if (isset($byProject[(int)$project['id']])) {
         $project = array_merge($project, $byProject[(int)$project['id']]);
+        $project['plan_items'] = $itemsByProject[(int)$project['id']] ?? [];
       }
     }
     unset($project);
