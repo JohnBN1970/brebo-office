@@ -68,7 +68,7 @@ try {
   $projects = $statement->fetchAll(PDO::FETCH_ASSOC);
   if (($_GET['view'] ?? '') === 'gantt') {
     require_once dirname(__DIR__) . '/src/Project/OfficeProjectPlanReader.php';
-    $projects = \\Brebo\\Office\\Project\\OfficeProjectPlanReader::enrich($db, $projects);
+    $projects = \Brebo\Office\Project\OfficeProjectPlanReader::enrich($db, $projects);
   }
 } catch (Throwable $exception) {
   http_response_code(503);
