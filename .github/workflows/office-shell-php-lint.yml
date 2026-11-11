@@ -5,6 +5,8 @@ on:
       - 'office-independent/public/office-home.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/public/office-project.php'
+      - 'office-independent/src/Project/OfficeProjectPortfolioGantt.php'
+      - 'office-independent/tests/test_project_portfolio_gantt.php'
       - '.github/workflows/office-shell-php-lint.yml'
   workflow_dispatch:
 jobs:
@@ -17,3 +19,7 @@ jobs:
           php -l office-independent/public/office-home.php
           php -l office-independent/public/office-projects.php
           php -l office-independent/public/office-project.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioGantt.php
+          php -l office-independent/tests/test_project_portfolio_gantt.php
+      - name: Gantt portfolio regression
+        run: php office-independent/tests/test_project_portfolio_gantt.php
