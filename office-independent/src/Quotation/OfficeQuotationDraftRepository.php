@@ -117,9 +117,9 @@ final class OfficeQuotationDraftRepository
         return $quote;
     }
 
-    public function updateOwnDraft(int $quotationId, int $operatorId, array $sections): void
+    public function updateOwnDraft(int $quotationId, int $operatorId, string $title, array $sections): void
     {
-        if ($quotationId <= 0 || $operatorId <= 0) throw new InvalidArgumentException('Invalid quotation');
+        if ($quotationId <= 0 || $operatorId <= 0 || trim($title) === '' || mb_strlen($title, 'UTF-8') > 255) throw new InvalidArgumentException('Invalid quotation');
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
@@ -136,6 +136,8 @@ final class OfficeQuotationDraftRepository
                     throw new InvalidArgumentException('Invalid section');
                 }
             }
+            $rename = $this->db->prepare("UPDATE office_quotations SET title = ? WHERE id = ? AND created_by = ? AND status = 'draft'");
+            $rename->execute([trim($title), $quotationId, $operatorId]);
             $stmt = $this->db->prepare(
                 'UPDATE office_quotation_sections SET body = ?, provenance = ? WHERE quotation_id = ? AND section_key = ?'
             );
