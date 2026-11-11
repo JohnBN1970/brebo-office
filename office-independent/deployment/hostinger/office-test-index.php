@@ -136,6 +136,15 @@ if (is_string($path)
   require $private . '/public/office-calc-project-context.php';
   exit;
 }
+// Personal mailbox push has a separate secret and explicit opt-in gate.
+if ($path === '/office-test/api/mail/v1/personal-push') {
+  if (getenv('OFFICE_PERSONAL_MAIL_PUSH_RECEIVER_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/office-personal-mail-push-receive.php';
+  exit;
+}
 // Machine-to-machine intake is opt-in and never exposed by default.
 if ($path === '/office-test/api/intake/v1/receive') {
   if (getenv('OFFICE_INTAKE_RECEIVER_ENABLED') !== 'enabled') {
