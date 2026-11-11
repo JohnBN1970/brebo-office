@@ -49,6 +49,7 @@ final class ProjectBudgetPanel
         } else {
             $types = ['labor'=>'Arbeid', 'material'=>'Materiaal', 'equipment'=>'Materieel',
                 'subcontract'=>'Onderaanneming', 'other'=>'Overige kosten'];
+            $totals = array_fill_keys(array_keys($types), 0);
             $html .= '<table><thead><tr><th scope="col">Regel</th><th scope="col">Kostensoort</th>'
                 . '<th scope="col">Activiteit</th><th scope="col">Begroot excl. btw</th></tr></thead><tbody>';
             foreach ($lines as $line) {
@@ -57,13 +58,22 @@ final class ProjectBudgetPanel
                     || !is_int($line['baseline_cents'] ?? null) || $line['baseline_cents'] < 0) {
                     throw new InvalidArgumentException('Invalid budget line.');
                 }
+                if ($line['baseline_cents'] > PHP_INT_MAX - $totals[$line['cost_type']]) {
+                    throw new InvalidArgumentException('Budget cost type total overflow.');
+                }
+                $totals[$line['cost_type']] += $line['baseline_cents'];
                 $activity = $line['activity_ref'] ?? '';
                 if (!is_string($activity)) throw new InvalidArgumentException('Invalid activity.');
                 $html .= '<tr><td>'.self::e($line['code']).'</td><td>'
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
                     . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
             }
-            $html .= '</tbody></table>';
+            $html .= '</tbody></table><h3>Kostenverdeling</h3><dl>';
+            foreach ($types as $type=>$label) {
+                $html .= '<dt>'.self::e($label).'</dt><dd>€ '
+                    .number_format($totals[$type] / 100, 2, ',', '.').'</dd>';
+            }
+            $html .= '</dl>';
         }
         $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
         return $html;
