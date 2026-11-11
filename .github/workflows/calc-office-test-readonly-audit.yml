@@ -309,6 +309,13 @@ jobs:
               echo substr($source,$pos,1600);
               echo "\nCRM_CARD_FUNCTION_CONTEXT_END\n";
             '
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $s=file_get_contents(($cfg["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php");
+              $pos=strpos($s,"private static function link");
+              if($pos===false){echo "CRM_LINK_FUNCTION_NOT_FOUND\n";exit(1);}
+              echo "CRM_LINK_FUNCTION_CONTEXT_START\n".substr($s,$pos,1250)."\nCRM_LINK_FUNCTION_CONTEXT_END\n";
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
