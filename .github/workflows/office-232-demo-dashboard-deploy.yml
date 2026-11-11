@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - run: |
           git show bdd0754a89aa666ca043fac5be1baf735324ff4e^:office-independent/public/office-project.php > /tmp/office-project-before-232.php
           php -l /tmp/office-project-before-232.php
