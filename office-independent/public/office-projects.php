@@ -667,6 +667,8 @@ if ($kanbanView) {
       $authorizedPortfolio = $portfolioScope->fetchAll(PDO::FETCH_ASSOC);
       $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $authorizedPortfolio);
       $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
+      $portfolioTotals['procurement_covered'] = $budget['covered'];
+      $portfolioTotals['procurement_total'] = $budget['total'];
     }
   } catch (\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
