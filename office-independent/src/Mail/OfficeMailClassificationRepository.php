@@ -28,6 +28,29 @@ final class OfficeMailClassificationRepository {
     return ['id'=>$id, 'status'=>(string)$read->fetchColumn()];
   }
 
+  /** Review a proposal only when the operator still has mailbox access. */
+  public function review(int $proposalId, int $operatorId, string $decision): bool {
+    if ($proposalId <= 0 || $operatorId <= 0 || !in_array($decision, ['approved', 'rejected'], true)) {
+      throw new RuntimeException('Ongeldige beoordeling.');
+    }
+    $sql = "UPDATE office_mail_classification_proposals p
+      INNER JOIN office_mail_messages m ON m.id = p.message_id
+      INNER JOIN office_mail_mailboxes b ON b.id = m.mailbox_id
+      SET p.status = :decision, p.reviewed_by_operator_id = :reviewer,
+          p.reviewed_at = UTC_TIMESTAMP()
+      WHERE p.id = :proposal AND p.status = 'pending_review' AND b.active = 1
+      AND ((b.mailbox_type = 'functional' AND EXISTS (
+        SELECT 1 FROM office_mail_mailbox_access a
+        WHERE a.mailbox_id = b.id AND a.operator_id = :operator AND a.can_read = 1))
+        OR (b.mailbox_type = 'personal' AND b.owner_operator_id = :owner))";
+    $stmt = $this->db->prepare($sql);
+    $stmt->execute([
+      ':decision' => $decision, ':reviewer' => $operatorId, ':proposal' => $proposalId,
+      ':operator' => $operatorId, ':owner' => $operatorId,
+    ]);
+    return $stmt->rowCount() === 1;
+  }
+
   /** @return list<array<string,mixed>> */
   public function pendingForOperator(int $operatorId, int $limit=50): array {
     if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
