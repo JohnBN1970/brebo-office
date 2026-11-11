@@ -1,0 +1,102 @@
+name: Office-test Gantt interface guarded deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-GANTT-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate integrated Gantt and existing project page
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/src/Project/OfficeProjectPlanReader.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioGantt.php
+          php office-independent/tests/test_project_portfolio_gantt.php
+          grep -Fq 'office_project_memberships' office-independent/public/office-projects.php
+          grep -Fq 'view=inzet' office-independent/public/office-projects.php
+          grep -Fq 'OfficeProjectPortfolioGantt::render' office-independent/public/office-projects.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'DEPLOY-GANTT-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Upload candidate to isolated Office-test directory
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p /tmp/office-gantt-deploy'
+          scp $opts -P "$PORT" office-independent/public/office-projects.php "$remote:/tmp/office-gantt-deploy/office-projects.php"
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPlanReader.php office-independent/src/Project/OfficeProjectPortfolioGantt.php "$remote:/tmp/office-gantt-deploy/"
+      - name: Verify active route and atomically install with backup
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          test -d "$base/src/Project" && test -d "$base/public" || { echo OFFICE_TEST_PATH_MISSING; exit 21; }
+          target="$base/public/office-projects.php"
+          test -f "$target" && test ! -L "$target" || { echo ACTIVE_TARGET_MISSING; exit 22; }
+          test ! -L "$base/src/Project" || { echo SYMLINK_PROJECT_DIRECTORY_REJECTED; exit 23; }
+          expected="a97ec847c7be816d39a42f4079f3675de3b4b6729ac3829d78c3ba3b9f930256"
+          actual="$(sha256sum "$target" | awk '{print $1}')"
+          if [ "$actual" != "$expected" ]; then
+            if grep -Fq 'OfficeProjectPortfolioGantt::render' "$target" && grep -Fq 'OfficeProjectPlanReader::enrich' "$target"; then echo GANTT_PAGE_ALREADY_INSTALLED; exit 0; fi
+            echo ACTIVE_PAGE_CHANGED_ABORT; exit 24
+          fi
+          for class in OfficeProjectPlanReader OfficeProjectPortfolioGantt; do
+            installed="$base/src/Project/$class.php"
+            if test -e "$installed" && ! cmp -s "/tmp/office-gantt-deploy/$class.php" "$installed"; then
+              echo "EXISTING_CLASS_CHANGED_$class"; exit 25
+            fi
+            php -l "/tmp/office-gantt-deploy/$class.php"
+          done
+          php -l /tmp/office-gantt-deploy/office-projects.php
+          grep -Fq 'office_project_memberships' /tmp/office-gantt-deploy/office-projects.php
+          grep -Fq 'view=inzet' /tmp/office-gantt-deploy/office-projects.php
+          grep -Fq 'OfficeProjectPortfolioGantt::render' /tmp/office-gantt-deploy/office-projects.php
+          backup="$target.backup-gantt-$(date +%Y%m%d%H%M%S)"
+          cp -p "$target" "$backup"
+          for class in OfficeProjectPlanReader OfficeProjectPortfolioGantt; do
+            installed="$base/src/Project/$class.php"
+            if test ! -e "$installed"; then
+              cp /tmp/office-gantt-deploy/$class.php "$installed"
+              chmod 644 "$installed"
+            fi
+          done
+          candidate="$(mktemp "$base/public/.gantt-projects-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p /tmp/office-gantt-deploy/office-projects.php "$candidate"
+          chmod --reference="$target" "$candidate"
+          mv "$candidate" "$target"
+          if ! php -l "$target"; then cp -p "$backup" "$target"; echo GANTT_ROLLBACK; exit 26; fi
+          echo GANTT_OFFICE_TEST_DEPLOYED
+          REMOTE
