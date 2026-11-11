@@ -24,7 +24,7 @@ if ($before === false || $after === false || $live === false) {
     exit(4);
 }
 if ($live === $after) {
-    echo "DEMO_232_ALREADY_INSTALLED\n";
+    fwrite(STDERR, "DEMO_232_ALREADY_INSTALLED\n");
     exit(0);
 }
 $anchor = '$demoDashboardHtml = ' . chr(39) . chr(39) . ';';
@@ -119,24 +119,9 @@ try {
         throw new RuntimeException('WRITE_FAILED');
     }
     chmod($temp, fileperms($livePath) & 0777);
-    $lint = [];
-    $lintCode = 1;
-    exec('php -l ' . escapeshellarg($temp) . ' 2>&1', $lint, $lintCode);
-    if ($lintCode !== 0) {
-        throw new RuntimeException('LINT_FAILED: ' . implode(' ', $lint));
-    }
-    // Recheck concurrent changes between reading the original and final rename.
-    if (file_get_contents($livePath) !== $live) {
-        throw new RuntimeException('CONCURRENT_CHANGE_ABORT');
-    }
-    $backup = $livePath . '.backup-232-' . gmdate('YmdHis');
-    if (!copy($livePath, $backup)) {
-        throw new RuntimeException('BACKUP_FAILED');
-    }
-    if (!rename($temp, $livePath)) {
-        throw new RuntimeException('RENAME_FAILED');
-    }
-    echo "DEMO_232_PATCHED_OFFICE_TEST\n";
+    // Return the candidate and the original page hash to the shell workflow.
+    // PHP exec/proc_open are deliberately not used (disabled on Hostinger).
+    echo hash('sha256', $live) . '|' . $temp . "\n";
 } catch (Throwable $exception) {
     @unlink($temp);
     fwrite(STDERR, "DEMO_232_" . $exception->getMessage() . "\n");
