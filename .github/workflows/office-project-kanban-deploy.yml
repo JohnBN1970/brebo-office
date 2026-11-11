@@ -1,0 +1,72 @@
+name: Office-test project Kanban deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-KANBAN-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioKanban.php
+          php office-independent/tests/test_project_portfolio_kanban.php
+          php office-independent/tests/test_project_traffic_light.php
+  deploy:
+    needs: validate
+    if: ${{ inputs.confirmation == 'DEPLOY-KANBAN-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_kanban
+          chmod 600 ~/.ssh/id_kanban
+      - name: Guarded Office-test-only Kanban install
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_kanban"
+          scp $opts -P "$PORT" office-independent/public/office-projects.php "$remote:/tmp/office-projects-kanban.php"
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPortfolioKanban.php "$remote:/tmp/OfficeProjectPortfolioKanban.php"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          page="$base/public/office-projects.php"
+          cls="$base/src/Project/OfficeProjectPortfolioKanban.php"
+          test -f "$page" && test ! -L "$page" && test -d "$base/src/Project" || { echo KANBAN_TARGET_MISSING; exit 21; }
+          grep -Fq 'office_project_memberships' "$page" && grep -Fq 'view=inzet' "$page" || { echo KANBAN_ACCESS_GUARD_MISSING; exit 22; }
+          grep -Fq 'OfficeProjectPortfolioGantt::render' "$page" || { echo KANBAN_GANTT_MISSING; exit 23; }
+          grep -Fq 'OfficeProjectTrafficLight::render' "$page" || { echo KANBAN_STOPLIGHT_NOT_DEPLOYED; exit 24; }
+          if cmp -s "$page" /tmp/office-projects-kanban.php; then echo KANBAN_ALREADY_INSTALLED; exit 0; fi
+          grep -Fq 'OfficeProjectPortfolioKanban::render' "$page" && { echo KANBAN_CONFLICT; exit 25; }
+          php -l /tmp/office-projects-kanban.php
+          php -l /tmp/OfficeProjectPortfolioKanban.php
+          if test -e "$cls"; then cmp -s "$cls" /tmp/OfficeProjectPortfolioKanban.php || { echo KANBAN_CLASS_CONFLICT; exit 26; }; fi
+          backup="$page.backup-kanban-$(date +%Y%m%d%H%M%S)"
+          cp -p "$page" "$backup"
+          if test ! -e "$cls"; then cp /tmp/OfficeProjectPortfolioKanban.php "$cls"; chmod 644 "$cls"; fi
+          candidate="$(mktemp "$base/public/.kanban-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p /tmp/office-projects-kanban.php "$candidate"
+          chmod --reference="$page" "$candidate"
+          mv "$candidate" "$page"
+          if ! php -l "$page"; then cp -p "$backup" "$page"; echo KANBAN_ROLLBACK; exit 27; fi
+          echo KANBAN_OFFICE_TEST_DEPLOYED
+          REMOTE
