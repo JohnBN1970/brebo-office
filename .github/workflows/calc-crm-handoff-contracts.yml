@@ -8,6 +8,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
       - 'office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
@@ -22,6 +23,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
       - 'office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
@@ -49,6 +51,7 @@ jobs:
             office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php \
             office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php \
             office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php \
+            office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
           done
@@ -62,7 +65,8 @@ jobs:
             office-independent/tests/OfficeCalcFiveCostCarriersHandoffTest.php \
             office-independent/tests/OfficeCalcCostCarrierHandoffMapperTest.php \
             office-independent/tests/OfficeCalcNativeTransferIntegrationTest.php \
-            office-independent/tests/OfficeCalcPersistedAcceptanceAdapterTest.php; do
+            office-independent/tests/OfficeCalcPersistedAcceptanceAdapterTest.php \
+            office-independent/tests/OfficeCalcAcceptanceSchemaPreflightTest.php; do
             php -l "$f"
             php "$f"
           done
