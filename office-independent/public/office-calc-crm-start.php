@@ -7,7 +7,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: same-origin');
 
 $deny = static function (int $code, string $reason='UNSPECIFIED'): never {
     // Fixed non-sensitive failure codes only; never expose session, SQL or secrets.
@@ -48,12 +48,21 @@ if ($method === 'POST') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
     $referer = $_SERVER['HTTP_REFERER'] ?? null;
     $fetchSite = $_SERVER['HTTP_SEC_FETCH_SITE'] ?? null;
-    if (is_string($origin) && $origin !== '') {
-        if (!hash_equals($expectedOrigin, $origin)) $deny(403,'ORIGIN');
-    } elseif ($fetchSite !== 'same-origin'
-        && !(is_string($referer)
-          && (str_starts_with($referer, $expectedOrigin . '/')))) {
-        $deny(403,'ORIGIN');
+    if (is_string($origin) && $origin !== '' && $origin !== 'null') {
+        // A real Origin must match exactly; never allow a different site.
+        if (!hash_equals($expectedOrigin, $origin)) $deny(403,'ORIGIN_MISMATCH');
+    } elseif (is_string($fetchSite) && in_array($fetchSite, ['cross-site','same-site'], true)) {
+        // No Origin, but browser explicitly reports a non-same-origin request.
+        $deny(403,'ORIGIN_CROSS_SITE');
+    } elseif ($fetchSite === 'same-origin'
+        || (is_string($referer) && str_starts_with($referer, $expectedOrigin . '/'))) {
+        // Strong browser signal for this Office website.
+    } else {
+        // Some privacy browsers/proxies omit Origin, Referer and Fetch Metadata.
+        // The mandatory unpredictable Office CSRF cookie + hidden form field,
+        // verified below using hash_equals, remains the authorization boundary.
+        // Cross-origin Origin and Sec-Fetch-Site values are still rejected above.
+        if (!is_string($_POST['csrf'] ?? null)) $deny(403,'ORIGIN_NO_CSRF');
     }
     $size = $_SERVER['CONTENT_LENGTH'] ?? '';
     if (!is_string($size) || !ctype_digit($size) || (int)$size > 2048) $deny(413,'BODY_SIZE');
