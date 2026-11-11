@@ -108,6 +108,30 @@ jobs:
               esac
             done
             if [ -f "$OFFICE/config/config.php" ]; then echo "OFFICE_TEST_CONFIG=FOUND"; else echo "OFFICE_TEST_CONFIG=MISSING"; fi
+            echo "SECTION=OFFICE_UNIFIED_CALC_TABLES"
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $dsn=$cfg["OFFICE_INTAKE_PDO_DSN"]??"";
+            if (!is_string($dsn) || strpos($dsn,"dbname=u213420663_office_test;")===false) {
+              echo "OFFICE_CALC_DB_IDENTITY=INVALID\n"; exit(1);
+            }
+            try {
+              $pdo=new PDO($dsn,$cfg["OFFICE_INTAKE_DB_USER"]??"",$cfg["OFFICE_INTAKE_DB_PASSWORD"]??"",[
+                PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES=>false
+              ]);
+              if ($pdo->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") {
+                echo "OFFICE_CALC_DB_IDENTITY=MISMATCH\n"; exit(1);
+              }
+              echo "OFFICE_CALC_DB_IDENTITY=VERIFIED\n";
+              $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+              foreach (["calculations","calculation_versions","calculation_lines","launch_nonces","office_calc_crm_drafts","office_calc_crm_draft_lines"] as $t) {
+                $q->execute([$t]);
+                echo "OFFICE_CALC_TABLE_".strtoupper($t)."=".((int)$q->fetchColumn()===1?"PRESENT":"ABSENT")."\n";
+              }
+            } catch (Throwable $e) {
+              echo "OFFICE_CALC_DB_READONLY_CHECK=FAILED\n"; exit(1);
+            }
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
