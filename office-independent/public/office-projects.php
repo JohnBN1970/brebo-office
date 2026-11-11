@@ -66,7 +66,7 @@ try {
   );
   $statement->execute([':operator_id' => $operator->operatorId]);
   $projects = $statement->fetchAll(PDO::FETCH_ASSOC);
-  if (($_GET['view'] ?? '') === 'gantt') {
+  if (($_GET['view'] ?? '') !== 'inzet') {
     require_once dirname(__DIR__) . '/src/Project/OfficeProjectPlanReader.php';
     $projects = \Brebo\Office\Project\OfficeProjectPlanReader::enrich($db, $projects);
   }
@@ -640,10 +640,11 @@ if ($ganttView) {
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
-  echo '<table><thead><tr><th>Projectcode</th><th>Project</th><th>Status</th><th>Gebouwen</th></tr></thead><tbody>';
+  require_once dirname(__DIR__) . '/src/Project/OfficeProjectTrafficLight.php';
+  echo '<table><thead><tr><th>Projectcode</th><th>Project</th><th>Status</th><th>Stoplicht / risico</th><th>Gebouwen</th></tr></thead><tbody>';
   foreach ($projects as $project) {
     $url = $base . '/projecten/detail?id=' . (int) $project['id'] . ($inzetView ? '#inzet' : '');
-    echo '<tr><td>' . $escape($project['code']) . '</td><td><a href="' . $escape($url) . '">' . $escape($project['title']) . '</a></td><td>' . $escape($project['status']) . '</td><td>' . (int) $project['building_count'] . '</td></tr>';
+    echo '<tr><td>' . $escape($project['code']) . '</td><td><a href="' . $escape($url) . '">' . $escape($project['title']) . '</a></td><td>' . $escape($project['status']) . '</td><td>' . \Brebo\Office\Project\OfficeProjectTrafficLight::render($project) . '</td><td>' . (int) $project['building_count'] . '</td></tr>';
   }
   echo '</tbody></table>';
 }
