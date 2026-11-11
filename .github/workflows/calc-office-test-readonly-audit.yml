@@ -194,6 +194,28 @@ jobs:
                 (is_file($root."/".$file)?"PRESENT":"MISSING")."\n";
             }
             '
+            echo "SECTION=OFFICE_CALC_RELEASE_PREFLIGHT"
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              foreach(["OFFICE_BASE_PATH","OFFICE_TEST_CRM_ENABLED","OFFICE_CRM_AUTH_MODE",
+                "OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED","OFFICE_CALC_CRM_SCHEMA_VERIFIED"] as $key) {
+                $v=$cfg[$key]??"absent";
+                if(!in_array($v,["/office-test","enabled","disabled","session_only","absent"],true)) $v="CUSTOM";
+                echo "CRM_CALC_CONFIG_".$key."=".$v."\n";
+              }
+              $root=$cfg["OFFICE_PRIVATE_ROOT"]??"";
+              if(!is_string($root) || !is_dir($root)) exit(1);
+              foreach(["src/Intake/OfficeMount.php","src/Intake/WebsiteOfficeCrmSessionRepository.php",
+                  "src/Crm/OfficeCrmFunnelViews.php","public/office-crm-opportunities.php"] as $f) {
+                echo "CRM_CALC_DEPENDENCY_".strtoupper(basename($f))."=".
+                    (is_file($root."/".$f)?"FOUND":"MISSING")."\n";
+              }
+            '
+            if grep -Fq '[$]routes = [' /home/u213420663/domains/brebobv.nl/public_html/office-test/index.php; then
+              echo "CRM_CALC_ROUTER_INSERT_ANCHOR=FOUND"
+            else
+              echo "CRM_CALC_ROUTER_INSERT_ANCHOR=MISSING"
+            fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
