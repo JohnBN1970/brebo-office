@@ -1,0 +1,46 @@
+name: Office-test Gantt real-data preflight
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/audit-office-gantt-demo-preflight.php'
+      - '.github/workflows/office-gantt-demo-preflight.yml'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type AUDIT-GANTT-TEST to run read-only test DB inventory
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: php -l office-independent/deployment/hostinger/audit-office-gantt-demo-preflight.php
+  audit:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'AUDIT-GANTT-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Read Office-test Gantt schema and project count
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/audit-office-gantt-demo-preflight.php "$remote:/tmp/audit-office-gantt-demo-preflight.php"
+          ssh $opts -p "$PORT" "$remote" 'OFFICE_TEST_CONFIG_PATH="$HOME/domains/brebobv.nl/office_calc_test/config/config.php" php /tmp/audit-office-gantt-demo-preflight.php'
