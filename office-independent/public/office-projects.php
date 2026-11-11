@@ -669,6 +669,10 @@ if ($kanbanView) {
       $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
       $portfolioTotals['procurement_covered'] = $budget['covered'];
       $portfolioTotals['procurement_total'] = $budget['total'];
+      $contracts = \Brebo\Office\Project\OfficeProjectPortfolioTotals::acceptedContractValues($db, $authorizedPortfolio);
+      $portfolioTotals['contract_value_cents'] = $contracts['cents'];
+      $portfolioTotals['contract_covered'] = $contracts['covered'];
+      $portfolioTotals['contract_total'] = $contracts['total'];
     }
   } catch (\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
