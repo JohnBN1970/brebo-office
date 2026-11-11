@@ -1,0 +1,37 @@
+name: Office working budget contract tests
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/WorkingBudget/**'
+      - 'office-independent/tests/*Budget*Test.php'
+      - 'office-independent/tests/*Cost*Test.php'
+      - 'office-independent/tests/*Reconciliation*Test.php'
+      - '.github/workflows/office-working-budget-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax
+        run: |
+          set -eu
+          for f in office-independent/src/WorkingBudget/*.php office-independent/tests/WorkingBudgetForecastTest.php office-independent/tests/LockedBaselineLinesTest.php office-independent/tests/ProcurementCommitmentReconciliationTest.php office-independent/tests/OfficeProcurementBudgetAdapterTest.php office-independent/tests/FinanceCostAllocationTest.php office-independent/tests/ProcurementCostBridgeTest.php; do
+            php -l "$f"
+          done
+      - name: Budget contract tests
+        run: |
+          set -eu
+          php office-independent/tests/WorkingBudgetForecastTest.php
+          php office-independent/tests/LockedBaselineLinesTest.php
+          php office-independent/tests/ProcurementCommitmentReconciliationTest.php
+          php office-independent/tests/OfficeProcurementBudgetAdapterTest.php
+          php office-independent/tests/FinanceCostAllocationTest.php
+          php office-independent/tests/ProcurementCostBridgeTest.php
