@@ -22,7 +22,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 65002
-          script_stop: true
+          script_stop: false
           command_timeout: 5m
           script: |
             set -eu
@@ -52,6 +52,7 @@ jobs:
             mkdir -p -m 700 "$parent"
             echo "CALC_RELEASE_PARENT_CREATED_OR_CONFIRMED=YES"
             if [ -e "$release" ] && [ ! -d "$release" ]; then echo "CALC_RELEASE_PATH_NOT_DIRECTORY=YES"; exit 1; fi
+            echo "CALC_RELEASE_DIRECTORY_CHECK=START"
             if [ -d "$release" ]; then
               echo "CALC_PRIVATE_RELEASE_ALREADY_PRESENT=YES"
             else
