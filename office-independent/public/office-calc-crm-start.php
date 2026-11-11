@@ -47,6 +47,7 @@ if ($method === 'POST') {
 
 try {
     require_once dirname(__DIR__) . '/src/Intake/OfficeMount.php';
+    require_once dirname(__DIR__) . '/src/Intake/WebsiteCrmOperatorContext.php';
     require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmSessionRepository.php';
     $token = $_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')] ?? null;
     if (!is_string($token)) $deny(403);
