@@ -27,7 +27,7 @@ if ($live === $after) {
     echo "DEMO_232_ALREADY_INSTALLED\n";
     exit(0);
 }
-$anchor = '$demoDashboardHtml = \'\';';
+$anchor = '$demoDashboardHtml = ' . chr(39) . chr(39) . ';';
 $next = 'if ($isDashboardDemo) {';
 $start = strpos($after, $anchor);
 $end = $start !== false ? strpos($after, $next, $start) : false;
