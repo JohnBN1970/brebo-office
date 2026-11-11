@@ -78,6 +78,7 @@ $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, E
 $base = \Brebo\Office\Intake\OfficeMount::basePath();
 $inzetView = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['view'] ?? '') === 'inzet';
 $ganttView = !$inzetView && ($_GET['view'] ?? '') === 'gantt';
+$kanbanView = !$inzetView && ($_GET['view'] ?? '') === 'kanban';
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:#fff}.office-side-item.disabled{opacity:.55}.office-shell main{max-width:none;width:100%;margin:0;padding:28px clamp(18px,4vw,55px);min-width:0}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin:0 0 22px;overflow:auto}.office-tab{display:inline-block;padding:12px 2px;text-decoration:none;white-space:nowrap;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}.office-kpi-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:18px;margin:18px 0}.office-kpi-panel summary{cursor:pointer;font-weight:700}.office-kpi-panel strong{font-size:22px;display:block;margin-top:10px}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;overflow:auto;gap:4px}.office-side-item{white-space:nowrap}.office-shell main{padding:18px}}
 
@@ -565,7 +566,11 @@ if (!$inzetView || $activeInzetTab === 'overzicht') {
 if (!$inzetView) {
   echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
 }
-if ($ganttView) {
+if ($kanbanView) {
+  require_once dirname(__DIR__) . '/src/Project/OfficeProjectTrafficLight.php';
+  require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioKanban.php';
+  echo \Brebo\Office\Project\OfficeProjectPortfolioKanban::render($projects, $base);
+} elseif ($ganttView) {
   if (\Brebo\Office\Intake\OfficeMount::isTest()) {
     echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Toon echte testprojecten uit de Office-database</a></p>';
   }
