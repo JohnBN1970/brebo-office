@@ -14,11 +14,13 @@ final class OfficeNativeMailboxRepository {
   public function visibleMailboxes(int $operatorId): array {
     if ($operatorId <= 0) throw new RuntimeException('Office-sessie ontbreekt.');
     $sql = "SELECT id, address, label, mailbox_type FROM office_mail_mailboxes
-      WHERE active = 1 AND (mailbox_type = 'functional'
-        OR (mailbox_type = 'personal' AND owner_operator_id = :owner))
+      WHERE active = 1 AND ((mailbox_type = 'functional' AND EXISTS
+        (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id = office_mail_mailboxes.id
+         AND a.operator_id = :owner AND a.can_read = 1))
+        OR (mailbox_type = 'personal' AND owner_operator_id = :personal_owner))
       ORDER BY mailbox_type, label";
     $stmt = $this->db->prepare($sql);
-    $stmt->execute([':owner' => $operatorId]);
+    $stmt->execute([':owner' => $operatorId, ':personal_owner' => $operatorId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
@@ -30,10 +32,13 @@ final class OfficeNativeMailboxRepository {
       FROM office_mail_messages m
       INNER JOIN office_mail_mailboxes b ON b.id = m.mailbox_id
       WHERE b.id = :mailbox AND b.active = 1
-      AND (b.mailbox_type = 'functional' OR (b.mailbox_type = 'personal' AND b.owner_operator_id = :owner))
+      AND ((b.mailbox_type = 'functional' AND EXISTS
+        (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id = b.id
+         AND a.operator_id = :operator AND a.can_read = 1))
+        OR (b.mailbox_type = 'personal' AND b.owner_operator_id = :owner))
       ORDER BY m.received_at DESC, m.id DESC LIMIT " . $limit;
     $stmt = $this->db->prepare($sql);
-    $stmt->execute([':mailbox' => $mailboxId, ':owner' => $operatorId]);
+    $stmt->execute([':mailbox' => $mailboxId, ':operator' => $operatorId, ':owner' => $operatorId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
