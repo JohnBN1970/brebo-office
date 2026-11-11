@@ -66,7 +66,7 @@ final class OfficeQuotationCalcDraftFactory
             }
             $priceLines[] = 'Totaal exclusief btw: € '
                 . number_format($source['total_ex_vat_cents'] / 100, 2, ',', '.');
-            $priceBody = implode("\\n", $priceLines);
+            $priceBody = implode("\n", $priceLines);
             if (mb_strlen($priceBody, 'UTF-8') > 50000) {
                 throw new DomainException('Calculation price chapter exceeds maximum length');
             }
