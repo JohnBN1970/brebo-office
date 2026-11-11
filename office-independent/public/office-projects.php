@@ -562,7 +562,9 @@ if (!$inzetView) {
   echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
 }
 if ($ganttView) {
-  echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Toon echte DEMO-projectrecords uit testdatabase</a></p>';
+  if (\Brebo\Office\Intake\OfficeMount::isTest()) {
+    echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Toon echte testprojecten uit de Office-database</a></p>';
+  }
   $demo = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['demo'] ?? '') === '1';
   if ($demo) {
     // Only genuine Office database rows, already scoped by operator membership.
