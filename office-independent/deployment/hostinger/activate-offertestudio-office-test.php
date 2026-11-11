@@ -61,8 +61,38 @@ foreach ($flags as $flag) {
 if ($mode === '--audit') { echo "OFFERTSTUDIO_AUDIT_COMPLETE\n"; exit(0); }
 if (!$missing) { echo "OFFERTSTUDIO_FLAGS_ALREADY_ENABLED\n"; exit(0); }
 $src = file_get_contents($configPath);
-if (!is_string($src) || !preg_match('/\\breturn\\s*\\[/',$src) || !preg_match('/\\];\\s*$/D',$src)) {
-    fwrite(STDERR,"CONFIG_FORMAT_NOT_SUPPORTED\n"); exit(11);
+if (!is_string($src)) exit(11);
+$tokens = token_get_all($src);
+$returns = 0;
+$lastReturnIndex = -1;
+foreach ($tokens as $i => $token) {
+    if (is_array($token) && $token[0] === T_RETURN) {
+        $returns++;
+        $lastReturnIndex = $i;
+    }
+}
+if ($returns !== 1 || $lastReturnIndex < 0) {
+    fwrite(STDERR, "CONFIG_RETURN_LAYOUT_NOT_SUPPORTED\n"); exit(11);
+}
+$startOffset = 0;
+$depth = 0;
+$opening = null;
+for ($i=0; $i<count($tokens); $i++) {
+    $token=$tokens[$i];
+    $value=is_array($token) ? $token[1] : $token;
+    if ($i <= $lastReturnIndex) { $startOffset += strlen($value); continue; }
+    if (trim($value) === '') { $startOffset += strlen($value); continue; }
+    if ($value === '[' || (is_array($token) && $token[0] === T_ARRAY)) {
+        $opening = $value;
+    }
+    break;
+}
+if ($opening !== '[') {
+    fwrite(STDERR, "CONFIG_ARRAY_LAYOUT_REQUIRES_REVIEW\n"); exit(11);
+}
+$endPattern = '/\]\s*;\s*(?:\?>)?\s*$/D';
+if (!preg_match($endPattern,$src)) {
+    fwrite(STDERR, "CONFIG_END_LAYOUT_REQUIRES_REVIEW\n"); exit(11);
 }
 foreach ($flags as $flag) {
     if (str_contains($src,$flag)) {
@@ -71,7 +101,7 @@ foreach ($flags as $flag) {
 }
 $insertion = '';
 foreach ($missing as $flag) $insertion .= "    '" . $flag . "' => 'enabled',\n";
-$next=preg_replace('/\\];\\s*$/D', $insertion . "];\n", $src, 1, $count);
+$next=preg_replace($endPattern, $insertion . "];\n", $src, 1, $count);
 if (!is_string($next) || $count !== 1) exit(13);
 $runId = getenv('GITHUB_RUN_ID');
 if (!is_string($runId) || !preg_match('/^[0-9]{6,20}$/D',$runId)) exit(14);
