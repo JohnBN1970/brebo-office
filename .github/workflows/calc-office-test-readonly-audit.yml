@@ -170,6 +170,30 @@ jobs:
               echo "CRM_ID_COLUMN_TYPE_".strtoupper($t)."=".strtoupper(str_replace(" ","_",$type))."\n";
             }
             '
+            echo "SECTION=LIVE_OFFICE_CALC_MOUNT"
+            live_router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            if grep -F "/office-test/calculatie" "$live_router" >/dev/null 2>&1; then
+              echo "OFFICE_CALC_NATIVE_ROUTE=DEPLOYED"
+            else
+              echo "OFFICE_CALC_NATIVE_ROUTE=NOT_DEPLOYED"
+            fi
+            if grep -F "/office-test/calc/crm/werkbank" "$live_router" >/dev/null 2>&1; then
+              echo "OFFICE_CRM_WORKBENCH_ROUTE=DEPLOYED"
+            else
+              echo "OFFICE_CRM_WORKBENCH_ROUTE=NOT_DEPLOYED"
+            fi
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $root=$cfg["OFFICE_PRIVATE_ROOT"]??"";
+            if(!is_string($root) || !is_dir($root) || !str_contains($root,"/office_calc_test/")) {
+              echo "OFFICE_PRIVATE_RELEASE=INVALID\n";exit(1);
+            }
+            echo "OFFICE_PRIVATE_RELEASE=FOUND\n";
+            foreach(["public/office-calc-crm-workbench.php","src/Calculation/OfficeCalcCrmDraftLineRepository.php"] as $file) {
+              echo "OFFICE_RELEASE_".strtoupper(basename($file))."=".
+                (is_file($root."/".$file)?"PRESENT":"MISSING")."\n";
+            }
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
