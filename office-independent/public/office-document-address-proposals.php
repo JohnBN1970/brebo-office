@@ -57,6 +57,11 @@ try {
         if (!hash_equals((string)$_SESSION['office_address_csrf'], (string)($_POST['csrf'] ?? ''))) {
             http_response_code(403); exit('Ongeldige beveiligingscode.');
         }
+        $action = (string)($_POST['action'] ?? 'review');
+        if ($action === 'extract') {
+            $result = $service->proposeProjectAddresses($operatorId, $projectId, $documentId);
+            $notice = 'Adresvoorstellen verwerkt: ' . (int)$result['created'] . ' nieuw, ' . (int)$result['existing'] . ' bestaand, ' . count($result['issues']) . ' aandachtspunten.';
+        } else {
         $proposalId = filter_var($_POST['proposal_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
         $decision = (string)($_POST['decision'] ?? '');
         if (!is_int($proposalId) || !in_array($decision, ['accepted','rejected'], true)) {
@@ -64,6 +69,7 @@ try {
         }
         $changed = $service->reviewProjectAddressProposal($operatorId, $projectId, $documentId, $proposalId, $decision);
         $notice = $changed ? 'Beoordeling opgeslagen.' : 'Voorstel niet aangepast. Controleer de status en gebouwmatch.';
+        }
     }
     $rows = $service->projectAddressProposals($operatorId, $projectId, $documentId);
 } catch (Throwable $error) {
@@ -82,6 +88,7 @@ button.reject{background:#6d477b}.muted{color:#5d6b79}.notice{font-weight:600}fo
 </style></head><body><main><h1>Adresvoorstellen uit document</h1>
 <p class="muted">Alleen voorstellen. Er worden geen gebouwen, adressen of bewoners automatisch gewijzigd.</p>
 <?php if ($notice !== ''): ?><p class="notice"><?=h($notice)?></p><?php endif; ?>
+<form method="post"><input type="hidden" name="csrf" value="<?=h((string)$_SESSION['office_address_csrf'])?>"><input type="hidden" name="action" value="extract"><button type="submit">Adresvoorstellen uit origineel ophalen</button></form>
 <section><table><thead><tr><th>Bron</th><th>Adres</th><th>Bewoner (optioneel)</th><th>Gebouwmatch</th><th>Status en beoordeling</th></tr></thead><tbody>
 <?php foreach ($rows as $row): ?>
 <tr><td><?=h((string)$row['source_location'])?></td>
