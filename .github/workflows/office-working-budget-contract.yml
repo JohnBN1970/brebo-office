@@ -5,6 +5,7 @@ on:
     paths:
       - 'office-independent/src/WorkingBudget/**'
       - 'office-independent/tests/*Budget*Test.php'
+      - 'office-independent/tests/LockedBaselineLinesTest.php'
       - 'office-independent/tests/*Cost*Test.php'
       - 'office-independent/tests/*Reconciliation*Test.php'
       - 'office-independent/tests/*Labor*Test.php'
