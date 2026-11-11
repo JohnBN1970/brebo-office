@@ -590,7 +590,7 @@ if ($ganttView) {
       'name_desc' => strnatcasecmp($name($b),$name($a)),
       'newest' => (int)$b['id'] <=> (int)$a['id'],
       'oldest' => (int)$a['id'] <=> (int)$b['id'],
-      'status' => strcmp((string)$a['status'],(string)$b['status']) ?: strnatcasecmp($name($a),$name($b)),
+      'status' => (['kritiek'=>0,'critical'=>0,'in wacht'=>1,'on hold'=>1,'op schema'=>2,'in de pas'=>2,'gereed'=>3,'completed'=>3,'afgevoerd'=>4,'vervallen'=>5][strtolower(trim((string)$a['status']))] ?? 6) <=> (['kritiek'=>0,'critical'=>0,'in wacht'=>1,'on hold'=>1,'op schema'=>2,'in de pas'=>2,'gereed'=>3,'completed'=>3,'afgevoerd'=>4,'vervallen'=>5][strtolower(trim((string)$b['status']))] ?? 6) ?: strnatcasecmp($name($a),$name($b)),
       'buildings' => (int)$b['building_count'] <=> (int)$a['building_count'],
       default => strcmp($name($a),$name($b)),
     };
