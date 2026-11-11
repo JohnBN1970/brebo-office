@@ -380,92 +380,37 @@ jobs:
               echo "CRM_CALC_NO_ORIGIN_PROTECTION=UNEXPECTED"
               exit 1
             fi
+            echo "SECTION=CRM_CALC_WORKBENCH_POST_FIX_VERIFY"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $p=($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";
+              $s=file_get_contents($p);
+              if(!is_string($s))exit(1);
+              foreach(["ORIGIN_MISMATCH","ORIGIN_CROSS_SITE","CSRF_MISMATCH","SESSION_COOKIE","DATABASE","OfficeCalcCrmDraftLineRepository"] as $token){
+                $ok=str_contains($s,$token);
+                echo "CALC_SAVE_MARKER_".$token."=".($ok?"PRESENT":"MISSING")."\\n";
+                if(!$ok)exit(1);
+              }
+            '
+            for mode in no-origin wrong-origin; do
+              if test "$mode" = wrong-origin; then
+                printf_mode=bad
+                header='Origin: https://example.invalid'
+              else
+                printf_mode=missing
+                header='Origin:'
+              fi
+              headers=$(mktemp)
+              status=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' -H "$header" --request POST --data-urlencode 'draft_id=1' --data-urlencode 'csrf=invalid-only' 'https://brebobv.nl/office-test/calculatie' || true)
+              reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
+              rm -f "$headers"
+              echo "CALC_SAVE_TEST_${printf_mode}_HTTP=$status"
+              echo "CALC_SAVE_TEST_${printf_mode}_REASON=$reason"
+              if test "$status" != 403; then exit 1; fi
+              if test "$mode" = wrong-origin && test "$reason" != ORIGIN_MISMATCH; then exit 1; fi
+              if test "$mode" = no-origin && test "$reason" != SESSION_COOKIE; then exit 1; fi
+            done
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
           echo "No production changes, secrets disclosure, DB operations, data import, merge, or deployment"
-  workbench-fix:
-    needs: audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: JohnBN1970/brebo-office
-          ref: 7e76dc0fce46ae3a51eb03dcf7686be7fba60eb1
-          persist-credentials: false
-      - name: Validate workbench POST and canonical lines
-        run: |
-          set -euo pipefail
-          php -l office-independent/public/office-calc-crm-workbench.php
-          php office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php
-          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
-          grep -Fq 'ORIGIN_MISMATCH' office-independent/public/office-calc-crm-workbench.php
-          grep -Fq 'CSRF_MISMATCH' office-independent/public/office-calc-crm-workbench.php
-      - name: Upload only the workbench handler to private stage
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: 77.37.34.160
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 65002
-          source: "office-independent/public/office-calc-crm-workbench.php"
-          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-workbench-post-fix"
-          overwrite: true
-      - name: Guarded replacement of only Office-test workbench, backup and negative-auth smoke
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: 77.37.34.160
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 65002
-          timeout: 60s
-          script_stop: false
-          command_timeout: 5m
-          script: |
-            set -eu
-            base=/home/u213420663/domains/brebobv.nl/office_calc_test
-            config="$base/config/config.php"
-            stage="$base/.calc-workbench-post-fix"
-            test -f "$config" && test ! -L "$config" && test ! -L "$stage"
-            active=$(php -r '$c=require $argv[1]; if(($c["OFFICE_BASE_PATH"]??"")!=="/office-test" || getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")!=="enabled" || getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")!=="enabled")exit(1);echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")
-            case "$active" in "$base"/release-*/private) ;; *) echo "WORKBENCH_SCOPE=REJECTED";exit 1;; esac
-            source="$stage/office-independent/public/office-calc-crm-workbench.php"
-            target="$active/public/office-calc-crm-workbench.php"
-            test -f "$source" && test -f "$target" && test ! -L "$target"
-            php -l "$source"
-            grep -Fq 'OfficeCalcCrmDraftLineRepository' "$target"
-            grep -Fq "hash_equals" "$source"
-            if cmp -s "$source" "$target"; then
-              echo "CALC_WORKBENCH_POST_FIX=ALREADY_CURRENT"
-              exit 0
-            fi
-            backup="$stage/workbench-before-post-fix-$(date -u +%Y%m%dT%H%M%SZ).php"
-            cp -p "$target" "$backup"
-            cp -p "$source" "$stage/workbench-ready.php"
-            chmod --reference="$target" "$stage/workbench-ready.php"
-            mv "$stage/workbench-ready.php" "$target"
-            ok=0
-            trap 'if test "$ok" = 0; then cp -p "$backup" "$target";echo "CALC_WORKBENCH_POST_FIX=ROLLED_BACK";fi' EXIT
-            php -l "$target" >/dev/null
-            headers="$stage/smoke-headers"
-            code=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --request POST --data-urlencode 'draft_id=1' --data-urlencode 'csrf=test-invalid' 'https://brebobv.nl/office-test/calculatie' || true)
-            reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
-            echo "CALC_WORKBENCH_ANONYMOUS_POST_HTTP=$code"
-            echo "CALC_WORKBENCH_ANONYMOUS_POST_REASON=$reason"
-            if test "$code" != 403 || test "$reason" != SESSION_COOKIE; then
-              echo "CALC_WORKBENCH_AUTH_SMOKE=FAILED"
-              exit 1
-            fi
-            code=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --request POST --header 'Origin: https://example.invalid' --data-urlencode 'draft_id=1' --data-urlencode 'csrf=test-invalid' 'https://brebobv.nl/office-test/calculatie' || true)
-            reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
-            echo "CALC_WORKBENCH_CROSS_ORIGIN_POST_HTTP=$code"
-            echo "CALC_WORKBENCH_CROSS_ORIGIN_POST_REASON=$reason"
-            if test "$code" != 403 || test "$reason" != ORIGIN_MISMATCH; then
-              echo "CALC_WORKBENCH_CROSS_ORIGIN_SMOKE=FAILED"
-              exit 1
-            fi
-            ok=1
-            trap - EXIT
-            echo "CALC_WORKBENCH_POST_FIX=INSTALLED"
-            echo "CALC_DATABASE_CHANGES=NONE"
