@@ -4,6 +4,8 @@ on:
     paths:
       - 'office-independent/src/Finance/OfficeSupplierRecipient*.php'
       - 'office-independent/tests/OfficeSupplierRecipient*.php'
+      - 'office-independent/tests/OfficePaymentRecipientGatewayTest.php'
+      - 'web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php'
       - '.github/workflows/finance-office-recipient-regression.yml'
   workflow_dispatch:
 jobs:
@@ -24,7 +26,10 @@ jobs:
           php -l office-independent/src/Finance/OfficeSupplierRecipientResolver.php
           php -l office-independent/tests/OfficeSupplierRecipientPolicyTest.php
           php -l office-independent/tests/OfficeSupplierRecipientResolverTest.php
+          php -l office-independent/tests/OfficePaymentRecipientGatewayTest.php
+          php -l web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php
       - name: Run isolated regression fixtures (no database or external services)
         run: |
           php office-independent/tests/OfficeSupplierRecipientPolicyTest.php
           php office-independent/tests/OfficeSupplierRecipientResolverTest.php
+          php office-independent/tests/OfficePaymentRecipientGatewayTest.php
