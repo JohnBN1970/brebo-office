@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: JohnBN1970/brebo-office
-          ref: feature/native-project-gantt-portfolio-20261111
+          ref: develop
       - name: Lint and run Gantt regression
         run: |
           set -euo pipefail
