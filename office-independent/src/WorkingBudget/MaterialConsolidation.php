@@ -45,7 +45,7 @@ final class MaterialConsolidation
                 $unmatched[] = ['reason'=>'identity_incomplete', 'allocation'=>$allocation];
                 continue;
             }
-            $identity = [mb_strtoupper(trim($code), 'UTF-8'), trim($spec), trim($unit)];
+            $identity = [strtoupper(trim($code)), trim($spec), trim($unit)];
             $key = hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
             if (!isset($groups[$key])) {
                 $groups[$key] = [
