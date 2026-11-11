@@ -316,6 +316,37 @@ jobs:
               if($pos===false){echo "CRM_LINK_FUNCTION_NOT_FOUND\n";exit(1);}
               echo "CRM_LINK_FUNCTION_CONTEXT_START\n".substr($s,$pos,1250)."\nCRM_LINK_FUNCTION_CONTEXT_END\n";
             '
+            echo "SECTION=CRM_CALC_POST_DIAGNOSIS"
+            php <<'PHPDIAG'
+            <?php
+            declare(strict_types=1);
+            $config=require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+            $dsn=$config['OFFICE_INTAKE_PDO_DSN']??'';
+            if(!is_string($dsn)||!str_contains($dsn,'dbname=u213420663_office_test;'))exit(1);
+            $db=new PDO($dsn,$config['OFFICE_INTAKE_DB_USER']??'',$config['OFFICE_INTAKE_DB_PASSWORD']??'',[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false
+            ]);
+            if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')exit(1);
+            foreach(['office_crm_opportunities','office_calc_crm_drafts'] as $table) {
+              $q=$db->prepare('SELECT column_name,column_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? ORDER BY ordinal_position');
+              $q->execute([$table]);
+              echo "TABLE_SCHEMA=".$table."\n";
+              foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                if(in_array($row['column_name'],['id','revision','crm_revision','opportunity_id','created_by','project_id','title','stage','status'],true)) {
+                  echo 'COLUMN='.$row['column_name'].' TYPE='.$row['column_type'].' NULL='.$row['is_nullable'].' HAS_DEFAULT='.($row['column_default']!==null?'YES':'NO')."\n";
+                }
+              }
+            }
+            $q=$db->prepare("SELECT id,revision,stage,status FROM office_crm_opportunities WHERE title=? ORDER BY id DESC LIMIT 5");
+            $q->execute(['test']);
+            foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+              $rev=$row['revision'];
+              echo 'MATCH_TEST_OPPORTUNITY_ID='.$row['id'].' REVISION_TYPE='.($rev===null?'NULL':(ctype_digit((string)$rev)?'DIGITS':'OTHER')).' STAGE='.$row['stage'].' STATUS='.$row['status']."\n";
+              $d=$db->prepare('SELECT COUNT(*) FROM office_calc_crm_drafts WHERE opportunity_id=?');
+              $d->execute([$row['id']]);echo 'MATCH_TEST_EXISTING_DRAFTS='.$d->fetchColumn()."\n";
+            }
+            echo "CRM_CALC_POST_DIAGNOSIS=READ_ONLY\n";
+            PHPDIAG
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
