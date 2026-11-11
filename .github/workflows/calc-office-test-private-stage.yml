@@ -1,5 +1,8 @@
 name: Calc Office-test private code-only stage
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-office-test-private-stage.yml'
   push:
     branches: [audit/calc-office-test-host-access-20261111]
     paths:
