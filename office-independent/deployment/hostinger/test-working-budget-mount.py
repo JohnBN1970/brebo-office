@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix="office_calc_test_") as root:
     repo.write_text("<?php\n// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only.\n"
                     "if (OfficeMount::isTest() && getenv('OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED') === 'enabled' && is_array($financeContracts)) {\n"
                     "ProjectBudgetPanel::render($workBudgetView);\n}\n"
-                    "// Read-only Office procurement commitments: independent of invoicing and bank transactions.\n")
+                    "$financialSectionHtml .= $financeHtml;\n")
     env = dict(os.environ, OFFICE_BASE_PATH="/office-test", OFFICE_WORK_BUDGET_MOUNT="explicit")
     result = subprocess.run(["python3", str(script), str(active), str(repo)], env=env,
                             capture_output=True, text=True, check=False)
@@ -44,7 +44,7 @@ if (OfficeMount::isTest() && getenv('OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED') ===
     && is_array($financeContracts)) {
     $financeHtml .= ProjectBudgetPanel::render($workBudgetView);
 }
-// Read-only Office procurement commitments: independent of invoicing and bank transactions.
+$financialSectionHtml .= $financeHtml;
 """)
     deps = release / "src" / "WorkingBudget"
     deps.mkdir(parents=True)
