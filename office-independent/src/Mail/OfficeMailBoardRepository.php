@@ -6,14 +6,14 @@ use RuntimeException;
 
 /** Module ownership is routing metadata, not a dossier mutation. */
 final class OfficeMailBoardRepository {
-  public const MODULES = ['nieuw','crm','projecten','gebouwen','finance','documenten','inspecties'];
+  public const MODULES = ['nieuw','prive','crm','projecten','gebouwen','finance','documenten','inspecties'];
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
   public function cards(int $operatorId): array {
     if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
     $sql = "SELECT m.id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
-      COALESCE(r.module_key,'nieuw') AS module_key,
+      COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) AS module_key,
       r.suggested_module,r.suggestion_reason
       FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
       LEFT JOIN office_mail_board_routes r ON r.message_id=m.id
@@ -33,7 +33,7 @@ final class OfficeMailBoardRepository {
     }
     $this->db->beginTransaction();
     try {
-      $check=$this->db->prepare("SELECT m.id FROM office_mail_messages m
+      $check=$this->db->prepare("SELECT m.id,b.mailbox_type FROM office_mail_messages m
         JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
         WHERE m.id=:message AND b.active=1
         AND ((b.mailbox_type='functional' AND EXISTS
@@ -41,11 +41,19 @@ final class OfficeMailBoardRepository {
            AND a.operator_id=:operator AND a.can_read=1))
           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner)) FOR UPDATE");
       $check->execute([':message'=>$messageId,':operator'=>$operatorId,':owner'=>$operatorId]);
-      if (!$check->fetchColumn()) { $this->db->rollBack(); return false; }
+      $mail = $check->fetch(PDO::FETCH_ASSOC);
+      if (!$mail) { $this->db->rollBack(); return false; }
+      // A personal message cannot be silently shared by dragging it into a functional lane.
+      if ($mail['mailbox_type'] === 'personal' && $module !== 'prive') {
+        $this->db->rollBack(); return false;
+      }
+      if ($mail['mailbox_type'] === 'functional' && $module === 'prive') {
+        $this->db->rollBack(); return false;
+      }
       $previous=$this->db->prepare('SELECT module_key FROM office_mail_board_routes WHERE message_id=:id');
       $previous->execute([':id'=>$messageId]);
       $old=$previous->fetchColumn();
-      $from=$old===false?'nieuw':(string)$old;
+      $from=$old===false?($mail['mailbox_type']==='personal'?'prive':'nieuw'):(string)$old;
       if ($from!==$module) {
         $update=$this->db->prepare("INSERT INTO office_mail_board_routes
           (message_id,module_key,changed_by_operator_id,updated_at)
