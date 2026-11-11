@@ -17,23 +17,23 @@ try {
     // Names follow the existing Office-test schema inventory and remain
     // candidates until each module's repository contract is validated.
     $required = [
-        'crm' => ['office_intakes', 'office_crm_leads'],
+        'crm' => ['office_intake_requests', 'office_crm_relations'],
         'opportunity' => ['office_crm_opportunities'],
         'inspectieopdracht' => ['office_inspections', 'office_inspection_findings'],
-        'calculatie' => ['office_calculations'],
+        'calculatie' => ['office_calc_calculations', 'office_project_calculation_scopes'],
         'offerte' => ['office_offers'],
-        'contractacceptatie' => ['office_project_contracts'],
+        'contractacceptatie' => ['office_calc_crm_acceptance_transfers', 'office_project_contracts'],
         'projecten' => ['office_projects'],
         'gebouwen' => ['office_buildings', 'office_project_buildings'],
         'definitieve_inmeting' => ['office_measurements'],
         'contracten' => ['office_project_contracts', 'office_project_terms'],
-        'inkoop' => ['office_purchase_orders'],
+        'inkoop' => ['office_procurement_orders'],
         'personeel' => ['office_inzet_people', 'office_inzet_personnel_details'],
         'inzet_onsite' => ['office_inzet_shifts', 'office_onsite_device_tokens'],
-        'uitvoering' => ['office_project_milestones', 'office_project_plan_items'],
-        'finance' => ['office_finance_sales_drafts', 'office_finance_payments'],
+        'uitvoering' => ['office_project_control_milestones', 'office_project_plan_items'],
+        'finance' => ['office_finance_invoices', 'office_finance_invoice_lines'],
         'mjop' => ['office_mjop_plans'],
-        'rapportage' => ['office_project_reports'],
+        'rapportage' => ['office_inspection_report_configs', 'office_inspection_report_findings'],
     ];
     $evidence = [];
     foreach ($required as $stage => $names) {
