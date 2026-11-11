@@ -27,6 +27,14 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
     if (!session_start()) { http_response_code(503); exit('Formuliersessie niet beschikbaar.'); }
 }
 if (!isset($_SESSION['crm_create_csrf'])) $_SESSION['crm_create_csrf']=bin2hex(random_bytes(32));
+$returnOpportunity=filter_input(INPUT_GET,'opportunity_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+if ($method==='POST') $returnOpportunity=filter_input(INPUT_POST,'opportunity_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+if ($returnOpportunity>0) {
+    $stmt=$db->prepare('SELECT id FROM office_crm_opportunities WHERE id=? LIMIT 1');
+    $stmt->execute([$returnOpportunity]);
+    if (!$stmt->fetchColumn()) $returnOpportunity=0;
+}
+$returnUrl=$returnOpportunity>0?'/office-test/crm/verkoopkansen/detail?id='.$returnOpportunity:'/office-test/crm/relaties';
 $errors=[];
 $values=['relation_kind'=>'company','display_name'=>'','legal_name'=>'','chamber_of_commerce'=>'','vat_number'=>'','email'=>'','phone'=>'','street'=>'','postal_code'=>'','city'=>'','country_code'=>'NL','given_name'=>'','family_name'=>'','contact_email'=>'','contact_phone'=>'','job_title'=>''];
 $roles=['customer','prospect','supplier'];
@@ -68,7 +76,7 @@ if ($method==='POST') {
             }
             $db->commit();
             $_SESSION['crm_create_csrf']=bin2hex(random_bytes(32));
-            header('Location: /office-test/crm/relaties?created=1',true,303); exit;
+            header('Location: '.($returnOpportunity>0?$returnUrl.'&new_relation_id='.$id:'/office-test/crm/relaties?created=1'),true,303); exit;
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             $errors[]='Opslaan mislukt. Controleer de invoer of probeer later opnieuw.';
@@ -76,9 +84,9 @@ if ($method==='POST') {
     }
 }
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nieuwe relatie · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:900px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:12px 0}input,select{padding:9px;border:1px solid #b8c5d3;border-radius:6px;max-width:100%;width:100%;box-sizing:border-box}input[type=checkbox]{width:auto}button{padding:10px 18px;border:0;border-radius:6px;background:#175a91;color:white;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 18px}.error{color:#a21d22}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/relaties">← Terug naar relaties</a></p><h1>Nieuwe relatie</h1><section>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nieuwe relatie · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:900px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:12px 0}input,select{padding:9px;border:1px solid #b8c5d3;border-radius:6px;max-width:100%;width:100%;box-sizing:border-box}input[type=checkbox]{width:auto}button{padding:10px 18px;border:0;border-radius:6px;background:#175a91;color:white;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 18px}.error{color:#a21d22}a{color:#175a91}</style></head><body><main><p><a href="'.$h($returnUrl).'">← Terug</a></p><h1>Nieuwe relatie</h1><section>';
 foreach ($errors as $error) echo '<p class="error">'.$h($error).'</p>';
-echo '<form method="post" action="/office-test/crm/relaties/nieuw"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_create_csrf']).'"><div class="grid">';
+echo '<form method="post" action="/office-test/crm/relaties/nieuw"><input type="hidden" name="opportunity_id" value="'.(int)$returnOpportunity.'"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_create_csrf']).'"><div class="grid">';
 $fields=['display_name'=>'Relatienaam *','legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 echo '<label>Type<select name="relation_kind">';
 foreach (['company'=>'Bedrijf / organisatie','person'=>'Persoon'] as $key=>$label) echo '<option value="'.$key.'"'.($values['relation_kind']===$key?' selected':'').'>'.$label.'</option>';
