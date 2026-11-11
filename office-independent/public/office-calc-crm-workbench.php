@@ -57,7 +57,7 @@ try {
         if (!is_int($quantity)||!is_int($cost)) $deny(400);
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights);
-        header('Location: /office-test/calc/crm/werkbank?draft_id='.$draft,true,303);exit;
+        header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
 } catch (DomainException) { $deny(403); }
@@ -71,4 +71,4 @@ foreach($lines as $line) {
     $subtotal=(int)$line['quantity']*(int)$line['unit_cost_cents'];$total+=$subtotal;
     echo '<tr><td>'.$h((string)$line['line_id']).'</td><td>'.$h((string)$line['description']).'</td><td>'.$h((string)$line['cost_type']).'</td><td>'.(int)$line['quantity'].'</td><td>'.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td>'.number_format($subtotal/100,2,',','.').'</td></tr>';
 }
-echo '</table><p><strong>Totaal: € '.number_format($total/100,2,',','.').'</strong></p><h2>Calculatieregel toevoegen of wijzigen</h2><form method="post" action="/office-test/calc/crm/werkbank"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><label>Regel-ID (bestaande ID om te wijzigen) <input name="line_id" maxlength="64"></label><label>Omschrijving <input name="description" maxlength="500" required></label><label>Type <select name="cost_type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></label><label>Aantal <input type="number" min="1" name="quantity" required></label><label>Prijs per eenheid (centen) <input type="number" min="0" name="unit_cost_cents" required></label><button type="submit">Regel opslaan</button></form></html>';
+echo '</table><p><strong>Totaal: € '.number_format($total/100,2,',','.').'</strong></p><h2>Calculatieregel toevoegen of wijzigen</h2><form method="post" action="/office-test/calculatie"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><label>Regel-ID (bestaande ID om te wijzigen) <input name="line_id" maxlength="64"></label><label>Omschrijving <input name="description" maxlength="500" required></label><label>Type <select name="cost_type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></label><label>Aantal <input type="number" min="1" name="quantity" required></label><label>Prijs per eenheid (centen) <input type="number" min="0" name="unit_cost_cents" required></label><button type="submit">Regel opslaan</button></form></html>';
