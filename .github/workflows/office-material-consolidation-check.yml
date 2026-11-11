@@ -11,6 +11,8 @@ on:
       - 'office-independent/src/WorkingBudget/PurchaseReceiptService.php'
       - 'office-independent/src/WorkingBudget/PurchaseOrderService.php'
       - 'office-independent/src/WorkingBudget/PurchaseOrderIssueService.php'
+      - 'office-independent/src/WorkingBudget/MaterialProcurementPanel.php'
+      - 'office-independent/tests/MaterialProcurementPanelTest.php'
       - 'office-independent/deployment/hostinger/sql/office-work-budget-procurement.sql'
       - 'office-independent/tests/MaterialConsolidationTest.php'
       - '.github/workflows/office-material-consolidation-check.yml'
@@ -33,10 +35,13 @@ jobs:
           php -l office-independent/src/WorkingBudget/PurchaseReceiptService.php
           php -l office-independent/src/WorkingBudget/PurchaseOrderService.php
           php -l office-independent/src/WorkingBudget/PurchaseOrderIssueService.php
+          php -l office-independent/src/WorkingBudget/MaterialProcurementPanel.php
+          php -l office-independent/tests/MaterialProcurementPanelTest.php
       - name: Material consolidation regression tests
         run: |
           php office-independent/tests/MaterialConsolidationTest.php
           php office-independent/tests/MaterialProcurementProjectionTest.php
+          php office-independent/tests/MaterialProcurementPanelTest.php
       - name: Verify additive migration only
         run: |
           set -euo pipefail
