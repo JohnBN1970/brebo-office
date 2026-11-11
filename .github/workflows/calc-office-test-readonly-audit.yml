@@ -297,6 +297,18 @@ jobs:
             '
             ht=/home/u213420663/domains/brebobv.nl/public_html/office-test/.htaccess
             if grep -Fq 'RewriteRule ^calculatie(?:/start)?/?$ index.php [END,QSA]' "$ht"; then echo "NATIVE_CALC_REWRITE_RULE=PRESENT"; else echo "NATIVE_CALC_REWRITE_RULE=ABSENT"; fi
+            echo "SECTION=CRM_FUNNEL_ACTION_INSERTION_CONTEXT"
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $file=($cfg["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";
+              $source=file_get_contents($file);
+              if(!is_string($source)) exit(1);
+              $pos=strpos($source,"private static function card");
+              if($pos===false) exit(1);
+              echo "CRM_CARD_FUNCTION_CONTEXT_START\n";
+              echo substr($source,$pos,1600);
+              echo "\nCRM_CARD_FUNCTION_CONTEXT_END\n";
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
