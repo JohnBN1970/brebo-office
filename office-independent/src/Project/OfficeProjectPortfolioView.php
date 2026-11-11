@@ -24,7 +24,7 @@ final class OfficeProjectPortfolioView
             'Totale opdrachtwaarde' => isset($totals['contract_value_cents']) && is_int($totals['contract_value_cents']) ? '€ ' . number_format($totals['contract_value_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Werkelijke kosten' => 'Niet beschikbaar',
-            'Geplande uren (deze week)' => isset($totals['planned_week_seconds']) && is_int($totals['planned_week_seconds']) && $totals['planned_week_seconds'] >= 0 ? number_format($totals['planned_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
+            'Geplande uren (geselecteerde week)' => isset($totals['planned_week_seconds']) && is_int($totals['planned_week_seconds']) && $totals['planned_week_seconds'] >= 0 ? number_format($totals['planned_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
             'Geregistreerde uren' => 'Niet beschikbaar',
             'Gefactureerd' => 'Niet beschikbaar',
         ] as $label => $value) {
@@ -38,7 +38,7 @@ final class OfficeProjectPortfolioView
         $contractCoverage = isset($totals['contract_covered'], $totals['contract_total'])
             ? ' Geaccepteerde contracten: ' . max(0, (int)$totals['contract_covered']) . ' van ' . max(0, (int)$totals['contract_total']) . ' projecten.'
             : ' Dekking van contractwaarden is niet beschikbaar.';
-        $html .= '<p class="office-portfolio-total-scope">Geplande uren gelden voor de huidige ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten; geen geboekte uren. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
+        $html .= '</div><p class="office-portfolio-total-scope">Geplande uren gelden voor de geselecteerde ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten; geen geboekte uren. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
             . $escape($coverage . $contractCoverage) . '</p>';
         if (isset($totals['planned_week_label']) && preg_match('/^(\\d{4})-W(\\d{2})$/D', (string)$totals['planned_week_label'], $weekMatch)) {
             $weekDate = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels')))
@@ -70,7 +70,7 @@ final class OfficeProjectPortfolioView
                 $attentionProjects[] = ['project' => $project, 'light' => $light];
             }
         }
-        $html .= '</div><section class="office-portfolio-attention" aria-label="Projectaandacht">'
+        $html .= '<section class="office-portfolio-attention" aria-label="Projectaandacht">'
             . '<h2>Projecten die aandacht vragen</h2>'
             . '<p>Signalen uit vastgelegde projectstatus en beschikbare planningsregels. Geen beoordeling van financiën of kwaliteit.</p>'
             . '<div class="office-portfolio-attention-counts">'
@@ -101,7 +101,7 @@ final class OfficeProjectPortfolioView
                 . ' toegankelijke projecten. Financiële totalen gebruiken alle toegankelijke projecten.</p>';
         }
         $html .= '</section>';
-        $html .= '<p class="office-portfolio-kpi-explanation">Projectaantallen: ' . (int) $summary['projects'] . ' projecten, ' . (int) $summary['active'] . ' in uitvoering, ' . (int) $summary['preparation'] . ' in voorbereiding en ' . (int) $summary['buildings'] . ' gebouwkoppelingen. Bedrag- en urentotalen volgen na broncontrole.</p><h2>Projectenlijst</h2>'
+        $html .= '<p class="office-portfolio-kpi-explanation">Projectaantallen: ' . (int) $summary['projects'] . ' projecten, ' . (int) $summary['active'] . ' in uitvoering, ' . (int) $summary['preparation'] . ' in voorbereiding en ' . (int) $summary['buildings'] . ' gebouwkoppelingen. Overige bedrag- en urentotalen volgen na broncontrole.</p><h2>Projectenlijst</h2>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
             . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Planning / aandacht</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
