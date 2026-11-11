@@ -1,0 +1,101 @@
+name: Activate Office-test work budget
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ENABLE-WORK-BUDGET-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  activate:
+    if: ${{ inputs.confirmation == 'ENABLE-WORK-BUDGET-TEST' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Activate flag in isolated test config with backup
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -o ConnectionAttempts=2 -i "$HOME/.ssh/id_deploy" -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$root/config/config.php"
+          base="$root/release-office-test-contractform-20261030/private"
+          target="$base/public/office-project.php"
+          test -f "$config" && test ! -L "$config"
+          test -f "$target" && test ! -L "$target"
+          test -f "$target.pre-working-budget.bak"
+          grep -Fq 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' "$target"
+          test -f "$base/src/WorkingBudget/ProjectBudgetPanel.php"
+          test -f "$base/src/WorkingBudget/ProjectBudgetReadModel.php"
+          php -l "$config" >/dev/null
+          php -l "$target" >/dev/null
+          export OFFICE_WORK_BUDGET_TEST_CONFIG="$config"
+          php <<'PHP'
+          <?php
+          $path = getenv('OFFICE_WORK_BUDGET_TEST_CONFIG');
+          $real = realpath($path);
+          if (!$real || !str_ends_with($real, '/office_calc_test/config/config.php')) {
+              fwrite(STDERR, "WORK_BUDGET_CONFIG_SCOPE_DENIED\n"); exit(20);
+          }
+          $original = file_get_contents($real);
+          if ($original === false || strlen($original) > 200000) exit(21);
+          // Reject executable or dynamically constructed configuration: no silent semantic rewrite.
+          if (preg_match('/\b(getenv|include|require|eval|file_get_contents|parse_ini_file)\s*\(/i', $original)) {
+              fwrite(STDERR, "WORK_BUDGET_CONFIG_DYNAMIC_MANUAL_REVIEW\n"); exit(22);
+          }
+          $config = require $real;
+          if (!is_array($config)) exit(23);
+          foreach ($config as $key => $value) {
+              if (!is_string($key) || !is_string($value)) exit(24);
+          }
+          if (($config['OFFICE_BASE_PATH'] ?? null) !== '/office-test') exit(25);
+          if (($config['OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED'] ?? null) === 'enabled') {
+              echo "WORK_BUDGET_TEST_FLAG_ALREADY_ENABLED\n"; exit(0);
+          }
+          $config['OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED'] = 'enabled';
+          $new = "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n";
+          $backup = $real . '.pre-work-budget-flag.bak';
+          if (file_exists($backup)) exit(26);
+          if (file_put_contents($backup, $original, LOCK_EX) !== strlen($original)) exit(27);
+          chmod($backup, 0600);
+          $temp = tempnam(dirname($real), '.work-budget-config-');
+          if ($temp === false) exit(28);
+          try {
+              if (file_put_contents($temp, $new, LOCK_EX) !== strlen($new)) exit(29);
+              chmod($temp, fileperms($real) & 0777);
+              if (!rename($temp, $real)) exit(30);
+              $reloaded = require $real;
+              if (!is_array($reloaded) || ($reloaded['OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED'] ?? null) !== 'enabled') {
+                  copy($backup, $real);
+                  exit(31);
+              }
+              foreach ($config as $key => $value) {
+                  if (!array_key_exists($key, $reloaded) || $reloaded[$key] !== $value) {
+                      copy($backup, $real);
+                      exit(32);
+                  }
+              }
+              echo "WORK_BUDGET_TEST_FLAG_ENABLED_BACKUP_VERIFIED\n";
+          } finally {
+              if (file_exists($temp)) unlink($temp);
+          }
+          PHP
+          php -l "$config" >/dev/null
+          echo WORK_BUDGET_TEST_CONFIG_SYNTAX_OK
+          REMOTE
