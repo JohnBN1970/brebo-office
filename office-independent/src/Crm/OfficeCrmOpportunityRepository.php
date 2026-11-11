@@ -18,6 +18,8 @@ final class OfficeCrmOpportunityRepository {
         return (int)$this->db->lastInsertId();
     }
     public function transition(int $id,string $from,string $to): bool {
+        // Contract acceptance must use OfficeCommercialAcceptanceRepository, never a bare stage update.
+        if ($to==='won') return false;
         if ($id<1 || !OfficeCrmFunnel::canTransition($from,$to)) return false;
         $stmt=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status=? WHERE id=? AND stage=? AND status='open'");
         $stmt->execute([$to,in_array($to,['won','lost'],true)?'closed':'open',$id,$from]);
