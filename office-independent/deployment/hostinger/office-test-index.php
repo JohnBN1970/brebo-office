@@ -118,6 +118,10 @@ if ($path === '/office-test/calc/crm/open') {
   exit;
 }
 // Single Office-test website, no redirect to the legacy Calc origin.
+if ($path === '/office-test/calculatie/start') {
+  require $private . '/public/office-calc-crm-start.php';
+  exit;
+}
 if ($path === '/office-test/calculatie' || $path === '/office-test/calc/crm/werkbank') {
   require $private . '/public/office-calc-crm-workbench.php';
   exit;
