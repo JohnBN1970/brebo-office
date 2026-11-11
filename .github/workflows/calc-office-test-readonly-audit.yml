@@ -361,20 +361,9 @@ jobs:
             echo "CALC_ACTIVATE_CONFIG_CANDIDATE=CREATED\n";
             PATCH
             php -l "$stage/config-candidate.php"
-            php -r '
-              $c=require $argv[1];
-              echo "CALC_ACTIVATE_CANDIDATE_RETURNS_ARRAY=".(is_array($c)?"YES":"NO")."\\n";
-              echo "CALC_ACTIVATE_CANDIDATE_OFFICE_TEST=".(($c["OFFICE_BASE_PATH"]??"")==="/office-test"?"YES":"NO")."\\n";
-              echo "CALC_ACTIVATE_CANDIDATE_DRAFT_FLAG=".(getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")==="enabled"?"ENABLED":"NOT_ENABLED")."\\n";
-              echo "CALC_ACTIVATE_CANDIDATE_SCHEMA_FLAG=".(getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")==="enabled"?"ENABLED":"NOT_ENABLED")."\\n";
-            ' "$stage/config-candidate.php"
-            php -r '
-              $c=require $argv[1];
-              if(!is_array($c)||($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
-                || getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")!=="enabled"
-                || getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")!=="enabled") exit(1);
-              echo "CALC_ACTIVATE_CANDIDATE=VERIFIED\n";
-            ' "$stage/config-candidate.php"
+            grep -Fq "putenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED=enabled')" "$stage/config-candidate.php"
+            grep -Fq "putenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED=enabled')" "$stage/config-candidate.php"
+            echo "CALC_ACTIVATE_CANDIDATE_SYNTAX=PASS"
             backup="$stage/config-before-native-calc-$(date -u +%Y%m%dT%H%M%SZ).php"
             cp -p "$config" "$backup"
             cp -p "$stage/config-candidate.php" "$stage/config-ready.php"
@@ -383,6 +372,14 @@ jobs:
             ok=0
             trap 'if test "$ok" = 0; then cp -p "$backup" "$config"; echo "CALC_ACTIVATE=ROLLED_BACK"; fi' EXIT
             php -l "$config" >/dev/null
+            php -r '
+              $c=require $argv[1];
+              if(!is_array($c)||($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
+                || getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")!=="enabled"
+                || getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")!=="enabled") exit(1);
+              echo "CALC_ACTIVATE_CANONICAL_CONFIG=VERIFIED\\n";
+            ' "$config"
+
             workbench=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' "https://brebobv.nl/office-test/calculatie?draft_id=1" || true)
             start=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' "https://brebobv.nl/office-test/calculatie/start?opportunity_id=1" || true)
             echo "CALC_ACTIVATE_ANONYMOUS_WORKBENCH_HTTP=$workbench"
