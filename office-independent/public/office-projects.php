@@ -649,12 +649,16 @@ if ($kanbanView) {
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioView.php';
   $portfolioTotals = [];
   try {
-    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioTotals.php';
-    $budget = \\Brebo\\Office\\Project\\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
-    $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
+    require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
+    $financeAccess = new \\Brebo\\Office\\Finance\\OfficeFinanceAccess($db, (string)$operator->operatorId);
+    if ($financeAccess->allows('read')) {
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioTotals.php';
+      $budget = \\Brebo\\Office\\Project\\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
+      $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
+    }
   } catch (\\Throwable $exception) {
-    // Missing or unverified budget data is not zero.
-    $portfolioTotals['procurement_budget_cents'] = null;
+    // Missing permissions or unverified budget data must never become zero.
+    $portfolioTotals = [];
   }
   echo \\Brebo\\Office\\Project\\OfficeProjectPortfolioView::render($projects, $base, $portfolioTotals);
 } elseif ($projects === []) {
