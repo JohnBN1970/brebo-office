@@ -9,6 +9,7 @@ on:
       - 'office-independent/src/Project/OfficeProjectPortfolioTotals.php'
       - 'office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php'
       - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
+      - 'office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php'
       - 'office-independent/src/Project/OfficeProjectPageStructure.php'
       - 'office-independent/src/Project/OfficeProjectTrafficLight.php'
       - 'office-independent/tests/OfficeProjectPortfolioAttentionTest.php'
@@ -30,8 +31,10 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectPortfolioView.php
           php -l office-independent/src/Project/OfficeProjectPortfolioTotals.php
           php -l office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php
+          php -l office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php -l office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php -l office-independent/src/Project/OfficeProjectTrafficLight.php
           php -l office-independent/tests/OfficeProjectPortfolioAttentionTest.php
           php office-independent/tests/OfficeProjectPortfolioAttentionTest.php
           php office-independent/tests/OfficeProjectPortfolioTotalsTest.php
+          php office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
