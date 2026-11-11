@@ -25,7 +25,7 @@ final class OfficeProjectPortfolioView
             'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Werkelijke kosten' => 'Niet beschikbaar',
             'Geplande uren (geselecteerde week)' => isset($totals['planned_week_seconds']) && is_int($totals['planned_week_seconds']) && $totals['planned_week_seconds'] >= 0 ? number_format($totals['planned_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
-            'Geregistreerde uren' => 'Niet beschikbaar',
+            'Goedgekeurde uren (geselecteerde week)' => isset($totals['approved_week_seconds']) && is_int($totals['approved_week_seconds']) && $totals['approved_week_seconds'] >= 0 ? number_format($totals['approved_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
             'Gefactureerd' => 'Niet beschikbaar',
         ] as $label => $value) {
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
@@ -38,7 +38,7 @@ final class OfficeProjectPortfolioView
         $contractCoverage = isset($totals['contract_covered'], $totals['contract_total'])
             ? ' Geaccepteerde contracten: ' . max(0, (int)$totals['contract_covered']) . ' van ' . max(0, (int)$totals['contract_total']) . ' projecten.'
             : ' Dekking van contractwaarden is niet beschikbaar.';
-        $html .= '</div><p class="office-portfolio-total-scope">Geplande uren gelden voor de geselecteerde ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten; geen geboekte uren. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
+        $html .= '</div><p class="office-portfolio-total-scope">Geplande uren gelden voor de geselecteerde ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten. Goedgekeurde uren komen uitsluitend uit het afzonderlijke goedkeuringsregister; ontbrekende registraties zijn niet nul. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
             . $escape($coverage . $contractCoverage) . '</p>';
         if (isset($totals['planned_week_label']) && preg_match('/^(\\d{4})-W(\\d{2})$/D', (string)$totals['planned_week_label'], $weekMatch)) {
             $weekDate = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels')))
