@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
 use Brebo\Mail\Domain\NormalizedMailMessage;
 use Brebo\Mail\Service\PersonalMailPushService;
