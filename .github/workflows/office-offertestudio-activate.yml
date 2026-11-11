@@ -1,0 +1,63 @@
+name: Office-test Offertestudio activate draft saving
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ACTIVATE-OFFERTSTUDIO-DRAFTS to enable editor; blank for safe audit only
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: office-test-offertestudio-activation
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          persist-credentials: false
+      - name: Validate activation PHP
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/activate-offertestudio-office-test.php
+      - name: Audit schema and activate flags when confirmed
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation_activation
+          chmod 600 ~/.ssh/id_quotation_activation
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.quotation-activation-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation_activation -p "$PORT" "$remote" "mkdir -p \"\$HOME/$stage\""
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation_activation -P "$PORT" office-independent/deployment/hostinger/activate-offertestudio-office-test.php "$remote:$stage/activate.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation_activation -p "$PORT" "$remote" "STAGE=$stage CONFIRM=$CONFIRM GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          file="$HOME/$STAGE/activate.php"
+          test -f "$file"
+          if [ "$CONFIRM" = "ACTIVATE-OFFERTSTUDIO-DRAFTS" ]; then
+            php "$file" --activate
+            config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+            backup="$config.backup-offertestudio-$GITHUB_RUN_ID"
+            status="$(curl -ksS --max-time 15 -o /dev/null -w '%{http_code}' https://brebobv.nl/office-test/crm/offertes)"
+            echo "OFFERTSTUDIO_HTTP=$status"
+            if [ "$status" != 302 ]; then
+              if test -f "$backup"; then cp -p "$backup" "$config"; echo OFFERTSTUDIO_CONFIG_ROLLED_BACK; fi
+              exit 41
+            fi
+            echo OFFERTSTUDIO_ACTIVATION_VERIFIED
+          else
+            php "$file" --audit
+          fi
+          rm -rf "$HOME/$STAGE"
+          REMOTE
