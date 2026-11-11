@@ -35,4 +35,15 @@ check(!Policy::canRelease(true, false, true, 3, 4, false), 'Red controller accep
 check(!Policy::canRelease(true, true, true, 3, 3, true), 'Four-eyes violation accepted');
 check(Policy::canRelease(true, true, true, 3, 3, false), 'Optional four-eyes rejected');
 check(Policy::canRelease(true, true, true, 3, 4, true), 'Valid second approver rejected');
+check(blocked(array_replace($account, ['verified_at'=>2001])), 'Future verification accepted');
+check(blocked(array_replace($account, ['verified_by'=>0])), 'Missing verifier accepted');
+check(blocked(array_replace($account, ['relation_id'=>0])), 'Missing supplier accepted');
+check(blocked(array_replace($account, ['verification_evidence_id'=>''])), 'Empty evidence accepted');
+check(blocked(array_replace($account, ['changed_at'=>1000 + 1])), 'Post-verification change accepted');
+$changedEvidence = Policy::verifiedSnapshot(array_replace($account, ['verification_evidence_id'=>'evidence-2']), 17, 2000);
+check($first['recipient_hash'] !== $changedEvidence['recipient_hash'], 'Changed verification evidence did not invalidate snapshot');
+$changedVerifier = Policy::verifiedSnapshot(array_replace($account, ['verified_by'=>9]), 17, 2000);
+check($first['recipient_hash'] !== $changedVerifier['recipient_hash'], 'Changed verifier did not invalidate snapshot');
+check(!Policy::canRelease(true, true, true, 0, 4, false), 'Missing preparer accepted');
+check(!Policy::canRelease(true, true, true, 3, 0, false), 'Missing releaser accepted');
 echo "OfficeSupplierRecipientPolicy regression checks passed\n";
