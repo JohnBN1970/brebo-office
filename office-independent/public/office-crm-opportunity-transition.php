@@ -49,8 +49,8 @@ if ($method==='POST') {
         http_response_code(409);
         $error='Akkoord registreren vereist eerst een controleerbaar opdrachtacceptatierecord. Deze overgang is nog niet vrijgegeven.';
     } else try {
-        \\Brebo\\Office\\Workflow\\OfficeCrmWorkflowBridge::mappedState((string)$item['stage']);
-        \\Brebo\\Office\\Workflow\\OfficeCrmWorkflowBridge::mappedState($to);
+        \Brebo\Office\Workflow\OfficeCrmWorkflowBridge::mappedState((string)$item['stage']);
+        \Brebo\Office\Workflow\OfficeCrmWorkflowBridge::mappedState($to);
         $ok=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
         if (!$ok) { http_response_code(409); exit('De verkoopkans is intussen gewijzigd. Vernieuw de pagina.'); }
         $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
