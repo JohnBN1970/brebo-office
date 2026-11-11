@@ -12,12 +12,12 @@ with tempfile.TemporaryDirectory(prefix="office_calc_test_") as root:
     root_path = pathlib.Path(root)
     active = root_path / "release-test" / "private" / "public" / "office-project.php"
     active.parent.mkdir(parents=True)
-    active.write_text("<?php\nOfficeNativeProjectAccess($db))->canRead\nis_array($financeContracts)\n$financialSectionHtml .= $financeHtml;\n")
+    active.write_text("<?php\nOfficeNativeProjectAccess($db))->canRead\nis_array($financeContracts)\n// Read-only Office procurement commitments: independent of invoicing and bank transactions.\n")
     repo = root_path / "repo-project.php"
     repo.write_text("<?php\n// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only.\n"
                     "if (OfficeMount::isTest() && getenv('OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED') === 'enabled' && is_array($financeContracts)) {\n"
                     "ProjectBudgetPanel::render($workBudgetView);\n}\n"
-                    "$financialSectionHtml .= $financeHtml;\n")
+                    "// Read-only Office procurement commitments: independent of invoicing and bank transactions.\n")
     env = dict(os.environ, OFFICE_BASE_PATH="/office-test", OFFICE_WORK_BUDGET_MOUNT="explicit")
     result = subprocess.run(["python3", str(script), str(active), str(repo)], env=env,
                             capture_output=True, text=True, check=False)
@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as root:
     active.write_text("""<?php
 // OfficeNativeProjectAccess($db))->canRead
 // is_array($financeContracts)
-$financialSectionHtml .= $financeHtml;
+// Read-only Office procurement commitments: independent of invoicing and bank transactions.
 """)
     original = active.read_bytes()
     source = pathlib.Path(root) / "source.php"
@@ -44,7 +44,7 @@ if (OfficeMount::isTest() && getenv('OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED') ===
     && is_array($financeContracts)) {
     $financeHtml .= ProjectBudgetPanel::render($workBudgetView);
 }
-$financialSectionHtml .= $financeHtml;
+// Read-only Office procurement commitments: independent of invoicing and bank transactions.
 """)
     deps = release / "src" / "WorkingBudget"
     deps.mkdir(parents=True)
