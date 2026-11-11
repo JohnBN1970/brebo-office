@@ -41,6 +41,7 @@ final class ProjectBudgetPanel
             if (!is_scalar($source) || !is_scalar($state)) throw new InvalidArgumentException('Invalid source state.');
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
+        $html .= '</dl>';
         $labor = $view['labor_evidence'] ?? null;
         if ($labor !== null) {
             if (!is_array($labor) || !in_array($labor['state'] ?? null,
@@ -67,7 +68,7 @@ final class ProjectBudgetPanel
                 $html .= '<p>Voorlopige registratie; niet goedgekeurd of als arbeidskosten geboekt.</p>';
             }
         }
-        $html .= '</dl><h3>Begrotingsregels</h3>';
+        $html .= '<h3>Begrotingsregels</h3>';
         $lines = $view['cost_lines'] ?? [];
         if (!is_array($lines)) throw new InvalidArgumentException('Invalid budget lines.');
         if ($lines === []) {
