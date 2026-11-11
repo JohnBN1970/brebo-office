@@ -42,6 +42,6 @@ jobs:
           echo "DOCUMENT_REWRITE_LINES"
           grep -nE '^RewriteRule[[:space:]]+\\^documenten' "$htaccess" | cut -c1-210 || true
           echo "DOCUMENT_RELATED_SERVER_BACKUPS"
-          find "$site" -maxdepth 1 -type f \\( -name 'index.php.documents-new-backup-*' -o -name '.htaccess.documents-new-backup-*' -o -name 'index.php.documents-new-*' -o -name '.htaccess.documents-new-*' \\) -printf '%f\n' | sort | tail -n 20
+          find "$site" -maxdepth 1 -type f \( -name 'index.php.documents-new-backup-*' -o -name '.htaccess.documents-new-backup-*' -o -name 'index.php.documents-new-*' -o -name '.htaccess.documents-new-*' \) -printf '%f\n' | sort | tail -n 20
           echo "DOCUMENTS_ROUTER_READONLY_DIAGNOSTICS_COMPLETE"
           REMOTE
