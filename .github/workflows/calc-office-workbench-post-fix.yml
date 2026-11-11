@@ -11,9 +11,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: JohnBN1970/brebo-office
-          ref: 7e76dc0fce46ae3a51eb03dcf7686be7fba60eb1
+          ref: a481e83ee71c48889a17c328b31f1ae2c3c09477
           persist-credentials: false
-      - name: Validate workbench POST and canonical lines
+      - name: Validate euro-input workbench and canonical lines
         run: |
           set -euo pipefail
           php -l office-independent/public/office-calc-crm-workbench.php
@@ -21,6 +21,8 @@ jobs:
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
           grep -Fq 'ORIGIN_MISMATCH' office-independent/public/office-calc-crm-workbench.php
           grep -Fq 'CSRF_MISMATCH' office-independent/public/office-calc-crm-workbench.php
+          grep -Fq 'unit_price_eur' office-independent/public/office-calc-crm-workbench.php
+          grep -Fq 'Wijzigingen opslaan' office-independent/public/office-calc-crm-workbench.php
       - name: Upload only the workbench handler to private stage
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -86,5 +88,5 @@ jobs:
             fi
             ok=1
             trap - EXIT
-            echo "CALC_WORKBENCH_POST_FIX=INSTALLED"
+            echo "CALC_EURO_INPUT_AND_EDIT_UI=INSTALLED"
             echo "CALC_DATABASE_CHANGES=NONE"
