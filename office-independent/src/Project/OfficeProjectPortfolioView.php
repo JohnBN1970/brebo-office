@@ -28,6 +28,7 @@ final class OfficeProjectPortfolioView
                 . '</small><strong>' . (int) $value . '</strong></article>';
         }
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
+        $closed = 0;
         $withPlanning = 0;
         $attentionProjects = [];
         foreach ($projects as $project) {
@@ -37,7 +38,11 @@ final class OfficeProjectPortfolioView
             $light = OfficeProjectTrafficLight::assess($project);
             $color = (string)($light['color'] ?? 'gray');
             if (!array_key_exists($color, $assessed)) $color = 'gray';
-            ++$assessed[$color];
+            if ($color === 'gray' && ($light['label'] ?? '') === 'Afgesloten') {
+                ++$closed;
+            } else {
+                ++$assessed[$color];
+            }
             if (in_array($color, ['red', 'orange'], true)) {
                 $attentionProjects[] = ['project' => $project, 'light' => $light];
             }
@@ -48,7 +53,9 @@ final class OfficeProjectPortfolioView
             . '<div class="office-portfolio-attention-counts">'
             . '<span><strong>' . $assessed['red'] . '</strong> Kritiek</span>'
             . '<span><strong>' . $assessed['orange'] . '</strong> Aandacht</span>'
-            . '<span><strong>' . $assessed['gray'] . '</strong> Onbekend / afgesloten</span>'
+            . '<span><strong>' . $assessed['green'] . '</strong> Op schema (planning)</span>'
+            . '<span><strong>' . $assessed['gray'] . '</strong> Onbekend</span>'
+            . '<span><strong>' . $closed . '</strong> Afgesloten</span>'
             . '<span><strong>' . $withPlanning . '</strong> Met planningsregels</span></div>';
         if ($attentionProjects === []) {
             $html .= '<p>Geen geregistreerde kritieke of wachtende planningssignalen in deze selectie. Dit is geen garantie dat alle projecten op schema liggen.</p>';
