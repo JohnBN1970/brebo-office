@@ -48,7 +48,11 @@ final class OfficeProjectPortfolioView
             $html .= '<nav aria-label="Planning weekselectie" class="office-portfolio-week-navigation">'
                 . '<a href="' . $escape($weekLink($weekDate->modify('-7 days'))) . '">Vorige week</a> '
                 . '<strong>' . $escape($totals['planned_week_label']) . '</strong> '
-                . '<a href="' . $escape($weekLink($weekDate->modify('+7 days'))) . '">Volgende week</a></nav>';
+                . '<a href="' . $escape($weekLink($weekDate->modify('+7 days'))) . '">Volgende week</a>'
+                . '<form method="get" action="' . $escape(rtrim($basePath, '/') . '/projecten') . '">'
+                . '<label for="portfolio-week">Kies week</label> '
+                . '<input id="portfolio-week" type="week" name="week" required value="' . $escape($totals['planned_week_label']) . '"> '
+                . '<button type="submit">Tonen</button></form></nav>';
         }
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
