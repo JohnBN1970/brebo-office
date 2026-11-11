@@ -1,0 +1,60 @@
+name: Office-test Gantt interface deployment preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type GANTT-UI-AUDIT
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  audit:
+    if: ${{ inputs.confirmation == 'GANTT-UI-AUDIT' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: JohnBN1970/brebo-office
+          ref: feature/native-project-gantt-portfolio-20261111
+      - name: Lint and run Gantt regression
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/src/Project/OfficeProjectPlanReader.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioGantt.php
+          php office-independent/tests/test_project_portfolio_gantt.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Audit current active Office-test project route without changes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          target="$base/public/office-projects.php"
+          test -f "$target" && test ! -L "$target" || { echo ACTIVE_GANTT_TARGET_MISSING; exit 21; }
+          php -l "$target"
+          grep -Fq 'office_project_memberships' "$target" || { echo ACL_MARKER_MISSING; exit 22; }
+          grep -Fq 'view=inzet' "$target" || { echo INZET_MARKER_MISSING; exit 23; }
+          sha256sum "$target"
+          if grep -Fq 'OfficeProjectPortfolioGantt' "$target"; then echo GANTT_ACTIVE_PRESENT; else echo GANTT_ACTIVE_MISSING; fi
+          for name in OfficeProjectPortfolioGantt OfficeProjectPlanReader; do
+            file="$base/src/Project/$name.php"
+            if test -f "$file"; then php -l "$file"; echo "$name PRESENT"; else echo "$name MISSING"; fi
+          done
+          REMOTE
