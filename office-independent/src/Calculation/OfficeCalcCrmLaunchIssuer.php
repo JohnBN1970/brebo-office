@@ -56,7 +56,7 @@ final class OfficeCalcCrmLaunchIssuer
             );
             if ($identity===null) return null;
             $reference=(new OfficeCalcCrmLaunchGrantRepository($this->db))->issue(
-                $identity['session_id'],$identity['actor_id'],$identity['draft_id'],$now
+                $identity['session_id'],$identity['actor_id'],$identity['draft_id'],$now,28800
             );
             $token=OfficeCalcCrmSignedLaunch::issue(
                 $identity['draft_id'],$identity['actor_id'],$reference,$sharedSecret,$now
