@@ -43,6 +43,18 @@ final class OfficeApprovedHoursBooking
             || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $entry['approved_at'])) {
             throw new \InvalidArgumentException('Invalid approval evidence');
         }
+        $authority = $this->db->prepare("SELECT 1
+            FROM office_project_memberships m
+            INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+            WHERE m.project_id = :project_id AND m.operator_id = :reviewer
+              AND m.permission = 'manage' AND a.active = 1 LIMIT 1");
+        $authority->execute([
+            ':project_id' => $entry['project_id'],
+            ':reviewer' => $entry['approved_by'],
+        ]);
+        if ($authority->fetchColumn() === false) {
+            throw new \\DomainException('Reviewer is not authorized to approve hours for this project');
+        }
         // A source identifier is unique: retries cannot double-book approved hours.
         $stmt = $this->db->prepare('INSERT INTO office_inzet_approved_hours
             (project_id,person_id,work_date,approved_seconds,source_kind,source_reference,
