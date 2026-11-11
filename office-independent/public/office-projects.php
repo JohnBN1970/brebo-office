@@ -684,6 +684,15 @@ if ($kanbanView) {
           $db, (string)$operator->operatorId, $year, $week
         );
         $portfolioTotals['planned_week_label'] = sprintf('%04d-W%02d', $year, $week);
+        try {
+          require_once dirname(__DIR__) . '/src/Inzet/OfficeApprovedHoursWeekRepository.php';
+          $approved = new \Brebo\Office\Inzet\OfficeApprovedHoursWeekRepository($db);
+          $portfolioTotals['approved_week_seconds'] = $approved->forOperatorWeek(
+            (string)$operator->operatorId, $year, $week
+          );
+        } catch (\Throwable $exception) {
+          // Missing ledger or incomplete approval source must not become zero.
+        }
       } catch (\Throwable $exception) {
         // Planning is unavailable independently of financial KPI sources.
       }
