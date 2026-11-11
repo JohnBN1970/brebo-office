@@ -1,0 +1,65 @@
+name: Office-test 232-woningen demo dashboard
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-232-DEMO-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          php -l office-independent/public/office-project.php
+          grep -Fq 'TEST-2026-001' office-independent/public/office-project.php
+          grep -Fq 'Planning uit Office-test' office-independent/public/office-project.php
+  deploy:
+    needs: validate
+    if: ${{ inputs.confirmation == 'DEPLOY-232-DEMO-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git show bdd0754a89aa666ca043fac5be1baf735324ff4e^:office-independent/public/office-project.php > /tmp/office-project-before-232.php
+          php -l /tmp/office-project-before-232.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_232
+          chmod 600 ~/.ssh/id_232
+      - name: Guarded Office-test-only detail deployment
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_232"
+          scp $opts -P "$PORT" /tmp/office-project-before-232.php office-independent/public/office-project.php "$remote:/tmp/"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          page="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private/public/office-project.php"
+          test -f "$page" && test ! -L "$page" || { echo DEMO_232_TARGET_MISSING; exit 21; }
+          if cmp -s "$page" /tmp/office-project.php; then echo DEMO_232_ALREADY_INSTALLED; exit 0; fi
+          cmp -s "$page" /tmp/office-project-before-232.php || { echo DEMO_232_CONCURRENT_CHANGE_ABORT; exit 22; }
+          php -l /tmp/office-project.php
+          backup="$page.backup-232-$(date +%Y%m%d%H%M%S)"
+          cp -p "$page" "$backup"
+          candidate="$(mktemp "$(dirname "$page")/.demo232-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p /tmp/office-project.php "$candidate"
+          chmod --reference="$page" "$candidate"
+          mv "$candidate" "$page"
+          if ! php -l "$page"; then cp -p "$backup" "$page"; echo DEMO_232_ROLLBACK; exit 23; fi
+          echo DEMO_232_OFFICE_TEST_DEPLOYED
+          REMOTE
