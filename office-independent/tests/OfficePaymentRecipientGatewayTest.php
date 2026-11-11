@@ -11,6 +11,7 @@ $account = [
  'account_holder'=>'Test BV','status'=>'active','verification_status'=>'verified',
  'verified_at'=>1000,'verified_by'=>8,'verification_evidence_id'=>'proof1','changed_at'=>900
 ];
+$account['verified_fingerprint'] = \Brebo\Office\Finance\OfficeSupplierRecipientPolicy::accountFingerprint($account);
 $resolver = new OfficeSupplierRecipientResolver(
  static fn(int $id): ?array => $id===17 ? ['relation_id'=>7,'source'=>'office','invoice_type'=>'purchase'] : null,
  static fn(int $relation): array => $relation===7 ? [$account] : []
