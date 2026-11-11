@@ -47,12 +47,37 @@ try {
         array_merge($required, $existing),
         static fn(string $t): bool => isset($tables[$t]) && strcasecmp((string)$tables[$t], 'InnoDB') !== 0
     ));
+    // CREATE TABLE IF NOT EXISTS is not a migration verifier: existing names may
+    // conceal incompatible columns. Fail closed until the schema is reviewed.
+    $expectedColumns = [
+        'office_calc_crm_acceptance_transfers'=>['id','office_project_id'],
+        'office_calc_work_budget_baselines'=>['id','acceptance_transfer_id','locked_at','version_number'],
+        'office_calc_work_budget_lines'=>['id','baseline_id','source_line_id','cost_type','quantity','budget_cents'],
+        'office_project_buildings'=>['project_id','building_id'],
+        'office_work_budget_material_identity'=>['id','baseline_line_id','article_code','specification','unit','building_id','zone_id'],
+        'office_work_budget_purchase_orders'=>['id','project_id','supplier_relation_id','order_ref','status','issued_at'],
+        'office_work_budget_purchase_order_lines'=>['id','order_id','baseline_line_id','quantity_milli','unit_price_cents'],
+        'office_work_budget_receipts'=>['id','order_line_id','receipt_key','quantity_milli','building_id','zone_id','created_by'],
+    ];
+    $columnQuery = $db->query(
+        "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()"
+    );
+    $columns = [];
+    foreach ($columnQuery as $row) $columns[$row['TABLE_NAME']][$row['COLUMN_NAME']] = true;
+    $missingColumns = [];
+    foreach ($expectedColumns as $table => $names) {
+        if (!isset($tables[$table])) continue;
+        foreach ($names as $name) {
+            if (!isset($columns[$table][$name])) $missingColumns[] = $table . '.' . $name;
+        }
+    }
     $count = (int)$db->query('SELECT COUNT(*) FROM office_calc_work_budget_baselines WHERE locked_at IS NOT NULL')->fetchColumn();
     $db->commit();
-    echo 'PREFLIGHT=' . (($missing === [] && $notInnoDb === []) ? 'READY' : 'BLOCKED') . "\n";
+    echo 'PREFLIGHT=' . (($missing === [] && $notInnoDb === [] && $missingColumns === []) ? 'READY' : 'BLOCKED') . "\n";
     echo 'MISSING_REQUIRED=' . implode(',', $missing) . "\n";
     echo 'EXISTING_OPTIONAL=' . implode(',', $existing) . "\n";
     echo 'NON_INNODB=' . implode(',', $notInnoDb) . "\n";
+    echo 'MISSING_COLUMNS=' . implode(',', $missingColumns) . "\n";
     echo 'LOCKED_BASELINES=' . $count . "\n";
     echo "MUTATIONS=NONE\n";
     exit(($missing === [] && $notInnoDb === []) ? 0 : 1);
