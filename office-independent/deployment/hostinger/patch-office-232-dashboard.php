@@ -37,8 +37,18 @@ if ($start === false || $end === false || $end <= $start) {
 }
 $extension = substr($after, $start, $end - $start);
 if (strpos($extension, 'is232Demo') === false || strpos($extension, 'Planning uit Office-test') === false
-    || substr_count($before, $anchor) !== 1 || substr_count($live, $anchor) !== 1) {
-    fwrite(STDERR, "DEMO_232_EXTENSION_INVALID\n");
+    || substr_count($before, $anchor) !== 1) {
+    fwrite(STDERR, "DEMO_232_SOURCE_EXTENSION_INVALID\n");
+    exit(6);
+}
+if (substr_count($live, $anchor) !== 1) {
+    // This is an older or independently modified dossier; do not overwrite it.
+    // Output marker counts only: no project content or credentials are disclosed.
+    fwrite(STDERR, 'DEMO_232_LIVE_DASHBOARD_ANCHOR_COUNT=' . substr_count($live, $anchor) . "\n");
+    fwrite(STDERR, 'DEMO_232_LIVE_DASHBOARD_HTML_COUNT=' . substr_count($live, '$dashboardHtml') . "\n");
+    fwrite(STDERR, 'DEMO_232_LIVE_DEMO_FLAG_COUNT=' . substr_count($live, '$isDashboardDemo') . "\n");
+    fwrite(STDERR, 'DEMO_232_LIVE_PROJECT_CODE_COUNT=' . substr_count($live, 'TEST-2026-001') . "\n");
+    fwrite(STDERR, "DEMO_232_LIVE_DOSSIER_VERSION_MISMATCH\n");
     exit(6);
 }
 if (strpos($live, 'Planning uit Office-test') !== false) {
