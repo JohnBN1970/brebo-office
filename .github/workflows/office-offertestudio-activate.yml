@@ -46,15 +46,25 @@ jobs:
           file="$HOME/$STAGE/activate.php"
           test -f "$file"
           if [ "$CONFIRM" = "ACTIVATE-OFFERTSTUDIO-DRAFTS" ]; then
-            php "$file" --activate
             config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
             backup="$config.backup-offertestudio-$GITHUB_RUN_ID"
+            trap 'if test -f "$backup"; then cp -p "$backup" "$config" && echo OFFERTSTUDIO_CONFIG_ROLLED_BACK; fi' ERR
+            php "$file" --activate
+            php -r '
+              $c=require $argv[1];
+              if (!is_array($c)) exit(51);
+              foreach (["OFFICE_OFFERTSTUDIO_PREVIEW_ENABLED","OFFICE_QUOTATIONS_SCHEMA_VERIFIED","OFFICE_QUOTATIONS_WRITE_ENABLED"] as $flag) {
+                if (($c[$flag]??"")!=="enabled") exit(52);
+                echo "VERIFIED_FLAG $flag enabled\n";
+              }
+            ' "$config"
             status="$(curl -ksS --max-time 15 -o /dev/null -w '%{http_code}' https://brebobv.nl/office-test/crm/offertes)"
             echo "OFFERTSTUDIO_HTTP=$status"
             if [ "$status" != 302 ]; then
-              if test -f "$backup"; then cp -p "$backup" "$config"; echo OFFERTSTUDIO_CONFIG_ROLLED_BACK; fi
-              exit 41
+              echo OFFERTSTUDIO_HTTP_UNEXPECTED
+              false
             fi
+            trap - ERR
             echo OFFERTSTUDIO_ACTIVATION_VERIFIED
           else
             php "$file" --audit
