@@ -14,6 +14,7 @@ if (!extension_loaded('imap')) {
 }
 require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
 require_once dirname(__DIR__) . '/src/Mail/OfficeFunctionalMailIngest.php';
+require_once dirname(__DIR__) . '/src/Mail/OfficeImapTextExtractor.php';
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN') ?: '';
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '',
   getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
@@ -55,14 +56,15 @@ foreach ($mailboxes as $mailbox) {
       $date = isset($head->udate) && (int) $head->udate > 0 ? (int) $head->udate : time();
       $sender = isset($head->from[0]) ? (($head->from[0]->mailbox ?? '') . '@' . ($head->from[0]->host ?? '')) : '';
       $subject = isset($head->subject) ? imap_utf8((string) $head->subject) : '';
-      // Body/attachments require MIME-safe extraction in a separate, reviewed step.
+      // Read only plain-text body; never import HTML or attachments implicitly.
+      $body = \Brebo\Office\Mail\OfficeImapTextExtractor::extract($stream, $n);
       $ingest->store($id, [
         'source_id' => 'imap:' . $uidValidity . ':' . $uid,
         'sender' => substr($sender, 0, 320),
         'recipient' => '',
         'subject' => substr($subject, 0, 512),
         'received_at' => gmdate('Y-m-d H:i:s', $date),
-        'body_text' => null,
+        'body_text' => $body,
       ]);
     }
   } catch (Throwable $e) {
