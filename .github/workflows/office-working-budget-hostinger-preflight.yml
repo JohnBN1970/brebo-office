@@ -69,7 +69,7 @@ jobs:
             anchors_ok=false
           fi
           # Safe structural diagnostics: emit marker counts only, never source lines.
-          for marker in 'financialSectionHtml' 'financeHtml' 'OfficeProjectFinanceOverview' 'ProjectBudgetPanel' 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED'; do
+          for marker in 'financialSectionHtml' 'financeHtml' 'OfficeProjectFinanceOverview' 'ProjectBudgetPanel' 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' 'Read-only Office procurement commitments' 'Office locked work budget KPI unavailable' 'Office procurement commitment unexpected failure' 'The overview only uses verified project and building data' 'Financial dossier: explicit Finance ACL'; do
             count="$(grep -Fc "$marker" "$target" || true)"
             printf 'WORK_BUDGET_MARKER_%s=%s\n' "$marker" "$count"
           done
