@@ -9,7 +9,8 @@ $deny=static function(int $status): never { http_response_code($status);exit('Ca
 if (getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled'
     || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
-    || getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled') $deny(404);
+    || getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled'
+    || getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')!=='enabled') $deny(404);
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) $deny(405);
 $host=$_SERVER['HTTP_HOST']??'';
