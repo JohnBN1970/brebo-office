@@ -68,7 +68,7 @@ final class OfficeProjectDocumentService
         $service = new OfficeAddressProposalService(
             $this->db,
             new OfficeSourceAddressExtractor(),
-            new \\Brebo\\Office\\Buildings\\OfficeIntakeBuildingResolver($this->db)
+            new \Brebo\Office\Buildings\OfficeIntakeBuildingResolver($this->db)
         );
         return $service->propose(
             $documentId, $document['path'], $document['mime_type'], $document['filename']
