@@ -5,8 +5,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET','POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -44,6 +44,7 @@ try {
   $mailboxes = [];
   $messages = [];
   $proposals = [];
+  $reviewNotice = null;
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -52,7 +53,25 @@ try {
     $mailRepo = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
     $mailboxes = $mailRepo->visibleMailboxes($operatorId);
     require_once dirname(__DIR__) . '/src/Mail/OfficeMailClassificationRepository.php';
-    $proposals = (new \Brebo\Office\Mail\OfficeMailClassificationRepository($db))->pendingForOperator($operatorId);
+    $classificationRepo = new \Brebo\Office\Mail\OfficeMailClassificationRepository($db);
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+      $expectedOrigin = 'https://' . $allowedHost;
+      $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+      if (($origin !== '' && !hash_equals($expectedOrigin, $origin))
+        || ($origin === '' && !str_starts_with($referer, $expectedOrigin . '/'))) {
+        http_response_code(403); exit('Ongeldige herkomst.');
+      }
+      $decision = $_POST['decision'] ?? null;
+      $proposalId = filter_var($_POST['proposal_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (!is_string($decision) || !is_int($proposalId) || !in_array($decision, ['approved','rejected'], true)) {
+        http_response_code(422); exit('Ongeldige beoordeling.');
+      }
+      $changed = $classificationRepo->review($proposalId, $operatorId, $decision);
+      header('Location: /office-test/email?review=' . ($changed ? 'saved' : 'unavailable') . '#mailvoorstellen', true, 303);
+      exit;
+    }
+    $proposals = $classificationRepo->pendingForOperator($operatorId);
     $requested = filter_var($_GET['mailbox'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (is_int($requested)) $messages = $mailRepo->inbox($requested, $operatorId);
   }
@@ -100,14 +119,15 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 </div>
 <?php if ($mailSchemaReady): ?>
 <section id="mailvoorstellen"><h2>Controlewachtrij</h2>
+<?php if (($_GET['review'] ?? '') === 'saved'): ?><p>Beoordeling opgeslagen. Een goedkeuring koppelt nog geen dossier.</p><?php endif; ?>
 <?php if ($proposals === []): ?><p>Geen voorstellen ter controle.</p>
-<?php else: ?><table><thead><tr><th>Mailbox</th><th>Afzender</th><th>Onderwerp</th><th>Voorgestelde module</th><th>Toelichting</th></tr></thead><tbody>
+<?php else: ?><table><thead><tr><th>Mailbox</th><th>Afzender</th><th>Onderwerp</th><th>Voorgestelde module</th><th>Toelichting</th><th>Beoordelen</th></tr></thead><tbody>
 <?php foreach ($proposals as $proposal): ?>
 <tr><td><?= htmlspecialchars((string)$proposal['mailbox_label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
 <td><?= htmlspecialchars((string)$proposal['sender'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
 <td><?= htmlspecialchars((string)$proposal['subject'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
 <td><?= htmlspecialchars((string)$proposal['proposed_module'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
-<td><?= htmlspecialchars((string)$proposal['reason'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td></tr>
+<td><?= htmlspecialchars((string)$proposal['reason'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td><td><form method="post" action="/office-test/email"><input type="hidden" name="proposal_id" value="<?= (int)$proposal['id'] ?>"><button name="decision" value="approved" type="submit">Goedkeuren</button> <button name="decision" value="rejected" type="submit">Afwijzen</button></form></td></tr>
 <?php endforeach; ?></tbody></table><?php endif; ?></section>
 <?php endif; ?>
 <?php if ($messages !== []): ?>
