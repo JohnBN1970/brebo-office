@@ -101,13 +101,18 @@ chmod($backup,0600);
 $tmp=$configPath . '.offertestudio-candidate-' . $runId;
 if (file_put_contents($tmp,$next,LOCK_EX) !== strlen($next)) exit(16);
 chmod($tmp, fileperms($configPath) & 0777);
-$lint=shell_exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($tmp).' 2>&1');
-if (!is_string($lint) || !str_contains($lint,'No syntax errors detected')) {
-    unlink($tmp); fwrite(STDERR,"CONFIG_CANDIDATE_LINT_FAILED\n");exit(17);
+// Hostinger may disable shell_exec. Parse the candidate directly and let the
+// workflow run a separate PHP process for the effective-value verification.
+echo "CONFIG_CANDIDATE_PREPARED\n";
+try {
+    token_get_all($next, TOKEN_PARSE);
+} catch (ParseError $e) {
+    unlink($tmp);
+    fwrite(STDERR, "CONFIG_CANDIDATE_PARSE_FAILED\n");
+    exit(17);
 }
+echo "CONFIG_CANDIDATE_PARSE_OK\n";
 if (!rename($tmp,$configPath)) exit(18);
-$after=require $configPath;
-foreach ($flags as $flag) if (($after[$flag] ?? '') !== 'enabled') {
-    copy($backup,$configPath); fwrite(STDERR,"CONFIG_ROLLBACK_VERIFY_FAILED\n"); exit(19);
-}
-echo "OFFERTSTUDIO_FLAGS_ACTIVATED\n";
+echo "CONFIG_UPDATED_BACKUP_AVAILABLE\n";
+// Verify in a fresh PHP process (workflow) to avoid duplicate definitions in config.php.
+echo "OFFERTSTUDIO_FLAGS_ACTIVATED_AWAITING_EXTERNAL_VERIFICATION\n";
