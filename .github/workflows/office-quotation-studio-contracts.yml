@@ -31,3 +31,9 @@ jobs:
           php -l office-independent/tests/OfficeQuotationComposerTest.php
       - name: Run quotation contracts
         run: php office-independent/tests/OfficeQuotationComposerTest.php
+      - name: Verify isolated router and safe feature gates
+        run: |
+          php -r '$r=file_get_contents("office-independent/deployment/hostinger/office-test-index.php"); $p=file_get_contents("office-independent/public/office-quotation-studio.php"); foreach (["/office-test/crm/offertes", "office-quotation-studio.php"] as $x) { if (!str_contains($r,$x)) exit(1); } foreach (["OFFICE_OFFERTSTUDIO_PREVIEW_ENABLED", "OFFICE_QUOTATIONS_SCHEMA_VERIFIED", "OFFICE_QUOTATIONS_WRITE_ENABLED", "quotation_csrf", "getOwnDraft", "updateOwnDraft"] as $x) { if (!str_contains($p,$x)) exit(2); } echo "Quotation router and gates verified\\n";'
+      - name: Verify schema coverage
+        run: |
+          php -r '$s=file_get_contents("office-independent/database/office-quotation-schema.sql"); foreach (["office_quotations", "office_quotation_sections", "office_quotation_instalments", "office_quotation_assets", "office_quotation_versions"] as $table) { if (!str_contains($s,"CREATE TABLE IF NOT EXISTS ".$table)) exit(1); } echo "Quotation schema declarations verified\\n";'
