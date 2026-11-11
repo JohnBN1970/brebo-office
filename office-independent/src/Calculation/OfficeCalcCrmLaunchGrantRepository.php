@@ -13,15 +13,16 @@ final class OfficeCalcCrmLaunchGrantRepository
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function issue(string $sessionHash,int $actorId,int $draftId,int $now): string
+    public function issue(string $sessionHash,int $actorId,int $draftId,int $now,int $ttlSeconds=90): string
     {
         if (!preg_match('/^[a-f0-9]{64}$/D',$sessionHash)
-            || $actorId < 1 || $draftId < 1 || $now < 1) {
+            || $actorId < 1 || $draftId < 1 || $now < 1
+            || $ttlSeconds < 1 || $ttlSeconds > 28800) {
             throw new DomainException('Invalid CRM Calc grant identity');
         }
         $reference=bin2hex(random_bytes(32));
         $q=$this->db->prepare('INSERT INTO office_calc_crm_launch_grants(reference,session_hash,actor_id,draft_id,expires_at) VALUES (?,?,?,?,?)');
-        $q->execute([$reference,$sessionHash,$actorId,$draftId,gmdate('Y-m-d H:i:s',$now+90)]);
+        $q->execute([$reference,$sessionHash,$actorId,$draftId,gmdate('Y-m-d H:i:s',$now+$ttlSeconds)]);
         return $reference;
     }
 
