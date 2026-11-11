@@ -55,10 +55,12 @@ jobs:
             test -f "$release/apps/web/dist/index.html"
             test -f "$release/node_modules/express/package.json"
             "$node" --check "$release/apps/api/dist/index.js"
-            port=$((45000 + $$ % 10000))
-            env NODE_ENV=production PORT="$port" CALC_BIND_HOST=127.0.0.1               MYSQL_HOST=127.0.0.1 MYSQL_PORT=1 MYSQL_DATABASE=isolated_calc_not_connected               MYSQL_USER=ci_no_database MYSQL_PASSWORD=ci_placeholder_no_database_123456789               OFFICE_API_BASE_URL=https://brebobv.nl/office-test               OFFICE_CALC_GRANT_VALIDATION_URL=https://brebobv.nl/office-test/api/workbench/v1/calculation-grants/validate               BREBO_CALC_SHARED_SECRET=temporary_hostinger_smoke_launch_123456789               CALC_SESSION_SECRET=temporary_hostinger_smoke_session_987654321               CALC_OFFICE_GRANT_ENFORCEMENT=enabled               "$node" "$release/apps/api/dist/index.js" >/dev/null 2>&1 &
+            port=$((45000 + $ % 10000))
+            logfile=$(mktemp)
+            chmod 600 "$logfile"
+            env NODE_ENV=production PORT="$port" CALC_BIND_HOST=127.0.0.1               MYSQL_HOST=127.0.0.1 MYSQL_PORT=1 MYSQL_DATABASE=isolated_calc_not_connected               MYSQL_USER=ci_no_database MYSQL_PASSWORD=ci_placeholder_no_database_123456789               OFFICE_API_BASE_URL=https://brebobv.nl/office-test               OFFICE_CALC_GRANT_VALIDATION_URL=https://brebobv.nl/office-test/api/workbench/v1/calculation-grants/validate               BREBO_CALC_SHARED_SECRET=temporary_hostinger_smoke_launch_123456789               CALC_SESSION_SECRET=temporary_hostinger_smoke_session_987654321               CALC_OFFICE_GRANT_ENFORCEMENT=enabled               "$node" "$release/apps/api/dist/index.js" >"$logfile" 2>&1 &
             pid=$!
-            trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+            trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; rm -f "$logfile"' EXIT
             success=0
             for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
               if ! kill -0 "$pid" 2>/dev/null; then
@@ -75,6 +77,17 @@ jobs:
             echo "CALC_LOOPBACK_LAST_HTTP_STATUS=$code"
             if [ "$success" != 1 ]; then
               echo "CALC_LOOPBACK_HTTP_READY=NO"
+              if grep -F "API listening on port" "$logfile" >/dev/null 2>&1; then
+                echo "CALC_NODE_LISTEN_MESSAGE=YES"
+              else
+                echo "CALC_NODE_LISTEN_MESSAGE=NO"
+              fi
+              if grep -E 'Error:|ERR_|Exception|EADDRINUSE' "$logfile" >/dev/null 2>&1; then
+                echo "CALC_NODE_STARTUP_ERROR_PATTERN=YES"
+              else
+                echo "CALC_NODE_STARTUP_ERROR_PATTERN=NO"
+              fi
+              if [ -s "$logfile" ]; then echo "CALC_NODE_LOG_PRESENT=YES"; else echo "CALC_NODE_LOG_PRESENT=NO"; fi
               if command -v ps >/dev/null 2>&1; then
                 state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
                 case "$state" in
