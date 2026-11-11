@@ -16,6 +16,7 @@ jobs:
       - run: |
           set -euo pipefail
           php -l office-independent/public/office-project.php
+          php -l office-independent/deployment/hostinger/patch-office-232-dashboard.php
           grep -Fq 'TEST-2026-001' office-independent/public/office-project.php
           grep -Fq 'Planning uit Office-test' office-independent/public/office-project.php
   deploy:
@@ -47,43 +48,12 @@ jobs:
           set -euo pipefail
           remote="$USER@$HOST"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_232"
-          scp $opts -P "$PORT" /tmp/office-project-before-232.php office-independent/public/office-project.php "$remote:/tmp/"
+          scp $opts -P "$PORT" /tmp/office-project-before-232.php office-independent/public/office-project.php office-independent/deployment/hostinger/patch-office-232-dashboard.php "$remote:/tmp/"
           ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
           set -euo pipefail
           page="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private/public/office-project.php"
           test -f "$page" && test ! -L "$page" || { echo DEMO_232_TARGET_MISSING; exit 21; }
-          if cmp -s "$page" /tmp/office-project.php; then echo DEMO_232_ALREADY_INSTALLED; exit 0; fi
-          # Derive the exact additive demo patch; preserve all unrelated server changes.
           php -l /tmp/office-project.php
-          php -l "$page"
-          candidate="$(mktemp "$(dirname "$page")/.demo232-XXXXXXXX.php")"
-          trap 'rm -f "$candidate"' EXIT
-          php -r '
-            [$script,$before,$after,$server,$out] = $argv;
-            $old = file_get_contents($before);
-            $new = file_get_contents($after);
-            $live = file_get_contents($server);
-            $anchor = "$"."demoDashboardHtml = '\''';";
-            $start = strpos($new, $anchor);
-            $end = strpos($new, "if ($"."isDashboardDemo) {", $start);
-            if ($start === false || $end === false || $end <= $start) { fwrite(STDERR,"DEMO_232_PATCH_ANCHOR_MISSING\\n"); exit(31); }
-            $extension = substr($new, $start, $end - $start);
-            if (strpos($extension, "is232Demo") === false || strpos($extension, "Planning uit Office-test") === false) { fwrite(STDERR,"DEMO_232_PATCH_INVALID\\n"); exit(32); }
-            if (strpos($live, "Planning uit Office-test") !== false) { fwrite(STDERR,"DEMO_232_ALREADY_PRESENT_REVIEW\\n"); exit(33); }
-            if (substr_count($live, $anchor) !== 1 || substr_count($live, "if ($"."isDashboardDemo) {") !== 1) { fwrite(STDERR,"DEMO_232_LIVE_STRUCTURE_CHANGED\\n"); exit(34); }
-            $oldTail = "    . '\''</div>'\'';\\n}\\n$"."dashboardHtml =";
-            $newTail = "    . $"."demoPlanHtml\\n    . '\''</div>'\'';\\n}\\n$"."dashboardHtml =";
-            if (substr_count($old, $anchor) !== 1 || substr_count($new, $newTail) !== 1 || substr_count($live, $oldTail) !== 1) { fwrite(STDERR,"DEMO_232_TAIL_MISMATCH\\n"); exit(35); }
-            $result = str_replace($anchor, $extension, $live);
-            $result = str_replace($oldTail, $newTail, $result);
-            if ($result === $live || substr_count($result,"Planning uit Office-test") !== 1) { fwrite(STDERR,"DEMO_232_PATCH_FAILED\\n"); exit(36); }
-            file_put_contents($out, $result);
-          ' /tmp/office-project-before-232.php /tmp/office-project.php "$page" "$candidate"
-          php -l "$candidate"
-          backup="$page.backup-232-$(date +%Y%m%d%H%M%S)"
-          cp -p "$page" "$backup"
-          chmod --reference="$page" "$candidate"
-          mv "$candidate" "$page"
-          if ! php -l "$page"; then cp -p "$backup" "$page"; echo DEMO_232_ROLLBACK; exit 23; fi
-          echo DEMO_232_PATCHED_OFFICE_TEST
+          php -l /tmp/patch-office-232-dashboard.php
+          php /tmp/patch-office-232-dashboard.php /tmp/office-project-before-232.php /tmp/office-project.php "$page"
           REMOTE
