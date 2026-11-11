@@ -46,7 +46,13 @@ try{
         $target=$active.'/'.$relative;$parent=dirname($target);
         if(!is_dir($parent)||is_link($target)||!str_starts_with((string)realpath($parent),$active.'/'))throw new RuntimeException('package_target');
         $prior=is_file($target)?file_get_contents($target):null;
-        if($prior!==null&&!in_array(hash('sha256',$prior),array_filter([$spec['prior_sha256']??null,$spec['sha256']]),true))throw new RuntimeException('unknown_active_source');
+        // Verified Office-test baseline from Git commit 816b81985228: only these two UTF-8 fixes.
+        $knownActive=[
+            'src/Crm/OfficeCrmOpportunityPolicy.php'=>'f8c5ac59c70663b7e52f2dd305e30115eda2e416b5d83b9d99cdafed4fd4de46',
+            'src/Crm/OfficeCrmOpportunityRepository.php'=>'e9bdfa34e07dc7d6a1f3323ae95d5e6a6dd45c098c953ca1f3d4762cbcf23802',
+        ];
+        $accepted=array_filter([$spec['prior_sha256']??null,$spec['sha256'],$knownActive[$relative]??null]);
+        if($prior!==null&&!in_array(hash('sha256',$prior),$accepted,true))throw new RuntimeException('unknown_active_source');
         $before[$target]=$prior;$candidates[$target]=file_get_contents($source);
     }
     if(count($manifest['files']??[])!==12)throw new RuntimeException('package_count');
