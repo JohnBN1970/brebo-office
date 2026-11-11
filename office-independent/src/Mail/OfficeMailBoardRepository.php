@@ -6,7 +6,7 @@ use RuntimeException;
 
 /** Module ownership is routing metadata, not a dossier mutation. */
 final class OfficeMailBoardRepository {
-  public const MODULES = ['nieuw','prive','crm','projecten','gebouwen','finance','documenten','inspecties'];
+  public const MODULES = ['nieuw','prive','crm','projecten','finance','documenten','inspecties'];
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
