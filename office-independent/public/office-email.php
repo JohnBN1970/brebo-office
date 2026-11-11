@@ -41,6 +41,18 @@ try {
     header('Location: /office-test/inloggen', true, 302);
     exit;
   }
+  $mailboxes = [];
+  $messages = [];
+  $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
+  if ($mailSchemaReady) {
+    require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
+    $operatorId = filter_var($operator->operatorId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (!is_int($operatorId)) throw new RuntimeException('Ongeldige Office-gebruiker.');
+    $mailRepo = new \\Brebo\\Office\\Mail\\OfficeNativeMailboxRepository($db);
+    $mailboxes = $mailRepo->visibleMailboxes($operatorId);
+    $requested = filter_var($_GET['mailbox'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if (is_int($requested)) $messages = $mailRepo->inbox($requested, $operatorId);
+  }
 } catch (Throwable $e) {
   error_log('office_mail_home_unavailable: ' . $e::class);
   http_response_code(503);
@@ -57,13 +69,20 @@ body{margin:0;background:#f4f6fa;color:#1b2c3c;font:15px system-ui,sans-serif}
 main{max-width:1100px;margin:36px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
-h2{margin-top:0}a{color:#175a91}.muted{color:#586c80}
+h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
 .status{font-size:13px;font-weight:650;color:#805a19}
 </style></head><body><main>
 <h1>E-mail</h1>
 <p class="muted">Native Office e-mailomgeving. Drupal is geen onderdeel van deze pagina.</p>
 <div class="grid">
-<article><h2>Inbox</h2><p>Functionele mailboxen en berichten.</p><p class="status">Native synchronisatie nog niet aangesloten</p></article>
+<article><h2>Inbox</h2><p>Functionele mailboxen en berichten.</p>
+<?php if (!$mailSchemaReady): ?><p class="status">Native database nog niet geactiveerd</p>
+<?php elseif ($mailboxes === []): ?><p class="status">Geen actieve mailboxen geconfigureerd</p>
+<?php else: ?>
+<?php foreach ($mailboxes as $mailbox): ?>
+<p><a href="/office-test/email?mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></a></p>
+<?php endforeach; ?>
+<?php endif; ?></article>
 <article><h2>Verzonden</h2><p>Verzonden correspondentie vanuit Office.</p><p class="status">Nog niet aangesloten</p></article>
 <article><h2>Persoonlijke e-mail</h2><p>Alleen expliciet geselecteerde berichten gaan naar Office.</p><p class="status">Native push nog niet aangesloten</p></article>
 <article><h2>Mailcontrole</h2><p>Beoordeel voorgestelde dossierkoppelingen voordat ze worden toegepast.</p>
@@ -73,5 +92,11 @@ h2{margin-top:0}a{color:#175a91}.muted{color:#586c80}
 <p class="status">Wacht op geverifieerde Office-identiteit</p>
 <?php endif; ?></article>
 </div>
+<?php if ($messages !== []): ?>
+<section><h2>Berichten</h2><table><thead><tr><th>Afzender</th><th>Onderwerp</th><th>Ontvangen</th></tr></thead><tbody>
+<?php foreach ($messages as $message): ?>
+<tr><td><?= htmlspecialchars((string)$message['sender'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td><td><?= htmlspecialchars((string)$message['subject'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td><td><?= htmlspecialchars((string)$message['received_at'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td></tr>
+<?php endforeach; ?></tbody></table></section>
+<?php endif; ?>
 <p><a href="/office-test/">Terug naar Office</a></p>
 </main></body></html>
