@@ -156,6 +156,20 @@ jobs:
               }
             }
             '
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $db=new PDO($cfg["OFFICE_INTAKE_PDO_DSN"],$cfg["OFFICE_INTAKE_DB_USER"],$cfg["OFFICE_INTAKE_DB_PASSWORD"],[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION
+            ]);
+            if($db->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") exit(1);
+            $q=$db->prepare("SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?");
+            foreach(["office_crm_opportunities","office_operator_accounts"] as $t) {
+              $q->execute([$t,"id"]);
+              $type=(string)$q->fetchColumn();
+              if(!preg_match("/^(bigint|int|mediumint|smallint|tinyint)( unsigned)?$/",$type)) $type="UNEXPECTED";
+              echo "CRM_ID_COLUMN_TYPE_".strtoupper($t)."=".strtoupper(str_replace(" ","_",$type))."\n";
+            }
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
