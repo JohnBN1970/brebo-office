@@ -665,14 +665,23 @@ if ($kanbanView) {
       );
       $portfolioScope->execute([':operator_id' => $operator->operatorId]);
       $authorizedPortfolio = $portfolioScope->fetchAll(PDO::FETCH_ASSOC);
-      $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $authorizedPortfolio);
-      $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
-      $portfolioTotals['procurement_covered'] = $budget['covered'];
-      $portfolioTotals['procurement_total'] = $budget['total'];
-      $contracts = \Brebo\Office\Project\OfficeProjectPortfolioTotals::acceptedContractValues($db, $authorizedPortfolio);
-      $portfolioTotals['contract_value_cents'] = $contracts['cents'];
-      $portfolioTotals['contract_covered'] = $contracts['covered'];
-      $portfolioTotals['contract_total'] = $contracts['total'];
+      // Independent sources: a missing budget must not suppress a valid contract KPI.
+      try {
+        $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $authorizedPortfolio);
+        $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
+        $portfolioTotals['procurement_covered'] = $budget['covered'];
+        $portfolioTotals['procurement_total'] = $budget['total'];
+      } catch (\Throwable $exception) {
+        // Budget remains unknown.
+      }
+      try {
+        $contracts = \Brebo\Office\Project\OfficeProjectPortfolioTotals::acceptedContractValues($db, $authorizedPortfolio);
+        $portfolioTotals['contract_value_cents'] = $contracts['cents'];
+        $portfolioTotals['contract_covered'] = $contracts['covered'];
+        $portfolioTotals['contract_total'] = $contracts['total'];
+      } catch (\Throwable $exception) {
+        // Contract value remains unknown.
+      }
     }
   } catch (\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
