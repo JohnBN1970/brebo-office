@@ -18,6 +18,7 @@ on:
       - 'office-independent/public/office-calc-crm-draft-launch.php'
       - 'office-independent/public/office-calc-crm-browser-handoff.php'
       - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/public/office-calc-crm-start.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-draft-lines-proposed.sql'
       - 'office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php'
@@ -78,6 +79,7 @@ jobs:
             office-independent/public/office-calc-crm-draft-launch.php \
             office-independent/public/office-calc-crm-browser-handoff.php \
             office-independent/public/office-calc-crm-workbench.php \
+            office-independent/public/office-calc-crm-start.php \
             office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php \
             office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
