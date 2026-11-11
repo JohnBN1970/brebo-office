@@ -13,7 +13,7 @@ use Throwable;
  */
 final class PurchaseReceiptService
 {
-    public function __construct(private readonly PDO $db) {}
+    public function __construct(private readonly PDO $db, private readonly \Closure $authorizeProject) {}
 
     public function receive(int $projectId, int $orderLineId, int $actorId, int $quantityMilli, string $receiptKey, ?int $buildingId = null, ?int $zoneId = null): array
     {
@@ -22,6 +22,9 @@ final class PurchaseReceiptService
             || ($buildingId !== null && $buildingId < 1)
             || ($zoneId !== null && ($zoneId < 1 || $buildingId === null))) {
             throw new \InvalidArgumentException('Invalid delivery registration.');
+        }
+        if (($this->authorizeProject)($projectId, $actorId, 'receive_material') !== true) {
+            throw new DomainException('Project receipt access denied.');
         }
         if ($this->db->inTransaction()) throw new DomainException('Receipt service owns transaction.');
         $this->db->beginTransaction();
@@ -47,15 +50,17 @@ final class PurchaseReceiptService
                 return ['receipt_id'=>(int)$prior['id'], 'created'=>false];
             }
             $lock = $this->db->prepare(
-                'SELECT l.quantity_milli, o.status, o.project_id, b.baseline_id
+                'SELECT l.quantity_milli, o.status, o.project_id, b.baseline_id, t.office_project_id AS baseline_project_id
                  FROM office_work_budget_purchase_order_lines l
                  JOIN office_work_budget_purchase_orders o ON o.id = l.order_id
                  JOIN office_calc_work_budget_lines b ON b.id = l.baseline_line_id
+                 JOIN office_calc_work_budget_baselines bl ON bl.id = b.baseline_id
+                 JOIN office_calc_crm_acceptance_transfers t ON t.id = bl.acceptance_transfer_id
                  WHERE l.id = ? FOR UPDATE'
             );
             $lock->execute([$orderLineId]);
             $line = $lock->fetch(PDO::FETCH_ASSOC);
-            if (!is_array($line) || (int)$line['project_id'] !== $projectId || $line['status'] !== 'issued') {
+            if (!is_array($line) || (int)$line['project_id'] !== $projectId || (int)$line['baseline_project_id'] !== $projectId || $line['status'] !== 'issued') {
                 throw new DomainException('Purchase order is not issued for project.');
             }
             $received = $this->db->prepare('SELECT quantity_milli FROM office_work_budget_receipts WHERE order_line_id = ? FOR UPDATE');
