@@ -62,32 +62,29 @@ if ($mode === '--audit') { echo "OFFERTSTUDIO_AUDIT_COMPLETE\n"; exit(0); }
 if (!$missing) { echo "OFFERTSTUDIO_FLAGS_ALREADY_ENABLED\n"; exit(0); }
 $src = file_get_contents($configPath);
 if (!is_string($src)) exit(11);
+// Insert only through a verified simple top-level return-array expression.
+// Reject unsupported layouts rather than guessing at PHP source formatting.
 $tokens = token_get_all($src);
+$returnIndex = -1;
 $returns = 0;
-$lastReturnIndex = -1;
-foreach ($tokens as $i => $token) {
+foreach ($tokens as $idx=>$token) {
     if (is_array($token) && $token[0] === T_RETURN) {
+        $returnIndex=$idx;
         $returns++;
-        $lastReturnIndex = $i;
     }
 }
-if ($returns !== 1 || $lastReturnIndex < 0) {
+if ($returns !== 1 || $returnIndex < 0) {
     fwrite(STDERR, "CONFIG_RETURN_LAYOUT_NOT_SUPPORTED\n"); exit(11);
 }
-$startOffset = 0;
-$depth = 0;
-$opening = null;
-for ($i=0; $i<count($tokens); $i++) {
-    $token=$tokens[$i];
-    $value=is_array($token) ? $token[1] : $token;
-    if ($i <= $lastReturnIndex) { $startOffset += strlen($value); continue; }
-    if (trim($value) === '') { $startOffset += strlen($value); continue; }
-    if ($value === '[' || (is_array($token) && $token[0] === T_ARRAY)) {
-        $opening = $value;
-    }
-    break;
+$significant = [];
+foreach ($tokens as $idx=>$token) {
+    if ($idx <= $returnIndex) continue;
+    if (is_array($token) && in_array($token[0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) continue;
+    $significant[] = is_array($token) ? token_name($token[0]) : $token;
+    if (count($significant) >= 4) break;
 }
-if ($opening !== '[') {
+echo 'CONFIG_RETURN_TOKEN_KINDS ' . implode(',',array_map(static fn($t)=>preg_replace('/[^A-Z_a-z]/','',$t),$significant)) . "\n";
+if (($significant[0]??'') !== '[') {
     fwrite(STDERR, "CONFIG_ARRAY_LAYOUT_REQUIRES_REVIEW\n"); exit(11);
 }
 $endPattern = '/\]\s*;\s*(?:\?>)?\s*$/D';
