@@ -44,6 +44,21 @@ jobs:
           router="$HOME/domains/brebobv.nl/public_html/office-test/index.php"
           test -f "$router" || { echo ROUTER_MISSING; exit 23; }
           grep -Fq "'/office-test/crm/offertes'" "$router" && echo QUOTATION_ROUTE_PRESENT || echo QUOTATION_ROUTE_NOT_INSTALLED
+          echo QUOTATION_ROUTING_DIAGNOSTICS
+          public="$HOME/domains/brebobv.nl/public_html"
+          for f in "$public/.htaccess" "$public/office-test/.htaccess"; do
+            if test -f "$f"; then
+              echo "REWRITE_FILE: $f"
+              grep -nE 'RewriteRule|RewriteBase|RewriteCond|ErrorDocument' "$f" | head -60 || true
+            else echo "REWRITE_FILE_MISSING: $f"; fi
+          done
+          for url in 'https://brebobv.nl/office-test/crm/offertes' 'https://brebobv.nl/office-test/crm/verkoopkansen' 'https://brebobv.nl/office-test/'; do
+            status="$(curl -ksS -o /dev/null -w '%{http_code}' --max-time 15 "$url" || true)"
+            echo "HTTP_STATUS $url $status"
+          done
+          echo "ROUTER_TARGET: $(readlink -f "$router")"
+          echo "ROUTER_ROUTE_LINES"
+          grep -nF '/office-test/crm/offertes' "$router" || true
           echo PREFLIGHT_READ_ONLY_COMPLETE
           REMOTE
   deploy:
