@@ -8,7 +8,7 @@ namespace Brebo\Office\Project;
  * verified, authorized planning source. Never invents schedule data.
  */
 final class OfficeProjectPortfolioGantt {
-  public static function render(array $projects, string $base): string {
+  public static function render(array $projects, string $base, bool $demo = false): string {
     $e = static fn($v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $today = new \DateTimeImmutable('today');
     $from = $today->modify('monday this week')->modify('-14 days');
@@ -30,7 +30,7 @@ final class OfficeProjectPortfolioGantt {
         'completed'=>['Gereed','done'],'vervallen'=>['Vervallen','']
       ];
       [$label,$class] = $statuses[$status] ?? [($status !== '' ? $project['status'] : 'Onbekend'),''];
-      $url = $base.'/projecten/detail?id='.(int)$project['id'];
+      $url = $demo ? $base.'/projecten?view=gantt&demo=1&demo_project='.(int)$project['id'] : $base.'/projecten/detail?id='.(int)$project['id'];
       $criticalNote = trim((string)($project['critical_note'] ?? ''));
       $hoverNote = $criticalNote !== '' ? ' title="'.$e($criticalNote).'"' : '';
       $html .= '<div class="portfolio-gantt-row"><div class="portfolio-gantt-name"><a href="'.$e($url).'"'.$hoverNote.'>'.$e($project['title']).'</a><br><span class="portfolio-gantt-badge '.$e($class).'"'.$hoverNote.'>'.$e($label).'</span></div>';
