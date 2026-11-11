@@ -62,44 +62,37 @@ if ($mode === '--audit') { echo "OFFERTSTUDIO_AUDIT_COMPLETE\n"; exit(0); }
 if (!$missing) { echo "OFFERTSTUDIO_FLAGS_ALREADY_ENABLED\n"; exit(0); }
 $src = file_get_contents($configPath);
 if (!is_string($src)) exit(11);
-// Insert only through a verified simple top-level return-array expression.
-// Reject unsupported layouts rather than guessing at PHP source formatting.
-$tokens = token_get_all($src);
-$returnIndex = -1;
-$returns = 0;
-foreach ($tokens as $idx=>$token) {
-    if (is_array($token) && $token[0] === T_RETURN) {
-        $returnIndex=$idx;
-        $returns++;
-    }
+// The tested Office-test config returns a variable. Insert the three flags
+// immediately before that return instead of editing its array expression.
+// The returned array is still verified after writing, with rollback on failure.
+$tokens=token_get_all($src);
+$returns=[];
+$offset=0;
+foreach ($tokens as $token) {
+    $value=is_array($token)?$token[1]:$token;
+    if (is_array($token) && $token[0]===T_RETURN) $returns[]=$offset;
+    $offset+=strlen($value);
 }
-if ($returns !== 1 || $returnIndex < 0) {
-    fwrite(STDERR, "CONFIG_RETURN_LAYOUT_NOT_SUPPORTED\n"); exit(11);
+if (count($returns)!==1) {
+    fwrite(STDERR,"CONFIG_RETURN_LAYOUT_NOT_SUPPORTED\n");exit(11);
 }
-$significant = [];
-foreach ($tokens as $idx=>$token) {
-    if ($idx <= $returnIndex) continue;
-    if (is_array($token) && in_array($token[0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true)) continue;
-    $significant[] = is_array($token) ? token_name($token[0]) : $token;
-    if (count($significant) >= 4) break;
+$returnOffset=$returns[0];
+$tail=substr($src,$returnOffset);
+if (!preg_match('/^return\s+(\$[a-zA-Z_][a-zA-Z0-9_]*)\s*;\s*(?:\?>)?\s*$/D',$tail,$match)) {
+    fwrite(STDERR,"CONFIG_RETURN_VARIABLE_LAYOUT_REQUIRES_REVIEW\n");exit(11);
 }
-echo 'CONFIG_RETURN_TOKEN_KINDS ' . implode(',',array_map(static fn($t)=>preg_replace('/[^A-Z_a-z]/','',$t),$significant)) . "\n";
-if (($significant[0]??'') !== '[') {
-    fwrite(STDERR, "CONFIG_ARRAY_LAYOUT_REQUIRES_REVIEW\n"); exit(11);
-}
-$endPattern = '/\]\s*;\s*(?:\?>)?\s*$/D';
-if (!preg_match($endPattern,$src)) {
-    fwrite(STDERR, "CONFIG_END_LAYOUT_REQUIRES_REVIEW\n"); exit(11);
-}
+$variable=$match[1];
 foreach ($flags as $flag) {
     if (str_contains($src,$flag)) {
-        fwrite(STDERR,"CONFIG_FLAG_TEXT_PRESENT_REQUIRES_REVIEW $flag\n"); exit(12);
+        fwrite(STDERR,"CONFIG_FLAG_TEXT_PRESENT_REQUIRES_REVIEW $flag\n");exit(12);
     }
 }
-$insertion = '';
-foreach ($missing as $flag) $insertion .= "    '" . $flag . "' => 'enabled',\n";
-$next=preg_replace($endPattern, $insertion . "];\n", $src, 1, $count);
-if (!is_string($next) || $count !== 1) exit(13);
+$insertion='';
+foreach ($missing as $flag) {
+    $insertion.=$variable."['".$flag."'] = 'enabled';\n";
+}
+$next=substr($src,0,$returnOffset).$insertion.substr($src,$returnOffset);
+if ($next===$src) exit(13);
 $runId = getenv('GITHUB_RUN_ID');
 if (!is_string($runId) || !preg_match('/^[0-9]{6,20}$/D',$runId)) exit(14);
 $backup=$configPath . '.backup-offertestudio-' . $runId;
