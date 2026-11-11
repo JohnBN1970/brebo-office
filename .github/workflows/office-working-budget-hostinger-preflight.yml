@@ -49,9 +49,29 @@ jobs:
           target="$base/public/office-project.php"
           test -f "$target" && test ! -L "$target" || { echo "WORK_BUDGET_ACTIVE_PROJECT_MISSING"; exit 20; }
           test -f "$root/public_html/office-test/index.php" || { echo "WORK_BUDGET_TEST_ROUTER_MISSING"; exit 21; }
-          for marker in 'OfficeNativeProjectAccess($db))->canRead' 'is_array($financeContracts)' '$financialSectionHtml .= $financeHtml;'; do
-            grep -Fq "$marker" "$target" || { echo "WORK_BUDGET_ACTIVE_ANCHOR_MISSING"; exit 22; }
-          done
+          anchors_ok=true
+          if grep -Fq 'OfficeNativeProjectAccess($db))->canRead' "$target"; then
+            echo WORK_BUDGET_ACTIVE_PROJECT_ACL=OK
+          else
+            echo WORK_BUDGET_ACTIVE_PROJECT_ACL=MISSING
+            anchors_ok=false
+          fi
+          if grep -Fq 'is_array($financeContracts)' "$target"; then
+            echo WORK_BUDGET_ACTIVE_FINANCE_GUARD=OK
+          else
+            echo WORK_BUDGET_ACTIVE_FINANCE_GUARD=MISSING
+            anchors_ok=false
+          fi
+          if grep -Fq '$financialSectionHtml .= $financeHtml;' "$target"; then
+            echo WORK_BUDGET_ACTIVE_FINANCE_ANCHOR=OK
+          else
+            echo WORK_BUDGET_ACTIVE_FINANCE_ANCHOR=MISSING
+            anchors_ok=false
+          fi
+          if test "$anchors_ok" != true; then
+            echo WORK_BUDGET_ACTIVE_ANCHOR_MISSING
+            exit 22
+          fi
           printf 'WORK_BUDGET_ACTIVE_SHA256='
           sha256sum "$target" | cut -d ' ' -f 1
           if grep -Fq 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED' "$target"; then
