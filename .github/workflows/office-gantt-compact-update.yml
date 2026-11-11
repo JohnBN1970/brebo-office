@@ -16,6 +16,7 @@ jobs:
       - run: |
           set -euo pipefail
           php -l office-independent/src/Project/OfficeProjectPortfolioGantt.php
+          php -l office-independent/src/Project/OfficeProjectPlanReader.php
           php office-independent/tests/test_project_portfolio_gantt.php
   deploy:
     needs: validate
@@ -42,25 +43,35 @@ jobs:
           remote="$USER@$HOST"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
           scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPortfolioGantt.php "$remote:/tmp/OfficeProjectPortfolioGantt-compact.php"
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPlanReader.php "$remote:/tmp/OfficeProjectPlanReader-compact.php"
           ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
           file="$base/src/Project/OfficeProjectPortfolioGantt.php"
           page="$base/public/office-projects.php"
-          test -f "$file" && test ! -L "$file" && test -f "$page" || { echo GANTT_TARGET_MISSING; exit 21; }
+          reader="$base/src/Project/OfficeProjectPlanReader.php"
+          test -f "$file" && test ! -L "$file" && test -f "$reader" && test ! -L "$reader" && test -f "$page" || { echo GANTT_TARGET_MISSING; exit 21; }
           grep -Fq 'OfficeProjectPortfolioGantt::render' "$page" || { echo GANTT_NOT_ACTIVE; exit 22; }
           old_hash=""; old_hash="$(sha256sum "$file" | awk '{print $1}')"
           # Reject concurrent modifications unless the renderer is already the candidate.
-          if cmp -s "$file" /tmp/OfficeProjectPortfolioGantt-compact.php; then echo GANTT_COMPACT_ALREADY_INSTALLED; exit 0; fi
+          if cmp -s "$file" /tmp/OfficeProjectPortfolioGantt-compact.php && cmp -s "$reader" /tmp/OfficeProjectPlanReader-compact.php; then echo GANTT_COMPACT_ALREADY_INSTALLED; exit 0; fi
           php -l /tmp/OfficeProjectPortfolioGantt-compact.php
+          php -l /tmp/OfficeProjectPlanReader-compact.php
           backup="$file.backup-compact-$(date +%Y%m%d%H%M%S)"
           cp -p "$file" "$backup"
+          reader_backup="$reader.backup-compact-$(date +%Y%m%d%H%M%S)"
+          cp -p "$reader" "$reader_backup"
           candidate="$(mktemp "$base/src/Project/.gantt-XXXXXXXX.php")"
           trap 'rm -f "$candidate"' EXIT
           cp -p /tmp/OfficeProjectPortfolioGantt-compact.php "$candidate"
           chmod --reference="$file" "$candidate"
           test "$(sha256sum "$file" | awk '{print $1}')" = "$old_hash" || { echo GANTT_CONCURRENT_CHANGE; exit 23; }
+          reader_candidate="$(mktemp "$base/src/Project/.gantt-reader-XXXXXXXX.php")"
+          cp -p /tmp/OfficeProjectPlanReader-compact.php "$reader_candidate"
+          chmod --reference="$reader" "$reader_candidate"
+          php -l "$reader_candidate"
+          mv "$reader_candidate" "$reader"
           mv "$candidate" "$file"
-          if ! php -l "$file"; then cp -p "$backup" "$file"; echo GANTT_ROLLBACK; exit 24; fi
+          if ! php -l "$file"; then cp -p "$backup" "$file"; cp -p "$reader_backup" "$reader"; echo GANTT_ROLLBACK; exit 24; fi
           echo GANTT_COMPACT_TEST_DEPLOYED
           REMOTE
