@@ -102,19 +102,46 @@ if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM Calculatie | BREBO Office</title><style>body{font:16px system-ui;margin:30px auto;padding:0 20px;max-width:1050px;color:#23364a}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}input,select,button{padding:10px;margin:4px}form{background:#f4f6f9;padding:16px;border-radius:8px}.calc-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.calc-fields label{display:flex;flex-direction:column;gap:4px}.calc-fields input,.calc-fields select{width:100%;box-sizing:border-box}button{background:#334898;border:0;border-radius:6px;color:#fff;font-weight:700;cursor:pointer}</style><h1>Calculatieconcept #'.$draft.'</h1><p>CRM-calculatie zonder project. Bedragen exclusief btw; invoer in euro&#39;s.</p><table><tr><th>Regel</th><th>Omschrijving</th><th>Type</th><th>Aantal</th><th>Eenheidsprijs (€)</th><th>Totaal (€)</th><th>Actie</th></tr>';
+$typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
+$categoryTotals=array_fill_keys(array_keys($typeLabels),0);
+foreach($lines as $line) {
+    $kind=(string)$line['cost_type'];
+    if(isset($categoryTotals[$kind])) $categoryTotals[$kind]+=(int)$line['quantity']*(int)$line['unit_cost_cents'];
+}
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
+:root{color-scheme:light}*{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#f3f5fa;color:#192f47;margin:0}
+main{max-width:1350px;margin:28px auto;padding:0 24px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #dce3ee;border-radius:12px;padding:24px;margin-bottom:18px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
+h1{font-size:27px;margin:10px 0}h2{font-size:20px;margin:0 0 16px}.muted{color:#62748b;margin:5px 0}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:18px 0}.metric{background:#fff;border:1px solid #dce3ee;border-radius:10px;padding:18px}
+.metric span{color:#64758b;display:block;margin-bottom:8px}.metric strong{font-size:22px}
+.gridlayout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+table{width:100%;border-collapse:collapse}td,th{padding:12px;border-bottom:1px solid #e4e9f1;text-align:left}th{font-size:12px;color:#5a6d84}
+td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow-x:auto}.amount{font-size:24px;font-weight:700}
+form{background:#f4f6f9;padding:16px;border-radius:8px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.calc-fields label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:11px;border:1px solid #b6c3d4;border-radius:7px;background:#fff}
+button{background:#304a95;border:0;border-radius:7px;color:#fff;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:25px;text-align:center;color:#718198}
+dl{display:grid;grid-template-columns:1fr auto;gap:12px;margin:0}dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650}
+@media(max-width:900px){.gridlayout{display:block}main{margin:14px auto;padding:0 12px}header{display:block}.calc-fields{grid-template-columns:1fr}}
+</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
+echo '<div class="metrics">';
+echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format(array_sum($categoryTotals)/100,2,',','.').'</strong></div>';
+echo '<div class="metric"><span>Aantal regels</span><strong>'.count($lines).'</strong></div>';
+echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></div>';
+echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Actie</th></tr>';
 $total=0;
 foreach($lines as $line) {
     $subtotal=(int)$line['quantity']*(int)$line['unit_cost_cents'];$total+=$subtotal;
-    echo '<tr><td>'.$h((string)$line['line_id']).'</td><td>'.$h((string)$line['description']).'</td><td>'.$h((string)$line['cost_type']).'</td><td>'.(int)$line['quantity'].'</td><td>'.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td>'.number_format($subtotal/100,2,',','.').'</td><td><a href="/office-test/calculatie?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.(int)$line['quantity'].'</td><td class="numeric">€ '.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td class="numeric">€ '.number_format($subtotal/100,2,',','.').'</td><td><a href="/office-test/calculatie?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?'':$h((string)$edit['description']);
 $editQuantity=$edit===null?'':(string)(int)$edit['quantity'];
 $editPrice=$edit===null?'':number_format((int)$edit['unit_cost_cents']/100,2,',','');
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
-echo '</table><p><strong>Totaal: € '.number_format($total/100,2,',','.').'</strong></p>';
-echo '<h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
+if($lines===[]) echo '<tr><td colspan="6" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
+echo '</table></div><p class="amount">Totaal: € '.number_format($total/100,2,',','.').'</p></section>';
+echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
 echo '<form method="post" action="/office-test/calculatie">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
 echo '<input type="hidden" name="csrf" value="'.$h($csrf).'">';
@@ -130,4 +157,6 @@ echo '<label>Aantal <input type="number" min="1" name="quantity" value="'.$editQ
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
 if($edit!==null) echo ' <a href="/office-test/calculatie?draft_id='.$draft.'">Annuleren</a>';
-echo '</form></html>';
+echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
+foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($categoryTotals[$key]/100,2,',','.').'</dd>';
+echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section></main></body></html>';
