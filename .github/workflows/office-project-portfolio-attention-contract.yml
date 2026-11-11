@@ -6,6 +6,8 @@ on:
     paths:
       - 'office-independent/public/office-projects.php'
       - 'office-independent/src/Project/OfficeProjectPortfolioView.php'
+      - 'office-independent/src/Project/OfficeProjectPortfolioTotals.php'
+      - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
       - 'office-independent/src/Project/OfficeProjectPageStructure.php'
       - 'office-independent/src/Project/OfficeProjectTrafficLight.php'
       - 'office-independent/tests/OfficeProjectPortfolioAttentionTest.php'
@@ -25,6 +27,9 @@ jobs:
           set -euo pipefail
           php -l office-independent/public/office-projects.php
           php -l office-independent/src/Project/OfficeProjectPortfolioView.php
+          php -l office-independent/src/Project/OfficeProjectPortfolioTotals.php
+          php -l office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php -l office-independent/src/Project/OfficeProjectTrafficLight.php
           php -l office-independent/tests/OfficeProjectPortfolioAttentionTest.php
           php office-independent/tests/OfficeProjectPortfolioAttentionTest.php
+          php office-independent/tests/OfficeProjectPortfolioTotalsTest.php
