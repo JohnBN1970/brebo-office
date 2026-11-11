@@ -687,10 +687,10 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
                     $db,
                     static fn(int $requestedProject, int $actor, string $capability): bool =>
                         $requestedProject === (int)$projectId
-                        && $actor > 0
+                        && $actor === (int)$operator->operatorId
                         && $capability === 'view_project_procurement'
                 );
-                $materialView = $materialReader->forProject((int)$projectId, 1);
+                $materialView = $materialReader->forProject((int)$projectId, (int)$operator->operatorId);
                 if ($materialView['state'] === 'ready') {
                     $financeHtml .= \Brebo\Office\WorkingBudget\MaterialProcurementPanel::render($materialView['rows']);
                     if ($materialView['unmatched'] !== []) {
