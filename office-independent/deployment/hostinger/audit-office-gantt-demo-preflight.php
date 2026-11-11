@@ -28,6 +28,11 @@ foreach (['office_projects','office_project_memberships','office_project_buildin
     }
 }
 if (!isset($schema['office_projects'])) exit(4);
-$stmt = $db->query("SELECT COUNT(*) FROM office_projects WHERE UPPER(code) LIKE 'DEMO-%'");
-echo 'DEMO_PROJECT_COUNT='.(int)$stmt->fetchColumn()."\n";
+$stmt = $db->query("SELECT COUNT(*) FROM office_projects WHERE UPPER(code) LIKE 'DEMO-%' OR UPPER(code) LIKE 'TEST-%'");
+echo 'TEST_OR_DEMO_PROJECT_COUNT='.(int)$stmt->fetchColumn()."\n";
+$stmt = $db->prepare("SELECT p.id,p.code,p.title,p.status,COUNT(m.operator_id) AS membership_count FROM office_projects p LEFT JOIN office_project_memberships m ON m.project_id=p.id WHERE p.code=? GROUP BY p.id,p.code,p.title,p.status");
+$stmt->execute(['TEST-2026-001']);
+$rows=$stmt->fetchAll(PDO::FETCH_ASSOC);
+echo 'TARGET_TEST_PROJECT_COUNT='.count($rows)."\n";
+foreach ($rows as $row) echo 'TARGET_TEST_PROJECT_ID='.(int)$row['id'].'; MEMBERSHIPS='.(int)$row['membership_count']."\n";
 echo "READ_ONLY_GANTT_PREFLIGHT_COMPLETE\n";
