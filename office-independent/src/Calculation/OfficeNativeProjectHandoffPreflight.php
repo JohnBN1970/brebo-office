@@ -46,7 +46,9 @@ final class OfficeNativeProjectHandoffPreflight
             }
         }
         return [
-            'ready' => $missing === [],
+            // Operational readiness must remain false until the native factory is wired.
+            'ready' => false,
+            'schema_ready' => $missing === [],
             'missing' => $missing,
             'native_project_required_inputs' => $requiredProjectInputs,
             'project_factory_connected' => false,
