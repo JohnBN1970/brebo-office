@@ -71,6 +71,15 @@ jobs:
                 done
               fi
             done
+            echo "SECTION=PRIVATE_STAGE_PREFLIGHT"
+            private_root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            private_stage="$private_root/.calc-app-staging"
+            if [ -d "$private_root" ]; then echo "STAGE_ROOT_DIRECTORY=YES"; else echo "STAGE_ROOT_DIRECTORY=NO"; fi
+            if [ -f "$private_root/config/config.php" ]; then echo "STAGE_CONFIG_PRESENT=YES"; else echo "STAGE_CONFIG_PRESENT=NO"; fi
+            if [ -L "$private_root" ]; then echo "STAGE_ROOT_SYMLINK=YES"; else echo "STAGE_ROOT_SYMLINK=NO"; fi
+            if [ -L "$private_stage" ]; then echo "STAGE_TARGET_SYMLINK=YES"; else echo "STAGE_TARGET_SYMLINK=NO"; fi
+            if [ -d "$private_stage" ]; then echo "STAGE_TARGET_DIRECTORY=YES"; else echo "STAGE_TARGET_DIRECTORY=NO"; fi
+            if [ -e "$private_stage/calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.tgz" ]; then echo "STAGE_ARCHIVE_ALREADY_EXISTS=YES"; else echo "STAGE_ARCHIVE_ALREADY_EXISTS=NO"; fi
             echo "SECTION=CALC_APP_DESTINATIONS"
             for location in "$ROOT"/nodejs "$ROOT"/calc "$ROOT"/calc-app "$WEB"/calc-app "$WEB"/office-test/calc-app; do
               if [ -d "$location" ]; then
