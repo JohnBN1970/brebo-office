@@ -1,0 +1,179 @@
+name: Office-test native Calc route guarded stage
+on:
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-native-route-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  stage-and-install-test-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: JohnBN1970/brebo-office
+          ref: a862097927a336279ba19165461b3f8646ab6cb8
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Check exact Office CRM and Calc contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-calc-crm-start.php
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftAccess.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php
+          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
+      - name: Package only four native Office-test PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -czf calc-office-native-code-only.tgz -C office-independent \
+            public/office-calc-crm-start.php \
+            public/office-calc-crm-workbench.php \
+            src/Calculation/OfficeCalcCrmDraftAccess.php \
+            src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          sha256sum calc-office-native-code-only.tgz > calc-office-native-code-only.sha256
+          echo "CALC_OFFICE_NATIVE_PACKAGE=BUILT"
+      - name: Verify private staging target
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          script: |
+            set -eu
+            root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            stage="$root/.calc-native-office-stage"
+            test -d "$root" && test ! -L "$root"
+            test ! -L "$stage"
+            mkdir -p -m 700 "$stage"
+            echo "CALC_NATIVE_PRIVATE_STAGE=READY"
+      - name: Upload candidate files outside document root
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "calc-office-native-code-only.tgz,calc-office-native-code-only.sha256"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-native-office-stage"
+          overwrite: true
+      - name: Safely mount native Office-test PHP routes with fail-closed flags
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          command_timeout: 5m
+          script: |
+            set -eu
+            base=/home/u213420663/domains/brebobv.nl/office_calc_test
+            stage="$base/.calc-native-office-stage"
+            config="$base/config/config.php"
+            router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            test -f "$config" && test -f "$router"
+            test ! -L "$router" && test ! -L "$stage"
+            cd "$stage"
+            sha256sum -c calc-office-native-code-only.sha256 >/dev/null
+            test ! -L "$stage/files"
+            mkdir -p -m 700 "$stage/files"
+            tar -xzf calc-office-native-code-only.tgz -C "$stage/files"
+            active=$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")
+            case "$active" in "$base"/release-*/private) ;; *) echo "CALC_NATIVE_ACTIVE_RELEASE_GUARD=FAILED"; exit 1;; esac
+            test -d "$active/src/Intake" && test -d "$active/public"
+            php -l "$stage/files/public/office-calc-crm-start.php"
+            php -l "$stage/files/public/office-calc-crm-workbench.php"
+            php -l "$stage/files/src/Calculation/OfficeCalcCrmDraftAccess.php"
+            php -l "$stage/files/src/Calculation/OfficeCalcCrmDraftLineRepository.php"
+            for item in public/office-calc-crm-start.php public/office-calc-crm-workbench.php src/Calculation/OfficeCalcCrmDraftAccess.php src/Calculation/OfficeCalcCrmDraftLineRepository.php; do
+              test ! -L "$active/$item"
+              if test -e "$active/$item"; then
+                cmp -s "$active/$item" "$stage/files/$item" || { echo "CALC_NATIVE_EXISTING_FILE_CONFLICT=YES"; exit 1; }
+              fi
+            done
+            php -r '
+            $file="/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $c=require $file;
+            if(!is_array($c) || ($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
+                || ($c["OFFICE_TEST_CRM_ENABLED"]??"")!=="enabled"
+                || ($c["OFFICE_CRM_AUTH_MODE"]??"")!=="session_only") exit(1);
+            echo "CALC_NATIVE_OFFICE_TEST_SCOPE=VERIFIED\n";
+            '
+            export CALC_NATIVE_STAGE="$stage"
+            export CALC_NATIVE_ROUTER="$router"
+            php <<'PATCH'
+            <?php
+            $router=getenv('CALC_NATIVE_ROUTER');
+            $stage=getenv('CALC_NATIVE_STAGE');
+            $source=file_get_contents($router);
+            if(!is_string($source)) exit(1);
+            $marker='$routes = [';
+            $signature="office-calc-crm-start.php";
+            if(str_contains($source,$signature)) {
+                if(!str_contains($source,"'/office-test/calculatie'")) exit(1);
+                file_put_contents($stage.'/router-candidate.php',$source);
+                echo "CALC_NATIVE_ROUTER=ALREADY_MOUNTED\n";
+                exit;
+            }
+            if(substr_count($source,$marker)!==1
+                || !str_contains($source,"office-crm-opportunities.php")
+                || !str_contains($source,"require $private")) {
+                echo "CALC_NATIVE_ROUTER_PATCH_ANCHOR=UNSAFE\n";
+                exit(1);
+            }
+            $insert=<<<'ROUTES'
+            // Native CRM-first calculation: guarded by the handler's Office session and rollout flags.
+            if ($path === '/office-test/calculatie/start') {
+              require $private . '/public/office-calc-crm-start.php';
+              exit;
+            }
+            if ($path === '/office-test/calculatie') {
+              require $private . '/public/office-calc-crm-workbench.php';
+              exit;
+            }
+            ROUTES;
+            $candidate=str_replace($marker,$insert."\n".$marker,$source);
+            if(file_put_contents($stage.'/router-candidate.php',$candidate)===false) exit(1);
+            echo "CALC_NATIVE_ROUTER_CANDIDATE=CREATED\n";
+            PATCH
+            php -l "$stage/router-candidate.php"
+            for item in public/office-calc-crm-start.php public/office-calc-crm-workbench.php src/Calculation/OfficeCalcCrmDraftAccess.php src/Calculation/OfficeCalcCrmDraftLineRepository.php; do
+              if test ! -e "$active/$item"; then
+                cp -p "$stage/files/$item" "$active/$item"
+                chmod 644 "$active/$item"
+              fi
+            done
+            if ! cmp -s "$router" "$stage/router-candidate.php"; then
+              backup="$stage/router-before-calc-native-$(date -u +%Y%m%dT%H%M%SZ).php"
+              cp -p "$router" "$backup"
+              cp -p "$stage/router-candidate.php" "$stage/router-ready.php"
+              chmod --reference="$router" "$stage/router-ready.php"
+              mv "$stage/router-ready.php" "$router"
+              if ! php -l "$router" >/dev/null; then
+                cp -p "$backup" "$router"
+                echo "CALC_NATIVE_ROUTER=ROLLED_BACK"
+                exit 1
+              fi
+              echo "CALC_NATIVE_ROUTER=INSTALLED_WITH_BACKUP"
+            else
+              echo "CALC_NATIVE_ROUTER=ALREADY_CURRENT"
+            fi
+            for item in public/office-calc-crm-start.php public/office-calc-crm-workbench.php src/Calculation/OfficeCalcCrmDraftAccess.php src/Calculation/OfficeCalcCrmDraftLineRepository.php; do
+              cmp -s "$active/$item" "$stage/files/$item"
+            done
+            echo "CALC_NATIVE_FILES=VERIFIED"
+            echo "CALC_NATIVE_FEATURE_FLAGS=NOT_MODIFIED"
+            echo "CALC_NATIVE_DATABASE=NOT_MODIFIED"
+            echo "CALC_LEGACY_DATABASE=NOT_TOUCHED"
