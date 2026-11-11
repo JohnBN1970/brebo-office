@@ -39,6 +39,21 @@ final class OfficeFunctionalMailIngest {
       ':sender' => $sender, ':recipient' => $recipient, ':subject' => $subject,
       ':received' => $received, ':body' => $body,
     ]);
-    return (int) $this->db->lastInsertId();
+    $messageId = (int) $this->db->lastInsertId();
+    if (getenv('OFFICE_MAIL_BOARD_SCHEMA_VERIFIED') === 'enabled') {
+      require_once __DIR__ . '/OfficeMailRoutingSuggestions.php';
+      $suggestion = OfficeMailRoutingSuggestions::suggest($subject, is_string($body) ? $body : '');
+      // Never overwrite a manual move or a previously recorded suggestion.
+      $route = $this->db->prepare("INSERT IGNORE INTO office_mail_board_routes
+        (message_id,module_key,suggested_module,suggestion_reason,updated_at)
+        VALUES (:message,:module,:suggested,:reason,UTC_TIMESTAMP())");
+      $route->execute([
+        ':message' => $messageId,
+        ':module' => $suggestion['module'],
+        ':suggested' => $suggestion['module'],
+        ':reason' => $suggestion['reason'],
+      ]);
+    }
+    return $messageId;
   }
 }
