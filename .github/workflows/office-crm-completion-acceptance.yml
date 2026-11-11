@@ -76,7 +76,7 @@ jobs:
   install-test:
     name: Install validated CRM on isolated Office-test
     needs: native
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/integration/crm-completion-20261108' || github.ref == 'refs/heads/integration/crm-completion-develop-ready-20261110')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration/crm-completion-20261108'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -165,3 +165,68 @@ jobs:
             rm "$headers"
             echo "CRM_TEST_ROUTE_VERIFIED=$route"
           done
+
+  diagnose-active-source:
+    name: Read-only Office-test CRM source comparison
+    needs: native
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration/crm-completion-develop-ready-20261110'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare active CRM source hashes without writing to host
+        env:
+          CRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          CRM_DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          CRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          CRM_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CRM_DEPLOY_HOST CRM_DEPLOY_PORT CRM_DEPLOY_USER CRM_DEPLOY_KEY; do test -n "${!key}"; done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CRM_DEPLOY_KEY" > ~/.ssh/crm_readonly
+          chmod 600 ~/.ssh/crm_readonly
+          trap 'rm -f ~/.ssh/crm_readonly' EXIT
+          python3 - <<'PY' > /tmp/crm-source-hashes.txt
+          import hashlib,subprocess
+          from pathlib import Path
+          paths=[
+              'src/Crm/OfficeCrmFunnel.php','src/Crm/OfficeCrmFunnelViews.php',
+              'src/Crm/OfficeCrmOpportunityPolicy.php','src/Crm/OfficeCrmOpportunityRepository.php',
+              'src/Crm/OfficeCrmOpportunitySchema.php','src/Crm/OfficeCrmCalculationContext.php',
+              'public/office-crm-opportunities.php','public/office-crm-opportunity-bootstrap.php',
+              'public/office-crm-opportunity-create.php','public/office-crm-opportunity-detail.php',
+              'public/office-crm-opportunity-transition.php','public/office-crm-calculation-context.php',
+          ]
+          for relative in paths:
+              source='office-independent/'+relative
+              current=hashlib.sha256(Path(source).read_bytes()).hexdigest()
+              previous=subprocess.run(['git','show','10c42f85954932f3993e8b3eb973f48e9e5f7406:'+source],capture_output=True)
+              old=hashlib.sha256(previous.stdout).hexdigest() if previous.returncode==0 else '-'
+              print(relative,current,old)
+          PY
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" 'bash -se' < <(
+            cat <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          active=$(/opt/alt/php83/usr/bin/php -r '$c=require $argv[1]; $p=realpath($c["OFFICE_PRIVATE_ROOT"]??""); if(!$p || !str_starts_with($p,$argv[2]."/release-") || !str_ends_with($p,"/private"))exit(2); echo $p;' "$config" "$base")
+          while read -r path expected previous; do
+            case "$path" in src/Crm/OfficeCrm*.php|public/office-crm-*.php) ;; *) exit 3;; esac
+            target="$active/$path"
+            if [ ! -f "$target" ] || [ -L "$target" ]; then echo "SOURCE_STATUS=$path MISSING_OR_SYMLINK"; continue; fi
+            actual=$(sha256sum "$target" | cut -d' ' -f1)
+            if [ "$actual" = "$expected" ]; then state=CURRENT
+            elif [ "$actual" = "$previous" ]; then state=BASELINE
+            else state=UNKNOWN; fi
+            echo "SOURCE_STATUS=$path $state SHA256=$actual"
+          done
+          REMOTE
+            cat /tmp/crm-source-hashes.txt
+          )
+          rm -f /tmp/crm-source-hashes.txt
