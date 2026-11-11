@@ -4,7 +4,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+$scriptNonce = base64_encode(random_bytes(18));
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-" . $scriptNonce . "'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { header('Allow: GET'); http_response_code(405); exit; }
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
     || getenv('OFFICE_WORKFLOW_PREVIEW_ENABLED') !== 'enabled'
@@ -56,7 +57,7 @@ main{max-width:1080px;margin:auto}h1{margin-bottom:5px}p{color:#52617b}
 .flow{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
 .node{background:#fff;border:1px solid #cbd6e8;border-radius:10px;padding:14px 16px;font-weight:600}
 .arrow{align-self:center;color:#426da4}.panel{background:white;border:1px solid #dce4ef;border-radius:12px;padding:20px;overflow:auto}
-table{border-collapse:collapse;width:100%}th,td{padding:12px;text-align:left;border-bottom:1px solid #e7ecf4}
+button,select{font:inherit;padding:9px;border:1px solid #b8c8df;border-radius:7px;background:#fff;color:#182b48}button{cursor:pointer}button:focus-visible{outline:3px solid #3379ca}fieldset{border:1px solid #dce4ef;border-radius:10px;margin-top:16px;padding:16px}label{display:block;margin:10px 0 5px}table{border-collapse:collapse;width:100%}th,td{padding:12px;text-align:left;border-bottom:1px solid #e7ecf4}
 th{color:#4a5970}small{color:#64748b}
 </style></head><body><main><h1>Installatie / Workflows</h1>
 <p>BREBO commerciële blauwdruk · alleen-lezen voorbeeld · geen actieve procesuitvoering</p>
@@ -66,7 +67,59 @@ th{color:#4a5970}small{color:#64748b}
 <section class="panel"><h2>Acties op verbindingen</h2>
 <table><thead><tr><th>Verbinding</th><th>Route</th><th>Actie</th><th>Voorwaarde</th></tr></thead><tbody>
 <?php foreach ($edges as [$label,$route,$action,$condition]): ?>
-<tr><td><?=h($label)?></td><td><?=h($route)?></td><td><code><?=h($action)?></code></td><td><?=h($condition)?></td></tr>
+<tr><td><button type="button" class="edge" data-edge="<?=h((string)array_search([$label,$route,$action,$condition],$edges,true))?>"><?=h($label)?></button></td><td><?=h($route)?></td><td><code><?=h($action)?></code></td><td><?=h($condition)?></td></tr>
 <?php endforeach; ?></tbody></table>
-<p><small>Dit is een statische demonstratie, niet de gepubliceerde databaseconfiguratie. Wijzigen, slepen en publiceren volgen later.</small></p>
-</section></main></body></html>
+<fieldset><legend>Verbinding configureren (lokale simulatie)</legend><p id="selection">Selecteer een verbinding in de tabel.</p><label for="condition">Voorwaarde</label><select id="condition" disabled><option value="always">Altijd</option><option value="acceptance.verified">Acceptatie gecontroleerd</option><option value="calculation.exists">Calculatie aanwezig</option><option value="quotation.accepted">Offerte geaccepteerd</option><option value="document.verified">Document gecontroleerd</option></select><label for="failure">Bij fout</label><select id="failure" disabled><option value="block">Blokkeren</option><option value="retry">Opnieuw proberen</option><option value="assign_task">Taak aanmaken</option></select><p><button id="add" type="button" disabled>Voeg actie toe</button> <button id="reset" type="button">Herstel voorbeeld</button></p><ol id="actions"></ol><p id="message" role="status">Wijzigingen bestaan uitsluitend in deze browsersessie; er wordt niets opgeslagen of uitgevoerd.</p></fieldset><p><small>Demonstratie op basis van voorbeeldgegevens, niet de gepubliceerde databaseconfiguratie. Publiceren en opslaan zijn uitgeschakeld.</small></p>
+</section></main><script nonce="<?=h($scriptNonce)?>">
+(() => {
+'use strict';
+const original = <?=json_encode($edges, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR)?>;
+const allowed = ['crm.update_status','crm.create_task','quotation.create_draft','project.create','budget.transfer_accepted_calculation','notification.create','document.create_draft'];
+let data = original.map(row => ({label:row[0],route:row[1],actions:[row[2]],condition:row[3],failure:'block'}));
+let selected = -1;
+const condition = document.getElementById('condition'), failure = document.getElementById('failure');
+const list = document.getElementById('actions'), message = document.getElementById('message');
+const add = document.getElementById('add');
+function render() {
+  list.replaceChildren();
+  condition.disabled = failure.disabled = add.disabled = selected < 0;
+  if (selected < 0) { document.getElementById('selection').textContent='Selecteer een verbinding in de tabel.'; return; }
+  const row = data[selected];
+  document.getElementById('selection').textContent=row.label+' — '+row.route;
+  condition.value=row.condition; failure.value=row.failure;
+  row.actions.forEach((action,i) => {
+    const li=document.createElement('li');
+    const name=document.createElement('span');name.textContent=action+' ';
+    const remove=document.createElement('button');remove.type='button';remove.textContent='Verwijder';
+    remove.addEventListener('click',()=>{row.actions.splice(i,1);render();});
+    li.append(name,remove);list.append(li);
+  });
+}
+document.querySelectorAll('button.edge').forEach(button=>button.addEventListener('click',()=>{
+ selected=Number(button.dataset.edge);render();
+}));
+condition.addEventListener('change',()=>{
+ if(selected<0)return;
+ const row=data[selected];
+ if(row.actions.some(a=>a==='project.create'||a==='budget.transfer_accepted_calculation')&&condition.value!=='acceptance.verified'){
+  message.textContent='Projectaanmaak en werkbegroting vereisen gecontroleerde acceptatie.';render();return;
+ }
+ row.condition=condition.value;message.textContent='Alleen lokale voorbeeldwijziging.';render();
+});
+failure.addEventListener('change',()=>{if(selected>=0){data[selected].failure=failure.value;render();}});
+add.addEventListener('click',()=>{
+ if(selected<0)return;
+ const row=data[selected];if(row.actions.length>=20){message.textContent='Maximaal 20 acties.';return;}
+ const choices=allowed.filter(a=>row.condition==='acceptance.verified'||!['project.create','budget.transfer_accepted_calculation'].includes(a));
+ const action=window.prompt('Actie toevoegen (kies exact uit):\n'+choices.join('\n'));
+ if(action===null)return;
+ if(!choices.includes(action)){message.textContent='Actie niet toegestaan.';return;}
+ row.actions.push(action);message.textContent='Actie alleen in lokale simulatie toegevoegd.';render();
+});
+document.getElementById('reset').addEventListener('click',()=>{
+ data=original.map(row=>({label:row[0],route:row[1],actions:[row[2]],condition:row[3],failure:'block'}));
+ selected=-1;message.textContent='Voorbeeld hersteld; niets opgeslagen.';render();
+});
+render();
+})();
+</script></body></html>
