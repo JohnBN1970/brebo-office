@@ -63,7 +63,8 @@ $draftRepository = new \Brebo\Office\Quotation\OfficeQuotationDraftRepository($d
 $editingId = filter_var($_GET['edit'] ?? null, FILTER_VALIDATE_INT) ?: 0;
 $editing = null;
 if ($storageReady && $editingId > 0) {
-    $editing = $draftRepository->getOwnDraft($editingId, $operator->operatorId);
+    try { $editing = $draftRepository->getOwnDraft($editingId, $operator->operatorId); }
+    catch (\Throwable $e) { http_response_code(503); exit('Concept tijdelijk niet beschikbaar.'); }
     if ($editing === null) { http_response_code(404); exit('Concept niet gevonden.'); }
 }
 $message = '';
@@ -77,12 +78,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $postedType = is_string($_POST['type'] ?? null) ? $_POST['type'] : '';
     $title = is_string($_POST['title'] ?? null) ? trim($_POST['title']) : '';
     $sectionValues = $_POST['sections'] ?? null;
-    if (!$relationId || !is_array($sectionValues) || !array_key_exists($postedType, \Brebo\Office\Quotation\OfficeQuotationComposer::TEMPLATES)) {
+    if (count($_POST) > 30) { http_response_code(400); exit('Te veel formuliervelden.'); }
+    if (!$relationId || !is_array($sectionValues) || count($sectionValues) > 20 || !array_key_exists($postedType, \Brebo\Office\Quotation\OfficeQuotationComposer::TEMPLATES)) {
         http_response_code(400); exit('Ongeldige offertegegevens.');
     }
     try {
         require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationDraftRepository.php';
         $editId = filter_var($_POST['quotation_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+        if (isset($_POST['quotation_id']) && (string)$_POST['quotation_id'] !== '0' && !$editId) {
+            http_response_code(400); exit('Ongeldig conceptnummer.');
+        }
         if ($editId > 0) {
             $existing = $draftRepository->getOwnDraft($editId, $operator->operatorId);
             if (!$existing || $existing['quotation_type'] !== $postedType
@@ -96,7 +101,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $id = $draftRepository->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
         }
         $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
-        header('Location: /office-test/crm/offertes?type=' . rawurlencode($postedType) . '&created=' . $id, true, 303);
+        header('Location: /office-test/crm/offertes?type=' . rawurlencode($postedType) . '&edit=' . $id . '&saved=1', true, 303);
         exit;
     } catch (\InvalidArgumentException $e) {
         $message = 'Controleer de relatie, titel en hoofdstukteksten.';
@@ -141,7 +146,7 @@ foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $in
 }
 echo '</div></section>';
 if ($message !== '') echo '<p role="alert">'.$escape($message).'</p>';
-if (isset($_GET['created']) && ctype_digit((string)$_GET['created'])) echo '<p role="status">Conceptofferte aangemaakt. Nummer: '.(int)$_GET['created'].'</p>';
+if ($editing && isset($_GET['saved'])) echo '<p role="status">Concept opgeslagen.</p>';
 if ($storageReady) {
     echo '<section class="panel"><h2>'.($editing ? 'Concept bewerken' : 'Nieuw offerteconcept').'</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
     foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.($editing && (int)$editing['relation_id'] === (int)$relation['id'] ? ' selected' : '').'>'.$escape((string)$relation['display_name']).'</option>';
