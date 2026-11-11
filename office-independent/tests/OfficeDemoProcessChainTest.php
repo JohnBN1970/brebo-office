@@ -26,4 +26,21 @@ foreach ([['/office', 'u213420663_office_test'], ['/office-test', 'u213420663_of
         assert(str_contains($e->getMessage(), 'Refusing demo writes'));
     }
 }
+$emptyMonitor = Demo::monitor();
+assert($emptyMonitor['total_count'] === count($scenario['stages']));
+assert($emptyMonitor['ready_count'] === 0);
+assert($emptyMonitor['stages']['crm']['status'] === 'UNVERIFIED');
+assert($emptyMonitor['stages']['finance']['status'] === 'UNVERIFIED');
+$checkedMonitor = Demo::monitor([
+    'crm' => ['schema' => true, 'records' => true, 'workflow' => true],
+    'calculatie' => ['schema' => false, 'reason' => 'Test schema not installed'],
+    'uitvoering' => ['schema' => true, 'records' => true],
+    'finance' => ['schema' => true, 'records' => false, 'workflow' => false],
+]);
+assert($checkedMonitor['ready_count'] === 1);
+assert($checkedMonitor['stages']['crm']['status'] === 'READY');
+assert($checkedMonitor['stages']['calculatie']['status'] === 'BLOCKED_SCHEMA');
+assert($checkedMonitor['stages']['calculatie']['reason'] === 'Test schema not installed');
+assert($checkedMonitor['stages']['uitvoering']['status'] === 'PARTIAL');
+assert($checkedMonitor['stages']['finance']['status'] === 'UNVERIFIED');
 echo "OFFICE_DEMO_PROCESS_CHAIN_CONTRACT_OK\n";
