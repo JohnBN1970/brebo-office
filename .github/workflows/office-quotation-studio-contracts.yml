@@ -35,6 +35,8 @@ jobs:
           php -l office-independent/src/Workflow/OfficeCrmWorkflowBridge.php
           php -l office-independent/tests/OfficeCrmWorkflowBridgeTest.php
           php -l office-independent/src/Workflow/OfficeCommercialAcceptancePolicy.php
+          php -l office-independent/src/Workflow/OfficeCommercialAcceptanceRepository.php
+          php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
           php -l office-independent/tests/OfficeCommercialAcceptancePolicyTest.php
           php -l office-independent/tests/OfficeCommercialTransitionGuardTest.php
           php -l office-independent/tests/OfficeCommercialWorkflowTest.php
