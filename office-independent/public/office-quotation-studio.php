@@ -117,7 +117,12 @@ if ($storageReady) {
     } catch (\Throwable $e) { error_log('OFFERTSTUDIO_RELATIONS_QUERY_FAILED: '.get_class($e)); http_response_code(503); exit('CRM-relaties konden niet worden geladen.'); }
     try {
         $ownDrafts = $draftRepository->listOwn($operator->operatorId);
-    } catch (\Throwable $e) { error_log('OFFERTSTUDIO_DRAFT_LIST_FAILED: '.get_class($e)); http_response_code(503); exit('Offerteconcepten konden niet worden geladen.'); }
+    } catch (\Throwable $e) {
+        $code = $e instanceof \PDOException && is_string($e->getCode()) && preg_match('/^[A-Z0-9]{5}$/D', $e->getCode()) ? $e->getCode() : 'UNKNOWN';
+        error_log('OFFERTSTUDIO_DRAFT_LIST_FAILED class='.get_class($e).' sqlstate='.$code);
+        http_response_code(503);
+        exit('Offerteconcepten konden niet worden geladen (code '.$code.').');
+    }
 }
 
 $type = $editing ? (string)$editing['quotation_type'] : (string) ($_GET['type'] ?? 'project');
