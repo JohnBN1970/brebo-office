@@ -75,6 +75,24 @@ final class OfficeProjectDocumentService
         );
     }
 
+    /** Authorized project-only evidence review; never changes canonical records. */
+    public function projectAddressProposals(int $operatorId, int $projectId, int $documentId): array
+    {
+        $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeAddressProposalReviewService.php';
+        return (new OfficeAddressProposalReviewService($this->db))->pendingForDocument($documentId);
+    }
+
+    /** Explicit human review, scoped to the same document and project grant. */
+    public function reviewProjectAddressProposal(
+        int $operatorId, int $projectId, int $documentId, int $proposalId, string $decision
+    ): bool {
+        $this->requireProject($operatorId, $projectId, true);
+        $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeAddressProposalReviewService.php';
+        return (new OfficeAddressProposalReviewService($this->db))->decide($documentId, $proposalId, $decision);
+    }
+
     /** Returns the file path only after a trusted server-side Office project grant. */
     public function authorizedDownload(int $operatorId, int $projectId, int $documentId): array
     {
