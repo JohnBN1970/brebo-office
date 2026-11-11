@@ -191,4 +191,57 @@ if ($storageReady) {
 } else {
     echo '<section class="panel"><h2>Concepteditor</h2><p>Opslaan is nog niet vrijgegeven. Hiervoor zijn een gecontroleerde database-installatie en de twee offerteflags vereist.</p></section>';
 }
+echo <<<'HTML'
+<script>
+(function () {
+  'use strict';
+  const editor = document.querySelector('.draft-editor');
+  const navigation = document.querySelector('.chapter-nav');
+  if (!editor || !navigation) return;
+  const sections = Array.from(editor.querySelectorAll('p[id^="section-"]'));
+  const links = Array.from(navigation.querySelectorAll('a[href^="#section-"]'));
+  if (!sections.length) return;
+  const bar = document.createElement('div');
+  bar.className = 'chapter-toolbar';
+  bar.style.cssText = 'display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:14px 0;padding:12px;background:#eef2fa;border-radius:8px';
+  const name = document.createElement('strong');
+  const counter = document.createElement('small');
+  const controls = document.createElement('div');
+  controls.style.cssText = 'display:flex;gap:8px';
+  const previous = document.createElement('button');
+  const next = document.createElement('button');
+  previous.type = next.type = 'button';
+  previous.textContent = 'Vorige'; next.textContent = 'Volgende';
+  controls.append(previous, next);
+  bar.append(name, counter, controls);
+  const form = editor.querySelector('form');
+  if (!form) return;
+  form.insertBefore(bar, sections[0]);
+  let active = 0;
+  function show(index, focus) {
+    active = Math.max(0, Math.min(index, sections.length - 1));
+    sections.forEach((section, i) => { section.hidden = i !== active; section.style.display = i === active ? '' : 'none'; });
+    links.forEach(link => {
+      const selected = link.getAttribute('href') === '#' + sections[active].id;
+      link.setAttribute('aria-current', selected ? 'step' : 'false');
+      link.style.fontWeight = selected ? '800' : '400';
+    });
+    const label = sections[active].querySelector('label');
+    name.textContent = label ? label.childNodes[0].textContent.trim() : 'Hoofdstuk';
+    counter.textContent = 'Hoofdstuk ' + (active + 1) + ' van ' + sections.length;
+    previous.disabled = active === 0;
+    next.disabled = active === sections.length - 1;
+    if (focus) sections[active].querySelector('textarea')?.focus();
+  }
+  links.forEach(link => link.addEventListener('click', event => {
+    const index = sections.findIndex(section => '#' + section.id === link.getAttribute('href'));
+    if (index < 0) return;
+    event.preventDefault(); show(index, true);
+  }));
+  previous.addEventListener('click', () => show(active - 1, true));
+  next.addEventListener('click', () => show(active + 1, true));
+  show(0, false);
+})();
+</script>
+HTML;
 echo '</main></body></html>';
