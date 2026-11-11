@@ -12,6 +12,5 @@ CREATE TABLE IF NOT EXISTS office_project_plan_items (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_office_plan_project_dates (project_id, planned_start, planned_end),
-  CONSTRAINT fk_office_plan_project FOREIGN KEY (project_id) REFERENCES office_projects(id) ON DELETE CASCADE,
   CONSTRAINT chk_office_plan_dates CHECK (planned_end >= planned_start)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
