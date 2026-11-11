@@ -43,8 +43,13 @@ if ($method==='POST') {
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
     if (!in_array($to,$next,true)) { http_response_code(400); exit('Ongeldige faseovergang.'); }
     try {
-        $ok=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
-        if (!$ok) { http_response_code(409); exit('De verkoopkans is intussen gewijzigd. Vernieuw de pagina.'); }
+        if ($to==='won') {
+            require_once dirname(__DIR__).'/src/Crm/OfficeCrmWonTransition.php';
+            (new \Brebo\Office\Crm\OfficeCrmWonTransition($db))->apply($id,(string)$item['stage']);
+        } else {
+            $ok=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
+            if (!$ok) { http_response_code(409); exit('De verkoopkans is intussen gewijzigd. Vernieuw de pagina.'); }
+        }
         $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
         header('Location: /office-test/crm/verkoopkansen?updated='.$id,true,303); exit;
     } catch (Throwable $e) { $error='Fasewijziging mislukt.'; }
