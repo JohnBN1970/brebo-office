@@ -656,7 +656,7 @@ if ($kanbanView) {
       $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
       $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
     }
-  } catch (\\Throwable $exception) {
+  } catch (\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
     $portfolioTotals = [];
   }
