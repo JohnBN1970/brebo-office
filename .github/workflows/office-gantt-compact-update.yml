@@ -1,0 +1,66 @@
+name: Office-test Gantt compact portfolio update
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-GANTT-COMPACT-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          php -l office-independent/src/Project/OfficeProjectPortfolioGantt.php
+          php office-independent/tests/test_project_portfolio_gantt.php
+  deploy:
+    needs: validate
+    if: ${{ inputs.confirmation == 'DEPLOY-GANTT-COMPACT-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_gantt
+          chmod 600 ~/.ssh/id_gantt
+      - name: Replace Gantt renderer only, with backup and integrity check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_gantt"
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPortfolioGantt.php "$remote:/tmp/OfficeProjectPortfolioGantt-compact.php"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          file="$base/src/Project/OfficeProjectPortfolioGantt.php"
+          page="$base/public/office-projects.php"
+          test -f "$file" && test ! -L "$file" && test -f "$page" || { echo GANTT_TARGET_MISSING; exit 21; }
+          grep -Fq 'OfficeProjectPortfolioGantt::render' "$page" || { echo GANTT_NOT_ACTIVE; exit 22; }
+          old_hash=""; old_hash="$(sha256sum "$file" | awk '{print $1}')"
+          # Reject concurrent modifications unless the renderer is already the candidate.
+          if cmp -s "$file" /tmp/OfficeProjectPortfolioGantt-compact.php; then echo GANTT_COMPACT_ALREADY_INSTALLED; exit 0; fi
+          php -l /tmp/OfficeProjectPortfolioGantt-compact.php
+          backup="$file.backup-compact-$(date +%Y%m%d%H%M%S)"
+          cp -p "$file" "$backup"
+          candidate="$(mktemp "$base/src/Project/.gantt-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p /tmp/OfficeProjectPortfolioGantt-compact.php "$candidate"
+          chmod --reference="$file" "$candidate"
+          test "$(sha256sum "$file" | awk '{print $1}')" = "$old_hash" || { echo GANTT_CONCURRENT_CHANGE; exit 23; }
+          mv "$candidate" "$file"
+          if ! php -l "$file"; then cp -p "$backup" "$file"; echo GANTT_ROLLBACK; exit 24; fi
+          echo GANTT_COMPACT_TEST_DEPLOYED
+          REMOTE
