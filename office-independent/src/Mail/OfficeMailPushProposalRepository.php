@@ -14,10 +14,6 @@ use RuntimeException;
 final class OfficeMailPushProposalRepository {
   public function __construct(private readonly PDO $db) {}
 
-  /**
-   * @param array<string,mixed> $proposal
-   * @return array<string,mixed>
-   */
   /** @return list<array<string,mixed>> */
   public function pendingForReviewer(int $reviewerUid, bool $mayReviewAll = FALSE, int $limit = 50): array {
     if ($reviewerUid <= 0) {
@@ -41,12 +37,16 @@ final class OfficeMailPushProposalRepository {
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
+  /**
+   * @param array<string,mixed> $proposal
+   * @return array{id:int,status:string}
+   */
   public function stage(array $proposal): array {
     $source = trim((string) ($proposal['source_id'] ?? ''));
     $owner = (int) ($proposal['owner_uid'] ?? 0);
     $actor = (int) ($proposal['actor_uid'] ?? 0);
     $subject = trim((string) ($proposal['subject'] ?? ''));
-    if ($source === '' || $owner <= 0 || $actor !== $owner) {
+    if ($source === '' || strlen($source) > 512 || strlen($subject) > 512 || $owner <= 0 || $actor !== $owner) {
       throw new RuntimeException('Ongeldige persoonlijke mailoverdracht.');
     }
     $identity = hash('sha256', $owner . ':' . $source);
