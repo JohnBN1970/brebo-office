@@ -3,6 +3,8 @@
 Status: Accepted architecture constraint (implementation pending).
 
 ## Hard boundary
+This rule applies to EVERY Office module, not just mail. Drupal is the public website only. Native Office may accept authenticated website API submissions but must not require Drupal services, data tables, users, sessions or cron at runtime.
+
 BREBO Office owns mailbox configuration, identity, polling jobs, normalized
 messages, deduplication, classification, review, audit and dossier handoff.
 Drupal is limited to the public website and cannot be a required mail service.
