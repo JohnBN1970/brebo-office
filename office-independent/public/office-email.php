@@ -44,7 +44,9 @@ try {
   $mailboxes = [];
   $messages = [];
   $proposals = [];
-  $reviewNotice = null;
+  $boardEnabled = false;
+  $boardCards = [];
+  $csrfToken = '';
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -52,26 +54,36 @@ try {
     if (!is_int($operatorId)) throw new RuntimeException('Ongeldige Office-gebruiker.');
     $mailRepo = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
     $mailboxes = $mailRepo->visibleMailboxes($operatorId);
-    require_once dirname(__DIR__) . '/src/Mail/OfficeMailClassificationRepository.php';
-    $classificationRepo = new \Brebo\Office\Mail\OfficeMailClassificationRepository($db);
-    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-      $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
-      $expectedOrigin = 'https://' . $allowedHost;
-      $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
-      if (($origin !== '' && !hash_equals($expectedOrigin, $origin))
-        || ($origin === '' && !str_starts_with($referer, $expectedOrigin . '/'))) {
-        http_response_code(403); exit('Ongeldige herkomst.');
+    $boardEnabled = getenv('OFFICE_MAIL_BOARD_SCHEMA_VERIFIED') === 'enabled';
+    $boardCards = [];
+    if ($boardEnabled) {
+      require_once dirname(__DIR__) . '/src/Mail/OfficeMailBoardRepository.php';
+      $board = new \Brebo\Office\Mail\OfficeMailBoardRepository($db);
+      $csrfSecret = getenv('OFFICE_MAIL_BOARD_CSRF_SECRET');
+      if (!is_string($csrfSecret) || strlen($csrfSecret) < 32) {
+        throw new RuntimeException('Mailbord CSRF configuratie ontbreekt.');
       }
-      $decision = $_POST['decision'] ?? null;
-      $proposalId = filter_var($_POST['proposal_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-      if (!is_string($decision) || !is_int($proposalId) || !in_array($decision, ['approved','rejected'], true)) {
-        http_response_code(422); exit('Ongeldige beoordeling.');
+      $csrfToken = hash_hmac('sha256', $operatorId . '|' . hash('sha256', json_encode($_COOKIE, JSON_THROW_ON_ERROR)), $csrfSecret);
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+        $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+        if (($origin !== '' && !hash_equals('https://' . $allowedHost, $origin))
+          || ($origin === '' && !str_starts_with($referer, 'https://' . $allowedHost . '/'))
+          || !is_string($_POST['csrf'] ?? null)
+          || !hash_equals($csrfToken, $_POST['csrf'])) {
+          http_response_code(403); exit('Ongeldige aanvraag.');
+        }
+        $messageId = filter_var($_POST['message_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $module = $_POST['module'] ?? null;
+        if (!is_int($messageId) || !is_string($module)) { http_response_code(422); exit('Ongeldige verplaatsing.'); }
+        $moved = $board->move($messageId, $operatorId, $module);
+        header('Location: /office-test/email?move=' . ($moved ? 'saved' : 'denied') . '#mailbord', true, 303);
+        exit;
       }
-      $changed = $classificationRepo->review($proposalId, $operatorId, $decision);
-      header('Location: /office-test/email?review=' . ($changed ? 'saved' : 'unavailable') . '#mailvoorstellen', true, 303);
-      exit;
+      $boardCards = $board->cards($operatorId);
+    } elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      http_response_code(503); exit('Mailbord niet actief.');
     }
-    $proposals = $classificationRepo->pendingForOperator($operatorId);
     $requested = filter_var($_GET['mailbox'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     if (is_int($requested)) $messages = $mailRepo->inbox($requested, $operatorId);
   }
@@ -92,7 +104,7 @@ main{max-width:1100px;margin:36px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
-.status{font-size:13px;font-weight:650;color:#805a19}
+.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:12px;overflow-x:auto;padding:12px 0}.lane{flex:0 0 225px;background:#e9eef6;border-radius:10px;padding:12px;min-height:190px}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
 </style></head><body><main>
 <h1>E-mail</h1>
 <p class="muted">Native Office e-mailomgeving. Drupal is geen onderdeel van deze pagina.</p>
@@ -107,28 +119,51 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php endif; ?></article>
 <article><h2>Verzonden</h2><p>Verzonden correspondentie vanuit Office.</p><p class="status">Nog niet aangesloten</p></article>
 <article><h2>Persoonlijke e-mail</h2><p>Alleen expliciet geselecteerde berichten gaan naar Office.</p><p class="status">Native push nog niet aangesloten</p></article>
-<article><h2>Mailcontrole</h2><p>Beoordeel voorgestelde dossierkoppelingen voordat ze worden toegepast.</p>
-<?php if ($mailSchemaReady): ?>
-<p><a href="#mailvoorstellen">Open controlewachtrij (<?= count($proposals) ?>)</a></p>
-<?php endif; ?>
-<?php if ($reviewEnabled): ?>
-<p><a href="/office-test/mail/controle">Open mailcontrole</a></p>
-<?php else: ?>
-<p class="status">Wacht op geverifieerde Office-identiteit</p>
-<?php endif; ?></article>
+<article><h2>Modulebord</h2><p>Office AI stelt een eigenaar voor; verplaats berichten naar de juiste module.</p><p><a href="#mailbord">Open modulebord</a></p></article>
 </div>
 <?php if ($mailSchemaReady): ?>
-<section id="mailvoorstellen"><h2>Controlewachtrij</h2>
-<?php if (($_GET['review'] ?? '') === 'saved'): ?><p>Beoordeling opgeslagen. Een goedkeuring koppelt nog geen dossier.</p><?php endif; ?>
-<?php if ($proposals === []): ?><p>Geen voorstellen ter controle.</p>
-<?php else: ?><table><thead><tr><th>Mailbox</th><th>Afzender</th><th>Onderwerp</th><th>Voorgestelde module</th><th>Toelichting</th><th>Beoordelen</th></tr></thead><tbody>
-<?php foreach ($proposals as $proposal): ?>
-<tr><td><?= htmlspecialchars((string)$proposal['mailbox_label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
-<td><?= htmlspecialchars((string)$proposal['sender'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
-<td><?= htmlspecialchars((string)$proposal['subject'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
-<td><?= htmlspecialchars((string)$proposal['proposed_module'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td>
-<td><?= htmlspecialchars((string)$proposal['reason'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></td><td><form method="post" action="/office-test/email"><input type="hidden" name="proposal_id" value="<?= (int)$proposal['id'] ?>"><button name="decision" value="approved" type="submit">Goedkeuren</button> <button name="decision" value="rejected" type="submit">Afwijzen</button></form></td></tr>
-<?php endforeach; ?></tbody></table><?php endif; ?></section>
+<section id="mailbord"><h2>E-mail per module</h2>
+<?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
+<?php else: ?>
+<?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
+<div class="board">
+<?php foreach (['nieuw'=>'Nieuw','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
+<section class="lane" data-module="<?= $key ?>"><h3><?= $label ?></h3>
+<?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
+<article class="mail-card" draggable="true" data-message="<?= (int)$card['id'] ?>">
+<strong><?= htmlspecialchars((string)$card['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
+<p><?= htmlspecialchars((string)$card['sender'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></p>
+<?php if (!empty($card['suggested_module'])): ?><small>AI-voorstel: <?= htmlspecialchars((string)$card['suggested_module'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small><?php endif; ?>
+<form method="post" action="/office-test/email">
+<input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES,'UTF-8') ?>">
+<input type="hidden" name="message_id" value="<?= (int)$card['id'] ?>">
+<label>Verplaatsen <select name="module">
+<?php foreach (['nieuw'=>'Nieuw','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $destination=>$destinationLabel): ?>
+<option value="<?= $destination ?>" <?= $destination===$key?'selected':'' ?>><?= $destinationLabel ?></option>
+<?php endforeach; ?></select></label><button type="submit">Verplaats</button>
+</form></article>
+<?php endforeach; ?></section>
+<?php endforeach; ?></div>
+<script>
+(() => {
+ let active=null;
+ document.querySelectorAll('.mail-card').forEach(card=>{
+   card.addEventListener('dragstart',event=>{active=card;event.dataTransfer.setData('text/plain',card.dataset.message);});
+   card.addEventListener('dragend',()=>{active=null;});
+ });
+ document.querySelectorAll('.lane').forEach(lane=>{
+   lane.addEventListener('dragover',event=>event.preventDefault());
+   lane.addEventListener('drop',event=>{
+     event.preventDefault();
+     if(!active)return;
+     const form=active.querySelector('form');
+     form.querySelector('select[name="module"]').value=lane.dataset.module;
+     form.requestSubmit();
+   });
+ });
+})();
+</script>
+<?php endif; ?></section>
 <?php endif; ?>
 <?php if ($messages !== []): ?>
 <section><h2>Berichten</h2><table><thead><tr><th>Afzender</th><th>Onderwerp</th><th>Ontvangen</th></tr></thead><tbody>
