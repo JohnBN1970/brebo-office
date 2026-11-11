@@ -1,7 +1,7 @@
 name: CRM completion acceptance
 on:
   push:
-    branches: ['integration/crm-completion-20261108']
+    branches: ['integration/crm-completion-20261108', 'integration/crm-completion-develop-ready-20261110']
     paths:
       - 'office-independent/src/Crm/**'
       - 'office-independent/public/office-crm-opportunit*.php'
@@ -76,7 +76,7 @@ jobs:
   install-test:
     name: Install validated CRM on isolated Office-test
     needs: native
-    if: github.event_name == 'push' && github.ref == 'refs/heads/integration/crm-completion-20261108'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/integration/crm-completion-20261108' || github.ref == 'refs/heads/integration/crm-completion-develop-ready-20261110')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
