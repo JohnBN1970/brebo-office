@@ -27,7 +27,7 @@ final class OfficeApprovedHoursWeekRepository
             ->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('Y-m-d');
         $endDate = (new \DateTimeImmutable($bounds['end'], new \DateTimeZone('UTC')))
             ->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('Y-m-d');
-        $stmt = $this->db->prepare("SELECT COALESCE(SUM(h.approved_seconds),0)
+        $stmt = $this->db->prepare("SELECT COUNT(*) AS entry_count, SUM(h.approved_seconds) AS total_seconds
             FROM office_inzet_approved_hours h
             WHERE h.work_date >= :start_date AND h.work_date < :end_date
               AND EXISTS (
@@ -37,7 +37,9 @@ final class OfficeApprovedHoursWeekRepository
                   AND m.permission IN ('read','manage') AND a.active = 1
               )");
         $stmt->execute([':start_date'=>$startDate, ':end_date'=>$endDate, ':operator'=>$operatorId]);
-        $value = $stmt->fetchColumn();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row) || (int)$row['entry_count'] === 0) return null;
+        $value = $row['total_seconds'];
         if ($value === false || !is_numeric($value) || (float)$value > PHP_INT_MAX || (float)$value < 0) {
             throw new \RuntimeException('Invalid approved hours total');
         }
