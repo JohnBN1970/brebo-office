@@ -560,19 +560,22 @@ if (!$inzetView) {
 }
 if ($ganttView) {
   $criticalOnly = ($_GET['filter'] ?? '') === 'kritiek';
-  echo '<nav aria-label="Gantt filters" style="display:flex;gap:12px;margin:12px 0">'
-    . '<a href="' . $escape($base . '/projecten?view=gantt') . '"' . (!$criticalOnly ? ' aria-current="page"' : '') . '>Alle projecten</a>'
-    . '<a href="' . $escape($base . '/projecten?view=gantt&filter=kritiek') . '"' . ($criticalOnly ? ' aria-current="page"' : '') . '>Alleen kritiek</a></nav>';
-  $visibleProjects = $criticalOnly
-    ? array_values(array_filter($projects, static fn(array $project): bool =>
-        in_array(strtolower(trim((string)($project['status'] ?? ''))), ['kritiek', 'critical'], true)))
-    : $projects;
   $sortOptions = ['name_asc'=>'Naam A-Z','name_desc'=>'Naam Z-A','newest'=>'Nieuwste eerst','oldest'=>'Oudste eerst','status'=>'Status','buildings'=>'Meeste gebouwen'];
   $groupOptions = ['none'=>'Geen groepering','status'=>'Status','buildings'=>'Gebouwen gekoppeld'];
   $sort = (string)($_GET['sort'] ?? 'name_asc');
   $group = (string)($_GET['group'] ?? 'none');
   if (!isset($sortOptions[$sort])) $sort = 'name_asc';
   if (!isset($groupOptions[$group])) $group = 'none';
+  $ganttUrl = static fn(bool $critical): string => $base . '/projecten?' . http_build_query(
+    ['view'=>'gantt','sort'=>$sort,'group'=>$group] + ($critical ? ['filter'=>'kritiek'] : [])
+  );
+  echo '<nav aria-label="Gantt filters" style="display:flex;gap:12px;margin:12px 0">'
+    . '<a href="' . $escape($ganttUrl(false)) . '"' . (!$criticalOnly ? ' aria-current="page"' : '') . '>Alle projecten</a>'
+    . '<a href="' . $escape($ganttUrl(true)) . '"' . ($criticalOnly ? ' aria-current="page"' : '') . '>Alleen kritiek</a></nav>';
+  $visibleProjects = $criticalOnly
+    ? array_values(array_filter($projects, static fn(array $project): bool =>
+        in_array(strtolower(trim((string)($project['status'] ?? ''))), ['kritiek', 'critical'], true)))
+    : $projects;
   echo '<form method="get" action="' . $escape($base . '/projecten') . '" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0">'
     . '<input type="hidden" name="view" value="gantt">';
   if ($criticalOnly) echo '<input type="hidden" name="filter" value="kritiek">';
