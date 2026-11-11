@@ -13,7 +13,7 @@ final class OfficeMailBoardRepository {
   public function cards(int $operatorId): array {
     if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
     $sql = "SELECT m.id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
-      COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) AS module_key,
+      CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
       r.suggested_module,r.suggestion_reason
       FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
       LEFT JOIN office_mail_board_routes r ON r.message_id=m.id
