@@ -46,8 +46,12 @@ jobs:
             fi
             echo "CALC_ARCHIVE_SHA256=PASS"
             parent="$root/.calc-app-private-releases"
-            test ! -L "$parent"
+            if [ -L "$parent" ]; then echo "CALC_RELEASE_PARENT_SYMLINK=YES"; exit 1; fi
+            echo "CALC_RELEASE_PARENT_SYMLINK=NO"
+            if [ -d "$parent" ]; then echo "CALC_RELEASE_PARENT_ALREADY_EXISTS=YES"; else echo "CALC_RELEASE_PARENT_ALREADY_EXISTS=NO"; fi
             mkdir -p -m 700 "$parent"
+            echo "CALC_RELEASE_PARENT_CREATED_OR_CONFIRMED=YES"
+            if [ -e "$release" ] && [ ! -d "$release" ]; then echo "CALC_RELEASE_PATH_NOT_DIRECTORY=YES"; exit 1; fi
             if [ -d "$release" ]; then
               echo "CALC_PRIVATE_RELEASE_ALREADY_PRESENT=YES"
             else
