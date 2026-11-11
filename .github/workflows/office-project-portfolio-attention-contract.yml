@@ -10,6 +10,7 @@ on:
       - 'office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php'
       - 'office-independent/src/Inzet/OfficeApprovedHoursSchema.php'
       - 'office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php'
+      - 'office-independent/src/Inzet/OfficeApprovedHoursBooking.php'
       - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php'
       - 'office-independent/src/Project/OfficeProjectPageStructure.php'
@@ -35,6 +36,7 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php
           php -l office-independent/src/Inzet/OfficeApprovedHoursSchema.php
           php -l office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php
+          php -l office-independent/src/Inzet/OfficeApprovedHoursBooking.php
           php -l office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php -l office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php -l office-independent/src/Project/OfficeProjectTrafficLight.php
