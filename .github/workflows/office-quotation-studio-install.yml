@@ -1,0 +1,46 @@
+name: Office-test Offertestudio installation preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/office-offertestudio-20261111
+      - name: Validate quotation code
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-quotation-studio.php
+          php -l office-independent/src/Quotation/OfficeQuotationComposer.php
+          php -l office-independent/src/Quotation/OfficeQuotationDraftRepository.php
+          php office-independent/tests/OfficeQuotationComposerTest.php
+      - name: Inspect isolated Hostinger Office-test without changes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation
+          chmod 600 ~/.ssh/id_quotation
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" || { echo OFFICE_TEST_CONFIG_MISSING; exit 21; }
+          test -d "$base" || exit 22
+          echo "OFFICE_TEST_RELEASES"
+          find "$base" -maxdepth 2 -type d -name private -print
+          echo "OFFICE_TEST_ROUTER"
+          test -f "$HOME/domains/brebobv.nl/public_html/office-test/index.php" || { echo ROUTER_MISSING; exit 23; }
+          grep -Fq '/office-test/crm/offertes' "$HOME/domains/brebobv.nl/public_html/office-test/index.php" && echo QUOTATION_ROUTE_PRESENT || echo QUOTATION_ROUTE_NOT_INSTALLED
+          echo "OFFICE_TEST_QUOTATION_FILES"
+          find "$base" -maxdepth 5 -type f \( -name 'office-quotation-studio.php' -o -name 'OfficeQuotationDraftRepository.php' \) -print
+          echo "PREFLIGHT_READ_ONLY_COMPLETE"
+          REMOTE
