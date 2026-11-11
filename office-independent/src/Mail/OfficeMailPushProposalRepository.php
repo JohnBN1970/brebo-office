@@ -18,6 +18,29 @@ final class OfficeMailPushProposalRepository {
    * @param array<string,mixed> $proposal
    * @return array<string,mixed>
    */
+  /** @return list<array<string,mixed>> */
+  public function pendingForReviewer(int $reviewerUid, bool $mayReviewAll = FALSE, int $limit = 50): array {
+    if ($reviewerUid <= 0) {
+      throw new RuntimeException('Office-gebruiker ontbreekt.');
+    }
+    $limit = max(1, min(100, $limit));
+    // Personal proposals stay owner-only unless Office authorization
+    // explicitly grants organization-wide review.
+    $sql = 'SELECT id, owner_uid, actor_uid, subject, status, created_at '
+      . 'FROM office_mail_push_proposals WHERE status = :status';
+    if (!$mayReviewAll) {
+      $sql .= ' AND owner_uid = :owner';
+    }
+    $sql .= ' ORDER BY created_at DESC, id DESC LIMIT ' . $limit;
+    $stmt = $this->db->prepare($sql);
+    $params = [':status' => 'pending_review'];
+    if (!$mayReviewAll) {
+      $params[':owner'] = $reviewerUid;
+    }
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  }
+
   public function stage(array $proposal): array {
     $source = trim((string) ($proposal['source_id'] ?? ''));
     $owner = (int) ($proposal['owner_uid'] ?? 0);
