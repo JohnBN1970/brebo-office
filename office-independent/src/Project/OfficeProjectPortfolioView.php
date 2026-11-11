@@ -31,7 +31,12 @@ final class OfficeProjectPortfolioView
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
                 . '</small><strong>' . $escape($value) . '</strong></article>';
         }
-        $html .= '<p class="office-portfolio-total-scope">Totalen over toegankelijke projecten; overige financiële en urenbronnen zijn nog niet aangesloten. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw; alleen volledig gedekte portefeuilles krijgen een totaal.</p>';
+        $coverage = isset($totals['procurement_covered'], $totals['procurement_total'])
+            ? ' Vastgestelde inkoopbegrotingen: ' . max(0, (int)$totals['procurement_covered'])
+                . ' van ' . max(0, (int)$totals['procurement_total']) . ' toegankelijke projecten.'
+            : ' Dekking van de inkoopbegrotingen is niet beschikbaar.';
+        $html .= '<p class="office-portfolio-total-scope">Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
+            . $escape($coverage) . '</p>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
