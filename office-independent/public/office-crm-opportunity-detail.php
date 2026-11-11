@@ -26,8 +26,18 @@ if(!empty($item['outcome_note']))echo '<p>Uitkomst: '.nl2br(crmH($item['outcome_
 $form=static function(string $action)use($item):void{echo '<form method="post">';foreach(['csrf'=>$_SESSION['crm_opportunity_csrf'],'request_key'=>bin2hex(random_bytes(16)),'revision'=>$item['revision'],'action'=>$action] as $k=>$v)crmHidden($k,$v);};
 if($crmCanWrite&&$item['status']==='open'){
     $qualify=$item['stage']==='lead';echo '<section><details'.($qualify?' open':'').'><summary>'.($qualify?'Lead kwalificeren als prospect':'Gegevens bewerken').'</summary>';$form($qualify?'qualify':'update');
-    crmFormFields($crmMethod==='POST'&&in_array($_POST['action']??null,['update','qualify'],true)?$_POST:$item,$choices);
-    echo '<p><a href="/office-test/crm/relaties/nieuw">Nieuwe relatie vastleggen</a></p><button>'.($qualify?'Kwalificeren als prospect':'Gegevens opslaan').'</button></form></details></section>';
+    $formData=$crmMethod==='POST'&&in_array($_POST['action']??null,['update','qualify'],true)?$_POST:$item;
+    $newRelationId=filter_input(INPUT_GET,'new_relation_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])?:0;
+    if($newRelationId>0&&$crmMethod==='GET'){
+        foreach($choices['relations'] as $relation)if((int)$relation['id']===$newRelationId){
+            $formData['relation_id']=$newRelationId;
+            $formData['contact_id']='';
+            echo '<p>Nieuwe relatie geselecteerd. Controleer de gegevens en sla de kwalificatie op.</p>';
+            break;
+        }
+    }
+    crmFormFields($formData,$choices);
+    echo '<p><a href="/office-test/crm/relaties/nieuw?opportunity_id='.$id.'">Nieuwe relatie vastleggen</a></p><button>'.($qualify?'Kwalificeren als prospect':'Gegevens opslaan').'</button></form></details></section>';
     echo '<section><h2>Opvolging en opnamen</h2>';$form('activity');echo '<div class="crm-fields"><div><label for="activity_title">Activiteit</label><input id="activity_title" name="title" required maxlength="255"></div><div><label for="activity_type">Soort</label><select id="activity_type" name="activity_type">';
     foreach(\Brebo\Office\Crm\OfficeCrmOpportunityPolicy::ACTIVITIES as $key=>$label)echo '<option value="'.$key.'">'.crmH($label).'</option>';
     echo '</select></div><div><label for="opname_type">Soort opname (bij opname)</label><select id="opname_type" name="opname_type"><option value="">Geen opname</option>';
