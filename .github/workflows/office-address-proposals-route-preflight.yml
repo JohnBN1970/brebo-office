@@ -31,13 +31,17 @@ jobs:
           htaccess="$site/.htaccess"
           active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
           case "$active" in "$root"/release-*/private) ;; *) echo ABORT_INVALID_RELEASE; exit 20;; esac
-          for path in "$router" "$htaccess"; do test -f "$path" && test ! -L "$path" || exit 21; done
+          for path in "$router" "$htaccess"; do test -f "$path" && test ! -L "$path" || { echo "MISSING_OR_UNSAFE_ROUTER_FILE:$path"; exit 21; }; done
+          echo "ROUTER_SOURCE=public_html/office-test"
           php -l "$router"
+          echo "ACTIVE_RELEASE=${active#"$root"/}"
+          echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d' ' -f1)"
+          echo "REWRITE_SHA256=$(sha256sum "$htaccess" | cut -d' ' -f1)"
           grep -nF "'/office-test/documenten' =>" "$router" || true
           grep -nF "'/office-test/documenten/adresvoorstellen' =>" "$router" || true
           grep -nE 'RewriteRule \^documenten' "$htaccess" || true
           for file in office-documents.php office-document-address-proposals.php; do
-            if test -f "$active/public/$file"; then echo "PRESENT:$file"; php -l "$active/public/$file"; else echo "MISSING:$file"; fi
+            if test -f "$active/public/$file" && test ! -L "$active/public/$file"; then echo "PRESENT:$file"; php -l "$active/public/$file"; else echo "MISSING:$file"; fi
           done
           php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(2); echo "OFFICE_TEST_CONFIG_OK\n";' "$root/config/config.php"
           echo READ_ONLY_ROUTER_PREFLIGHT_DONE
