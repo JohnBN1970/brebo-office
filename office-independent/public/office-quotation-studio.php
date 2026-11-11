@@ -58,6 +58,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     if (!session_start()) { http_response_code(503); exit('Formuliersessie niet beschikbaar.'); }
 }
 if (!isset($_SESSION['quotation_csrf'])) $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
+require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationDraftRepository.php';
+$draftRepository = new \Brebo\Office\Quotation\OfficeQuotationDraftRepository($db);
+$editingId = filter_var($_GET['edit'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+$editing = null;
+if ($storageReady && $editingId > 0) {
+    $editing = $draftRepository->getOwnDraft($editingId, $operator->operatorId);
+    if ($editing === null) { http_response_code(404); exit('Concept niet gevonden.'); }
+}
 $message = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!is_string($_POST['csrf'] ?? null)
@@ -74,8 +82,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
     try {
         require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationDraftRepository.php';
-        $id = (new \Brebo\Office\Quotation\OfficeQuotationDraftRepository($db))
-            ->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
+        $editId = filter_var($_POST['quotation_id'] ?? null, FILTER_VALIDATE_INT) ?: 0;
+        if ($editId > 0) {
+            $existing = $draftRepository->getOwnDraft($editId, $operator->operatorId);
+            if (!$existing || $existing['quotation_type'] !== $postedType
+                || (int)$existing['relation_id'] !== (int)$relationId
+                || $existing['title'] !== $title) {
+                http_response_code(403); exit('Concept niet toegankelijk.');
+            }
+            $draftRepository->updateOwnDraft($editId, $operator->operatorId, $sectionValues);
+            $id = $editId;
+        } else {
+            $id = $draftRepository->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
+        }
         $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
         header('Location: /office-test/crm/offertes?type=' . rawurlencode($postedType) . '&created=' . $id, true, 303);
         exit;
@@ -86,13 +105,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 }
 $relations = [];
+$ownDrafts = [];
 if ($storageReady) {
     try {
         $relations = $db->query("SELECT id, display_name FROM office_crm_relations WHERE status = 'active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        $ownDrafts = $draftRepository->listOwn($operator->operatorId);
     } catch (\Throwable $e) { http_response_code(503); exit('Relaties niet beschikbaar.'); }
 }
 
-$type = (string) ($_GET['type'] ?? 'project');
+$type = $editing ? (string)$editing['quotation_type'] : (string) ($_GET['type'] ?? 'project');
 if (!array_key_exists($type, \Brebo\Office\Quotation\OfficeQuotationComposer::TEMPLATES)) $type = 'project';
 $labels = [
     'project' => 'Uitgebreide projectofferte',
@@ -122,13 +143,15 @@ echo '</div></section>';
 if ($message !== '') echo '<p role="alert">'.$escape($message).'</p>';
 if (isset($_GET['created']) && ctype_digit((string)$_GET['created'])) echo '<p role="status">Conceptofferte aangemaakt. Nummer: '.(int)$_GET['created'].'</p>';
 if ($storageReady) {
-    echo '<section class="panel"><h2>Nieuw offerteconcept</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
-    foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'">'.$escape((string)$relation['display_name']).'</option>';
-    echo '</select></label></p><p><label>Offertetitel <input name="title" maxlength="255" required></label></p>';
+    echo '<section class="panel"><h2>'.($editing ? 'Concept bewerken' : 'Nieuw offerteconcept').'</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
+    foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.($editing && (int)$editing['relation_id'] === (int)$relation['id'] ? ' selected' : '').'>'.$escape((string)$relation['display_name']).'</option>';
+    echo '</select></label></p><p><label>Offertetitel <input name="title" maxlength="255" required value="'.($editing ? $escape((string)$editing['title']) : '').'"></label></p>';
     foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $key) {
-        echo '<p><label>'.$escape($sectionLabels[$key] ?? $key).'<textarea name="sections['.$escape($key).']" rows="4" maxlength="50000"></textarea></label></p>';
+        echo '<p><label>'.$escape($sectionLabels[$key] ?? $key).'<textarea name="sections['.$escape($key).']" rows="4" maxlength="50000">'.($editing ? $escape((string)($editing['sections'][$key] ?? '')) : '').'</textarea></label></p>';
     }
-    echo '<button type="submit">Concept opslaan</button></form></section>';
+    echo '<button type="submit">Concept opslaan</button></form></section><section class="panel"><h2>Mijn conceptoffertes</h2><ul>';
+    foreach ($ownDrafts as $draft) echo '<li><a href="/office-test/crm/offertes?edit='.(int)$draft['id'].'">'.$escape((string)$draft['title']).'</a> — '.$escape((string)$draft['relation_name']).'</li>';
+    echo '</ul></section>';
 } else {
     echo '<section class="panel"><h2>Concepteditor</h2><p>Opslaan is nog niet vrijgegeven. Hiervoor zijn een gecontroleerde database-installatie en de twee offerteflags vereist.</p></section>';
 }
