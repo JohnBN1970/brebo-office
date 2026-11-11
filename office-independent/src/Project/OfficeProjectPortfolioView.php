@@ -40,6 +40,16 @@ final class OfficeProjectPortfolioView
             : ' Dekking van contractwaarden is niet beschikbaar.';
         $html .= '<p class="office-portfolio-total-scope">Geplande uren gelden voor de huidige ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten; geen geboekte uren. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
             . $escape($coverage . $contractCoverage) . '</p>';
+        if (isset($totals['planned_week_label']) && preg_match('/^(\\d{4})-W(\\d{2})$/D', (string)$totals['planned_week_label'], $weekMatch)) {
+            $weekDate = (new \\DateTimeImmutable('now', new \\DateTimeZone('Europe/Brussels')))
+                ->setISODate((int)$weekMatch[1], (int)$weekMatch[2], 1);
+            $weekLink = static fn(\\DateTimeImmutable $date): string =>
+                rtrim($basePath, '/') . '/projecten?week=' . $date->format('o-\\WW');
+            $html .= '<nav aria-label="Planning weekselectie" class="office-portfolio-week-navigation">'
+                . '<a href="' . $escape($weekLink($weekDate->modify('-7 days'))) . '">Vorige week</a> '
+                . '<strong>' . $escape($totals['planned_week_label']) . '</strong> '
+                . '<a href="' . $escape($weekLink($weekDate->modify('+7 days'))) . '">Volgende week</a></nav>';
+        }
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
