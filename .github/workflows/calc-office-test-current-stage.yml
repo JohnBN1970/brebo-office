@@ -34,7 +34,7 @@ jobs:
           set -eu
           root=/home/u213420663/domains/brebobv.nl/office_calc_test
           target="$root/.calc-app-staging"
-          name=calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe
+          name=calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507
           test -d "$root" && test -f "$root/config/config.php"
           test ! -L "$root" && test ! -L "$target"
           if [ -e "$target/$name.tgz" ] || [ -e "$target/$name.sha256" ]; then
@@ -54,7 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: JohnBN1970/calc
-          ref: a4ee44b39b437ba742b1f66b5224cd2ada7061fe
+          ref: 1c5148ae001a551e35febc9cfcd4ceca6c28c507
           path: calc
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -69,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 'a4ee44b39b437ba742b1f66b5224cd2ada7061fe'
+          test "$(git rev-parse HEAD)" = '1c5148ae001a551e35febc9cfcd4ceca6c28c507'
           npm install
           npm run typecheck
           npm run test --workspace=@brebo/calc-api
@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          name=calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe
+          name=calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507
           mkdir -p stage/apps/api stage/apps/web stage/scripts
           cp calc/startup.js calc/package.json stage/
           cp calc/apps/api/package.json stage/apps/api/
@@ -119,8 +119,8 @@ jobs:
             test -d "$root" && test -f "$root/config/config.php"
             test ! -L "$root" && test ! -L "$target"
             mkdir -p -m 700 "$target"
-            test ! -e "$target/calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.tgz"
-            test ! -e "$target/calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.sha256"
+            test ! -e "$target/calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz"
+            test ! -e "$target/calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256"
             echo "CALC_STAGING_PRIVATE_PATH=READY"
       - name: Upload code archive to private Office-test staging only
         if: steps.existing.outputs.value != 'present'
@@ -130,7 +130,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 65002
-          source: "calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.tgz,calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.sha256"
+          source: "calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz,calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256"
           target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-app-staging"
           overwrite: false
       - name: Verify uploaded archive without unpacking or starting it
@@ -145,8 +145,8 @@ jobs:
             set -eu
             target=/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-app-staging
             cd "$target"
-            sha256sum -c calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.sha256
-            test -s calc-code-only-a4ee44b39b437ba742b1f66b5224cd2ada7061fe.tgz
+            sha256sum -c calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256
+            test -s calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz
             echo "CALC_PRIVATE_ARCHIVE_INTEGRITY=PASS"
             echo "CALC_NODE_WEBSITE_STARTED=NO"
             echo "CALC_OFFICE_TEST_ROUTER_CHANGED=NO"
