@@ -216,6 +216,17 @@ jobs:
             else
               echo "CRM_CALC_ROUTER_INSERT_ANCHOR=MISSING"
             fi
+            echo "SECTION=ROUTER_SHAPE_ONLY"
+            router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            if grep -F 'office-home.php' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_HOME_FILE_REFERENCE=YES"; else echo "OFFICE_ROUTER_HOME_FILE_REFERENCE=NO"; fi
+            if grep -F 'office-crm-opportunities.php' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_CRM_FILE_REFERENCE=YES"; else echo "OFFICE_ROUTER_CRM_FILE_REFERENCE=NO"; fi
+            if grep -F "parse_url(" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_PARSE_URL=YES"; else echo "OFFICE_ROUTER_PARSE_URL=NO"; fi
+            if grep -F "switch (" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_SWITCH=YES"; else echo "OFFICE_ROUTER_SWITCH=NO"; fi
+            if grep -F '$routes' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_ROUTES_VARIABLE=YES"; else echo "OFFICE_ROUTER_ROUTES_VARIABLE=NO"; fi
+            if grep -F 'require $private' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_PRIVATE_REQUIRE=YES"; else echo "OFFICE_ROUTER_PRIVATE_REQUIRE=NO"; fi
+            echo "SECTION=CRM_CALC_ORIGINAL_SITE_METADATA"
+            sha256sum "$router" | cut -d ' ' -f 1 | sed 's/^/LIVE_OFFICE_ROUTER_SHA256=/'
+            if grep -F "office-calc-crm-start.php" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_START_ALREADY_MOUNTED=YES"; else echo "OFFICE_ROUTER_START_ALREADY_MOUNTED=NO"; fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
