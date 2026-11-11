@@ -50,7 +50,43 @@ jobs:
             else
               echo "CALC_ROUTE_DIR=NOT_FOUND"
             fi
-            if command -v node >/dev/null 2>&1; then node --version; else echo "NODE_CLI=NOT_IN_PATH"; fi
+            echo "SECTION=NODE_RUNTIME"
+            if command -v node >/dev/null 2>&1; then
+              echo "NODE_CLI_IN_PATH=FOUND"
+              node --version
+            else
+              echo "NODE_CLI_IN_PATH=NOT_FOUND"
+            fi
+            for runtime in /opt/alt/alt-nodejs{18,20,22,24}/root/usr/bin/node /usr/local/bin/node /usr/bin/node "$HOME/.nvm/versions/node"/v*/bin/node; do
+              if [ -x "$runtime" ]; then
+                echo "NODE_RUNTIME_BINARY=FOUND"
+                "$runtime" --version || true
+              fi
+            done
+            echo "SECTION=PASSENGER_CONFIGURATION"
+            for file in "$WEB/.htaccess" "$WEB/office-test/.htaccess"; do
+              if [ -f "$file" ]; then
+                for directive in PassengerAppRoot PassengerBaseURI PassengerNodejs PassengerEnabled PassengerAppType; do
+                  if grep -F "$directive" "$file" >/dev/null 2>&1; then echo "PASSENGER_DIRECTIVE_${directive}=PRESENT"; else echo "PASSENGER_DIRECTIVE_${directive}=ABSENT"; fi
+                done
+              fi
+            done
+            echo "SECTION=CALC_APP_DESTINATIONS"
+            for location in "$ROOT"/nodejs "$ROOT"/calc "$ROOT"/calc-app "$WEB"/calc-app "$WEB"/office-test/calc-app; do
+              if [ -d "$location" ]; then
+                echo "CALC_CANDIDATE_DIR=FOUND"
+                [ ! -f "$location/startup.js" ] || echo "CALC_CANDIDATE_STARTUP=FOUND"
+                [ ! -f "$location/package.json" ] || echo "CALC_CANDIDATE_PACKAGE=FOUND"
+              fi
+            done
+            echo "SECTION=OFFICE_WEB_ACCESS"
+            for url in 'https://brebobv.nl/office-test/' 'https://brebobv.nl/office-test/calc-app/'; do
+              status=$(curl -k -sS --connect-timeout 8 --max-time 12 -o /dev/null -w '%{http_code}' "$url" || true)
+              case "$url" in
+                */calc-app/) echo "CALC_ROUTE_HTTP_STATUS=$status" ;;
+                *) echo "OFFICE_HOME_HTTP_STATUS=$status" ;;
+              esac
+            done
             if [ -f "$OFFICE/config/config.php" ]; then echo "OFFICE_TEST_CONFIG=FOUND"; else echo "OFFICE_TEST_CONFIG=MISSING"; fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
