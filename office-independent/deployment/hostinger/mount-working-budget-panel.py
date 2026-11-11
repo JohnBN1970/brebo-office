@@ -5,6 +5,7 @@ Usage: python3 mount-working-budget-panel.py <active-office-project.php> <repo-o
 Only use against an explicitly verified Office-test release. This tool never
 changes routes, environment flags, databases or production configuration.
 """
+import hashlib
 import os
 import pathlib
 import sys
@@ -15,6 +16,12 @@ if len(sys.argv) != 3:
 target, source = map(pathlib.Path, sys.argv[1:])
 if target.is_symlink() or source.is_symlink() or not target.is_file() or not source.is_file():
     sys.exit("WORK_BUDGET_MOUNT_UNSAFE_PATH")
+# Do not allow arbitrary paths or production release roots.
+resolved = target.resolve()
+if resolved.name != "office-project.php" or resolved.parent.name != "public" or not any(
+    part.startswith("release-") for part in resolved.parts
+) or "/office_calc_test/" not in str(resolved):
+    sys.exit("WORK_BUDGET_MOUNT_TARGET_NOT_VERIFIED_TEST_RELEASE")
 if os.environ.get("OFFICE_BASE_PATH") != "/office-test" or os.environ.get("OFFICE_WORK_BUDGET_MOUNT") != "explicit":
     sys.exit("WORK_BUDGET_MOUNT_SCOPE_DENIED")
 active, repo = target.read_bytes(), source.read_bytes()
@@ -42,6 +49,28 @@ if b"OfficeNativeProjectAccess($db))->canRead" not in active or b"is_array($fina
 updated = active.replace(end, snippet + end, 1)
 if updated.replace(snippet + end, end, 1) != active:
     sys.exit("WORK_BUDGET_MOUNT_INTEGRITY_FAILED")
+print("WORK_BUDGET_MOUNT_SOURCE_SHA256=" + hashlib.sha256(active).hexdigest())
+print("WORK_BUDGET_MOUNT_TARGET_SHA256=" + hashlib.sha256(updated).hexdigest())
+if os.environ.get("OFFICE_WORK_BUDGET_APPLY") != "explicit":
+    print("WORK_BUDGET_MOUNT_DRY_RUN_OK")
+    sys.exit(0)
+expected = os.environ.get("OFFICE_WORK_BUDGET_EXPECTED_SHA256", "")
+if expected != hashlib.sha256(active).hexdigest():
+    sys.exit("WORK_BUDGET_MOUNT_EXPECTED_HASH_MISMATCH")
+backup = target.with_name(target.name + ".pre-working-budget.bak")
+if backup.exists() or backup.is_symlink():
+    sys.exit("WORK_BUDGET_MOUNT_BACKUP_ALREADY_EXISTS")
+backup_fd = os.open(str(backup), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+try:
+    with os.fdopen(backup_fd, "wb") as backup_stream:
+        backup_stream.write(active)
+        backup_stream.flush()
+        os.fsync(backup_stream.fileno())
+except BaseException:
+    backup.unlink(missing_ok=True)
+    raise
+if hashlib.sha256(backup.read_bytes()).digest() != hashlib.sha256(active).digest():
+    sys.exit("WORK_BUDGET_MOUNT_BACKUP_VERIFICATION_FAILED")
 fd, temp = tempfile.mkstemp(prefix=".work-budget-", dir=str(target.parent))
 try:
     with os.fdopen(fd, "wb") as stream:
