@@ -118,8 +118,11 @@ if ($storageReady) {
     try {
         $ownDrafts = $draftRepository->listOwn($operator->operatorId);
     } catch (\Throwable $e) {
-        $code = $e instanceof \PDOException && is_string($e->getCode()) && preg_match('/^[A-Z0-9]{5}$/D', $e->getCode()) ? $e->getCode() : 'UNKNOWN';
-        error_log('OFFERTSTUDIO_DRAFT_LIST_FAILED class='.get_class($e).' sqlstate='.$code);
+        $rawCode = (string) $e->getCode();
+        $code = $e instanceof \PDOException && preg_match('/^(?:[A-Z0-9]{5}|[0-9]{1,5})$/D', $rawCode) ? $rawCode : 'UNKNOWN';
+        $driverCode = $e instanceof \PDOException && isset($e->errorInfo[1]) && is_numeric($e->errorInfo[1]) ? (string) (int) $e->errorInfo[1] : '';
+        error_log('OFFERTSTUDIO_DRAFT_LIST_FAILED class='.get_class($e).' code='.$code.' driver='.$driverCode);
+        if ($code === 'UNKNOWN' && $driverCode !== '') $code = $driverCode;
         http_response_code(503);
         exit('Offerteconcepten konden niet worden geladen (code '.$code.').');
     }
