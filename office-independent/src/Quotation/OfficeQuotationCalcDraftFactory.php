@@ -58,8 +58,23 @@ final class OfficeQuotationCalcDraftFactory
                  (quotation_id, section_key, sort_order, enabled, body, provenance)
                  VALUES (?, ?, ?, 1, ?, ?)'
             );
+            $priceLines = [];
+            foreach ($source['sales_lines'] as $item) {
+                $priceLines[] = $item['description'] . ' — '
+                    . number_format($item['quantity'], 2, ',', '.') . ' ' . $item['unit']
+                    . ' — € ' . number_format($item['amount_ex_vat_cents'] / 100, 2, ',', '.');
+            }
+            $priceLines[] = 'Totaal exclusief btw: € '
+                . number_format($source['total_ex_vat_cents'] / 100, 2, ',', '.');
+            $priceBody = implode("\\n", $priceLines);
+            if (mb_strlen($priceBody, 'UTF-8') > 50000) {
+                throw new DomainException('Calculation price chapter exceeds maximum length');
+            }
             foreach ($chapters as $index => $key) {
-                $sectionInsert->execute([$id, $key, $index, '', $key === 'price' ? 'calculation' : 'manual']);
+                $sectionInsert->execute([
+                    $id, $key, $index, $key === 'price' ? $priceBody : '',
+                    $key === 'price' ? 'calculation' : 'manual',
+                ]);
             }
             $snapshot = [
                 'kind' => 'calculation_sales_import',
