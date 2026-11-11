@@ -42,29 +42,68 @@ if (strpos($extension, 'is232Demo') === false || strpos($extension, 'Planning ui
     exit(6);
 }
 if (substr_count($live, $anchor) !== 1) {
-    // This is an older or independently modified dossier; do not overwrite it.
-    // Output marker counts only: no project content or credentials are disclosed.
-    fwrite(STDERR, 'DEMO_232_LIVE_DASHBOARD_ANCHOR_COUNT=' . substr_count($live, $anchor) . "\n");
-    fwrite(STDERR, 'DEMO_232_LIVE_DASHBOARD_HTML_COUNT=' . substr_count($live, '$dashboardHtml') . "\n");
-    fwrite(STDERR, 'DEMO_232_LIVE_DEMO_FLAG_COUNT=' . substr_count($live, '$isDashboardDemo') . "\n");
-    fwrite(STDERR, 'DEMO_232_LIVE_PROJECT_CODE_COUNT=' . substr_count($live, 'TEST-2026-001') . "\n");
-    fwrite(STDERR, "DEMO_232_LIVE_DOSSIER_VERSION_MISMATCH\n");
-    exit(6);
+    // The active server may use the independent V2/V3 dossier controller.
+    $v2Anchor = "  if (" . '$dashboardDemo' . ") {";
+    $v2End = "  } else {";
+    $v2Start = strpos($live, $v2Anchor);
+    $v2Finish = $v2Start !== false ? strpos($live, $v2End, $v2Start) : false;
+    if ($v2Start === false || $v2Finish === false
+        || substr_count($live, $v2Anchor) !== 1
+        || strpos($live, "BREBO_DASHBOARD_V2_MERGE") === false
+        || strpos($live, "OfficeNativeProjectAccess") === false) {
+        fwrite(STDERR, "DEMO_232_LIVE_VARIANT_UNSUPPORTED\n");
+        exit(6);
+    }
+    $v2Demo = substr($live, $v2Start, $v2Finish - $v2Start);
+    if (substr_count($v2Demo, '$dashboardHtml') < 2
+        || strpos($v2Demo, 'brebo-dashboard-panels') === false) {
+        fwrite(STDERR, "DEMO_232_LIVE_V2_DEMO_STRUCTURE_UNSUPPORTED\n");
+        exit(6);
+    }
+    $insert = <<<'PHP'
+
+    // TEST-2026-001: read-only planning extension for isolated demo.
+    if ((string) $project->identity->projectCode === 'TEST-2026-001'
+        && (string) $project->title === 'TEST - Renovatie 232 woningen') {
+      $dashboardHtml .= '<section class="brebo-dashboard-card" style="margin-top:16px"><h2>Planning uit Office-test · DEMO</h2>';
+      try {
+        $plan = $db->prepare('SELECT title, planned_start, planned_end, status, critical_note FROM office_project_plan_items WHERE project_id = ? ORDER BY sort_order, planned_start, id');
+        $plan->execute([(int) $projectId]);
+        $rows = $plan->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows === []) {
+          $dashboardHtml .= '<p>Geen vastgelegde planning gevonden.</p>';
+        } else {
+          $dashboardHtml .= '<ol>';
+          foreach ($rows as $item) {
+            $dashboardHtml .= '<li><strong>' . $escape($item['title']) . '</strong> · '
+              . $escape($item['planned_start']) . ' t/m ' . $escape($item['planned_end'])
+              . ' · ' . $escape($item['status']);
+            if (trim((string) ($item['critical_note'] ?? '')) !== '') {
+              $dashboardHtml .= '<p>' . $escape($item['critical_note']) . '</p>';
+            }
+            $dashboardHtml .= '</li>';
+          }
+          $dashboardHtml .= '</ol>';
+        }
+      } catch (Throwable $ignored) {
+        $dashboardHtml .= '<p>Planning momenteel niet beschikbaar.</p>';
+      }
+      $dashboardHtml .= '<p>Alleen Office-test; planning/status/risico zijn DEMO.</p></section>';
+    }
+PHP;
+    $patched = substr_replace($live, $insert . "\n", $v2Finish, 0);
+} else {
+    $oldTail = "    . '</div>';\n}\n" . '$dashboardHtml =';
+    $newTail = "    . " . '$demoPlanHtml' . "\n    . '</div>';\n}\n" . '$dashboardHtml =';
+    if (substr_count($before, $oldTail) !== 1
+        || substr_count($after, $newTail) !== 1
+        || substr_count($live, $oldTail) !== 1) {
+        fwrite(STDERR, "DEMO_232_STRUCTURE_CHANGED_ABORT\n");
+        exit(8);
+    }
+    $patched = str_replace($anchor, $extension, $live);
+    $patched = str_replace($oldTail, $newTail, $patched);
 }
-if (strpos($live, 'Planning uit Office-test') !== false) {
-    echo "DEMO_232_ALREADY_PRESENT_MANUAL_REVIEW\n";
-    exit(7);
-}
-$oldTail = "    . '</div>';\n}\n" . '$dashboardHtml =';
-$newTail = "    . " . '$demoPlanHtml' . "\n    . '</div>';\n}\n" . '$dashboardHtml =';
-if (substr_count($before, $oldTail) !== 1
-    || substr_count($after, $newTail) !== 1
-    || substr_count($live, $oldTail) !== 1) {
-    fwrite(STDERR, "DEMO_232_STRUCTURE_CHANGED_ABORT\n");
-    exit(8);
-}
-$patched = str_replace($anchor, $extension, $live);
-$patched = str_replace($oldTail, $newTail, $patched);
 if ($patched === $live || substr_count($patched, 'Planning uit Office-test') !== 1) {
     fwrite(STDERR, "DEMO_232_PATCH_UNSAFE\n");
     exit(9);
