@@ -8,6 +8,8 @@ on:
       - 'office-independent/src/WorkingBudget/LockedBaselineLines.php'
       - 'office-independent/src/WorkingBudget/MaterialProcurementProjection.php'
       - 'office-independent/tests/MaterialProcurementProjectionTest.php'
+      - 'office-independent/src/WorkingBudget/PurchaseReceiptService.php'
+      - 'office-independent/deployment/hostinger/sql/office-work-budget-procurement.sql'
       - 'office-independent/tests/MaterialConsolidationTest.php'
       - '.github/workflows/office-material-consolidation-check.yml'
 permissions:
@@ -26,6 +28,7 @@ jobs:
           php -l office-independent/tests/MaterialConsolidationTest.php
           php -l office-independent/src/WorkingBudget/MaterialProcurementProjection.php
           php -l office-independent/tests/MaterialProcurementProjectionTest.php
+          php -l office-independent/src/WorkingBudget/PurchaseReceiptService.php
       - name: Material consolidation regression tests
         run: |
           php office-independent/tests/MaterialConsolidationTest.php
@@ -34,7 +37,8 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq 'CREATE TABLE IF NOT EXISTS office_work_budget_material_identity' office-independent/deployment/hostinger/sql/office-work-budget-material-identity.sql
-          if grep -Ei '(^|[[:space:]])(DROP|TRUNCATE|DELETE|UPDATE|ALTER)[[:space:]]' office-independent/deployment/hostinger/sql/office-work-budget-material-identity.sql; then
+          grep -Fq 'CREATE TABLE IF NOT EXISTS office_work_budget_receipts' office-independent/deployment/hostinger/sql/office-work-budget-procurement.sql
+          if grep -Ei '(^|[[:space:]])(DROP|TRUNCATE|DELETE|UPDATE|ALTER)[[:space:]]' office-independent/deployment/hostinger/sql/office-work-budget-material-identity.sql office-independent/deployment/hostinger/sql/office-work-budget-procurement.sql; then
             echo 'Destructive migration operation rejected' >&2
             exit 1
           fi
