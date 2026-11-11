@@ -27,9 +27,10 @@ try {
         $zip = new ZipArchive();
         check($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true, 'xlsx_fixture_open');
         $zip->addFromString('xl/worksheets/sheet1.xml', '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Adres</t></is></c><c r="B1" t="inlineStr"><is><t>Postcode</t></is></c><c r="C1" t="inlineStr"><is><t>Plaats</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>Haven 7</t></is></c><c r="B2" t="inlineStr"><is><t>2345CD</t></is></c><c r="C2" t="inlineStr"><is><t>Utrecht</t></is></c></row></sheetData></worksheet>');
+        $zip->addFromString('xl/worksheets/sheet2.xml', '<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Naam</t></is></c><c r="B1" t="inlineStr"><is><t>Notitie</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>Niet een adres</t></is></c><c r="B2" t="inlineStr"><is><t>1234 AB</t></is></c></row></sheetData></worksheet>');
         $zip->close();
         $four = $extractor->extract($tmp, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'adressen.xlsx');
-        check(count($four['rows']) === 1 && $four['rows'][0]['data']['address'] === 'Haven 7', 'xlsx_addresses');
+        check(count($four['rows']) === 1 && $four['rows'][0]['data']['address'] === 'Haven 7', 'xlsx_sheet_headers_isolated');
     }
 } finally {
     @unlink($tmp);
