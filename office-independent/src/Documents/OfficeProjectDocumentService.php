@@ -82,6 +82,7 @@ final class OfficeProjectDocumentService
      */
     public function proposeProjectAddresses(int $operatorId, int $projectId, int $documentId): array
     {
+        $this->requireProject($operatorId, $projectId, true);
         $document = $this->authorizedDownload($operatorId, $projectId, $documentId);
         require_once __DIR__ . '/OfficeSourceAddressExtractor.php';
         require_once __DIR__ . '/OfficeAddressProposalService.php';
