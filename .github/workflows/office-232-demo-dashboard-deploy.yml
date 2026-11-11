@@ -55,5 +55,17 @@ jobs:
           test -f "$page" && test ! -L "$page" || { echo DEMO_232_TARGET_MISSING; exit 21; }
           php -l /tmp/office-project.php
           php -l /tmp/patch-office-232-dashboard.php
-          php /tmp/patch-office-232-dashboard.php /tmp/office-project-before-232.php /tmp/office-project.php "$page"
+          prepared="$(php /tmp/patch-office-232-dashboard.php /tmp/office-project-before-232.php /tmp/office-project.php "$page")"
+          test -n "$prepared" || { echo DEMO_232_ALREADY_INSTALLED; exit 0; }
+          baseline="${prepared%%|*}"
+          candidate="${prepared#*|}"
+          test -f "$candidate" || { echo DEMO_232_CANDIDATE_MISSING; exit 31; }
+          test "$(dirname "$candidate")" = "$(dirname "$page")" || { echo DEMO_232_CANDIDATE_SCOPE; exit 32; }
+          php -l "$candidate"
+          actual="$(sha256sum "$page" | cut -d " " -f1)"
+          test "$actual" = "$baseline" || { echo DEMO_232_CONCURRENT_CHANGE_ABORT; exit 33; }
+          cp -p "$page" "$page.backup-232-$(date +%Y%m%d%H%M%S)"
+          test "$(sha256sum "$page" | cut -d " " -f1)" = "$baseline" || { echo DEMO_232_CONCURRENT_CHANGE_ABORT; exit 34; }
+          mv "$candidate" "$page"
+          echo DEMO_232_PATCHED_OFFICE_TEST
           REMOTE
