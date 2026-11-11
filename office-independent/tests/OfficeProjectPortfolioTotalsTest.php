@@ -35,4 +35,9 @@ $html = OfficeProjectPortfolioView::render($projects, '/office-test', [
 if (str_contains($html, '€ 0,00') || !str_contains($html, 'Geaccepteerde contracten: 0 van 1 projecten.')) {
     throw new RuntimeException('Incomplete contract coverage must not display zero');
 }
+$manyProjects = array_fill(0, 100, $projects[0]);
+$html = OfficeProjectPortfolioView::render($manyProjects, '/office-test', ['accessible_project_count' => 125]);
+if (!str_contains($html, '100 van 125 toegankelijke projecten')) {
+    throw new RuntimeException('Truncated project list must be disclosed');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
