@@ -268,128 +268,23 @@ jobs:
                 echo "LIVE_CRM_MARKER_".strtoupper(str_replace([" ","/"],"_",$needle))."=".(str_contains($s,$needle)?"YES":"NO")."\n";
               }
             '
+            echo "SECTION=OFFICE_TEST_REWRITE_ROUTE_DIAGNOSIS"
+            webroot=/home/u213420663/domains/brebobv.nl/public_html
+            for file in "$webroot/.htaccess" "$webroot/office-test/.htaccess"; do
+              if test -f "$file"; then
+                echo "REWRITE_FILE=FOUND"
+                grep -E '^[[:space:]]*(RewriteRule|RewriteCond|RewriteBase)' "$file" | head -n 35 || true
+              fi
+            done
+            for target in "/office-test/crm/verkoopkansen" "/office-test/calculatie?draft_id=1&probe=20261111" "/office-test/calculatie/start?opportunity_id=1&probe=20261111"; do
+              status=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --header 'Cache-Control: no-cache' --output /dev/null --write-out '%{http_code}' "https://brebobv.nl$target" || true)
+              case "$target" in
+                */crm/*) echo "REWRITE_EXISTING_CRM_HTTP=$status" ;;
+                */calculatie/start*) echo "REWRITE_CALC_START_HTTP=$status" ;;
+                *) echo "REWRITE_CALC_WORKBENCH_HTTP=$status" ;;
+              esac
+            done
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
           echo "No production changes, secrets disclosure, DB operations, data import, merge, or deployment"
-  activate:
-    needs: audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Enable verified native CRM Calc in Office-test only, rollback if needed
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: 77.37.34.160
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 65002
-          timeout: 60s
-          command_timeout: 5m
-          script_stop: false
-          script: |
-            set -eu
-            base=/home/u213420663/domains/brebobv.nl/office_calc_test
-            config="$base/config/config.php"
-            router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
-            stage="$base/.calc-native-activation"
-            test -f "$config" && test ! -L "$config"
-            test -f "$router" && test ! -L "$router"
-            test ! -L "$stage"
-            mkdir -p -m 700 "$stage"
-            php <<'PREFLIGHT'
-            <?php
-            declare(strict_types=1);
-            $config=require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
-            if(!is_array($config) || ($config['OFFICE_BASE_PATH']??'')!=='/office-test'
-              || ($config['OFFICE_TEST_CRM_ENABLED']??'')!=='enabled'
-              || ($config['OFFICE_CRM_AUTH_MODE']??'')!=='session_only') {
-              echo "CALC_ACTIVATE_OFFICE_TEST_GUARD=FAIL\n"; exit(1);
-            }
-            $root=$config['OFFICE_PRIVATE_ROOT']??'';
-            $base='/home/u213420663/domains/brebobv.nl/office_calc_test/';
-            if(!is_string($root)||!str_starts_with($root,$base.'release-')
-              || !str_ends_with($root,'/private')) exit(1);
-            foreach(['public/office-calc-crm-start.php','public/office-calc-crm-workbench.php',
-              'src/Calculation/OfficeCalcCrmDraftAccess.php','src/Calculation/OfficeCalcCrmDraftLineRepository.php',
-              'src/Intake/WebsiteCrmOperatorContext.php','src/Intake/WebsiteOfficeCrmSessionRepository.php'] as $name) {
-              if(!is_file($root.'/'.$name)) { echo "CALC_ACTIVATE_DEPENDENCY_MISSING=YES\n";exit(1); }
-            }
-            $router=file_get_contents('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php');
-            if(!is_string($router) || !str_contains($router,"'/office-test/calculatie/start'")
-              || !str_contains($router,"'/office-test/calculatie'")
-              || !str_contains($router,'office-calc-crm-start.php')) exit(1);
-            $dsn=$config['OFFICE_INTAKE_PDO_DSN']??'';
-            if(!is_string($dsn)||!preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)
-              || ($config['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test') exit(1);
-            $db=new PDO($dsn,$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD']??'',[
-              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false
-            ]);
-            if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test') exit(1);
-            $q=$db->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?');
-            foreach(['calculations','calculation_versions','calculation_lines','launch_nonces',
-              'office_calc_crm_drafts','office_calc_crm_launch_grants','office_crm_opportunities'] as $table) {
-              $q->execute([$table]);if((int)$q->fetchColumn()!==1) {echo "CALC_ACTIVATE_SCHEMA_MISSING=YES\n";exit(1);}
-            }
-            $q->execute(['office_calc_crm_draft_lines']);
-            if((int)$q->fetchColumn()!==0) {echo "CALC_ACTIVATE_PARALLEL_LINES=DENIED\n";exit(1);}
-            echo "CALC_ACTIVATE_SCHEMA_AND_SCOPE=VERIFIED\n";
-            PREFLIGHT
-            if grep -Fq "OFFICE_CALC_CRM_SCHEMA_VERIFIED" "$config"; then
-              echo "CALC_ACTIVATE_CONFIG_ALREADY_CUSTOMIZED=REVIEW_REQUIRED"
-              exit 1
-            fi
-            export CALC_ACTIVATE_CONFIG="$config"
-            export CALC_ACTIVATE_STAGE="$stage"
-            php <<'PATCH'
-            <?php
-            declare(strict_types=1);
-            $path=getenv('CALC_ACTIVATE_CONFIG');
-            $stage=getenv('CALC_ACTIVATE_STAGE');
-            $src=file_get_contents($path);
-            if(!is_string($src)||!str_starts_with(ltrim($src),'<?php')) exit(1);
-            if(preg_match_all('/\\bdeclare\\s*\\(\\s*strict_types\\s*=\\s*1\\s*\\)\\s*;/',$src,$matches,PREG_OFFSET_CAPTURE)!==1) exit(1);
-            $full=$matches[0][0][0];
-            $pos=$matches[0][0][1]+strlen($full);
-            $flagSource="
-            // CRM-first Calc only in the isolated BREBO Office-test configuration.
-            putenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED=enabled');
-            putenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED=enabled');
-            ";
-            $candidate=substr($src,0,$pos)."\n".$flagSource."\n".substr($src,$pos);
-            if(file_put_contents($stage.'/config-candidate.php',$candidate)===false) exit(1);
-            echo "CALC_ACTIVATE_CONFIG_CANDIDATE=CREATED\n";
-            PATCH
-            php -l "$stage/config-candidate.php"
-            grep -Fq "putenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED=enabled')" "$stage/config-candidate.php"
-            grep -Fq "putenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED=enabled')" "$stage/config-candidate.php"
-            echo "CALC_ACTIVATE_CANDIDATE_SYNTAX=PASS"
-            backup="$stage/config-before-native-calc-$(date -u +%Y%m%dT%H%M%SZ).php"
-            cp -p "$config" "$backup"
-            cp -p "$stage/config-candidate.php" "$stage/config-ready.php"
-            chmod --reference="$config" "$stage/config-ready.php"
-            mv "$stage/config-ready.php" "$config"
-            ok=0
-            trap 'if test "$ok" = 0; then cp -p "$backup" "$config"; echo "CALC_ACTIVATE=ROLLED_BACK"; fi' EXIT
-            php -l "$config" >/dev/null
-            php -r '
-              $c=require $argv[1];
-              if(!is_array($c)||($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
-                || getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")!=="enabled"
-                || getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")!=="enabled") exit(1);
-              echo "CALC_ACTIVATE_CANONICAL_CONFIG=VERIFIED\\n";
-            ' "$config"
-
-            workbench=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' "https://brebobv.nl/office-test/calculatie?draft_id=1" || true)
-            start=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' "https://brebobv.nl/office-test/calculatie/start?opportunity_id=1" || true)
-            echo "CALC_ACTIVATE_ANONYMOUS_WORKBENCH_HTTP=$workbench"
-            echo "CALC_ACTIVATE_ANONYMOUS_START_HTTP=$start"
-            if test "$workbench" != 403 || test "$start" != 403; then
-              echo "CALC_ACTIVATE_HTTP_AUTH_GATE=NOT_VERIFIED"
-              exit 1
-            fi
-            ok=1
-            trap - EXIT
-            echo "CALC_ACTIVATE=OFFICE_TEST_ENABLED"
-            echo "CALC_ACTIVATE_OLD_CALC_DATABASE=UNTOUCHED"
-            echo "CALC_ACTIVATE_OFFICE_TEST_ROUTER=UNMODIFIED"
