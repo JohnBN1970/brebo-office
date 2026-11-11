@@ -7,7 +7,7 @@ namespace Brebo\Office\Mail;
 final class OfficeImapTextExtractor {
   public static function extract($stream, int $messageNumber, int $maxBytes = 2097152): ?string {
     $structure = imap_fetchstructure($stream, $messageNumber);
-    if (!$structure) return null;
+    if (!$structure) throw new \RuntimeException('IMAP MIME structure unavailable.');
     return self::walk($stream, $messageNumber, $structure, '', $maxBytes);
   }
 
@@ -25,7 +25,8 @@ final class OfficeImapTextExtractor {
     if ((int) ($part->bytes ?? 0) > $limit * 2) return null;
     $raw = $section === '' ? imap_body($stream, $number, FT_PEEK)
       : imap_fetchbody($stream, $number, $section, FT_PEEK);
-    if (!is_string($raw) || strlen($raw) > $limit * 2) return null;
+    if (!is_string($raw)) throw new \RuntimeException('IMAP message body fetch failed.');
+    if (strlen($raw) > $limit * 2) return null;
     $decoded = match ((int) ($part->encoding ?? 0)) {
       3 => base64_decode($raw, true),
       4 => quoted_printable_decode($raw),
