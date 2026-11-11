@@ -104,7 +104,7 @@ jobs:
           meta={}
           for f in files:
               p='office-independent/'+f
-              prior=subprocess.run(['git','show','10c42f85954932f3993e8b3eb973f48e9e5f7406:'+p],capture_output=True)
+              prior=subprocess.run(['git','show','53f19b52e5e29078adce798b23cb9ac29e84e218:'+p],capture_output=True)
               meta[f]={'sha256':hashlib.sha256(Path(p).read_bytes()).hexdigest(),'prior_sha256':hashlib.sha256(prior.stdout).hexdigest() if prior.returncode==0 else None}
           with tempfile.TemporaryDirectory() as tmp:
               manifest=Path(tmp)/'manifest.json'
