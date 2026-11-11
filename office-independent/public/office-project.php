@@ -671,6 +671,40 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
             ->forAuthorizedProject((int)$projectId, null, null, $laborEvidence);
         $financeHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
+        // Project-scoped, read-only material and procurement view.
+        // The enclosing Finance ACL and test-only flag are mandatory.
+        // A separate opt-in flag prevents queries before additive tables exist.
+        if (getenv('OFFICE_TEST_MATERIAL_PROCUREMENT_PANEL_ENABLED') === 'enabled') {
+            try {
+                require_once dirname(__DIR__) . '/src/WorkingBudget/MaterialConsolidation.php';
+                require_once dirname(__DIR__) . '/src/WorkingBudget/MaterialIdentityReadModel.php';
+                require_once dirname(__DIR__) . '/src/WorkingBudget/MaterialProcurementProjection.php';
+                require_once dirname(__DIR__) . '/src/WorkingBudget/ProjectMaterialProcurementReadModel.php';
+                require_once dirname(__DIR__) . '/src/WorkingBudget/MaterialProcurementPanel.php';
+                // Authorization is already enforced by the surrounding Finance scope.
+                // Do not expose this reader from a route without equivalent ACL.
+                $materialReader = new \Brebo\Office\WorkingBudget\ProjectMaterialProcurementReadModel(
+                    $db,
+                    static fn(int $requestedProject, int $actor, string $capability): bool =>
+                        $requestedProject === (int)$projectId
+                        && $actor > 0
+                        && $capability === 'view_project_procurement'
+                );
+                $materialView = $materialReader->forProject((int)$projectId, 1);
+                if ($materialView['state'] === 'ready') {
+                    $financeHtml .= \Brebo\Office\WorkingBudget\MaterialProcurementPanel::render($materialView['rows']);
+                    if ($materialView['unmatched'] !== []) {
+                        $financeHtml .= '<p>Materiaalregels zonder gecontroleerde artikelidentiteit: '
+                            . count($materialView['unmatched']) . '. Controle vereist.</p>';
+                    }
+                } else {
+                    $financeHtml .= '<p>Materiaalstaat nog niet beschikbaar: geen vergrendelde werkbegroting.</p>';
+                }
+            } catch (\Throwable $materialError) {
+                error_log('Office material procurement panel unavailable: ' . get_class($materialError));
+                $financeHtml .= '<p>Materiaal &amp; Inkoop tijdelijk niet beschikbaar.</p>';
+            }
+        }
     } catch (\Throwable $workBudgetError) {
         error_log('Office work budget panel unavailable: ' . get_class($workBudgetError));
         $financeHtml .= '<p>Werkbegroting tijdelijk niet beschikbaar.</p>';
