@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type INSTALL-OFFERTSTUDIO-OFFICE-TEST to install code and route; blank means preflight only
+        description: INSTALL-OFFERTSTUDIO-OFFICE-TEST to install; FIX-OFFERTSTUDIO-REWRITE to repair 404; blank for preflight
         required: false
         default: ''
         type: string
@@ -60,6 +60,87 @@ jobs:
           echo "ROUTER_ROUTE_LINES"
           grep -nF '/office-test/crm/offertes' "$router" || true
           echo PREFLIGHT_READ_ONLY_COMPLETE
+          REMOTE
+  fix-rewrite:
+    needs: preflight
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'FIX-OFFERTSTUDIO-REWRITE' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add isolated Office-test quotation rewrite and verify HTTP
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation
+          chmod 600 ~/.ssh/id_quotation
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          web="$HOME/domains/brebobv.nl/public_html/office-test"
+          ht="$web/.htaccess"
+          router="$web/index.php"
+          test -f "$ht" && test ! -L "$ht" && test -f "$router"
+          grep -Fq "'/office-test/crm/offertes'" "$router" || { echo QUOTATION_ROUTER_MISSING; exit 40; }
+          grep -Fq 'RewriteRule ^(?:crm/verkoopkansen' "$ht" || { echo UNEXPECTED_REWRITE_LAYOUT; exit 41; }
+          if grep -Eq 'RewriteRule[[:space:]]+\^crm/offertes/\?\
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'INSTALL-OFFERTSTUDIO-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 1f7660622f41605865e82d800f25ed71f6b3a8a9
+          persist-credentials: false
+      - name: Package only quotation files and guarded installer
+        run: |
+          set -euo pipefail
+          tar -czf quotation-package.tar.gz \
+            office-independent/public/office-quotation-studio.php \
+            office-independent/src/Quotation/OfficeQuotationComposer.php \
+            office-independent/src/Quotation/OfficeQuotationDraftRepository.php \
+            office-independent/deployment/hostinger/install-offertestudio-office-test.sh
+      - name: Install on active isolated Office-test release with backup and rollback
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER" && test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation
+          chmod 600 ~/.ssh/id_quotation
+          remote="$USER@$HOST"
+          remote_stage="domains/brebobv.nl/office_calc_test/.quotation-stage-$GITHUB_RUN_ID"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$remote" "mkdir -p \"\$HOME/$remote_stage\""
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -P "$PORT" quotation-package.tar.gz "$remote:$remote_stage/quotation-package.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation -p "$PORT" "$remote" "RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          set -euo pipefail
+          stage="$HOME/domains/brebobv.nl/office_calc_test/.quotation-stage-$RUN_ID"
+          test -f "$stage/quotation-package.tar.gz"
+          tar -xzf "$stage/quotation-package.tar.gz" -C "$stage"
+          bash "$stage/office-independent/deployment/hostinger/install-offertestudio-office-test.sh" "$stage"
+          rm -rf "$stage"
+          REMOTE
+ "$ht"; then
+            echo QUOTATION_REWRITE_ALREADY_PRESENT
+          else
+            backup="$ht.backup-offertestudio-$(date +%Y%m%d%H%M%S)"
+            cp -p "$ht" "$backup"
+            trap 'cp -p "$backup" "$ht"; echo QUOTATION_REWRITE_ROLLED_BACK' ERR
+            perl -0pi -e 'BEGIN { $n=0 } $n += s@(?=RewriteRule \^\(\?:crm/verkoopkansen)@RewriteRule ^crm/offertes/?$ index.php [END,QSA]\n@; END { die "rewrite anchor missing or ambiguous\n" if $n != 1 }' "$ht"
+            grep -Fq 'RewriteRule ^crm/offertes/?$ index.php [END,QSA]' "$ht" || exit 42
+            echo QUOTATION_REWRITE_INSTALLED
+          fi
+          code="$(curl -ksS --max-time 15 -o /dev/null -w '%{http_code}' 'https://brebobv.nl/office-test/crm/offertes')"
+          echo "QUOTATION_HTTP=$code"
+          case "$code" in 302|200|403|503) ;; *) echo QUOTATION_ROUTE_UNEXPECTED_STATUS; exit 43;; esac
+          trap - ERR
+          echo QUOTATION_REWRITE_VERIFIED
           REMOTE
   deploy:
     needs: preflight
