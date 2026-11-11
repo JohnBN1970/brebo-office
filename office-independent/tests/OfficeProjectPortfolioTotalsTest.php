@@ -15,4 +15,24 @@ if (!str_contains($html, '€ 1.234,56') || !str_contains($html, 'Vastgestelde i
 }
 $html = OfficeProjectPortfolioView::render($projects, '/office-test');
 if (!str_contains($html, 'Niet beschikbaar')) throw new RuntimeException('Missing totals must be unavailable');
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'contract_value_cents' => 129995,
+    'contract_covered' => 1,
+    'contract_total' => 1,
+    'procurement_covered' => 0,
+    'procurement_total' => 1,
+]);
+if (!str_contains($html, '€ 1.299,95')
+    || !str_contains($html, 'Geaccepteerde contracten: 1 van 1 projecten.')
+    || !str_contains($html, 'Vastgestelde inkoopbegrotingen: 0 van 1 toegankelijke projecten.')) {
+    throw new RuntimeException('Accepted contract amount or source coverage missing');
+}
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'contract_value_cents' => null,
+    'contract_covered' => 0,
+    'contract_total' => 1,
+]);
+if (str_contains($html, '€ 0,00') || !str_contains($html, 'Geaccepteerde contracten: 0 van 1 projecten.')) {
+    throw new RuntimeException('Incomplete contract coverage must not display zero');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
