@@ -13,9 +13,14 @@ $deny = static function(int $status = 403): never {
     echo '{"active":false}';
     exit;
 };
+$projectGrantsEnabled=getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled';
+$crmGrantsEnabled=getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled'
+    && getenv('OFFICE_CRM_AUTH_MODE') === 'session_only'
+    && getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_ENABLED') === 'enabled'
+    && getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_VERIFIED') === 'enabled';
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
-    || getenv('OFFICE_CALC_GRANT_VALIDATION_ENABLED') !== 'enabled'
-    || getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') !== 'enabled') {
+    || (!$projectGrantsEnabled && !$crmGrantsEnabled)) {
     $deny(404);
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -59,8 +64,19 @@ try {
         'x-brebo-request-id' => $_SERVER['HTTP_X_BREBO_REQUEST_ID'] ?? null,
         'x-brebo-signature' => $_SERVER['HTTP_X_BREBO_SIGNATURE'] ?? null,
     ];
-    $active = (new \Brebo\Office\Calculation\OfficeCalcGrantValidationService($db))
-        ->validate($raw, $headers, $secret, time());
+    $payload=json_decode($raw,true,8);
+    $crmRequest=is_array($payload) && array_key_exists('project_id',$payload)
+        && $payload['project_id']===null;
+    if ($crmRequest) {
+        if (!$crmGrantsEnabled) $deny(403);
+        require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcCrmGrantValidationService.php';
+        $active=(new \Brebo\Office\Calculation\OfficeCalcCrmGrantValidationService($db))
+            ->validate($raw,$headers,$secret,time());
+    } else {
+        if (!$projectGrantsEnabled) $deny(403);
+        $active=(new \Brebo\Office\Calculation\OfficeCalcGrantValidationService($db))
+            ->validate($raw, $headers, $secret, time());
+    }
     http_response_code($active ? 200 : 403);
     echo $active ? '{"active":true}' : '{"active":false}';
 } catch (Throwable) {
