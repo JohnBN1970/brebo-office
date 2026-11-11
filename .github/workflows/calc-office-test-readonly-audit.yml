@@ -124,7 +124,7 @@ jobs:
               }
               echo "OFFICE_CALC_DB_IDENTITY=VERIFIED\n";
               $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
-              foreach (["calculations","calculation_versions","calculation_lines","launch_nonces","office_calc_crm_drafts","office_calc_crm_draft_lines"] as $t) {
+              foreach (["calculations","calculation_versions","calculation_lines","launch_nonces","office_calc_crm_drafts","office_calc_crm_draft_lines","office_crm_opportunities","office_crm_relations"] as $t) {
                 $q->execute([$t]);
                 echo "OFFICE_CALC_TABLE_".strtoupper($t)."=".((int)$q->fetchColumn()===1?"PRESENT":"ABSENT")."\n";
               }
