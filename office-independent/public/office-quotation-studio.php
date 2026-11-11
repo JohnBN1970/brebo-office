@@ -8,7 +8,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET','POST'], true)) {
     header('Allow: GET, POST'); http_response_code(405); exit;
 }
@@ -136,11 +136,22 @@ $sectionLabels = [
 ];
 $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offertestudio · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f5fa;color:#172c43;margin:0}main{max-width:1100px;margin:36px auto;padding:20px}header,.panel{background:white;border:1px solid #dce3ed;border-radius:12px;padding:24px;margin-bottom:18px}.types{display:flex;flex-wrap:wrap;gap:10px}.types a{padding:12px 16px;border-radius:8px;background:#e9eef9;color:#173d70;text-decoration:none}.types a.selected{background:#273f83;color:white}.sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.section{background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:18px}.section p{color:#5d6d80}small{color:#65748a}a{color:#175a91}input,select,textarea{display:block;width:100%;box-sizing:border-box;padding:10px;margin-top:6px;border:1px solid #aebbc9;border-radius:6px}button{padding:12px 20px;border:0;border-radius:7px;background:#273f83;color:white}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></p><header><small>BREBO OFFICE / OFFERTES</small><h1>Offertestudio</h1><p>Werkbare demonstratie van documenttypen en hoofdstukopbouw. Conceptopslag is alleen beschikbaar na schema- en schrijfvrijgave. Calculatiekoppeling, PDF en verzending zijn nog niet actief.</p><nav class="types">';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offertestudio · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f3f5fa;color:#172c43;margin:0}main{max-width:1100px;margin:36px auto;padding:20px}header,.panel{background:white;border:1px solid #dce3ed;border-radius:12px;padding:24px;margin-bottom:18px}.types{display:flex;flex-wrap:wrap;gap:10px}.types a{padding:12px 16px;border-radius:8px;background:#e9eef9;color:#173d70;text-decoration:none}.types a.selected{background:#273f83;color:white}.sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.section{background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:18px}.section p{color:#5d6d80}small{color:#65748a}a{color:#175a91}input,select,textarea{display:block;width:100%;box-sizing:border-box;padding:10px;margin-top:6px;border:1px solid #aebbc9;border-radius:6px}button{padding:12px 20px;border:0;border-radius:7px;background:#273f83;color:white}.print-chapter{break-inside:avoid;margin:20px 0}.print-chapter p{white-space:normal;line-height:1.6}@media print{body{background:#fff}main{margin:0;max-width:none;padding:0}main>p,header,.panel:not(.print-document){display:none}.print-document{border:0;padding:0}.print-document button{display:none}}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></p><header><small>BREBO OFFICE / OFFERTES</small><h1>Offertestudio</h1><p>Werkbare demonstratie van documenttypen en hoofdstukopbouw. Conceptopslag is alleen beschikbaar na schema- en schrijfvrijgave. Calculatiekoppeling, PDF en verzending zijn nog niet actief.</p><nav class="types">';
 foreach ($labels as $key => $label) {
     echo '<a class="'.($key === $type ? 'selected' : '').'" href="?type='.$escape($key).'">'.$escape($label).'</a>';
 }
-echo '</nav></header><section class="panel"><h2>'.$escape($labels[$type]).'</h2><div class="sections">';
+echo '</nav></header>';
+if ($editing !== null) {
+    echo '<section class="panel print-document"><small>CONCEPT · NIET VERZONDEN</small><h2>'.$escape((string)$editing['title']).'</h2>';
+    foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $chapter) {
+        $body = trim((string)($editing['sections'][$chapter] ?? ''));
+        if ($body === '') continue;
+        echo '<article class="print-chapter"><h3>'.$escape($sectionLabels[$chapter] ?? $chapter).'</h3><p>'.nl2br($escape($body), false).'</p></article>';
+    }
+    echo '<p><small>Dit document is uitsluitend een conceptvoorbeeld en geen goedgekeurde of verzonden offerte.</small></p>';
+    echo '<button type="button" onclick="window.print()">Documentvoorbeeld afdrukken / bewaren als PDF</button></section>';
+}
+echo '<section class="panel"><h2>'.$escape($labels[$type]).'</h2><div class="sections">';
 foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $index => $key) {
     echo '<article class="section"><small>HOOFDSTUK '.($index + 1).'</small><h3>'.$escape($sectionLabels[$key] ?? $key).'</h3><p>Inhoud wordt later gekoppeld aan CRM, calculatie en de documentbibliotheek.</p></article>';
 }
