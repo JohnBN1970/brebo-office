@@ -40,4 +40,10 @@ $html = OfficeProjectPortfolioView::render($manyProjects, '/office-test', ['acce
 if (!str_contains($html, '100 van 125 toegankelijke projecten')) {
     throw new RuntimeException('Truncated project list must be disclosed');
 }
+$html = OfficeProjectPortfolioView::render($projects, '/office-test', [
+    'planned_week_seconds' => 23400, 'planned_week_label' => '2026-W46',
+]);
+if (!str_contains($html, '6,50 uur') || !str_contains($html, '2026-W46')) {
+    throw new RuntimeException('Planned weekly hours KPI missing');
+}
 echo "PORTFOLIO_TOTALS_CONTRACT_OK\n";
