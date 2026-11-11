@@ -117,7 +117,8 @@ if ($path === '/office-test/calc/crm/open') {
   require $private . '/public/office-calc-crm-browser-handoff.php';
   exit;
 }
-if ($path === '/office-test/calc/crm/werkbank') {
+// Single Office-test website, no redirect to the legacy Calc origin.
+if ($path === '/office-test/calculatie' || $path === '/office-test/calc/crm/werkbank') {
   require $private . '/public/office-calc-crm-workbench.php';
   exit;
 }
