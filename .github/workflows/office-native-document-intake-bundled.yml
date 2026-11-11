@@ -45,6 +45,7 @@ jobs:
             office-independent/src/Documents/OfficeSourceAddressExtractor.php \
             office-independent/src/Documents/OfficeAddressProposalSchema.php \
             office-independent/src/Documents/OfficeAddressProposalService.php \
+            office-independent/src/Documents/OfficeAddressProposalReviewService.php \
             office-independent/src/Documents/OfficeProjectDocumentService.php \
             office-independent/src/Buildings/OfficeIntakeBuildingResolver.php \
             office-independent/tests/OfficeSourceAddressExtractorTest.php \
