@@ -36,7 +36,7 @@ if($crmCanWrite&&$item['status']==='open'){
             break;
         }
     }
-    crmFormFields($formData,$choices);
+    crmFormFields($formData,$choices,$id);
     echo '<p><a href="/office-test/crm/relaties/nieuw?opportunity_id='.$id.'">Nieuwe relatie vastleggen</a></p><button>'.($qualify?'Kwalificeren als prospect':'Gegevens opslaan').'</button></form></details></section>';
     echo '<section><h2>Opvolging en opnamen</h2>';$form('activity');echo '<div class="crm-fields"><div><label for="activity_title">Activiteit</label><input id="activity_title" name="title" required maxlength="255"></div><div><label for="activity_type">Soort</label><select id="activity_type" name="activity_type">';
     foreach(\Brebo\Office\Crm\OfficeCrmOpportunityPolicy::ACTIVITIES as $key=>$label)echo '<option value="'.$key.'">'.crmH($label).'</option>';
