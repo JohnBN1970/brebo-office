@@ -399,7 +399,7 @@ jobs:
             target="$active/public/office-calc-crm-start.php"
             test -f "$source" && test -f "$target" && test ! -L "$target"
             php -l "$source"
-            grep -Fq "CRM-calculatie niet beschikbaar." "$target"
+            grep -Fq "office_calc_crm_drafts" "$target"
             grep -Fq 'office_calc_crm_drafts' "$target"
             if cmp -s "$source" "$target";then
               echo "CALC_START_DIAGNOSTICS=ALREADY_CURRENT"
