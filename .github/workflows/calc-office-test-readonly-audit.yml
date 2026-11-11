@@ -251,6 +251,12 @@ jobs:
             else
               echo "OFFICE_LIVE_CRM_FUNNEL_VIEWS=MISSING"
             fi
+            echo "SECTION=LIVE_CRM_CALC_LINK_PATCH_READINESS"
+            active_views=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";')
+            if grep -Fq "Fase wijzigen</a>" "$active_views"; then echo "LIVE_CRM_ACTION_ANCHOR=FOUND"; else echo "LIVE_CRM_ACTION_ANCHOR=MISSING"; fi
+            if grep -Fq "/office-test/calculatie/start?opportunity_id=" "$active_views"; then echo "LIVE_CRM_CALC_LINK=ALREADY_PRESENT"; else echo "LIVE_CRM_CALC_LINK=NOT_PRESENT"; fi
+            active_workbench=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";')
+            if grep -Fq "OFFICE_CALC_CRM_SCHEMA_VERIFIED" "$active_workbench"; then echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=YES"; else echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=NO"; fi
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
