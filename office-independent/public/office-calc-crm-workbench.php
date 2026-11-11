@@ -73,8 +73,14 @@ try {
         $lineId=(string)($_POST['line_id']??'');
         if ($lineId==='') $lineId=bin2hex(random_bytes(12));
         $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
-        $cost=filter_var($_POST['unit_cost_cents']??null,FILTER_VALIDATE_INT);
-        if (!is_int($quantity)||!is_int($cost)) $deny(400,'INVALID_QUANTITY_OR_COST');
+        // Friendly euro input, canonical persistence remains in integer cents.
+        $price=$_POST['unit_price_eur']??null;
+        if (!is_string($price)) $deny(400,'INVALID_PRICE');
+        $price=trim(str_replace(',', '.', $price));
+        if (!preg_match('/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
+        [$whole,$fraction]=array_pad(explode('.',$price,2),2,'');
+        $cost=((int)$whole)*100+(int)str_pad($fraction,2,'0');
+        if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights);
         header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
@@ -86,10 +92,10 @@ catch (Throwable) { $deny(503,'RUNTIME'); }
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM Calculatie | BREBO Office</title><style>body{font:16px system-ui;margin:30px auto;padding:0 20px;max-width:1050px;color:#23364a}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}input,select,button{padding:10px;margin:4px}form{background:#f4f6f9;padding:16px;border-radius:8px}</style><h1>Calculatieconcept #'.$draft.'</h1><p>CRM-calculatie zonder project. Bedragen exclusief btw, in eurocenten opgeslagen.</p><table><tr><th>Regel</th><th>Omschrijving</th><th>Type</th><th>Aantal</th><th>Eenheidsprijs</th><th>Totaal</th></tr>';
+echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CRM Calculatie | BREBO Office</title><style>body{font:16px system-ui;margin:30px auto;padding:0 20px;max-width:1050px;color:#23364a}table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #ddd;text-align:left}input,select,button{padding:10px;margin:4px}form{background:#f4f6f9;padding:16px;border-radius:8px}</style><h1>Calculatieconcept #'.$draft.'</h1><p>CRM-calculatie zonder project. Bedragen exclusief btw; invoer in euro&#39;s.</p><table><tr><th>Regel</th><th>Omschrijving</th><th>Type</th><th>Aantal</th><th>Eenheidsprijs</th><th>Totaal</th></tr>';
 $total=0;
 foreach($lines as $line) {
     $subtotal=(int)$line['quantity']*(int)$line['unit_cost_cents'];$total+=$subtotal;
     echo '<tr><td>'.$h((string)$line['line_id']).'</td><td>'.$h((string)$line['description']).'</td><td>'.$h((string)$line['cost_type']).'</td><td>'.(int)$line['quantity'].'</td><td>'.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td>'.number_format($subtotal/100,2,',','.').'</td></tr>';
 }
-echo '</table><p><strong>Totaal: € '.number_format($total/100,2,',','.').'</strong></p><h2>Calculatieregel toevoegen of wijzigen</h2><form method="post" action="/office-test/calculatie"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><label>Regel-ID (bestaande ID om te wijzigen) <input name="line_id" maxlength="64"></label><label>Omschrijving <input name="description" maxlength="500" required></label><label>Type <select name="cost_type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></label><label>Aantal <input type="number" min="1" name="quantity" required></label><label>Prijs per eenheid (centen) <input type="number" min="0" name="unit_cost_cents" required></label><button type="submit">Regel opslaan</button></form></html>';
+echo '</table><p><strong>Totaal: € '.number_format($total/100,2,',','.').'</strong></p><h2>Calculatieregel toevoegen of wijzigen</h2><form method="post" action="/office-test/calculatie"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><label>Regel-ID (bestaande ID om te wijzigen) <input name="line_id" maxlength="64"></label><label>Omschrijving <input name="description" maxlength="500" required></label><label>Type <select name="cost_type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></label><label>Aantal <input type="number" min="1" name="quantity" required></label><label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" name="unit_price_eur" placeholder="45,00" required></label><button type="submit">Regel opslaan</button></form></html>';
