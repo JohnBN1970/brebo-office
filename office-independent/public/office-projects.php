@@ -647,7 +647,16 @@ if ($kanbanView) {
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectPageStructure.php';
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectTrafficLight.php';
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioView.php';
-  echo \\Brebo\\Office\\Project\\OfficeProjectPortfolioView::render($projects, $base);
+  $portfolioTotals = [];
+  try {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioTotals.php';
+    $budget = \\Brebo\\Office\\Project\\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
+    $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
+  } catch (\\Throwable $exception) {
+    // Missing or unverified budget data is not zero.
+    $portfolioTotals['procurement_budget_cents'] = null;
+  }
+  echo \\Brebo\\Office\\Project\\OfficeProjectPortfolioView::render($projects, $base, $portfolioTotals);
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
