@@ -24,15 +24,29 @@ final class OfficeAddressProposalService
     public function propose(int $documentId, string $privateOriginalPath, string $mimeType, string $filename): array
     {
         if ($documentId < 1) throw new InvalidArgumentException('invalid_document_id');
+        if (!is_file($privateOriginalPath) || is_link($privateOriginalPath) || !is_readable($privateOriginalPath)) {
+            throw new InvalidArgumentException('source_unavailable');
+        }
+        $size = filesize($privateOriginalPath);
+        if ($size === false || $size < 1 || $size > 25 * 1024 * 1024) {
+            throw new InvalidArgumentException('source_size_invalid');
+        }
+        $actualHash = hash_file('sha256', $privateOriginalPath);
+        if (!is_string($actualHash)) {
+            throw new InvalidArgumentException('source_integrity_mismatch');
+        }
         $known = $this->db->prepare(
-            'SELECT d.original_filename, d.mime_type, o.sha256 FROM office_documents d
+            'SELECT d.original_filename, d.mime_type, o.sha256, o.storage_provider, o.storage_key, o.byte_size FROM office_documents d
              JOIN office_document_originals o ON o.id = d.original_id
              WHERE d.id = ? AND d.lifecycle_status = ? LIMIT 1'
         );
         $known->execute([$documentId, 'active']);
         $source = $known->fetch(PDO::FETCH_ASSOC);
         if (!$source || $source['original_filename'] !== $filename || $source['mime_type'] !== $mimeType
-            || !hash_equals((string)$source['sha256'], (string)hash_file('sha256', $privateOriginalPath))) {
+            || $source['storage_provider'] !== 'office_private'
+            || $source['storage_key'] !== 'originals/' . substr($actualHash, 0, 2) . '/' . $actualHash
+            || (int)$source['byte_size'] !== $size
+            || !hash_equals((string)$source['sha256'], $actualHash)) {
             throw new InvalidArgumentException('source_integrity_mismatch');
         }
 
