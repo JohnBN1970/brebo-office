@@ -12,7 +12,6 @@ final class OfficeProjectPortfolioGantt {
     $e = static fn($v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $today = new \DateTimeImmutable('today');
     $from = $today->modify('monday this week')->modify('-14 days');
-    $to = $from->modify('+83 days');
     $days = 84;
     $html = '<style>.portfolio-gantt{overflow-x:auto;margin-top:18px}.portfolio-gantt-grid{min-width:850px}.portfolio-gantt-row{display:grid;grid-template-columns:240px minmax(580px,1fr);border-bottom:1px solid #e1e6ed;min-height:52px;align-items:center}.portfolio-gantt-name{padding:10px;font-size:14px}.portfolio-gantt-track{height:42px;position:relative;background:repeating-linear-gradient(to right,#f8fafc 0,#f8fafc calc(100% / 12 - 1px),#dbe1e8 calc(100% / 12 - 1px),#dbe1e8 calc(100% / 12))}.portfolio-gantt-today{position:absolute;left:var(--today);top:0;bottom:0;border-left:2px dashed #172c45;z-index:2}.portfolio-gantt-bar{position:absolute;top:13px;height:17px;border-radius:4px;background:#247b55}.portfolio-gantt-empty{font-size:12px;color:#64748b;position:absolute;top:12px;left:10px}.portfolio-gantt-badge{font-size:11px;padding:3px 6px;border-radius:5px;background:#edf1f6;display:inline-block}.portfolio-gantt-badge.critical{background:#fee2e2;color:#991b1b}.portfolio-gantt-badge.ontrack{background:#dcfce7;color:#166534}.portfolio-gantt-badge.waiting{background:#fef3c7;color:#92400e}.portfolio-gantt-badge.done{background:#dbeafe;color:#1e40af}.portfolio-gantt-note{font-size:12px;color:#64748b}.portfolio-gantt-weeks{display:grid;grid-template-columns:repeat(12,1fr);font-size:11px;text-align:center;color:#526278}</style>';
 
@@ -44,7 +43,10 @@ final class OfficeProjectPortfolioGantt {
         if ($right > $left) {
           $note = trim((string)($project['critical_note'] ?? ''));
           $title = $note !== '' ? $note : 'Kritiek pad: nog niet vastgesteld';
-          $html .= '<a class="portfolio-gantt-bar" href="'.$e($url).'" title="'.$e($title).'" aria-label="'.$e($project['title'].': '.$title).'" style="left:'.round($left/$days*100,3).'%;width:'.round(($right-$left)/$days*100,3).'%"></a>';
+          $barColor = ['critical'=>'#b91c1c','waiting'=>'#b45309','done'=>'#2563eb','ontrack'=>'#247b55'][$class] ?? '#64748b';
+          $html .= '<a class="portfolio-gantt-bar" href="'.$e($url).'" title="'.$e($title).'" aria-label="'.$e($project['title'].': '.$title).'" style="background:'.$barColor.';left:'.round($left/$days*100,3).'%;width:'.round(($right-$left)/$days*100,3).'%"></a>';
+        } else {
+          $html .= '<span class="portfolio-gantt-empty">Buiten zichtbare periode</span>';
         }
       } else {
         $html .= '<span class="portfolio-gantt-empty">Planning nog niet beschikbaar</span>';
