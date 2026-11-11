@@ -29,4 +29,18 @@ $ref=$issuer->issue($token,$csrf,$csrf,9,$now,$rights);
 if(!is_string($ref)||strlen($ref)!==64)throw new RuntimeException('Valid CRM launch not issued');
 if(!$redeemer->redeem($ref,$hash,7,9,$now,$rights))throw new RuntimeException('Issued grant not redeemable');
 if($redeemer->redeem($ref,$hash,7,9,$now,$rights))throw new RuntimeException('Launch replay permitted');
+$issued=$issuer->issueSigned($token,$csrf,$csrf,9,$now,str_repeat('k',40),$rights);
+if (!is_array($issued) || !preg_match('/^[a-f0-9]{64}$/D',(string)($issued['reference']??'')))
+    throw new RuntimeException('Signed CRM launch reference missing');
+if (!is_string($issued['token']??null)) throw new RuntimeException('Signed CRM launch credential missing');
+$parts=explode('.',$issued['token']);
+if (count($parts)!==2 || !hash_equals(hash_hmac('sha256',$parts[0],str_repeat('k',40)),$parts[1]))
+    throw new RuntimeException('Signed CRM launch signature incorrect');
+$payload=json_decode(base64_decode(strtr($parts[0],'-_','+/'),true),true,512,JSON_THROW_ON_ERROR);
+if (!is_array($payload) || $payload['v']!==2 || $payload['project_id']!==null
+    || $payload['grant_ref']!==$issued['reference'] || $payload['calculation_id']!==9)
+    throw new RuntimeException('Signed CRM launch payload incorrect');
+$db->exec('UPDATE office_operator_accounts SET can_edit_crm=0 WHERE id=7');
+if ($issuer->issueSigned($token,$csrf,$csrf,9,$now,str_repeat('k',40),$rights)!==null)
+    throw new RuntimeException('Signed launch allowed revoked CRM rights');
 echo "CRM_CALC_LAUNCH_ISSUE_REDEEM=PASS\n";
