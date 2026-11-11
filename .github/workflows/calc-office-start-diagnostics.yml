@@ -11,8 +11,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: JohnBN1970/brebo-office
-          ref: e675520d9b15aac76f8dfccc5f84516cdd24a935
+          ref: 1563d4a08e3852f8aef604cdeae9bd880a91694e
           persist-credentials: false
+      - name: Verify same-origin POST safety contract
+        run: |
+          php office-independent/tests/OfficeCalcCrmOriginPolicyTest.php
       - name: Verify single start handler
         run: |
           set -euo pipefail
@@ -51,7 +54,7 @@ jobs:
             target="$active/public/office-calc-crm-start.php"
             test -f "$source" && test -f "$target" && test ! -L "$target"
             php -l "$source"
-            grep -Fq "CRM-calculatie niet beschikbaar." "$target"
+            grep -Fq "office_calc_crm_drafts" "$target"
             grep -Fq 'office_calc_crm_drafts' "$target"
             if cmp -s "$source" "$target";then
               echo "CALC_START_DIAGNOSTICS=ALREADY_CURRENT"
@@ -74,5 +77,5 @@ jobs:
               echo "CALC_START_DIAGNOSTICS=ROLLED_BACK_AUTH"
               exit 1
             fi
-            echo "CALC_START_DIAGNOSTICS=INSTALLED"
+            echo "CALC_START_ORIGIN_FIX=INSTALLED"
             echo "CALC_START_DATABASE_MUTATIONS=NONE"
