@@ -35,9 +35,15 @@ final class OfficeCommercialAcceptanceRepository
             if ($input['kind'] === 'quotation' && !in_array($opportunity['stage'], ['proposal','negotiation'], true)) {
                 throw new DomainException('Quotation acceptance requires an offer stage.');
             }
+            // Only a verified evidence document can authorize a contractual status change.
+            // Free-text references are retained for audit, but are not proof on their own.
+            if (!isset($input['evidence_document_id']) || !is_int($input['evidence_document_id'])
+                || $input['evidence_document_id'] < 1) {
+                throw new DomainException('A verified acceptance document is required.');
+            }
             if ($input['kind'] === 'quotation') {
                 $q = $this->db->prepare(
-                    "SELECT id FROM office_quotations WHERE id=? AND opportunity_id=? AND status='accepted' LIMIT 1"
+                    "SELECT id FROM office_quotations WHERE id=? AND opportunity_id=? AND status='accepted' LIMIT 1 FOR UPDATE"
                 );
                 $q->execute([$input['quotation_id'], $input['opportunity_id']]);
                 if (!$q->fetchColumn()) {
