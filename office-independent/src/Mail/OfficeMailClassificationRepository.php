@@ -12,7 +12,7 @@ final class OfficeMailClassificationRepository {
 
   /** @return array{id:int,status:string} */
   public function propose(int $messageId, string $module, ?int $targetId, string $reason): array {
-    if ($messageId <= 0 || !in_array($module, ['crm','projecten','gebouwen','finance','documenten','inspecties','onbekend'], true)
+    if ($messageId <= 0 || !in_array($module, ['crm','projecten','finance','documenten','inspecties','onbekend'], true)
       || ($targetId !== null && $targetId <= 0) || strlen($reason) > 1000) {
       throw new RuntimeException('Ongeldig mailvoorstel.');
     }
