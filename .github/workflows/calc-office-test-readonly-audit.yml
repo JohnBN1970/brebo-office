@@ -363,6 +363,13 @@ jobs:
             php -l "$stage/config-candidate.php"
             php -r '
               $c=require $argv[1];
+              echo "CALC_ACTIVATE_CANDIDATE_RETURNS_ARRAY=".(is_array($c)?"YES":"NO")."\\n";
+              echo "CALC_ACTIVATE_CANDIDATE_OFFICE_TEST=".(($c["OFFICE_BASE_PATH"]??"")==="/office-test"?"YES":"NO")."\\n";
+              echo "CALC_ACTIVATE_CANDIDATE_DRAFT_FLAG=".(getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")==="enabled"?"ENABLED":"NOT_ENABLED")."\\n";
+              echo "CALC_ACTIVATE_CANDIDATE_SCHEMA_FLAG=".(getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")==="enabled"?"ENABLED":"NOT_ENABLED")."\\n";
+            ' "$stage/config-candidate.php"
+            php -r '
+              $c=require $argv[1];
               if(!is_array($c)||($c["OFFICE_BASE_PATH"]??"")!=="/office-test"
                 || getenv("OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED")!=="enabled"
                 || getenv("OFFICE_CALC_CRM_SCHEMA_VERIFIED")!=="enabled") exit(1);
