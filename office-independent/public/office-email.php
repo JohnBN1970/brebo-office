@@ -127,7 +127,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php else: ?>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
 <div class="board">
-<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
+<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
 <section class="lane" data-module="<?= $key ?>"><h3><?= $label ?></h3>
 <?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
 <article class="mail-card" draggable="true" data-message="<?= (int)$card['id'] ?>">
@@ -138,7 +138,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES,'UTF-8') ?>">
 <input type="hidden" name="message_id" value="<?= (int)$card['id'] ?>">
 <label>Verplaatsen <select name="module">
-<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','gebouwen'=>'Gebouwen','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $destination=>$destinationLabel): ?>
+<?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $destination=>$destinationLabel): ?>
 <option value="<?= $destination ?>" <?= $destination===$key?'selected':'' ?>><?= $destinationLabel ?></option>
 <?php endforeach; ?></select></label><button type="submit">Verplaats</button>
 </form><?php else: ?><small>Privé: niet automatisch deelbaar</small><?php endif; ?></article>
