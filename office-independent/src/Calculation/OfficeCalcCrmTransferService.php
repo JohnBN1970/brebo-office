@@ -24,6 +24,18 @@ final class OfficeCalcCrmTransferService
         require_once __DIR__ . '/OfficeCalcAcceptanceIdentity.php';
         require_once __DIR__ . '/OfficeCalcWorkBudgetHandoff.php';
         $key = OfficeCalcAcceptanceIdentity::key($acceptance);
+        // Native rows contain multiple cost carriers. Convert them to the
+        // established immutable work-budget contract before opening the transaction.
+        // Reject mixed formats instead of silently dropping costs.
+        $nativeCount = count(array_filter($lines, static fn($line): bool =>
+            is_array($line) && array_key_exists('unit_costs_cents', $line)));
+        if ($nativeCount > 0) {
+            if ($nativeCount !== count($lines)) {
+                throw new DomainException('Mixed native and legacy calculation lines');
+            }
+            require_once __DIR__ . '/OfficeCalcCostCarrierHandoffMapper.php';
+            $lines = OfficeCalcCostCarrierHandoffMapper::map($lines);
+        }
         $budget = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines);
         $this->db->beginTransaction();
         try {
