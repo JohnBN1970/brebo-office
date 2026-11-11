@@ -1,0 +1,28 @@
+name: Office project portfolio attention contract
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Project/OfficeProjectPortfolioView.php'
+      - 'office-independent/src/Project/OfficeProjectPageStructure.php'
+      - 'office-independent/src/Project/OfficeProjectTrafficLight.php'
+      - 'office-independent/tests/OfficeProjectPortfolioAttentionTest.php'
+      - '.github/workflows/office-project-portfolio-attention-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint and test portfolio attention
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Project/OfficeProjectPortfolioView.php
+          php -l office-independent/src/Project/OfficeProjectTrafficLight.php
+          php -l office-independent/tests/OfficeProjectPortfolioAttentionTest.php
+          php office-independent/tests/OfficeProjectPortfolioAttentionTest.php
