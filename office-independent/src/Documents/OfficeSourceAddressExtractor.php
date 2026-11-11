@@ -135,8 +135,16 @@ final class OfficeSourceAddressExtractor
         $rows = [];
         $issues = [];
         $headers = null;
+        $currentSheet = null;
         $headerKeys = ['address', 'postal_code', 'city', 'name', 'email', 'phone'];
         foreach ($raw as $entry) {
+            if (str_starts_with($entry['location'], 'sheet:')) {
+                $sheet = substr($entry['location'], 0, (int) strrpos($entry['location'], ':row:'));
+                if ($sheet !== $currentSheet) {
+                    $headers = null;
+                    $currentSheet = $sheet;
+                }
+            }
             $values = array_map(static fn($v): string => trim((string) $v), $entry['values']);
             if (isset($values[0]) && $values[0] === '_unsupported_multipart_') {
                 $issues[] = ['location' => $entry['location'], 'reason' => 'multipart_email_requires_review'];
