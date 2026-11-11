@@ -705,6 +705,39 @@ $demoNotice = $isDashboardDemo
   ? '<div class="project-demo-banner" role="status"><strong>DEMO — fictieve gegevens</strong><span>Alle bedragen, contacten en grafieken hieronder zijn voorbeelden; er wordt niets opgeslagen.</span><a href="' . $escape($realUrl) . '">Terug naar echte gegevens</a></div>'
   : (\Brebo\Office\Intake\OfficeMount::isTest() ? '<p><a class="project-demo-link" href="' . $escape($demoUrl) . '">Bekijk het dashboard met demogegevens</a></p>' : '');
 $demoDashboardHtml = '';
+// Keep the 232-woning demonstration anchored to its canonical test project.
+// The planning below is read from Office-test; all other illustrative figures
+// remain explicitly fictional and are never persisted.
+$is232Demo = $isDashboardDemo
+  && (string) $project->identity->projectCode === 'TEST-2026-001'
+  && (string) $project->title === 'TEST - Renovatie 232 woningen';
+$demoPlanHtml = '';
+if ($is232Demo) {
+  $demoPlanHtml = '<article class="project-panel"><h3>Planning uit Office-test</h3>';
+  try {
+    $planStmt = $db->prepare('SELECT title, planned_start, planned_end, status, critical_note FROM office_project_plan_items WHERE project_id = ? ORDER BY sort_order, planned_start, id');
+    $planStmt->execute([$projectId]);
+    $planRows = $planStmt->fetchAll(PDO::FETCH_ASSOC);
+    if ($planRows === []) {
+      $demoPlanHtml .= '<p class="project-muted">Geen vastgelegde planningsfasen.</p>';
+    } else {
+      $demoPlanHtml .= '<ol>';
+      foreach ($planRows as $planRow) {
+        $demoPlanHtml .= '<li><strong>' . $escape($planRow['title']) . '</strong> · '
+          . $escape($planRow['planned_start']) . ' t/m ' . $escape($planRow['planned_end'])
+          . ' · ' . $escape($planRow['status']);
+        if (trim((string)($planRow['critical_note'] ?? '')) !== '') {
+          $demoPlanHtml .= '<p style="color:#b4232d">' . $escape($planRow['critical_note']) . '</p>';
+        }
+        $demoPlanHtml .= '</li>';
+      }
+      $demoPlanHtml .= '</ol>';
+    }
+  } catch (Throwable $ignored) {
+    $demoPlanHtml .= '<p class="project-muted">Planning momenteel niet beschikbaar.</p>';
+  }
+  $demoPlanHtml .= '<p class="project-muted">Bron: echte Office-test-planningsregels. Statussen en risico\'s zijn DEMO.</p></article>';
+}
 if ($isDashboardDemo) {
   $demoCards = [
     ['Opdrachtsom', '€ 4.850.000', 'Fictieve actuele opdrachtsom'],
@@ -725,6 +758,7 @@ if ($isDashboardDemo) {
     . '<article class="project-panel"><h3>Projectscope</h3><p>Renovatie van 232 woningen, inclusief kozijnen, glas en aansluitende bouwkundige werkzaamheden.</p><p class="project-muted">Fictieve CRM-omschrijving</p></article>'
     . '<article class="project-panel"><h3>Mijlpalen</h3><p>Start uitvoering: 1 maart 2026</p><p>Geplande oplevering: 18 december 2026</p><p class="project-muted">Fictieve planning</p></article>'
     . '<article class="project-panel"><h3>Aandacht nodig</h3><ul><li>Fictief: 8 dagen achterstand</li><li>Fictief: urenoverschrijding van 550 uur</li><li>Fictief: 2 openstaande kwaliteitsmeldingen</li></ul></article>'
+    . $demoPlanHtml
     . '</div>';
 }
 $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag</h2>' . $overviewMetrics
