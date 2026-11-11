@@ -50,10 +50,11 @@ final class OfficeMailBoardRepository {
       if ($mail['mailbox_type'] === 'functional' && $module === 'prive') {
         $this->db->rollBack(); return false;
       }
-      $previous=$this->db->prepare('SELECT module_key FROM office_mail_board_routes WHERE message_id=:id');
+      $previous=$this->db->prepare('SELECT module_key FROM office_mail_board_routes WHERE message_id=:id FOR UPDATE');
       $previous->execute([':id'=>$messageId]);
       $old=$previous->fetchColumn();
       $from=$old===false?($mail['mailbox_type']==='personal'?'prive':'nieuw'):(string)$old;
+      if ($from === 'gebouwen') $from = 'nieuw';
       if ($from!==$module) {
         $update=$this->db->prepare("INSERT INTO office_mail_board_routes
           (message_id,module_key,changed_by_operator_id,updated_at)
