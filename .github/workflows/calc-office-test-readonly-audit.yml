@@ -166,7 +166,7 @@ jobs:
             foreach(["office_crm_opportunities","office_operator_accounts"] as $t) {
               $q->execute([$t,"id"]);
               $type=(string)$q->fetchColumn();
-              if(!preg_match("/^(bigint|int|mediumint|smallint|tinyint)( unsigned)?$/",$type)) $type="UNEXPECTED";
+              if(!preg_match("/^(bigint|int|mediumint|smallint|tinyint)(\\([0-9]+\\))?( unsigned)?$/",$type)) $type="UNEXPECTED";
               echo "CRM_ID_COLUMN_TYPE_".strtoupper($t)."=".strtoupper(str_replace(" ","_",$type))."\n";
             }
             '
