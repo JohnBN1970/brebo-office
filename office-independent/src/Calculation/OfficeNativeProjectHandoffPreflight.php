@@ -20,6 +20,7 @@ final class OfficeNativeProjectHandoffPreflight
             'office_calc_work_budget_lines' => ['baseline_id', 'source_line_id', 'cost_type', 'quantity', 'unit_cost_cents', 'budget_cents'],
         ];
         $missing = [];
+        $tableEngines = [];
         foreach ($required as $table => $columns) {
             $stmt = $db->prepare(
                 'SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
@@ -28,6 +29,18 @@ final class OfficeNativeProjectHandoffPreflight
             $present = $stmt->fetchAll(PDO::FETCH_COLUMN);
             foreach ($columns as $column) {
                 if (!in_array($column, $present, true)) $missing[] = $table . '.' . $column;
+            }
+        }
+        // Atomic handoff requires transactional tables, not merely present columns.
+        $engineQuery = $db->prepare(
+            'SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+        );
+        foreach (array_keys($required) as $table) {
+            $engineQuery->execute([$table]);
+            $engine = $engineQuery->fetchColumn();
+            $tableEngines[$table] = $engine === false ? null : (string)$engine;
+            if ($engine !== false && strcasecmp((string)$engine, 'InnoDB') !== 0) {
+                $missing[] = $table . '.transactional_engine';
             }
         }
         // Column presence alone does not prove that a project can be created.
@@ -50,6 +63,7 @@ final class OfficeNativeProjectHandoffPreflight
             'ready' => false,
             'schema_ready' => $missing === [],
             'missing' => $missing,
+            'table_engines' => $tableEngines,
             'native_project_required_inputs' => $requiredProjectInputs,
             'project_factory_connected' => false,
         ];
