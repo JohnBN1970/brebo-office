@@ -257,6 +257,17 @@ jobs:
             if grep -Fq "/office-test/calculatie/start?opportunity_id=" "$active_views"; then echo "LIVE_CRM_CALC_LINK=ALREADY_PRESENT"; else echo "LIVE_CRM_CALC_LINK=NOT_PRESENT"; fi
             active_workbench=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";')
             if grep -Fq "OFFICE_CALC_CRM_SCHEMA_VERIFIED" "$active_workbench"; then echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=YES"; else echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=NO"; fi
+            echo "SECTION=LIVE_CRM_ACTION_STRUCTURE"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $p=($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";
+              $s=file_get_contents($p);
+              if(!is_string($s)) exit(1);
+              echo "LIVE_CRM_VIEWS_SIZE=".strlen($s)."\n";
+              foreach(["function action","function card","Fase wijzigen","/office-test/crm/verkoopkansen/fase","function render"] as $needle) {
+                echo "LIVE_CRM_MARKER_".strtoupper(str_replace([" ","/"],"_",$needle))."=".(str_contains($s,$needle)?"YES":"NO")."\n";
+              }
+            '
             echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
       - name: Explain scope
         run: |
