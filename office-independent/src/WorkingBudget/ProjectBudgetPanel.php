@@ -41,6 +41,32 @@ final class ProjectBudgetPanel
             if (!is_scalar($source) || !is_scalar($state)) throw new InvalidArgumentException('Invalid source state.');
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
+        $labor = $view['labor_evidence'] ?? null;
+        if ($labor !== null) {
+            if (!is_array($labor) || !in_array($labor['state'] ?? null,
+                ['unavailable', 'provisional', 'exceptions_present'], true)
+                || !array_key_exists('labor_actual_cents', $labor)
+                || $labor['labor_actual_cents'] !== null) {
+                throw new InvalidArgumentException('Invalid provisional labor evidence.');
+            }
+            $html .= '<h3>OnSite – urenregistratie</h3>';
+            if ($labor['state'] === 'unavailable') {
+                $html .= '<p>Urenregistratie niet beschikbaar.</p>';
+            } else {
+                $seconds = $labor['duration_seconds'] ?? null;
+                $sessions = $labor['session_count'] ?? null;
+                if (!is_int($seconds) || $seconds < 0 || !is_int($sessions) || $sessions < 0) {
+                    throw new InvalidArgumentException('Invalid labor duration.');
+                }
+                $html .= '<p>Geregistreerde aanwezigheid: '
+                    . self::e(number_format($seconds / 3600, 2, ',', '.'))
+                    . ' uur in '.self::e((string)$sessions).' sessies.</p>';
+                if ($labor['state'] === 'exceptions_present') {
+                    $html .= '<p>Er zijn afwijkingen in de urenregistratie.</p>';
+                }
+                $html .= '<p>Voorlopige registratie; niet goedgekeurd of als arbeidskosten geboekt.</p>';
+            }
+        }
         $html .= '</dl><h3>Begrotingsregels</h3>';
         $lines = $view['cost_lines'] ?? [];
         if (!is_array($lines)) throw new InvalidArgumentException('Invalid budget lines.');
