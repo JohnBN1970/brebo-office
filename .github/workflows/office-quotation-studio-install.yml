@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 1f7660622f41605865e82d800f25ed71f6b3a8a9
+          ref: feature/office-offertestudio-20261111
           persist-credentials: false
       - name: Validate quotation code and guarded installer
         run: |
@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 1f7660622f41605865e82d800f25ed71f6b3a8a9
+          ref: feature/office-offertestudio-20261111
           persist-credentials: false
       - name: Package only quotation files and guarded installer
         run: |
