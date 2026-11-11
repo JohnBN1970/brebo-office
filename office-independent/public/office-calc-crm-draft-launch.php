@@ -52,10 +52,22 @@ try {
         $q->execute([$opportunity,$actor]);
         return $q->fetchColumn()!==false;
     };
-    $reference=(new \Brebo\Office\Calculation\OfficeCalcCrmLaunchIssuer($db))
-        ->issue($token,$csrf,$expected,$draft,time(),$owner);
-    if ($reference===null) $deny(403);
-    echo json_encode(['ok'=>true,'reference'=>$reference,'draft_id'=>$draft],JSON_THROW_ON_ERROR);
+    $issuer=new \Brebo\Office\Calculation\OfficeCalcCrmLaunchIssuer($db);
+    // A signed v2 launch is available only after an independently verified,
+    // continuously enforced CRM-specific grant validation endpoint exists.
+    // Existing opaque grant responses remain the fail-closed default.
+    if (getenv('OFFICE_CALC_CRM_V2_LAUNCH_ENABLED') === 'enabled') {
+        if (getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_VERIFIED') !== 'enabled') $deny(503);
+        $secret=getenv('OFFICE_CALC_SHARED_SECRET');
+        if (!is_string($secret) || strlen($secret)<32) $deny(503);
+        $signed=$issuer->issueSigned($token,$csrf,$expected,$draft,time(),$secret,$owner);
+        if ($signed===null) $deny(403);
+        echo json_encode(['ok'=>true]+$signed,JSON_THROW_ON_ERROR);
+    } else {
+        $reference=$issuer->issue($token,$csrf,$expected,$draft,time(),$owner);
+        if ($reference===null) $deny(403);
+        echo json_encode(['ok'=>true,'reference'=>$reference,'draft_id'=>$draft],JSON_THROW_ON_ERROR);
+    }
 } catch (Throwable) {
     $deny(503);
 }
