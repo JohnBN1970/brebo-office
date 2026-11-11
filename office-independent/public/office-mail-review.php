@@ -11,6 +11,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   http_response_code(405);
   exit;
 }
+// Drupal mailbox UIDs and native Office operator IDs are separate identity
+// domains. Never expose personal mail based on numeric ID equality alone.
+// Enable only after an explicit, tested identity mapping is implemented.
+if (getenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED') !== 'enabled') {
+  http_response_code(404);
+  exit('Mailcontrole nog niet beschikbaar.');
+}
 if (getenv('OFFICE_BASE_PATH') !== '/office-test') {
   http_response_code(404);
   exit;
