@@ -53,8 +53,10 @@ $phases = OfficeProjectPortfolioGantt::render([
       'planned_end'=>(new DateTimeImmutable('today'))->modify('+14 days')->format('Y-m-d')],
    ]],
 ], '/office-test');
-checkGantt(str_contains($phases, 'DEMO-GANTT | Opname'), 'stored planning phase visible');
-checkGantt(str_contains($phases, 'DEMO-GANTT | Levering'), 'critical planning phase visible');
-checkGantt(str_contains($phases, 'Faselevering vertraagd'), 'planning blocker shown');
-checkGantt(substr_count($phases, 'portfolio-gantt-bar"') >= 3, 'project plus phase bars rendered');
+checkGantt(!str_contains($phases, 'DEMO-GANTT | Opname'), 'subtasks hidden in portfolio');
+checkGantt(str_contains($phases, 'DEMO-GANTT | Levering'), 'risk phase visible only in hover text');
+checkGantt(str_contains($phases, 'Faselevering vertraagd'), 'risk reason shown');
+checkGantt(str_contains($phases, 'portfolio-gantt-risk-panel'), 'accessible risk popover');
+checkGantt(substr_count($phases, 'class="portfolio-gantt-row"') === 2, 'only header and project row');
+checkGantt(str_contains($phases, 'W'.(new DateTimeImmutable('monday this week'))->modify('-14 days')->format('W / o')), 'year included in timeline');
 echo "GANTT_RENDER_TEST_OK\n";
