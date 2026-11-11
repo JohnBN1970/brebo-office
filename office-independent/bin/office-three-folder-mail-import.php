@@ -14,7 +14,7 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
 }
 $live = in_array('--import', $argv, true);
 if ($live && (getenv('OFFICE_THREE_FOLDER_IMPORT_ENABLED') !== 'enabled'
-    || getenv('OFFICE_FUNCTIONAL_MAIL_CRON_ENABLED') !== 'enabled')) {
+    || getenv('OFFICE_THREE_FOLDER_IMPORT_CONFIRMED') !== 'enabled')) {
     fwrite(STDERR, "Import disabled.\n"); exit(2);
 }
 require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
