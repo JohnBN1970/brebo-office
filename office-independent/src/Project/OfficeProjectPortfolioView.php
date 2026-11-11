@@ -10,7 +10,7 @@ final class OfficeProjectPortfolioView
      * Projects must be prefiltered by the authenticated operator's access query.
      * Rendered links point to the existing, fully functional project detail route.
      */
-    public static function render(array $projects, string $basePath): string
+    public static function render(array $projects, string $basePath, array $totals = []): string
     {
         $escape = static fn(mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $summary = OfficeProjectPageStructure::portfolioSummary($projects);
@@ -22,7 +22,7 @@ final class OfficeProjectPortfolioView
         // from authorized, reconciled Office aggregates (never inferred from counts).
         foreach ([
             'Totale opdrachtwaarde' => 'Niet beschikbaar',
-            'Totale werkbegroting' => 'Niet beschikbaar',
+            'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
             'Werkelijke kosten' => 'Niet beschikbaar',
             'Geplande uren' => 'Niet beschikbaar',
             'Geregistreerde uren' => 'Niet beschikbaar',
@@ -31,7 +31,7 @@ final class OfficeProjectPortfolioView
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
                 . '</small><strong>' . $escape($value) . '</strong></article>';
         }
-        $html .= '<p class="office-portfolio-total-scope">Totalen over toegankelijke projecten; financiële en urenbronnen zijn nog niet aangesloten. Ontbrekende gegevens tellen niet als nul.</p>';
+        $html .= '<p class="office-portfolio-total-scope">Totalen over toegankelijke projecten; financiële en urenbronnen zijn nog niet aangesloten. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw; alleen volledig gedekte portefeuilles krijgen een totaal.</p>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
