@@ -92,10 +92,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $existing = $draftRepository->getOwnDraft($editId, $operator->operatorId);
             if (!$existing || $existing['quotation_type'] !== $postedType
                 || (int)$existing['relation_id'] !== (int)$relationId
-                || $existing['title'] !== $title) {
+                ) {
                 http_response_code(403); exit('Concept niet toegankelijk.');
             }
-            $draftRepository->updateOwnDraft($editId, $operator->operatorId, $sectionValues);
+            $draftRepository->updateOwnDraft($editId, $operator->operatorId, $title, $sectionValues);
             $id = $editId;
         } else {
             $id = $draftRepository->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
@@ -165,6 +165,7 @@ if ($storageReady) {
     foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $key) {
         echo '<p><label>'.$escape($sectionLabels[$key] ?? $key).'<textarea name="sections['.$escape($key).']" rows="4" maxlength="50000">'.($editing ? $escape((string)($editing['sections'][$key] ?? '')) : '').'</textarea></label></p>';
     }
+    echo '<input type="hidden" name="quotation_id" value="'.($editing ? (int)$editing['id'] : 0).'">';
     echo '<button type="submit">Concept opslaan</button></form></section><section class="panel"><h2>Mijn conceptoffertes</h2><ul>';
     foreach ($ownDrafts as $draft) echo '<li><a href="/office-test/crm/offertes?edit='.(int)$draft['id'].'">'.$escape((string)$draft['title']).'</a> — '.$escape((string)$draft['relation_name']).'</li>';
     echo '</ul></section>';
