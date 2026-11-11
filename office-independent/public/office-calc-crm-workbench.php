@@ -4,8 +4,13 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
-$deny=static function(int $status): never { http_response_code($status);exit('Calculatie niet beschikbaar.'); };
+header('Referrer-Policy: same-origin');
+$deny=static function(int $status,string $reason='UNKNOWN'): never {
+    if (!preg_match('/^[A-Z][A-Z0-9_]{1,30}$/D',$reason)) $reason='UNKNOWN';
+    header('X-Brebo-Calc-Diagnostic: '.$reason);
+    http_response_code($status);
+    exit('Calculatie niet beschikbaar (code '.$reason.').');
+};
 if (getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled'
     || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
@@ -18,8 +23,22 @@ $allowed=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($allowed)||$allowed===''||!is_string($host)
     ||!hash_equals($allowed,$host)||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') $deny(403);
 if ($method==='POST') {
-    if (!hash_equals('https://'.$host,(string)($_SERVER['HTTP_ORIGIN']??''))) $deny(403);
-    if ((int)($_SERVER['CONTENT_LENGTH']??0)>4096) $deny(413);
+    $expectedOrigin='https://'.$host;
+    $origin=$_SERVER['HTTP_ORIGIN']??null;
+    $referer=$_SERVER['HTTP_REFERER']??null;
+    $fetchSite=$_SERVER['HTTP_SEC_FETCH_SITE']??null;
+    if (is_string($origin) && $origin!=='' && $origin!=='null') {
+        if (!hash_equals($expectedOrigin,$origin)) $deny(403,'ORIGIN_MISMATCH');
+    } elseif (is_string($fetchSite) && in_array($fetchSite,['cross-site','same-site'],true)) {
+        $deny(403,'ORIGIN_CROSS_SITE');
+    } elseif ($fetchSite==='same-origin'
+        || (is_string($referer) && str_starts_with($referer,$expectedOrigin.'/'))) {
+        // An explicit same-origin browser signal.
+    } elseif (!is_string($_POST['csrf']??null)) {
+        // Privacy browsers can omit all origin signals; CSRF still verified below.
+        $deny(403,'ORIGIN_NO_CSRF');
+    }
+    if ((int)($_SERVER['CONTENT_LENGTH']??0)>4096) $deny(413,'BODY_SIZE');
 }
 $draft=filter_var(($method==='POST'?($_POST['draft_id']??null):($_GET['draft_id']??null)),FILTER_VALIDATE_INT);
 if (!is_int($draft)||$draft<1) $deny(400);
@@ -29,11 +48,11 @@ try {
     require_once dirname(__DIR__).'/src/Intake/WebsiteOfficeCrmSessionRepository.php';
     require_once dirname(__DIR__).'/src/Calculation/OfficeCalcCrmDraftLineRepository.php';
     $session=$_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')]??null;
-    if (!is_string($session)) $deny(403);
+    if (!is_string($session)) $deny(403,'SESSION_COOKIE');
     $db=new PDO(getenv('OFFICE_INTAKE_PDO_DSN')?:'',getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
         [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
     $operator=(new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db))->findActive($session,time());
-    if ($operator===null||!$operator->canEditCrm||!ctype_digit($operator->operatorId)) $deny(403);
+    if ($operator===null||!$operator->canEditCrm||!ctype_digit($operator->operatorId)) $deny(403,'SESSION_RIGHTS');
     $actor=(int)$operator->operatorId;
     // Temporary least-privilege policy: only the draft creator may edit.
     $rights=static function(PDO $db,int $actor,int $opportunity):bool {
@@ -44,25 +63,26 @@ try {
     $repo=new \Brebo\Office\Calculation\OfficeCalcCrmDraftLineRepository($db);
     $csrf=$_COOKIE['office_project_csrf']??null;
     if (!is_string($csrf)||!preg_match('/^[a-f0-9]{64}$/D',$csrf)) {
-        if ($method==='POST') $deny(403);
+        if ($method==='POST') $deny(403,'CSRF_COOKIE');
         $csrf=bin2hex(random_bytes(32));
         if (!setcookie('office_project_csrf',$csrf,['path'=>'/office-test','secure'=>true,'httponly'=>true,'samesite'=>'Strict'])) $deny(503);
     }
     if ($method==='POST') {
         $submitted=$_POST['csrf']??null;
-        if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403);
+        if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $lineId=(string)($_POST['line_id']??'');
         if ($lineId==='') $lineId=bin2hex(random_bytes(12));
         $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
         $cost=filter_var($_POST['unit_cost_cents']??null,FILTER_VALIDATE_INT);
-        if (!is_int($quantity)||!is_int($cost)) $deny(400);
+        if (!is_int($quantity)||!is_int($cost)) $deny(400,'INVALID_QUANTITY_OR_COST');
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights);
         header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
-} catch (DomainException) { $deny(403); }
-catch (Throwable) { $deny(503); }
+} catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
+catch (PDOException) { $deny(503,'DATABASE'); }
+catch (Throwable) { $deny(503,'RUNTIME'); }
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
