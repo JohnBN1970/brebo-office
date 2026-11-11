@@ -49,6 +49,15 @@ try {
     http_response_code(503); exit('Offertestudio tijdelijk niet beschikbaar.');
 }
 
+// The Office session context stores the operator ID as a string; quotation ownership uses BIGINT.
+// Validate the canonical numeric identity before passing it to strict-typed repository methods.
+$operatorIdRaw = $operator->operatorId;
+if (!ctype_digit($operatorIdRaw) || $operatorIdRaw === '0' || strlen($operatorIdRaw) > 18) {
+    error_log('OFFERTSTUDIO_OPERATOR_ID_NOT_NUMERIC');
+    http_response_code(403); exit('Gebruikersidentiteit niet geschikt voor Offertestudio.');
+}
+$quotationOperatorId = (int) $operatorIdRaw;
+
 // Draft persistence is deliberately disabled until the schema is verified.
 $storageReady = getenv('OFFICE_QUOTATIONS_SCHEMA_VERIFIED') === 'enabled'
     && getenv('OFFICE_QUOTATIONS_WRITE_ENABLED') === 'enabled';
@@ -63,7 +72,7 @@ $draftRepository = new \Brebo\Office\Quotation\OfficeQuotationDraftRepository($d
 $editingId = filter_var($_GET['edit'] ?? null, FILTER_VALIDATE_INT) ?: 0;
 $editing = null;
 if ($storageReady && $editingId > 0) {
-    try { $editing = $draftRepository->getOwnDraft($editingId, $operator->operatorId); }
+    try { $editing = $draftRepository->getOwnDraft($editingId, $quotationOperatorId); }
     catch (\Throwable $e) { http_response_code(503); exit('Concept tijdelijk niet beschikbaar.'); }
     if ($editing === null) { http_response_code(404); exit('Concept niet gevonden.'); }
 }
@@ -89,16 +98,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             http_response_code(400); exit('Ongeldig conceptnummer.');
         }
         if ($editId > 0) {
-            $existing = $draftRepository->getOwnDraft($editId, $operator->operatorId);
+            $existing = $draftRepository->getOwnDraft($editId, $quotationOperatorId);
             if (!$existing || $existing['quotation_type'] !== $postedType
                 || (int)$existing['relation_id'] !== (int)$relationId
                 ) {
                 http_response_code(403); exit('Concept niet toegankelijk.');
             }
-            $draftRepository->updateOwnDraft($editId, $operator->operatorId, $title, $sectionValues);
+            $draftRepository->updateOwnDraft($editId, $quotationOperatorId, $title, $sectionValues);
             $id = $editId;
         } else {
-            $id = $draftRepository->create((int)$relationId, $operator->operatorId, $postedType, $title, $sectionValues);
+            $id = $draftRepository->create((int)$relationId, $quotationOperatorId, $postedType, $title, $sectionValues);
         }
         $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
         header('Location: /office-test/crm/offertes?type=' . rawurlencode($postedType) . '&edit=' . $id . '&saved=1', true, 303);
@@ -116,7 +125,7 @@ if ($storageReady) {
         $relations = $db->query("SELECT id, display_name FROM office_crm_relations WHERE status = 'active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
     } catch (\Throwable $e) { error_log('OFFERTSTUDIO_RELATIONS_QUERY_FAILED: '.get_class($e)); http_response_code(503); exit('CRM-relaties konden niet worden geladen.'); }
     try {
-        $ownDrafts = $draftRepository->listOwn($operator->operatorId);
+        $ownDrafts = $draftRepository->listOwn($quotationOperatorId);
     } catch (\Throwable $e) {
         $rawCode = (string) $e->getCode();
         $code = $e instanceof \PDOException && preg_match('/^(?:[A-Z0-9]{5}|[0-9]{1,5})$/D', $rawCode) ? $rawCode : 'UNKNOWN';
