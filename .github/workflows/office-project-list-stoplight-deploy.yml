@@ -1,0 +1,81 @@
+name: Office-test project list traffic lights
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-PROJECT-STOPLIGHT-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/src/Project/OfficeProjectTrafficLight.php
+          php -l office-independent/src/Project/OfficeProjectPlanReader.php
+          php office-independent/tests/test_project_traffic_light.php
+          php office-independent/tests/test_project_portfolio_gantt.php
+  deploy:
+    needs: validate
+    if: ${{ inputs.confirmation == 'DEPLOY-PROJECT-STOPLIGHT-TEST' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prepare verified original
+        run: |
+          git show 50d205018dc23fc5afb110035053945a707a4f22:office-independent/public/office-projects.php > /tmp/office-projects-before-stoplight.php
+          php -l /tmp/office-projects-before-stoplight.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_stoplight
+          chmod 600 ~/.ssh/id_stoplight
+      - name: Deploy only to active isolated Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_stoplight"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p /tmp/office-stoplight-deploy'
+          scp $opts -P "$PORT" /tmp/office-projects-before-stoplight.php office-independent/public/office-projects.php office-independent/src/Project/OfficeProjectTrafficLight.php "$remote:/tmp/office-stoplight-deploy/"
+          ssh $opts -p "$PORT" "$remote" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          page="$base/public/office-projects.php"
+          cls="$base/src/Project/OfficeProjectTrafficLight.php"
+          test -f "$page" && test ! -L "$page" && test -d "$base/src/Project" || { echo STOPLIGHT_TARGET_MISSING; exit 21; }
+          grep -Fq 'office_project_memberships' "$page" || { echo STOPLIGHT_ACL_MISSING; exit 22; }
+          grep -Fq 'view=inzet' "$page" || { echo STOPLIGHT_INZET_MISSING; exit 23; }
+          if cmp -s "$page" /tmp/office-stoplight-deploy/office-projects.php; then
+            test -f "$cls" && cmp -s "$cls" /tmp/office-stoplight-deploy/OfficeProjectTrafficLight.php || { echo STOPLIGHT_CLASS_MISMATCH; exit 24; }
+            echo PROJECT_STOPLIGHT_ALREADY_DEPLOYED; exit 0
+          fi
+          cmp -s "$page" /tmp/office-stoplight-deploy/office-projects-before-stoplight.php || { echo ACTIVE_PROJECT_PAGE_CHANGED_ABORT; exit 25; }
+          if test -e "$cls"; then cmp -s "$cls" /tmp/office-stoplight-deploy/OfficeProjectTrafficLight.php || { echo STOPLIGHT_CLASS_CONFLICT; exit 26; }; fi
+          php -l /tmp/office-stoplight-deploy/office-projects.php
+          php -l /tmp/office-stoplight-deploy/OfficeProjectTrafficLight.php
+          backup="$page.backup-stoplight-$(date +%Y%m%d%H%M%S)"
+          cp -p "$page" "$backup"
+          if test ! -f "$cls"; then cp /tmp/office-stoplight-deploy/OfficeProjectTrafficLight.php "$cls"; chmod 644 "$cls"; fi
+          candidate="$(mktemp "$base/public/.projects-stoplight-XXXXXXXX.php")"
+          trap 'rm -f "$candidate"' EXIT
+          cp -p /tmp/office-stoplight-deploy/office-projects.php "$candidate"
+          chmod --reference="$page" "$candidate"
+          mv "$candidate" "$page"
+          if ! php -l "$page"; then cp -p "$backup" "$page"; echo STOPLIGHT_ROLLBACK; exit 27; fi
+          echo PROJECT_STOPLIGHT_OFFICE_TEST_DEPLOYED
+          REMOTE
