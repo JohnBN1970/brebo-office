@@ -110,6 +110,17 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// CRM-first concept routes are isolated and denied by their PHP handlers until
+// CRM session authorization, isolated tables and rollout flags are verified.
+// They do not expose the legacy project-bound Calc launch or existing data.
+if ($path === '/office-test/calc/crm/werkbank') {
+  require $private . '/public/office-calc-crm-workbench.php';
+  exit;
+}
+if ($path === '/office-test/calc/crm/launch') {
+  require $private . '/public/office-calc-crm-draft-launch.php';
+  exit;
+}
 // Browser handoff never puts signed credentials in query strings.
 if ($path === '/office-test/calc-werkbank') {
   require $private . '/public/office-calc-browser-handoff.php';
