@@ -84,6 +84,12 @@ final class OfficeProjectPortfolioView
             }
             $html .= '</ul>';
         }
+        $accessibleCount = $totals['accessible_project_count'] ?? null;
+        if (is_int($accessibleCount) && $accessibleCount > count($projects)) {
+            $html .= '<p class="office-portfolio-total-scope">Projectenlijst en planningssignalen tonen '
+                . count($projects) . ' van ' . $accessibleCount
+                . ' toegankelijke projecten. Financiële totalen gebruiken alle toegankelijke projecten.</p>';
+        }
         $html .= '</section>';
         $html .= '<p class="office-portfolio-kpi-explanation">Projectaantallen: ' . (int) $summary['projects'] . ' projecten, ' . (int) $summary['active'] . ' in uitvoering, ' . (int) $summary['preparation'] . ' in voorbereiding en ' . (int) $summary['buildings'] . ' gebouwkoppelingen. Bedrag- en urentotalen volgen na broncontrole.</p><h2>Projectenlijst</h2>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
