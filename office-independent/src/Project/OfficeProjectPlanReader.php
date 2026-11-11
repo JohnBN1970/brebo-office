@@ -15,7 +15,7 @@ final class OfficeProjectPlanReader {
     $table = $db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_project_plan_items'");
     if ((int)$table->fetchColumn() === 0) return $projects;
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $stmt = $db->prepare("SELECT project_id, planned_start, planned_end, status, critical_note
+    $stmt = $db->prepare("SELECT project_id, title, planned_start, planned_end, status, critical_note
       FROM office_project_plan_items WHERE project_id IN ($placeholders)
       ORDER BY project_id, planned_start, id");
     $stmt->execute($ids);
