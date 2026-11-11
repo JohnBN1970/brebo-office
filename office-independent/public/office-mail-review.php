@@ -39,6 +39,7 @@ try {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
   require_once dirname(__DIR__) . '/src/Mail/OfficeMailPushProposalRepository.php';
+  require_once dirname(__DIR__) . '/src/Mail/OfficeMailIdentityMap.php';
   $db = new PDO(
     getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
     getenv('OFFICE_INTAKE_DB_USER') ?: '',
@@ -61,7 +62,7 @@ try {
   // Deliberately no administrative override until native Office permissions
   // explicitly define the personal-mail review capability.
   $rows = (new \Brebo\Office\Mail\OfficeMailPushProposalRepository($db))
-    ->pendingForReviewer($operatorId);
+    ->pendingForReviewer((new \Brebo\Office\Mail\OfficeMailIdentityMap($db))->drupalUidForOfficeOperator($operatorId));
 }
 catch (Throwable $e) {
   error_log('Office mail review unavailable: ' . $e::class);
