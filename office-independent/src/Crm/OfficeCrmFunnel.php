@@ -20,7 +20,7 @@ final class OfficeCrmFunnel {
     public const NEXT = [
         'lead' => ['prospect', 'lost'],
         'prospect' => ['opportunity', 'lost'],
-        'opportunity' => ['proposal', 'lost'],
+        'opportunity' => ['proposal', 'won', 'lost'],
         'proposal' => ['negotiation', 'won', 'lost'],
         'negotiation' => ['proposal', 'won', 'lost'],
         'won' => [],
