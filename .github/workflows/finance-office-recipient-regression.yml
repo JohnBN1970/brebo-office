@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Finance/OfficeSupplierRecipient*.php'
+      - 'office-independent/src/Finance/OfficeSupplierBankSchema.php'
+      - 'office-independent/tests/OfficeSupplierBankSchemaTest.php'
       - 'office-independent/tests/OfficeSupplierRecipient*.php'
       - 'office-independent/tests/OfficePaymentRecipientGatewayTest.php'
       - 'web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php'
@@ -22,6 +24,8 @@ jobs:
           coverage: none
       - name: Syntax checks
         run: |
+          php -l office-independent/src/Finance/OfficeSupplierBankSchema.php
+          php -l office-independent/tests/OfficeSupplierBankSchemaTest.php
           php -l office-independent/src/Finance/OfficeSupplierRecipientPolicy.php
           php -l office-independent/src/Finance/OfficeSupplierRecipientResolver.php
           php -l office-independent/tests/OfficeSupplierRecipientPolicyTest.php
@@ -30,6 +34,7 @@ jobs:
           php -l web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php
       - name: Run isolated regression fixtures (no database or external services)
         run: |
+          php office-independent/tests/OfficeSupplierBankSchemaTest.php
           php office-independent/tests/OfficeSupplierRecipientPolicyTest.php
           php office-independent/tests/OfficeSupplierRecipientResolverTest.php
           php office-independent/tests/OfficePaymentRecipientGatewayTest.php
