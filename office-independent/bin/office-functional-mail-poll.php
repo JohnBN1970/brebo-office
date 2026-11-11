@@ -26,12 +26,13 @@ $lock = fopen(sys_get_temp_dir() . '/brebo-office-functional-mail.lock', 'c');
 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 $repository = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
 $ingest = new \Brebo\Office\Mail\OfficeFunctionalMailIngest($db, $repository);
-$mailboxes = $db->query("SELECT id, credential_ref FROM office_mail_mailboxes
+$mailboxes = $db->query("SELECT id, address, credential_ref FROM office_mail_mailboxes
   WHERE active = 1 AND mailbox_type = 'functional' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 $failures = 0;
 foreach ($mailboxes as $mailbox) {
   $id = (int) $mailbox['id'];
   $ref = (string) $mailbox['credential_ref'];
+  $mailboxAddress = (string) $mailbox['address'];
   if (!preg_match('/^[A-Z][A-Z0-9_]{0,80}$/D', $ref)) { ++$failures; continue; }
   $server = getenv($ref . '_IMAP_SERVER');
   $username = getenv($ref . '_IMAP_USER');
@@ -47,7 +48,9 @@ foreach ($mailboxes as $mailbox) {
     $uidValidity = (int) $status->uidvalidity;
     $overview = imap_check($stream);
     $last = $overview ? (int) $overview->Nmsgs : 0;
-    $start = max(1, $last - 99);
+    // Scan the full mailbox: a fixed last-100 window silently loses mail after long outages.
+    // Ingest is idempotent by mailbox and IMAP UIDVALIDITY/UID.
+    $start = 1;
     for ($n = $start; $n <= $last; ++$n) {
       $uid = imap_uid($stream, $n);
       if (!$uid) continue;
@@ -61,7 +64,7 @@ foreach ($mailboxes as $mailbox) {
       $ingest->store($id, [
         'source_id' => 'imap:' . $uidValidity . ':' . $uid,
         'sender' => substr($sender, 0, 320),
-        'recipient' => '',
+        'recipient' => substr((string) ($mailboxAddress ?? ''), 0, 1000),
         'subject' => substr($subject, 0, 512),
         'received_at' => gmdate('Y-m-d H:i:s', $date),
         'body_text' => $body,
