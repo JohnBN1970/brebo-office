@@ -12,6 +12,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php'
       - 'office-independent/src/Crm/OfficeCrmFunnel.php'
       - 'office-independent/src/Crm/OfficeCrmWonTransition.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
@@ -30,6 +31,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php'
       - 'office-independent/src/Crm/OfficeCrmFunnel.php'
       - 'office-independent/src/Crm/OfficeCrmWonTransition.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
@@ -61,6 +63,7 @@ jobs:
             office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php \
             office-independent/src/Crm/OfficeCrmFunnel.php \
             office-independent/src/Crm/OfficeCrmWonTransition.php \
+            office-independent/public/office-crm-opportunity-transition.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
           done
@@ -78,7 +81,8 @@ jobs:
             office-independent/tests/OfficeCalcAcceptanceSchemaPreflightTest.php \
             office-independent/tests/OfficeCalcCrmHandoffDecisionTest.php \
             office-independent/tests/OfficeCalcCrmDirectAssignmentStageTest.php \
-            office-independent/tests/OfficeCalcCrmWonTransitionTest.php; do
+            office-independent/tests/OfficeCalcCrmWonTransitionTest.php \
+            office-independent/tests/OfficeCalcCrmWonUiRouteTest.php; do
             php -l "$f"
             php "$f"
           done
