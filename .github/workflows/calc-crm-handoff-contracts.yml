@@ -82,7 +82,8 @@ jobs:
             office-independent/tests/OfficeCalcCrmHandoffDecisionTest.php \
             office-independent/tests/OfficeCalcCrmDirectAssignmentStageTest.php \
             office-independent/tests/OfficeCalcCrmWonTransitionTest.php \
-            office-independent/tests/OfficeCalcCrmWonUiRouteTest.php; do
+            office-independent/tests/OfficeCalcCrmWonUiRouteTest.php \
+            office-independent/tests/OfficeCalcCrmWonPersistedAcceptanceGuardTest.php; do
             php -l "$f"
             php "$f"
           done
