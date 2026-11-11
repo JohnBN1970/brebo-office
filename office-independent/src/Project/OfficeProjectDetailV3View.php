@@ -44,6 +44,21 @@ final class OfficeProjectDetailV3View
             }
         }
         $html .= '</nav><main class="project-v3-content">';
+        // Demo entry belongs to the real project detail renderer, not a legacy page.
+        // Read-only, test-only, and limited to the dedicated 232-home example.
+        if ($tab === 'overzicht' && $code === 'TEST-2026-001'
+            && $basePath === '/office-test') {
+            $isDemo = (string) ($_GET['demo'] ?? '') === '1';
+            $demoLink = $base . '&tab=overzicht' . ($isDemo ? '' : '&demo=1');
+            $html .= '<div class="project-v3-demo-entry" role="note" style="margin:0 0 16px;padding:16px 20px;border:1px solid #c7d6ea;border-radius:12px;background:#fff">'
+                . '<strong>Renovatie 232 woningen · demonstratie</strong><p>'
+                . ($isDemo
+                    ? 'Demonstratiemodus actief. Getoonde projectgegevens blijven afkomstig uit de bestaande Office-bronnen.'
+                    : 'Open de demonstratieweergave voor dit testproject.')
+                . '</p><a href="' . $e($demoLink) . '">'
+                . ($isDemo ? 'Terug naar projectoverzicht' : 'Open demonstratie')
+                . '</a></div>';
+        }
         if ($tab === 'overzicht' && !isset($sections['overzicht'])) {
             $html .= '<section aria-label="Projectdashboard"><h2>Projectdashboard</h2>'
                 . '<div class="project-v3-kpis">'
