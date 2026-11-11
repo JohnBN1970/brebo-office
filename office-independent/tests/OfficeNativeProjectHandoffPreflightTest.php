@@ -10,7 +10,9 @@ foreach ([
     'office_crm_calculation_acceptances',
     'office_calc_work_budget_baselines',
     'office_calc_work_budget_lines',
-    "'ready' => \$missing === []",
+    "'ready' => false",
+    "'schema_ready' => \$missing === []",
+    "'project_factory_connected' => false",
 ] as $required) {
     if (!str_contains($source, $required)) throw new RuntimeException('Missing project handoff preflight requirement: ' . $required);
 }
