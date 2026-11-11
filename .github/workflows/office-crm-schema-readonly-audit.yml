@@ -1,0 +1,48 @@
+name: Office-test CRM schema read-only audit
+on:
+  push:
+    branches: [integration/crm-completion-develop-ready-20261110]
+    paths: [.github/workflows/office-crm-schema-readonly-audit.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Inspect isolated CRM schema without changes
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/crm_audit
+          chmod 600 ~/.ssh/crm_audit
+          trap 'rm -f ~/.ssh/crm_audit' EXIT
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_audit -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          /opt/alt/php83/usr/bin/php <<'PHP'
+          <?php
+          $base=getenv('HOME').'/domains/brebobv.nl/office_calc_test';
+          $c=require $base.'/config/config.php';
+          if(($c['OFFICE_BASE_PATH']??null)!=='/office-test'||!preg_match('/^mysql:host=(localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$c['OFFICE_INTAKE_PDO_DSN']??'')||($c['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test')exit(3);
+          $db=new PDO($c['OFFICE_INTAKE_PDO_DSN'],$c['OFFICE_INTAKE_DB_USER'],$c['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')exit(4);
+          $tables=['office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people'];
+          $stmt=$db->prepare("SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people')");
+          $stmt->execute();$found=$stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+          foreach($tables as $t)echo "CRM_TABLE=$t ENGINE=".($found[$t]??'MISSING')."\n";
+          $stmt=$db->query("SELECT TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,COLUMN_KEY FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_crm_opportunities','office_crm_opportunity_activities') ORDER BY TABLE_NAME,ORDINAL_POSITION");
+          foreach($stmt as $r)echo "CRM_COLUMN=".$r['TABLE_NAME'].".".$r['COLUMN_NAME']." TYPE=".$r['COLUMN_TYPE']." KEY=".$r['COLUMN_KEY']."\n";
+          $stmt=$db->query("SELECT TABLE_NAME,INDEX_NAME,COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_crm_opportunities','office_crm_opportunity_activities') ORDER BY TABLE_NAME,INDEX_NAME,SEQ_IN_INDEX");
+          foreach($stmt as $r)echo "CRM_INDEX=".$r['TABLE_NAME'].".".$r['INDEX_NAME'].".".$r['COLUMN_NAME']."\n";
+          $stmt=$db->query("SELECT TABLE_NAME,CONSTRAINT_NAME,REFERENCED_TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_crm_opportunities','office_crm_opportunity_activities') AND REFERENCED_TABLE_NAME IS NOT NULL");
+          foreach($stmt as $r)echo "CRM_FK=".$r['TABLE_NAME'].".".$r['CONSTRAINT_NAME']."->".$r['REFERENCED_TABLE_NAME']."\n";
+          foreach(['office_crm_opportunities','office_crm_opportunity_activities'] as $t)if(isset($found[$t]))echo "CRM_ROWS=$t ".$db->query('SELECT COUNT(*) FROM '.$t)->fetchColumn()."\n";
+          PHP
+          REMOTE
