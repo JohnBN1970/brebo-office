@@ -2,6 +2,8 @@ name: Office Calc CRM-first acceptance contracts
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -21,6 +23,8 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -53,6 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           for f in \
+            office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php \
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
