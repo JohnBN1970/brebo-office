@@ -118,7 +118,7 @@ html,body {
     max-width:100%;
   }
 }
-' . ( !$inzetView ? \Brebo\Office\Project\\OfficeProjectPortfolioView::styles() : '' ) . '</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
+' . ( !$inzetView ? \Brebo\Office\Project\OfficeProjectPortfolioView::styles() : '' ) . '</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($base . '/') . '">Overzicht</a><a class="office-side-item' . ($inzetView ? '' : '') . '" ' . ($inzetView ? '' : 'aria-current="page"') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-side-item" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav></aside><main><nav class="office-tabs" aria-label="Module"><a class="office-tab" ' . (!$inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten') . '">Projecten</a><a class="office-tab" ' . ($inzetView ? 'aria-current="page"' : '') . ' href="' . $escape($base . '/projecten?view=inzet') . '">Inzet</a></nav>' . '<section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   // Dashboard wordt na de tabselectie weergegeven.
@@ -650,17 +650,17 @@ if ($kanbanView) {
   $portfolioTotals = [];
   try {
     require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
-    $financeAccess = new \Brebo\Office\Finance\\OfficeFinanceAccess($db, (string)$operator->operatorId);
+    $financeAccess = new \Brebo\Office\Finance\OfficeFinanceAccess($db, (string)$operator->operatorId);
     if ($financeAccess->allows('read')) {
       require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioTotals.php';
-      $budget = \Brebo\Office\Project\\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
+      $budget = \Brebo\Office\Project\OfficeProjectPortfolioTotals::lockedProcurementBudgets($db, $projects);
       $portfolioTotals['procurement_budget_cents'] = $budget['cents'];
     }
   } catch (\\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
     $portfolioTotals = [];
   }
-  echo \Brebo\Office\Project\\OfficeProjectPortfolioView::render($projects, $base, $portfolioTotals);
+  echo \Brebo\Office\Project\OfficeProjectPortfolioView::render($projects, $base, $portfolioTotals);
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
