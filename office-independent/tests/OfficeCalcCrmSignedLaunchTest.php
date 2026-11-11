@@ -15,7 +15,7 @@ if (!hash_equals($expected,$parts[1])) throw new RuntimeException('Invalid v2 si
 $json=base64_decode(strtr($parts[0],'-_','+/'),true);
 if (!is_string($json)) throw new RuntimeException('Invalid v2 payload encoding');
 $payload=json_decode($json,true,512,JSON_THROW_ON_ERROR);
-if (($payload['v']??null)!==2 || ($payload['project_id']??'not-null')!==null
+if (($payload['v']??null)!==2 || (!array_key_exists('project_id',$payload) || $payload['project_id']!==null)
     || ($payload['actor_id']??null)!=='7' || ($payload['calculation_id']??null)!==42
     || ($payload['grant_ref']??null)!==$ref || ($payload['exp']??null)!==$now+90
     || !preg_match('/^[a-f0-9]{32}$/D',$payload['nonce']??'')) {
