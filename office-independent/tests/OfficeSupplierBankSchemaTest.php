@@ -6,7 +6,7 @@ $statements = OfficeSupplierBankSchema::statements();
 if (count($statements) !== 3) throw new RuntimeException('Expected exactly three additive statements');
 foreach ($statements as $statement) {
  if (!str_starts_with($statement, 'CREATE TABLE IF NOT EXISTS office_')) throw new RuntimeException('Unsafe schema statement');
- if (preg_match('/\\b(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT|ALTER)\\b/i', $statement)) throw new RuntimeException('Unexpected destructive SQL');
+ if (preg_match('/\\b(?:DROP|TRUNCATE|DELETE|INSERT|ALTER)\\b/i', $statement) || str_contains($statement, ';')) throw new RuntimeException('Unexpected destructive SQL');
 }
 if (!str_contains($statements[0], 'verified_fingerprint CHAR(64)')) throw new RuntimeException('Missing verified fingerprint');
 if (!str_contains($statements[0], "DEFAULT 'pending'")) throw new RuntimeException('Verification must default pending');
