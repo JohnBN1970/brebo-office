@@ -1,0 +1,55 @@
+name: Calc Office-test Hostinger read-only audit
+on:
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-test-readonly-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read-only Hostinger route and runtime checks
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl
+            WEB="$ROOT/public_html"
+            OFFICE="$ROOT/office_calc_test"
+            test -d "$WEB" || { echo "HOST_ROOT=NOT_FOUND"; exit 1; }
+            test -d "$OFFICE" || { echo "OFFICE_PRIVATE_ROOT=NOT_FOUND"; exit 1; }
+            echo "OFFICE_PRIVATE_ROOT=FOUND"
+            if [ -f "$WEB/office-test/index.php" ]; then echo "OFFICE_ROUTER=FOUND"; else echo "OFFICE_ROUTER=MISSING"; fi
+            if [ -f "$WEB/office-test/.htaccess" ]; then echo "OFFICE_REWRITE=FOUND"; else echo "OFFICE_REWRITE=MISSING"; fi
+            if [ -f "$WEB/.htaccess" ]; then echo "ROOT_REWRITE=FOUND"; else echo "ROOT_REWRITE=MISSING"; fi
+            if [ -f "$WEB/office-test/index.php" ] && grep -Fq '/calc-app' "$WEB/office-test/index.php"; then
+              echo "CALC_ROUTER_REFERENCE=FOUND"
+            else
+              echo "CALC_ROUTER_REFERENCE=NOT_FOUND"
+            fi
+            if [ -f "$WEB/office-test/.htaccess" ] && grep -Eq '(ProxyPass|RewriteRule.*calc-app)' "$WEB/office-test/.htaccess"; then
+              echo "CALC_PROXY_RULE_REFERENCE=FOUND"
+            else
+              echo "CALC_PROXY_RULE_REFERENCE=NOT_FOUND"
+            fi
+            if [ -d "$WEB/office-test/calc-app" ]; then
+              echo "CALC_ROUTE_DIR=FOUND"
+              if [ -f "$WEB/office-test/calc-app/startup.js" ]; then echo "CALC_STARTUP=FOUND"; else echo "CALC_STARTUP=NOT_FOUND"; fi
+            else
+              echo "CALC_ROUTE_DIR=NOT_FOUND"
+            fi
+            if command -v node >/dev/null 2>&1; then node --version; else echo "NODE_CLI=NOT_IN_PATH"; fi
+            if [ -f "$OFFICE/config/config.php" ]; then echo "OFFICE_TEST_CONFIG=FOUND"; else echo "OFFICE_TEST_CONFIG=MISSING"; fi
+            echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
+      - name: Explain scope
+        run: |
+          echo "No production changes, secrets disclosure, DB operations, data import, merge, or deployment"
