@@ -53,7 +53,10 @@ final class OfficeCrmFunnelViews {
     private static function action(array $item): string {
         $id=filter_var($item['id']??null,FILTER_VALIDATE_INT);
         if ($id===false || $id<1 || in_array((string)($item['stage']??''),['won','lost'],true)) return '';
-        $calc = in_array((string)($item['stage']??''), ['prospect','opportunity','proposal','negotiation'], true)
+        $calcEnabled = getenv('OFFICE_BASE_PATH') === '/office-test'
+            && getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED') === 'enabled'
+            && getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED') === 'enabled';
+        $calc = $calcEnabled && in_array((string)($item['stage']??''), ['prospect','opportunity','proposal','negotiation'], true)
             ? ' · <a href="/office-test/calculatie/start?opportunity_id='.$id.'">Calculatie</a>'
             : '';
         return ' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Fase wijzigen</a>'.$calc;
