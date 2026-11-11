@@ -57,7 +57,8 @@ try {
     // continuously enforced CRM-specific grant validation endpoint exists.
     // Existing opaque grant responses remain the fail-closed default.
     if (getenv('OFFICE_CALC_CRM_V2_LAUNCH_ENABLED') === 'enabled') {
-        if (getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_VERIFIED') !== 'enabled') $deny(503);
+        if (getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_VERIFIED') !== 'enabled'
+            || getenv('OFFICE_CALC_CRM_V2_GRANT_VALIDATION_ENABLED') !== 'enabled') $deny(503);
         $secret=getenv('OFFICE_CALC_SHARED_SECRET');
         if (!is_string($secret) || strlen($secret)<32) $deny(503);
         $signed=$issuer->issueSigned($token,$csrf,$expected,$draft,time(),$secret,$owner);
