@@ -11,6 +11,7 @@ $account = [
     'account_holder'=>'Leverancier BV', 'status'=>'active', 'verification_status'=>'verified',
     'verified_at'=>1000, 'verified_by'=>8, 'verification_evidence_id'=>'ev1', 'changed_at'=>900,
 ];
+$account['verified_fingerprint'] = \Brebo\Office\Finance\OfficeSupplierRecipientPolicy::accountFingerprint($account);
 $invoice = ['relation_id'=>7, 'source'=>'office', 'invoice_type'=>'purchase'];
 $accounts = [$account];
 $resolver = new OfficeSupplierRecipientResolver(
