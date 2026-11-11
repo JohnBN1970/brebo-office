@@ -669,10 +669,21 @@ if ($kanbanView) {
       try {
         require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioPlannedHours.php';
         $weekNow = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels'));
+        $selectedWeek = isset($_GET['week']) && is_string($_GET['week']) ? $_GET['week'] : '';
+        if ($selectedWeek !== '') {
+          if (!preg_match('/^(20[2-9][0-9]|2100)-W(0[1-9]|[1-4][0-9]|5[0-3])$/D', $selectedWeek, $weekParts)) {
+            throw new \InvalidArgumentException('Invalid planning week');
+          }
+          $year = (int)$weekParts[1];
+          $week = (int)$weekParts[2];
+        } else {
+          $year = (int)$weekNow->format('o');
+          $week = (int)$weekNow->format('W');
+        }
         $portfolioTotals['planned_week_seconds'] = \Brebo\Office\Project\OfficeProjectPortfolioPlannedHours::forWeek(
-          $db, (string)$operator->operatorId, (int)$weekNow->format('o'), (int)$weekNow->format('W')
+          $db, (string)$operator->operatorId, $year, $week
         );
-        $portfolioTotals['planned_week_label'] = $weekNow->format('o') . '-W' . $weekNow->format('W');
+        $portfolioTotals['planned_week_label'] = sprintf('%04d-W%02d', $year, $week);
       } catch (\Throwable $exception) {
         // Planning is unavailable independently of financial KPI sources.
       }
