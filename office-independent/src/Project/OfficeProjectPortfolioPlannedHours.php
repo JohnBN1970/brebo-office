@@ -10,10 +10,11 @@ use PDO;
 /** Read-only, week-bounded planned shift hours across the complete authorized portfolio. */
 final class OfficeProjectPortfolioPlannedHours
 {
-    public static function forWeek(PDO $db, string $operatorId, int $year, int $week): ?int
+    /** @return array{start:string,end:string} UTC bounds for the local ISO week. */
+    public static function utcWeekBounds(int $year, int $week): array
     {
-        if ($operatorId === '' || strlen($operatorId) > 128 || $year < 2020 || $year > 2100 || $week < 1 || $week > 53) {
-            throw new \InvalidArgumentException('Invalid portfolio scope');
+        if ($year < 2020 || $year > 2100 || $week < 1 || $week > 53) {
+            throw new \InvalidArgumentException('Invalid ISO week');
         }
         $tz = new DateTimeZone('Europe/Brussels');
         $monday = (new DateTimeImmutable('now', $tz))->setISODate($year, $week, 1)->setTime(0, 0);
@@ -21,8 +22,20 @@ final class OfficeProjectPortfolioPlannedHours
             throw new \InvalidArgumentException('Invalid ISO week');
         }
         $utc = new DateTimeZone('UTC');
-        $start = $monday->setTimezone($utc)->format('Y-m-d H:i:s');
-        $end = $monday->modify('+7 days')->setTimezone($utc)->format('Y-m-d H:i:s');
+        return [
+            'start' => $monday->setTimezone($utc)->format('Y-m-d H:i:s'),
+            'end' => $monday->modify('+7 days')->setTimezone($utc)->format('Y-m-d H:i:s'),
+        ];
+    }
+
+    public static function forWeek(PDO $db, string $operatorId, int $year, int $week): ?int
+    {
+        if ($operatorId === '' || strlen($operatorId) > 128 || $year < 2020 || $year > 2100 || $week < 1 || $week > 53) {
+            throw new \InvalidArgumentException('Invalid portfolio scope');
+        }
+        $bounds = self::utcWeekBounds($year, $week);
+        $start = $bounds['start'];
+        $end = $bounds['end'];
         $check = $db->query("SELECT COUNT(*) FROM information_schema.tables
             WHERE table_schema = DATABASE() AND table_name = 'office_inzet_shifts'");
         if ((int)$check->fetchColumn() !== 1) return null;
