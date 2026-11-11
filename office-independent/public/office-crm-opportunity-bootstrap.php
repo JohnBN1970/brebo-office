@@ -32,9 +32,9 @@ function crmStart(string $title):void{
 }
 function crmHidden(string $name,mixed $value):void{echo '<input type="hidden" name="'.crmH($name).'" value="'.crmH($value).'">';}
 function crmFormFields(array $data,array $choices):void{
-    echo '<div class="crm-fields"><div><label for="title">Onderwerp</label><input id="title" name="title" maxlength="255" required value="'.crmH($data['title']??'').'"></div><div><label for="relation_id">Relatie</label><select id="relation_id" name="relation_id" required><option value="">Kies een relatie</option>';
+    echo '<div class="crm-fields"><div><label for="title">Onderwerp</label><input id="title" name="title" maxlength="255" required value="'.crmH($data['title']??'').'"></div><div><label for="relation_search">Relatie zoeken</label><input id="relation_search" type="search" placeholder="Zoek op relatienaam" autocomplete="off" aria-controls="relation_id"><label for="relation_id">Relatie</label><select id="relation_id" name="relation_id" required><option value="">Kies een relatie</option>';
     foreach($choices['relations'] as $r)echo '<option value="'.(int)$r['id'].'"'.((string)($data['relation_id']??'')===(string)$r['id']?' selected':'').'>'.crmH($r['display_name']).'</option>';
-    echo '</select></div><div><label for="contact_id">Contactpersoon</label><select id="contact_id" name="contact_id"><option value="">Geen contactpersoon</option>';
+    echo '</select><a class="crm-button" href="/office-test/crm/relaties/nieuw" style="margin-top:8px">+ Nieuwe relatie toevoegen</a></div><div><label for="contact_id">Contactpersoon</label><select id="contact_id" name="contact_id"><option value="">Geen contactpersoon</option>';
     foreach($choices['contacts'] as $c){$name=trim($c['given_name'].' '.$c['family_name']);$relation='';foreach($choices['relations'] as $r)if((int)$r['id']===(int)$c['relation_id'])$relation=$r['display_name'];echo '<option value="'.(int)$c['id'].'"'.((string)($data['contact_id']??'')===(string)$c['id']?' selected':'').'>'.crmH($name.' · '.$relation).'</option>';}
     echo '</select></div><div><label for="service_type">Dienst</label><select id="service_type" name="service_type">';
     foreach(\Brebo\Office\Crm\OfficeCrmOpportunityPolicy::SERVICES as $key=>$label)echo '<option value="'.$key.'"'.(($data['service_type']??'execution')===$key?' selected':'').'>'.crmH($label).'</option>';
