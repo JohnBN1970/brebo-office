@@ -75,6 +75,22 @@ jobs:
             echo "CALC_LOOPBACK_LAST_HTTP_STATUS=$code"
             if [ "$success" != 1 ]; then
               echo "CALC_LOOPBACK_HTTP_READY=NO"
+              if command -v ps >/dev/null 2>&1; then
+                state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+                case "$state" in
+                  *Z*) echo "CALC_NODE_PROCESS_STATE=ZOMBIE" ;;
+                  *S*) echo "CALC_NODE_PROCESS_STATE=SLEEPING" ;;
+                  *R*) echo "CALC_NODE_PROCESS_STATE=RUNNING" ;;
+                  *) echo "CALC_NODE_PROCESS_STATE=UNKNOWN" ;;
+                esac
+              fi
+              if command -v ss >/dev/null 2>&1; then
+                if ss -lnt 2>/dev/null | grep -E "[.:]$port[[:space:]]" >/dev/null; then
+                  echo "CALC_LOOPBACK_PORT_LISTENING=YES"
+                else
+                  echo "CALC_LOOPBACK_PORT_LISTENING=NO"
+                fi
+              fi
               exit 1
             fi
             page=$(curl --silent --max-time 3 "http://127.0.0.1:$port/")
