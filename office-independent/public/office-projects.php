@@ -51,18 +51,25 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
     exit;
   }
+  $ganttDemoRequest = \Brebo\Office\Intake\OfficeMount::isTest()
+    && ($_GET['view'] ?? '') === 'gantt' && ($_GET['demo'] ?? '') === '1';
+  $demoSql = $ganttDemoRequest ? " AND (UPPER(p.code) LIKE 'DEMO-%' OR UPPER(p.code) LIKE 'TEST-%')" : '';
   $statement = $db->prepare(
     "SELECT p.id, p.code, p.title, p.status, COUNT(DISTINCT pb.building_id) AS building_count
      FROM office_projects p
      INNER JOIN office_project_memberships m ON m.project_id = p.id
      INNER JOIN office_operator_accounts a ON a.id = m.operator_id
      LEFT JOIN office_project_buildings pb ON pb.project_id = p.id
-     WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1
+     WHERE m.operator_id = :operator_id AND m.permission IN ('read','manage') AND a.active = 1" . $demoSql . "
      GROUP BY p.id, p.code, p.title, p.status
      ORDER BY p.id DESC LIMIT 100"
   );
   $statement->execute([':operator_id' => $operator->operatorId]);
   $projects = $statement->fetchAll(PDO::FETCH_ASSOC);
+  if (($_GET['view'] ?? '') === 'gantt') {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPlanReader.php';
+    $projects = \Brebo\Office\Project\OfficeProjectPlanReader::enrich($db, $projects);
+  }
 } catch (Throwable $exception) {
   http_response_code(503);
   exit('Projectoverzicht tijdelijk niet beschikbaar.');
@@ -70,6 +77,7 @@ try {
 $escape = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $base = \Brebo\Office\Intake\OfficeMount::basePath();
 $inzetView = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['view'] ?? '') === 'inzet';
+$ganttView = !$inzetView && ($_GET['view'] ?? '') === 'gantt';
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:#fff}.office-side-item.disabled{opacity:.55}.office-shell main{max-width:none;width:100%;margin:0;padding:28px clamp(18px,4vw,55px);min-width:0}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin:0 0 22px;overflow:auto}.office-tab{display:inline-block;padding:12px 2px;text-decoration:none;white-space:nowrap;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}.office-kpi-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:18px;margin:18px 0}.office-kpi-panel summary{cursor:pointer;font-weight:700}.office-kpi-panel strong{font-size:22px;display:block;margin-top:10px}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;overflow:auto;gap:4px}.office-side-item{white-space:nowrap}.office-shell main{padding:18px}}
 
@@ -554,7 +562,82 @@ if ($inzetView) {
 
 }
 if (!$inzetView || $activeInzetTab === 'overzicht') {
-if ($projects === []) {
+if (!$inzetView) {
+  echo '<nav aria-label="Projectweergaven" style="display:flex;gap:12px;margin:12px 0"><a href="' . $escape($base . '/projecten') . '">Lijst</a><a href="' . $escape($base . '/projecten?view=gantt') . '">Gantt</a></nav>';
+}
+if ($ganttView) {
+  if (\Brebo\Office\Intake\OfficeMount::isTest()) {
+    echo '<p><a href="' . $escape($base . '/projecten?view=gantt&demo=1') . '">Toon echte testprojecten uit de Office-database</a></p>';
+  }
+  $demo = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['demo'] ?? '') === '1';
+  if ($demo) {
+    // Only genuine Office database rows, already scoped by operator membership.
+    $projects = array_values(array_filter($projects, static fn(array $project): bool =>
+      preg_match('/^(DEMO|TEST)-/i', (string)($project['code'] ?? '')) === 1));
+    echo '<p role="status" style="padding:12px;background:#fff3cf"><strong>TESTPROJECTEN UIT OFFICE-DATABASE.</strong> Geen fictieve PHP-records. Alleen projecten met code DEMO- of TEST- en bestaande toegangsrechten.</p>';
+  }
+  $criticalOnly = ($_GET['filter'] ?? '') === 'kritiek';
+  $sortOptions = ['name_asc'=>'Naam A-Z','name_desc'=>'Naam Z-A','newest'=>'Nieuwste eerst','oldest'=>'Oudste eerst','status'=>'Status','buildings'=>'Meeste gebouwen'];
+  $groupOptions = ['none'=>'Geen groepering','status'=>'Status','buildings'=>'Gebouwen gekoppeld'];
+  $sort = (string)($_GET['sort'] ?? 'name_asc');
+  $group = (string)($_GET['group'] ?? 'none');
+  if (!isset($sortOptions[$sort])) $sort = 'name_asc';
+  if (!isset($groupOptions[$group])) $group = 'none';
+  $ganttUrl = static fn(bool $critical): string => $base . '/projecten?' . http_build_query(
+    ['view'=>'gantt','sort'=>$sort,'group'=>$group] + ($demo ? ['demo'=>'1'] : []) + ($critical ? ['filter'=>'kritiek'] : [])
+  );
+  echo '<nav aria-label="Gantt filters" style="display:flex;gap:12px;margin:12px 0">'
+    . '<a href="' . $escape($ganttUrl(false)) . '"' . (!$criticalOnly ? ' aria-current="page"' : '') . '>Alle projecten</a>'
+    . '<a href="' . $escape($ganttUrl(true)) . '"' . ($criticalOnly ? ' aria-current="page"' : '') . '>Alleen kritiek</a></nav>';
+  $visibleProjects = $criticalOnly
+    ? array_values(array_filter($projects, static fn(array $project): bool =>
+        in_array(strtolower(trim((string)($project['status'] ?? ''))), ['kritiek', 'critical'], true)))
+    : $projects;
+  echo '<form method="get" action="' . $escape($base . '/projecten') . '" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0">'
+    . '<input type="hidden" name="view" value="gantt">';
+  if ($criticalOnly) echo '<input type="hidden" name="filter" value="kritiek">';
+  if ($demo) echo '<input type="hidden" name="demo" value="1">';
+  echo '<label>Sorteren <select name="sort">';
+  foreach ($sortOptions as $key=>$label) echo '<option value="' . $escape($key) . '"' . ($sort === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
+  echo '</select></label><label>Groeperen <select name="group">';
+  foreach ($groupOptions as $key=>$label) echo '<option value="' . $escape($key) . '"' . ($group === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
+  echo '</select></label><button type="submit">Toepassen</button></form>';
+  usort($visibleProjects, static function(array $a,array $b) use ($sort): int {
+    $name = static fn(array $p): string => (string)($p['title'] ?? '');
+    return match($sort) {
+      'name_desc' => strnatcasecmp($name($b),$name($a)),
+      'newest' => (int)$b['id'] <=> (int)$a['id'],
+      'oldest' => (int)$a['id'] <=> (int)$b['id'],
+      'status' => (['kritiek'=>0,'critical'=>0,'in wacht'=>1,'on hold'=>1,'op schema'=>2,'in de pas'=>2,'gereed'=>3,'completed'=>3,'afgevoerd'=>4,'vervallen'=>5][strtolower(trim((string)$a['status']))] ?? 6) <=> (['kritiek'=>0,'critical'=>0,'in wacht'=>1,'on hold'=>1,'op schema'=>2,'in de pas'=>2,'gereed'=>3,'completed'=>3,'afgevoerd'=>4,'vervallen'=>5][strtolower(trim((string)$b['status']))] ?? 6) ?: strnatcasecmp($name($a),$name($b)),
+      'buildings' => (int)$b['building_count'] <=> (int)$a['building_count'],
+      default => strcmp($name($a),$name($b)),
+    };
+  });
+  if ($visibleProjects === []) {
+    echo '<p>Geen projecten gevonden voor dit filter.</p>';
+  } else {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
+    if ($group === 'none') {
+      echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base);
+    } else {
+      $groups = [];
+      foreach ($visibleProjects as $project) {
+        if ($group === 'status') {
+          $key = trim((string)($project['status'] ?? '')) ?: 'Onbekend';
+        } else {
+          $key = (int)($project['building_count'] ?? 0) > 0 ? 'Met gebouwen' : 'Zonder gebouwen';
+        }
+        $groups[$key][] = $project;
+      }
+      ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
+      foreach ($groups as $label=>$groupProjects) {
+        echo '<details open style="margin:14px 0"><summary style="font-weight:700;cursor:pointer">' . $escape($label) . ' (' . count($groupProjects) . ')</summary>';
+        echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($groupProjects, $base);
+        echo '</details>';
+      }
+    }
+  }
+} elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
   echo '<table><thead><tr><th>Projectcode</th><th>Project</th><th>Status</th><th>Gebouwen</th></tr></thead><tbody>';
