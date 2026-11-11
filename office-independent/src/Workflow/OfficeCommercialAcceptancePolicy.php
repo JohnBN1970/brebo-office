@@ -27,6 +27,16 @@ final class OfficeCommercialAcceptancePolicy
             && (!is_string($reference) || trim($reference) === '')) {
             throw new \DomainException('Acceptance evidence is required.');
         }
+        $amount = $input['amount_ex_vat_cents'] ?? null;
+        if ($amount !== null && (!is_int($amount) || $amount < 0)) {
+            throw new \DomainException('Contract amount must be a nonnegative integer in cents.');
+        }
+        if ($documentId !== null && (!is_int($documentId) || $documentId < 1)) {
+            throw new \DomainException('Evidence document id is invalid.');
+        }
+        if ($reference !== null && (!is_string($reference) || mb_strlen(trim($reference)) > 255)) {
+            throw new \DomainException('Evidence reference is invalid.');
+        }
         if (!is_string($input['idempotency_key'] ?? null)
             || preg_match('/^[a-f0-9]{64}$/D', $input['idempotency_key']) !== 1) {
             throw new \DomainException('Valid idempotency key is required.');
