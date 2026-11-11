@@ -60,6 +60,13 @@ final class LockedBaselineLines
             if (!is_int($amount)) {
                 throw new RuntimeException('Baseline amount overflow.');
             }
+            foreach (['quantity', 'unit_cost_cents'] as $numericField) {
+                $numericRaw = (string) $line[$numericField];
+                if (!preg_match('/^(0|[1-9][0-9]*)$/D', $numericRaw)
+                    || filter_var($numericRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) {
+                    throw new RuntimeException('Invalid baseline quantity or unit price.');
+                }
+            }
             $lines[] = [
                 'code' => $source,
                 'cost_type' => $type,
