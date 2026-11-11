@@ -12,7 +12,7 @@ final class OfficeProjectPortfolioPlannedHours
 {
     public static function forWeek(PDO $db, string $operatorId, int $year, int $week): ?int
     {
-        if (!ctype_digit($operatorId) || (int)$operatorId < 1 || $year < 2020 || $year > 2100 || $week < 1 || $week > 53) {
+        if ($operatorId === '' || strlen($operatorId) > 128 || $year < 2020 || $year > 2100 || $week < 1 || $week > 53) {
             throw new \InvalidArgumentException('Invalid portfolio scope');
         }
         $tz = new DateTimeZone('Europe/Brussels');
@@ -50,7 +50,11 @@ final class OfficeProjectPortfolioPlannedHours
         $row = $statement->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row)) return null;
         // Zero is meaningful only when the source table exists and the query succeeded.
-        $seconds = $row['duration_seconds'] === null ? 0 : (int)$row['duration_seconds'];
+        $rawSeconds = $row['duration_seconds'];
+        if ($rawSeconds !== null && (!is_numeric($rawSeconds) || (float)$rawSeconds > PHP_INT_MAX)) {
+            throw new \RuntimeException('Invalid planned duration');
+        }
+        $seconds = $rawSeconds === null ? 0 : (int)$rawSeconds;
         if ($seconds < 0) throw new \RuntimeException('Invalid planned duration');
         return $seconds;
     }
