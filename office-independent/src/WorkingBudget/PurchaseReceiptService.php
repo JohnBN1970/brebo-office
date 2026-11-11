@@ -50,18 +50,30 @@ final class PurchaseReceiptService
                 return ['receipt_id'=>(int)$prior['id'], 'created'=>false];
             }
             $lock = $this->db->prepare(
-                'SELECT l.quantity_milli, o.status, o.project_id, b.baseline_id, t.office_project_id AS baseline_project_id
+                'SELECT l.quantity_milli, o.status, o.project_id, b.baseline_id, b.cost_type, bl.locked_at, m.id AS identity_id, t.office_project_id AS baseline_project_id
                  FROM office_work_budget_purchase_order_lines l
                  JOIN office_work_budget_purchase_orders o ON o.id = l.order_id
                  JOIN office_calc_work_budget_lines b ON b.id = l.baseline_line_id
                  JOIN office_calc_work_budget_baselines bl ON bl.id = b.baseline_id
+                 LEFT JOIN office_work_budget_material_identity m ON m.baseline_line_id = b.id
                  JOIN office_calc_crm_acceptance_transfers t ON t.id = bl.acceptance_transfer_id
                  WHERE l.id = ? FOR UPDATE'
             );
             $lock->execute([$orderLineId]);
             $line = $lock->fetch(PDO::FETCH_ASSOC);
-            if (!is_array($line) || (int)$line['project_id'] !== $projectId || (int)$line['baseline_project_id'] !== $projectId || $line['status'] !== 'issued') {
+            if (!is_array($line) || (int)$line['project_id'] !== $projectId || (int)$line['baseline_project_id'] !== $projectId || $line['status'] !== 'issued'
+                || $line['cost_type'] !== 'material' || $line['locked_at'] === null || $line['identity_id'] === null) {
                 throw new DomainException('Purchase order is not issued for project.');
+            }
+            // Building scope must be canonical; do not accept arbitrary building IDs.
+            if ($buildingId !== null) {
+                $buildingCheck = $this->db->prepare(
+                    'SELECT 1 FROM office_project_buildings WHERE project_id = ? AND building_id = ? LIMIT 1'
+                );
+                $buildingCheck->execute([$projectId, $buildingId]);
+                if ($buildingCheck->fetchColumn() === false) {
+                    throw new DomainException('Delivery building is not linked to project.');
+                }
             }
             $received = $this->db->prepare('SELECT quantity_milli FROM office_work_budget_receipts WHERE order_line_id = ? FOR UPDATE');
             $received->execute([$orderLineId]);
