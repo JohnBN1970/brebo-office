@@ -56,7 +56,7 @@ final class OfficeCrmWonTransition
         }
             $this->db->commit();
             return ['stage' => 'won', 'handoff' => $decision, 'project_created' => false];
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $e;
         }
