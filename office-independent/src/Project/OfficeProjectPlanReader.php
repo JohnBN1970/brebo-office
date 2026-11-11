@@ -22,8 +22,8 @@ final class OfficeProjectPlanReader {
     $byProject = [];
     $itemsByProject = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $item) {
-      $itemsByProject[$id = (int)$item['project_id']][] = $item;
       $id = (int)$item['project_id'];
+      $itemsByProject[$id][] = $item;
       if (!isset($byProject[$id])) {
         $byProject[$id] = [
           'planned_start'=>(string)$item['planned_start'],
