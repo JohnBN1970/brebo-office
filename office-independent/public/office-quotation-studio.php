@@ -114,8 +114,10 @@ $ownDrafts = [];
 if ($storageReady) {
     try {
         $relations = $db->query("SELECT id, display_name FROM office_crm_relations WHERE status = 'active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { error_log('OFFERTSTUDIO_RELATIONS_QUERY_FAILED: '.get_class($e)); http_response_code(503); exit('CRM-relaties konden niet worden geladen.'); }
+    try {
         $ownDrafts = $draftRepository->listOwn($operator->operatorId);
-    } catch (\Throwable $e) { http_response_code(503); exit('Relaties niet beschikbaar.'); }
+    } catch (\Throwable $e) { error_log('OFFERTSTUDIO_DRAFT_LIST_FAILED: '.get_class($e)); http_response_code(503); exit('Offerteconcepten konden niet worden geladen.'); }
 }
 
 $type = $editing ? (string)$editing['quotation_type'] : (string) ($_GET['type'] ?? 'project');
