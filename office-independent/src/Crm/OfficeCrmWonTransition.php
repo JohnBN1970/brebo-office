@@ -25,7 +25,24 @@ final class OfficeCrmWonTransition
         if ($opportunityId < 1 || !OfficeCrmFunnel::canTransition($from, 'won')) {
             throw new DomainException('Invalid CRM acceptance transition');
         }
-        // The browser must never decide whether a calculation was accepted.\n        // Read the persisted acceptance under the same transaction as the stage update.\n        if ($this->db->inTransaction()) {\n            throw new DomainException('CRM acceptance requires its own transaction');\n        }\n        $this->db->beginTransaction();\n        try {\n            $stmt = $this->db->prepare(\n                'SELECT calculation_id, accepted_revision, status FROM office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE'\n            );\n            $stmt->execute([$opportunityId]);\n            $persisted = $stmt->fetch(PDO::FETCH_ASSOC);\n            $acceptedCalculation = is_array($persisted) ? [\n                'calculation_id' => (int)$persisted['calculation_id'],\n                'accepted_revision' => (string)$persisted['accepted_revision'],\n                'status' => (string)$persisted['status'],\n            ] : null;\n            $decision = OfficeCalcCrmHandoffDecision::decide('won', $acceptedCalculation);
+        // The browser must never decide whether a calculation was accepted.
+        // Read the persisted acceptance under the same transaction as the stage update.
+        if ($this->db->inTransaction()) {
+            throw new DomainException('CRM acceptance requires its own transaction');
+        }
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT calculation_id, accepted_revision, status FROM office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE'
+            );
+            $stmt->execute([$opportunityId]);
+            $persisted = $stmt->fetch(PDO::FETCH_ASSOC);
+            $acceptedCalculation = is_array($persisted) ? [
+                'calculation_id' => (int)$persisted['calculation_id'],
+                'accepted_revision' => (string)$persisted['accepted_revision'],
+                'status' => (string)$persisted['status'],
+            ] : null;
+            $decision = OfficeCalcCrmHandoffDecision::decide('won', $acceptedCalculation);
         if ($decision === 'transfer_accepted_calculation') {
             // A calculation must be transferred in the same transaction as
             // project creation and persisted acceptance verification. Do not
@@ -37,6 +54,11 @@ final class OfficeCrmWonTransition
         if (!$changed) {
             throw new DomainException('CRM opportunity changed concurrently');
         }
-            $this->db->commit();\n            return ['stage' => 'won', 'handoff' => $decision, 'project_created' => false];\n        } catch (\\Throwable $e) {\n            if ($this->db->inTransaction()) $this->db->rollBack();\n            throw $e;\n        }
+            $this->db->commit();
+            return ['stage' => 'won', 'handoff' => $decision, 'project_created' => false];
+        } catch (\\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
     }
 }
