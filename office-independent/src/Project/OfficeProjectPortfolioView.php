@@ -18,15 +18,20 @@ final class OfficeProjectPortfolioView
             . '<h1>Projectendashboard</h1>'
             . '<p>Overzicht van toegankelijke projecten en hun actuele projectgegevens.</p>'
             . '<div class="office-portfolio-kpis">';
+        // Financial and labour totals are deliberately unavailable until sourced
+        // from authorized, reconciled Office aggregates (never inferred from counts).
         foreach ([
-            'Projecten in overzicht' => $summary['projects'],
-            'In voorbereiding' => $summary['preparation'],
-            'In uitvoering' => $summary['active'],
-            'Gebouwen gekoppeld' => $summary['buildings'],
+            'Totale opdrachtwaarde' => 'Niet beschikbaar',
+            'Totale werkbegroting' => 'Niet beschikbaar',
+            'Werkelijke kosten' => 'Niet beschikbaar',
+            'Geplande uren' => 'Niet beschikbaar',
+            'Geregistreerde uren' => 'Niet beschikbaar',
+            'Gefactureerd' => 'Niet beschikbaar',
         ] as $label => $value) {
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
-                . '</small><strong>' . (int) $value . '</strong></article>';
+                . '</small><strong>' . $escape($value) . '</strong></article>';
         }
+        $html .= '<p class="office-portfolio-total-scope">Totalen over toegankelijke projecten; financiële en urenbronnen zijn nog niet aangesloten. Ontbrekende gegevens tellen niet als nul.</p>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
@@ -72,7 +77,7 @@ final class OfficeProjectPortfolioView
             $html .= '</ul>';
         }
         $html .= '</section>';
-        $html .= '<p class="office-portfolio-kpi-explanation">Dit zijn aantallen uit de projectenlijst, geen prestatie-KPI’s. Planning, uren, werkbegroting, marge, kwaliteit en risico worden pas als stuurinformatie getoond zodra hun brongegevens per project zijn gecontroleerd.</p><h2>Projectenlijst</h2>'
+        $html .= '<p class="office-portfolio-kpi-explanation">Projectaantallen: ' . (int) $summary['projects'] . ' projecten, ' . (int) $summary['active'] . ' in uitvoering, ' . (int) $summary['preparation'] . ' in voorbereiding en ' . (int) $summary['buildings'] . ' gebouwkoppelingen. Bedrag- en urentotalen volgen na broncontrole.</p><h2>Projectenlijst</h2>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
             . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Planning / aandacht</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
@@ -92,9 +97,9 @@ final class OfficeProjectPortfolioView
 
     public static function styles(): string
     {
-        return '.office-portfolio-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0}'
+        return '.office-portfolio-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}'
             . '.office-portfolio-kpi{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:20px}'
-            . '.office-portfolio-kpi small{display:block;color:#63748a}'
+            . '.office-portfolio-total-scope{grid-column:1/-1;color:#526278;font-size:13px;margin:0}.office-portfolio-kpi small{display:block;color:#63748a}'
             . '.office-portfolio-kpi strong{display:block;font-size:28px;margin-top:10px}'
             . '.office-portfolio-kpi-explanation{font-size:13px;color:#526278;max-width:850px;margin:-6px 0 24px}.office-portfolio-attention{margin:18px 0;padding:18px;border:1px solid #dbe1e8;border-radius:12px;background:#fff}.office-portfolio-attention h2{margin:0 0 8px;font-size:19px}.office-portfolio-attention p{color:#526278;font-size:13px}.office-portfolio-attention-counts{display:flex;flex-wrap:wrap;gap:12px}.office-portfolio-attention-counts span{padding:8px 12px;background:#f3f6fa;border-radius:8px}.office-portfolio-attention-list{padding-left:20px}.office-portfolio-attention-list li{margin:10px 0}.office-portfolio-attention-list li span{display:block;color:#526278;font-size:13px}.office-portfolio-table-wrap{overflow-x:auto}'
             . '@media(max-width:900px){.office-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}'
