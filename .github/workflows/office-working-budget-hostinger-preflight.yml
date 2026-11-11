@@ -62,8 +62,8 @@ jobs:
             echo WORK_BUDGET_ACTIVE_FINANCE_GUARD=MISSING
             anchors_ok=false
           fi
-          if grep -Fq '$financialSectionHtml .= $financeHtml;' "$target"; then
-            echo WORK_BUDGET_ACTIVE_FINANCE_ANCHOR=OK
+          if grep -Fq '// Read-only Office procurement commitments: independent of invoicing and bank transactions.' "$target"; then
+            echo WORK_BUDGET_ACTIVE_PROCUREMENT_ANCHOR=OK
           else
             echo WORK_BUDGET_ACTIVE_FINANCE_ANCHOR=MISSING
             anchors_ok=false
