@@ -7,6 +7,8 @@ namespace Drupal\brebo_mail_intake\Form;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Queue\QueueFactory;
+use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\Core\State\StateInterface;
 use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -24,6 +26,8 @@ final class MailboxMessageActionForm extends FormBase {
     private readonly AccountProxyInterface $currentAccount,
     private readonly MailboxRepository $mailboxes,
     private readonly QueueFactory $queueFactory,
+    private readonly LockBackendInterface $lock,
+    private readonly StateInterface $state,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -33,6 +37,8 @@ final class MailboxMessageActionForm extends FormBase {
       $container->get('current_user'),
       $container->get('brebo_mail_intake.mailbox_repository'),
       $container->get('queue'),
+      $container->get('lock'),
+      $container->get('state'),
     );
   }
 
@@ -140,15 +146,40 @@ final class MailboxMessageActionForm extends FormBase {
         $this->messenger()->addError($this->t('Geen toestemming om dit bericht te pushen.'));
         return;
       }
-      // Stage only: queue consumers must perform durable deduplication, audit,
-      // classification and human review before any native dossier linkage.
-      $this->queueFactory->get('brebo_personal_mail_push')->createItem([
-        'mailbox_id' => $mailboxId,
-        'communication_id' => $communicationId,
-        'actor_uid' => (int) $this->currentAccount->id(),
-        'requested_at' => time(),
-      ]);
-      $this->messenger()->addStatus($this->t('Bericht aangemeld voor Office-verwerking; dossierkoppeling is nog niet uitgevoerd.'));
+      // One pending push per mailbox/message. Lock prevents concurrent clicks
+      // from creating duplicate work items. This is an admission marker only:
+      // consumers must separately deduplicate durable dossier proposals.
+      $key = 'brebo_personal_mail_push.pending.' . $mailboxId . '.' . $communicationId;
+      if (!$this->lock->acquire($key, 15.0)) {
+        $this->messenger()->addWarning($this->t('Dit bericht wordt al aangemeld.'));
+        return;
+      }
+      try {
+        if ($this->state->get($key, FALSE)) {
+          $this->messenger()->addStatus($this->t('Dit bericht staat al klaar voor Office-verwerking.'));
+        }
+        else {
+          $queued = $this->queueFactory->get('brebo_personal_mail_push')->createItem([
+            'mailbox_id' => $mailboxId,
+            'communication_id' => $communicationId,
+            'actor_uid' => (int) $this->currentAccount->id(),
+            'requested_at' => time(),
+          ]);
+          if ($queued === FALSE) {
+            throw new \\RuntimeException('Queue item kon niet worden opgeslagen.');
+          }
+          $this->state->set($key, ['actor_uid' => (int) $this->currentAccount->id(), 'queued_at' => time()]);
+          $this->messenger()->addStatus($this->t('Bericht aangemeld voor Office-verwerking; dossierkoppeling is nog niet uitgevoerd.'));
+        }
+      }
+      catch (\\Throwable $e) {
+        $this->getLogger('brebo_mail_intake')->error('Persoonlijke mailpush kon niet worden aangemeld: @error', ['@error' => $e->getMessage()]);
+        $this->messenger()->addError($this->t('Office-verwerking kon niet worden aangemeld. Probeer later opnieuw.'));
+        return;
+      }
+      finally {
+        $this->lock->release($key);
+      }
       $form_state->setRedirect('brebo_mail_intake.mailbox_message', [
         'mailbox_id' => $mailboxId, 'mail_state' => $returnState, 'communication_id' => $communicationId,
       ]);
