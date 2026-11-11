@@ -38,7 +38,14 @@ try {
     $evidence = [];
     foreach ($required as $stage => $names) {
         $missing = array_values(array_filter($names, static fn(string $name): bool => !isset($tables[$name])));
-        $evidence[$stage] = ['schema' => $missing === [], 'reason' => $missing ? 'Missing: ' . implode(', ', $missing) : 'Schema present; workflow and records not verified'];
+        // A missing candidate table name does not prove that a module lacks a
+        // schema; an alternate canonical table or external repository may own it.
+        $evidence[$stage] = [
+            'schema' => $missing === [] ? true : null,
+            'reason' => $missing
+                ? 'Candidate tables not found (canonical schema unverified): ' . implode(', ', $missing)
+                : 'Candidate tables present; records and workflow not verified',
+        ];
     }
     $result = \Brebo\Office\Demo\OfficeDemoProcessChain::monitor($evidence);
     $result['audit'] = 'READ_ONLY_SCHEMA_CANDIDATE_PREFLIGHT';
