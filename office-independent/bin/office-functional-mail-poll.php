@@ -48,9 +48,14 @@ foreach ($mailboxes as $mailbox) {
     $uidValidity = (int) $status->uidvalidity;
     $overview = imap_check($stream);
     $last = $overview ? (int) $overview->Nmsgs : 0;
-    // Scan the full mailbox: a fixed last-100 window silently loses mail after long outages.
-    // Ingest is idempotent by mailbox and IMAP UIDVALIDITY/UID.
-    $start = 1;
+    // Resume from durable UID cursor; reset automatically when UIDVALIDITY changes.
+    // The cursor advances only after a message was successfully stored.
+    $cursor = $db->prepare('SELECT uidvalidity,last_uid FROM office_mail_sync_cursors WHERE mailbox_id=:id');
+    $cursor->execute([':id' => $id]);
+    $saved = $cursor->fetch(PDO::FETCH_ASSOC);
+    $lastUid = $saved && (string)$saved['uidvalidity'] === (string)$uidValidity ? (int)$saved['last_uid'] : 0;
+    $first = $lastUid > 0 ? (int)imap_msgno($stream, $lastUid) : 0;
+    $start = $first > 0 ? $first + 1 : 1;
     for ($n = $start; $n <= $last; ++$n) {
       $uid = imap_uid($stream, $n);
       if (!$uid) continue;
@@ -69,6 +74,8 @@ foreach ($mailboxes as $mailbox) {
         'received_at' => gmdate('Y-m-d H:i:s', $date),
         'body_text' => $body,
       ]);
+      $save = $db->prepare('INSERT INTO office_mail_sync_cursors (mailbox_id,uidvalidity,last_uid,updated_at) VALUES (:id,:validity,:uid,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE uidvalidity=VALUES(uidvalidity),last_uid=VALUES(last_uid),updated_at=UTC_TIMESTAMP()');
+      $save->execute([':id'=>$id, ':validity'=>(string)$uidValidity, ':uid'=>$uid]);
     }
   } catch (Throwable $e) {
     error_log('office_functional_mail_poll_failed mailbox=' . $id . ' type=' . $e::class);
