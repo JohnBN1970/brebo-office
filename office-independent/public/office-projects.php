@@ -560,7 +560,7 @@ if (!$inzetView) {
 }
 if ($ganttView) {
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
-  echo \\Brebo\\Office\\Project\\OfficeProjectPortfolioGantt::render($projects, $base);
+  echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($projects, $base);
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
 } else {
