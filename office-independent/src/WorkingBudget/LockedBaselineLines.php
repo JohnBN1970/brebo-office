@@ -36,7 +36,7 @@ final class LockedBaselineLines
             throw new RuntimeException('Baseline is not locked.');
         }
         $statement = $this->db->prepare(
-            'SELECT source_line_id, cost_type, budget_cents, activity_ref
+            'SELECT source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref
              FROM office_calc_work_budget_lines WHERE baseline_id = :baseline ORDER BY id'
         );
         $statement->execute(['baseline' => $baseline['id']]);
@@ -65,6 +65,8 @@ final class LockedBaselineLines
                 'cost_type' => $type,
                 'activity_ref' => $line['activity_ref'],
                 'baseline_cents' => $amount,
+                'quantity' => (int) $line['quantity'],
+                'unit_cost_cents' => (int) $line['unit_cost_cents'],
             ];
         }
         return [
