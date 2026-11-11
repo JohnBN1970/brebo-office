@@ -78,3 +78,29 @@ CREATE TABLE IF NOT EXISTS office_mail_classification_proposals (
   CONSTRAINT fk_office_mail_classification_message FOREIGN KEY (message_id)
     REFERENCES office_mail_messages (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Office module board: a move changes ownership routing only, never a dossier link.
+CREATE TABLE IF NOT EXISTS office_mail_board_routes (
+  message_id BIGINT UNSIGNED NOT NULL,
+  module_key VARCHAR(32) NOT NULL DEFAULT 'nieuw',
+  suggested_module VARCHAR(32) DEFAULT NULL,
+  suggestion_reason VARCHAR(1000) DEFAULT NULL,
+  changed_by_operator_id BIGINT UNSIGNED DEFAULT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (message_id),
+  CONSTRAINT fk_office_mail_board_message FOREIGN KEY (message_id)
+    REFERENCES office_mail_messages (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS office_mail_board_moves (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  message_id BIGINT UNSIGNED NOT NULL,
+  from_module VARCHAR(32) NOT NULL,
+  to_module VARCHAR(32) NOT NULL,
+  operator_id BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  KEY ix_office_mail_board_move_message (message_id,created_at),
+  CONSTRAINT fk_office_mail_board_move_message FOREIGN KEY (message_id)
+    REFERENCES office_mail_messages (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
