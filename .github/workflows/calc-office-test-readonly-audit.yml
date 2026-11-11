@@ -80,6 +80,17 @@ jobs:
             if [ -L "$private_stage" ]; then echo "STAGE_TARGET_SYMLINK=YES"; else echo "STAGE_TARGET_SYMLINK=NO"; fi
             if [ -d "$private_stage" ]; then echo "STAGE_TARGET_DIRECTORY=YES"; else echo "STAGE_TARGET_DIRECTORY=NO"; fi
             if [ -e "$private_stage/calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.tgz" ]; then echo "STAGE_ARCHIVE_ALREADY_EXISTS=YES"; else echo "STAGE_ARCHIVE_ALREADY_EXISTS=NO"; fi
+            if [ -f "$private_stage/calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.sha256" ]; then
+              echo "STAGE_CHECKSUM_FILE=YES"
+              if (cd "$private_stage" && sha256sum -c calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.sha256 >/dev/null 2>&1); then
+                echo "STAGE_ARCHIVE_INTEGRITY=PASS"
+              else
+                echo "STAGE_ARCHIVE_INTEGRITY=FAIL"
+              fi
+            else
+              echo "STAGE_CHECKSUM_FILE=NO"
+              echo "STAGE_ARCHIVE_INTEGRITY=UNVERIFIED"
+            fi
             echo "SECTION=CALC_APP_DESTINATIONS"
             for location in "$ROOT"/nodejs "$ROOT"/calc "$ROOT"/calc-app "$WEB"/calc-app "$WEB"/office-test/calc-app; do
               if [ -d "$location" ]; then
