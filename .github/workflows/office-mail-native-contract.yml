@@ -1,0 +1,29 @@
+name: Office native mail contract
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Mail/**'
+      - 'office-independent/tests/OfficeMail*Test.php'
+      - '.github/workflows/office-mail-native-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mail-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint native mail code
+        run: |
+          set -euo pipefail
+          find office-independent/src/Mail -name '*.php' -print0 | xargs -0 -n1 php -l
+          find office-independent/tests -maxdepth 1 -name 'OfficeMail*Test.php' -print0 | xargs -0 -n1 php -l
+      - name: Run native mail unit contracts
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeMailCommercialProposalTest.php
+          php office-independent/tests/OfficeMailReviewHandoffTest.php
