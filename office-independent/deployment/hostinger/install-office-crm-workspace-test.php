@@ -74,8 +74,45 @@ try{
     $phase='schema';
     $db=new PDO($config['OFFICE_INTAKE_PDO_DSN'],$config['OFFICE_INTAKE_DB_USER'],$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
     $relationCount=(int)$db->query('SELECT COUNT(*) FROM office_crm_relations')->fetchColumn();$contactCount=(int)$db->query('SELECT COUNT(*) FROM office_crm_contact_people')->fetchColumn();
-    putenv('OFFICE_CRM_LEGACY_MIGRATION=explicit');putenv('OFFICE_TEST_CONFIG_PATH='.$configPath);
-    require $stage.'/office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php';
+    // The legacy migration is intentionally one-shot. A verified fully migrated
+    // Office-test schema is accepted without replaying non-transactional MySQL DDL.
+    $schemaName=(string)$db->query('SELECT DATABASE()')->fetchColumn();
+    if($schemaName!=='u213420663_office_test')throw new RuntimeException('migration_database_scope');
+    $requiredColumns=[
+        'office_crm_opportunities'=>['id','title','stage','source','estimated_value','currency','created_at','updated_at','service_type','revision','outcome_note','relation_id','contact_id','description','expected_value','expected_close_date','next_action','next_action_at','opname_required','status'],
+        'office_crm_opportunity_activities'=>['id','opportunity_id','activity_type','created_by','request_key','request_hash','detail_json','title','scheduled_at','completed_at','created_at'],
+    ];
+    $schemaQuery=$db->prepare('SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (?,?)');
+    $schemaQuery->execute([$schemaName,'office_crm_opportunities','office_crm_opportunity_activities']);
+    $existingColumns=[];
+    foreach($schemaQuery->fetchAll(PDO::FETCH_ASSOC) as $row)$existingColumns[$row['TABLE_NAME']][$row['COLUMN_NAME']]=true;
+    $activitiesExist=isset($existingColumns['office_crm_opportunity_activities']);
+    if($activitiesExist){
+        foreach($requiredColumns as $table=>$columns)foreach($columns as $column)
+            if(!isset($existingColumns[$table][$column]))throw new RuntimeException('existing_schema_incomplete');
+        $indexQuery=$db->prepare('SELECT TABLE_NAME,INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (?,?)');
+        $indexQuery->execute([$schemaName,'office_crm_opportunities','office_crm_opportunity_activities']);
+        $existingIndexes=[];
+        foreach($indexQuery->fetchAll(PDO::FETCH_ASSOC) as $row)$existingIndexes[$row['TABLE_NAME']][$row['INDEX_NAME']]=true;
+        foreach([
+            'office_crm_opportunities'=>['PRIMARY','idx_crm_opp_relation','idx_crm_opp_stage','idx_crm_opp_calendar'],
+            'office_crm_opportunity_activities'=>['PRIMARY','uq_crm_activity_request','idx_crm_opp_activity_calendar'],
+        ] as $table=>$indexes)foreach($indexes as $index)
+            if(!isset($existingIndexes[$table][$index]))throw new RuntimeException('existing_schema_index_missing');
+        $fkQuery=$db->prepare('SELECT TABLE_NAME,CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (?,?) AND REFERENCED_TABLE_NAME IS NOT NULL');
+        $fkQuery->execute([$schemaName,'office_crm_opportunities','office_crm_opportunity_activities']);
+        $existingFks=[];
+        foreach($fkQuery->fetchAll(PDO::FETCH_ASSOC) as $row)$existingFks[$row['TABLE_NAME']][$row['CONSTRAINT_NAME']]=true;
+        foreach([
+            'office_crm_opportunities'=>['fk_crm_opp_relation','fk_crm_opp_contact'],
+            'office_crm_opportunity_activities'=>['fk_crm_opp_activity'],
+        ] as $table=>$constraints)foreach($constraints as $constraint)
+            if(!isset($existingFks[$table][$constraint]))throw new RuntimeException('existing_schema_fk_missing');
+        echo "CRM_EXISTING_MIGRATED_SCHEMA_VERIFIED_NO_DDL\\n";
+    }else{
+        putenv('OFFICE_CRM_LEGACY_MIGRATION=explicit');putenv('OFFICE_TEST_CONFIG_PATH='.$configPath);
+        require $stage.'/office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php';
+    }
     // The migration script is intentionally fail-closed and may stop on unexpected state.
     if((int)$db->query('SELECT COUNT(*) FROM office_crm_relations')->fetchColumn()!==$relationCount||(int)$db->query('SELECT COUNT(*) FROM office_crm_contact_people')->fetchColumn()!==$contactCount)throw new RuntimeException('relations_changed');
     foreach(['currency','service_type','revision','outcome_note','relation_id','contact_id','next_action_at'] as $column)$db->query('SELECT '.$column.' FROM office_crm_opportunities LIMIT 0');
