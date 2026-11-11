@@ -567,11 +567,54 @@ if ($ganttView) {
     ? array_values(array_filter($projects, static fn(array $project): bool =>
         in_array(strtolower(trim((string)($project['status'] ?? ''))), ['kritiek', 'critical'], true)))
     : $projects;
+  $sortOptions = ['name_asc'=>'Naam A-Z','name_desc'=>'Naam Z-A','newest'=>'Nieuwste eerst','oldest'=>'Oudste eerst','status'=>'Status','buildings'=>'Meeste gebouwen'];
+  $groupOptions = ['none'=>'Geen groepering','status'=>'Status','buildings'=>'Gebouwen gekoppeld'];
+  $sort = (string)($_GET['sort'] ?? 'name_asc');
+  $group = (string)($_GET['group'] ?? 'none');
+  if (!isset($sortOptions[$sort])) $sort = 'name_asc';
+  if (!isset($groupOptions[$group])) $group = 'none';
+  echo '<form method="get" action="' . $escape($base . '/projecten') . '" style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0">'
+    . '<input type="hidden" name="view" value="gantt">';
+  if ($criticalOnly) echo '<input type="hidden" name="filter" value="kritiek">';
+  echo '<label>Sorteren <select name="sort">';
+  foreach ($sortOptions as $key=>$label) echo '<option value="' . $escape($key) . '"' . ($sort === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
+  echo '</select></label><label>Groeperen <select name="group">';
+  foreach ($groupOptions as $key=>$label) echo '<option value="' . $escape($key) . '"' . ($group === $key ? ' selected' : '') . '>' . $escape($label) . '</option>';
+  echo '</select></label><button type="submit">Toepassen</button></form>';
+  usort($visibleProjects, static function(array $a,array $b) use ($sort): int {
+    $name = static fn(array $p): string => mb_strtolower((string)($p['title'] ?? ''), 'UTF-8');
+    return match($sort) {
+      'name_desc' => strcmp($name($b),$name($a)),
+      'newest' => (int)$b['id'] <=> (int)$a['id'],
+      'oldest' => (int)$a['id'] <=> (int)$b['id'],
+      'status' => strcmp((string)$a['status'],(string)$b['status']) ?: strcmp($name($a),$name($b)),
+      'buildings' => (int)$b['building_count'] <=> (int)$a['building_count'],
+      default => strcmp($name($a),$name($b)),
+    };
+  });
   if ($visibleProjects === []) {
     echo '<p>Geen projecten gevonden voor dit filter.</p>';
   } else {
     require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioGantt.php';
-    echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base);
+    if ($group === 'none') {
+      echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($visibleProjects, $base);
+    } else {
+      $groups = [];
+      foreach ($visibleProjects as $project) {
+        if ($group === 'status') {
+          $key = trim((string)($project['status'] ?? '')) ?: 'Onbekend';
+        } else {
+          $key = (int)($project['building_count'] ?? 0) > 0 ? 'Met gebouwen' : 'Zonder gebouwen';
+        }
+        $groups[$key][] = $project;
+      }
+      ksort($groups, SORT_NATURAL | SORT_FLAG_CASE);
+      foreach ($groups as $label=>$groupProjects) {
+        echo '<details open style="margin:14px 0"><summary style="font-weight:700;cursor:pointer">' . $escape($label) . ' (' . count($groupProjects) . ')</summary>';
+        echo \Brebo\Office\Project\OfficeProjectPortfolioGantt::render($groupProjects, $base);
+        echo '</details>';
+      }
+    }
   }
 } elseif ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
