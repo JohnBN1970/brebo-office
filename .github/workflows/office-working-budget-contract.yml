@@ -7,6 +7,8 @@ on:
       - 'office-independent/tests/*Budget*Test.php'
       - 'office-independent/tests/*Cost*Test.php'
       - 'office-independent/tests/*Reconciliation*Test.php'
+      - 'office-independent/tests/*Labor*Test.php'
+      - 'office-independent/deployment/hostinger/*working-budget*'
       - '.github/workflows/office-working-budget-contract.yml'
       - 'office-independent/public/office-project.php'
   workflow_dispatch:
@@ -39,6 +41,6 @@ jobs:
           php office-independent/tests/WorkingBudgetKpiProjectionTest.php
           php office-independent/tests/ProjectBudgetReadModelTest.php
           php office-independent/tests/ProjectBudgetPanelTest.php
+          php office-independent/tests/OnSiteLaborEvidenceTest.php
       - name: Verify test-only mount rejects unverified release paths
         run: python3 office-independent/deployment/hostinger/test-working-budget-mount.py
-          php office-independent/tests/OnSiteLaborEvidenceTest.php
