@@ -129,7 +129,7 @@ jobs:
             }
             if(substr_count($source,$marker)!==1
                 || !str_contains($source,"office-crm-opportunities.php")
-                || !str_contains($source,"require $private")) {
+                || !str_contains($source,'require $private')) {
                 echo "CALC_NATIVE_ROUTER_PATCH_ANCHOR=UNSAFE\n";
                 exit(1);
             }
