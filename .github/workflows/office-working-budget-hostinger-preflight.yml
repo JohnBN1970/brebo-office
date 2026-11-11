@@ -75,6 +75,7 @@ jobs:
           done
           if test "$anchors_ok" != true; then
             echo WORK_BUDGET_ACTIVE_ANCHOR_MISSING
+            echo WORK_BUDGET_DEPLOY_BLOCKED_DIFFERENT_RELEASE_LAYOUT
             exit 22
           fi
           printf 'WORK_BUDGET_ACTIVE_SHA256='
