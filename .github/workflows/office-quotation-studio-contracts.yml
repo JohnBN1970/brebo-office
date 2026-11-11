@@ -8,6 +8,8 @@ on:
       - 'office-independent/tests/OfficeCommercialWorkflowTest.php'
       - 'office-independent/tests/OfficeCommercialTransitionGuardTest.php'
       - 'office-independent/tests/OfficeCrmWorkflowBridgeTest.php'
+      - 'office-independent/tests/OfficeCommercialAcceptancePolicyTest.php'
+      - 'office-independent/database/office-commercial-acceptance-schema.sql'
       - 'office-independent/tests/OfficeQuotationComposerTest.php'
       - 'office-independent/public/office-quotation-studio.php'
       - 'office-independent/database/office-quotation-schema.sql'
@@ -32,6 +34,8 @@ jobs:
           php -l office-independent/src/Workflow/OfficeCommercialTransitionGuard.php
           php -l office-independent/src/Workflow/OfficeCrmWorkflowBridge.php
           php -l office-independent/tests/OfficeCrmWorkflowBridgeTest.php
+          php -l office-independent/src/Workflow/OfficeCommercialAcceptancePolicy.php
+          php -l office-independent/tests/OfficeCommercialAcceptancePolicyTest.php
           php -l office-independent/tests/OfficeCommercialTransitionGuardTest.php
           php -l office-independent/tests/OfficeCommercialWorkflowTest.php
           php -l office-independent/src/Quotation/OfficeQuotationComposer.php
@@ -45,6 +49,7 @@ jobs:
           php office-independent/tests/OfficeCommercialWorkflowTest.php
           php office-independent/tests/OfficeCommercialTransitionGuardTest.php
           php office-independent/tests/OfficeCrmWorkflowBridgeTest.php
+          php office-independent/tests/OfficeCommercialAcceptancePolicyTest.php
       - name: Verify isolated router and safe feature gates
         run: |
           php -r '$r=file_get_contents("office-independent/deployment/hostinger/office-test-index.php"); $p=file_get_contents("office-independent/public/office-quotation-studio.php"); foreach (["/office-test/crm/offertes", "office-quotation-studio.php"] as $x) { if (!str_contains($r,$x)) exit(1); } foreach (["OFFICE_OFFERTSTUDIO_PREVIEW_ENABLED", "OFFICE_QUOTATIONS_SCHEMA_VERIFIED", "OFFICE_QUOTATIONS_WRITE_ENABLED", "quotation_csrf", "getOwnDraft", "updateOwnDraft"] as $x) { if (!str_contains($p,$x)) exit(2); } echo "Quotation router and gates verified\\n";'
