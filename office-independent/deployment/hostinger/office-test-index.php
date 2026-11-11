@@ -113,6 +113,10 @@ $routes = [
 // CRM-first concept routes are isolated and denied by their PHP handlers until
 // CRM session authorization, isolated tables and rollout flags are verified.
 // They do not expose the legacy project-bound Calc launch or existing data.
+if ($path === '/office-test/calc/crm/open') {
+  require $private . '/public/office-calc-crm-browser-handoff.php';
+  exit;
+}
 if ($path === '/office-test/calc/crm/werkbank') {
   require $private . '/public/office-calc-crm-workbench.php';
   exit;
