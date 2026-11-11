@@ -68,6 +68,11 @@ jobs:
             echo WORK_BUDGET_ACTIVE_FINANCE_ANCHOR=MISSING
             anchors_ok=false
           fi
+          # Safe structural diagnostics: emit marker counts only, never source lines.
+          for marker in 'financialSectionHtml' 'financeHtml' 'OfficeProjectFinanceOverview' 'ProjectBudgetPanel' 'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED'; do
+            count="$(grep -Fc "$marker" "$target" || true)"
+            printf 'WORK_BUDGET_MARKER_%s=%s\n' "$marker" "$count"
+          done
           if test "$anchors_ok" != true; then
             echo WORK_BUDGET_ACTIVE_ANCHOR_MISSING
             exit 22
