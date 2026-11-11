@@ -15,6 +15,8 @@ if (!str_contains($html,'€ 1.200,00')
     || str_contains($html,'<script>')
     || !str_contains($html,'&lt;script&gt;')
     || !str_contains($html,'Begrotingsregels')
+    || !str_contains($html,'Kostenverdeling')
+    || !str_contains($html,'Materiaal')
     || !str_contains($html,'Arbeid')
     || !str_contains($html,'A&amp;B')) {
     throw new RuntimeException('Budget panel display or escaping failed.');
