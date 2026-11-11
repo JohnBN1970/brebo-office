@@ -12,7 +12,6 @@ final class OfficeMailRoutingSuggestions {
       'finance' => ['factuur','betalingsherinnering','creditnota','betaalverzoek'],
       'inspecties' => ['inspectierapport','bouwkundige inspectie','schouwrapport'],
       'projecten' => ['uitvoeringsplanning','werkplanning','opleverdatum'],
-      'gebouwen' => ['bag identificatie','gebouwadres','kadastraal'],
       'crm' => ['offerteaanvraag','prijsaanvraag','nieuwe aanvraag'],
     ];
     $hits = [];
