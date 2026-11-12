@@ -15,6 +15,14 @@ jobs:
           php -l office-independent/src/Quotation/OfficeQuotationComposer.php
           php -l office-independent/src/Quotation/OfficeQuotationDraftRepository.php
           php office-independent/tests/OfficeQuotationComposerTest.php
+          php -l office-independent/src/Quotation/OfficeQuotationCalculationImport.php
+          php -l office-independent/src/Quotation/OfficeQuotationCalculationAttach.php
+          php -l office-independent/src/Quotation/OfficeQuotationCalcLaunchContract.php
+          php -l office-independent/src/Quotation/OfficeQuotationCalcDraftFactory.php
+          php -l office-independent/src/Quotation/OfficeQuotationCalcGenerationService.php
+          php office-independent/tests/OfficeQuotationCalculationImportTest.php
+          php office-independent/tests/OfficeQuotationCalcLaunchContractTest.php
+          php office-independent/tests/OfficeQuotationCalcGenerationServiceTest.php
       - name: Inspect isolated Hostinger Office-test without changes
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
