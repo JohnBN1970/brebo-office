@@ -42,6 +42,7 @@ final class OfficeQuotationRubricBuilder
                 'description' => (string)$line['description'],
                 'quantity' => $line['quantity'],
                 'unit' => (string)$line['unit'],
+                'unit_sales_price_ex_vat' => $line['unit_sales_price_ex_vat'] ?? round((int)$line['amount_ex_vat_cents'] / 100 / (float)$line['quantity'], 6),
                 'amount_ex_vat_cents' => (int)$line['amount_ex_vat_cents'],
             ];
             $rubrics[$label]['total_ex_vat_cents'] += (int)$line['amount_ex_vat_cents'];
