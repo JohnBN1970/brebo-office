@@ -30,8 +30,9 @@ final class OfficeCalcNativeProjectHandoff
         }
         // Caller supplies the verified project title/code and operator identity.
         // Do not infer either from untrusted browser input.
+        require_once dirname(__DIR__) . '/Crm/OfficeCrmFunnel.php';
         $expectedStage = $project['expected_crm_stage'] ?? null;
-        if (!is_string($expectedStage) || !in_array($expectedStage, ['opportunity', 'proposal', 'negotiation'], true)) {
+        if (!is_string($expectedStage) || !\\Brebo\\Office\\Crm\\OfficeCrmFunnel::canTransition($expectedStage, 'won')) {
             throw new DomainException('Expected CRM stage required for atomic acceptance');
         }
         return OfficeCalcAcceptedOpportunityTransfer::execute(
