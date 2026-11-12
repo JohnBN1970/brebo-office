@@ -1,0 +1,56 @@
+name: Office material procurement database preflight (read only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type CHECK-MATERIAL-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  check:
+    if: ${{ inputs.confirmation == 'CHECK-MATERIAL-TEST' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only script
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/preflight-material-procurement.php
+          if grep -En '\\$db->(exec|query|prepare)\\([^)]*(CREATE|ALTER|DROP|TRUNCATE|INSERT|UPDATE|DELETE)' office-independent/deployment/hostinger/preflight-material-procurement.php; then
+            echo 'Write SQL rejected' >&2
+            exit 1
+          fi
+      - name: Configure deploy SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Run Office-test read-only schema preflight
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          SSH="ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -o ConnectionAttempts=2 -i $HOME/.ssh/id_deploy -p $PORT"
+          # Use the existing Office-test PHP runtime and environment; do not print credentials.
+          $SSH "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.material-preflight"'
+          scp -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -i "$HOME/.ssh/id_deploy" -P "$PORT" office-independent/deployment/hostinger/preflight-material-procurement.php "$USER@$HOST:office_calc_test/.material-preflight/preflight.php"
+          $SSH "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          stage="$HOME/office_calc_test/.material-preflight/preflight.php"
+          test -f "$stage" && test ! -L "$stage"
+          php -l "$stage"
+          # Explicitly require existing Office-test DSN in the remote environment.
+          # No attempt to parse secrets from .env or expose them in logs.
+          test -n "${OFFICE_INTAKE_PDO_DSN:-}" || { echo 'PREFLIGHT=BLOCKED ENV_NOT_LOADED'; exit 1; }
+          OFFICE_TEST_MATERIAL_PREFLIGHT=READ_ONLY php "$stage"
+          REMOTE
