@@ -4,6 +4,8 @@ on:
     paths:
       - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
       - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php'
+      - 'office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -25,6 +27,8 @@ on:
     paths:
       - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
       - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php'
+      - 'office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -57,6 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           for f in \
+            office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php \
             office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php \
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
@@ -89,7 +94,8 @@ jobs:
             office-independent/tests/OfficeCalcCrmWonTransitionTest.php \
             office-independent/tests/OfficeCalcCrmWonUiRouteTest.php \
             office-independent/tests/OfficeCalcCrmWonPersistedAcceptanceGuardTest.php \
-            office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php; do
+            office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php \
+            office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php; do
             php -l "$f"
             php "$f"
           done
