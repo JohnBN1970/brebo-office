@@ -19,6 +19,9 @@ final class OfficeQuotationRubricBuilder
             if (!is_array($line) || !isset($line['description'], $line['quantity'], $line['unit'], $line['amount_ex_vat_cents'])) {
                 throw new InvalidArgumentException('Verified sales line required');
             }
+            if (!is_numeric($line['quantity']) || !is_finite((float)$line['quantity']) || (float)$line['quantity'] <= 0) {
+                throw new InvalidArgumentException('Invalid rubric quantity');
+            }
             $label = trim((string)($line['rubric'] ?? 'Werkzaamheden'));
             if ($label === '' || mb_strlen($label, 'UTF-8') > 200) {
                 throw new InvalidArgumentException('Invalid rubric');
