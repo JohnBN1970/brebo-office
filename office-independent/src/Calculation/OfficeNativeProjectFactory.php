@@ -39,12 +39,32 @@ final class OfficeNativeProjectFactory
                 $required[] = (string)$column['COLUMN_NAME'];
             }
         }
+        if ($columns === []) throw new DomainException('Native project table unavailable');
         $known = array_column($columns, 'COLUMN_NAME');
         foreach (['id','code','title','status'] as $name) {
             if (!in_array($name, $known, true)) throw new DomainException('Unsupported native project schema');
         }
         if (array_diff($required, ['code','title','status']) !== []) {
             throw new DomainException('Native project requires additional mandatory fields');
+        }
+        // The ownership row must be representable without missing mandatory
+        // fields; otherwise the project insert would create an orphan.
+        $memberColumns = $db->query(
+            "SELECT COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT, EXTRA FROM information_schema.COLUMNS " .
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_project_memberships'"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        if ($memberColumns === []) throw new DomainException('Native project membership table unavailable');
+        $memberNames = array_column($memberColumns, 'COLUMN_NAME');
+        foreach (['project_id', 'operator_id', 'permission'] as $name) {
+            if (!in_array($name, $memberNames, true)) throw new DomainException('Unsupported membership schema');
+        }
+        foreach ($memberColumns as $column) {
+            if ($column['IS_NULLABLE'] === 'NO' && $column['COLUMN_DEFAULT'] === null
+                && !str_contains(strtolower((string)$column['EXTRA']), 'auto_increment')
+                && !str_contains(strtolower((string)$column['EXTRA']), 'generated')
+                && !in_array($column['COLUMN_NAME'], ['project_id','operator_id','permission'], true)) {
+                throw new DomainException('Membership requires additional mandatory fields');
+            }
         }
         $operator = $db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 FOR UPDATE');
         $operator->execute([$actor]);
