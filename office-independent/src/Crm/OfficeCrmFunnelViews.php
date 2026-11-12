@@ -37,7 +37,18 @@ final class OfficeCrmFunnelViews
     private static function link(array $item):string
     {
         $id=filter_var($item['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-        $name=self::h($item['name']??'');return is_int($id)?'<a href="/office-test/crm/verkoopkansen/detail?id='.$id.'">'.$name.'</a>':$name;
+        $name=self::h($item['name']??'');
+        if(!is_int($id))return $name;
+        $detail='<a href="/office-test/crm/verkoopkansen/detail?id='.$id.'">'.$name.'</a>';
+        // Preserve the existing guarded Calc launch action present on active Office-test.
+        $calcEnabled=getenv('OFFICE_BASE_PATH')==='/office-test'
+            && getenv('OFFICE_TEST_CRM_ENABLED')==='enabled'
+            && getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')==='enabled'
+            && getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')==='enabled'
+            && in_array((string)($item['stage']??''),['prospect','opportunity','proposal','negotiation'],true);
+        return $calcEnabled
+            ? $detail.' · <a href="/office-test/calculatie/start?opportunity_id='.$id.'">Calculatie</a>'
+            : $detail;
     }
     private static function card(array $item):string
     {
