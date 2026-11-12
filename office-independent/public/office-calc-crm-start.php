@@ -41,6 +41,13 @@ $opportunity = filter_var(
 if (!is_int($opportunity) || $opportunity < 1) $deny(400,'OPPORTUNITY_ID');
 
 if ($method === 'POST') {
+    // A CRM draft identity is NOT a canonical Calc workbench draft ID.
+    // Until the verified canonical adapter exists, do not create a dangling
+    // CRM draft or redirect its ID into the unrelated Calc workbench.
+    $deny(503,'CANONICAL_CALC_ADAPTER_PENDING');
+}
+
+if ($method === 'POST') {
     // Native browser form POSTs can omit Origin (e.g. privacy settings).
     // Never accept a mismatched Origin. Missing Origin requires trustworthy
     // same-origin Fetch Metadata or an exact-origin Referer, plus CSRF below.
