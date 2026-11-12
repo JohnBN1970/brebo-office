@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "key": "brebo.commercial",
+  "nodes": [
+    {
+      "id": "intake"
+    },
+    {
+      "id": "crm"
+    },
+    {
+      "id": "calculation"
+    },
+    {
+      "id": "quotation"
+    },
+    {
+      "id": "accepted"
+    },
+    {
+      "id": "project"
+    },
+    {
+      "id": "execution"
+    },
+    {
+      "id": "finance"
+    },
+    {
+      "id": "inspection"
+    }
+  ],
+  "edges": [
+    {
+      "id": "intake_to_crm",
+      "from": "intake",
+      "to": "crm",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "crm.update_status"
+      ]
+    },
+    {
+      "id": "crm_to_calculation",
+      "from": "crm",
+      "to": "calculation",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "crm.create_task"
+      ]
+    },
+    {
+      "id": "calculation_to_quotation",
+      "from": "calculation",
+      "to": "quotation",
+      "condition": "calculation.exists",
+      "on_failure": "block",
+      "actions": [
+        "quotation.create_draft"
+      ]
+    },
+    {
+      "id": "quotation_to_accepted",
+      "from": "quotation",
+      "to": "accepted",
+      "condition": "acceptance.verified",
+      "on_failure": "block",
+      "actions": [
+        "crm.update_status"
+      ]
+    },
+    {
+      "id": "direct_order",
+      "from": "crm",
+      "to": "accepted",
+      "condition": "acceptance.verified",
+      "on_failure": "block",
+      "actions": [
+        "crm.update_status"
+      ]
+    },
+    {
+      "id": "accepted_to_project",
+      "from": "accepted",
+      "to": "project",
+      "condition": "acceptance.verified",
+      "on_failure": "block",
+      "actions": [
+        "project.create",
+        "notification.create"
+      ]
+    },
+    {
+      "id": "accepted_calc_to_budget",
+      "from": "accepted",
+      "to": "project",
+      "condition": "acceptance.verified",
+      "on_failure": "block",
+      "actions": [
+        "budget.transfer_accepted_calculation"
+      ]
+    },
+    {
+      "id": "project_to_execution",
+      "from": "project",
+      "to": "execution",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "notification.create"
+      ]
+    },
+    {
+      "id": "execution_to_finance",
+      "from": "execution",
+      "to": "finance",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "notification.create"
+      ]
+    },
+    {
+      "id": "crm_to_inspection",
+      "from": "crm",
+      "to": "inspection",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "crm.create_task"
+      ]
+    },
+    {
+      "id": "inspection_to_finance",
+      "from": "inspection",
+      "to": "finance",
+      "condition": "always",
+      "on_failure": "block",
+      "actions": [
+        "notification.create"
+      ]
+    }
+  ]
+}
