@@ -49,8 +49,20 @@ jobs:
           stage="$HOME/office_calc_test/.material-preflight/preflight.php"
           test -f "$stage" && test ! -L "$stage"
           php -l "$stage"
-          # Explicitly require existing Office-test DSN in the remote environment.
-          # No attempt to parse secrets from .env or expose them in logs.
-          test -n "${OFFICE_INTAKE_PDO_DSN:-}" || { echo 'PREFLIGHT=BLOCKED ENV_NOT_LOADED'; exit 1; }
-          OFFICE_TEST_MATERIAL_PREFLIGHT=READ_ONLY php "$stage"
+          # Load only the established Office-test config, without echoing secrets.
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          OFFICE_CONFIG_PATH="$config" OFFICE_TEST_MATERIAL_PREFLIGHT=READ_ONLY php -d display_errors=0 -r '
+            $config = require getenv("OFFICE_CONFIG_PATH");
+            if (!is_array($config)) { fwrite(STDERR, "PREFLIGHT=BLOCKED_CONFIG\\n"); exit(1); }
+            foreach (["OFFICE_INTAKE_PDO_DSN","OFFICE_INTAKE_DB_USER","OFFICE_INTAKE_DB_PASSWORD"] as $key) {
+              $value = getenv($key);
+              if (!is_string($value) || $value === "") {
+                $value = $config[$key] ?? "";
+                if (!is_string($value)) { fwrite(STDERR, "PREFLIGHT=BLOCKED_CONFIG_VALUE\\n"); exit(1); }
+                putenv($key . "=" . $value);
+              }
+            }
+            require $argv[1];
+          ' "$stage"
           REMOTE
