@@ -5,6 +5,10 @@ namespace Brebo\Office\Inzet;
 
 use PDO;
 
+require_once __DIR__ . '/OfficeApprovedHoursDecisionRepository.php';
+require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
+require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
+
 /**
  * Posts only a decision already stored in the OnSite decision ledger.
  * No request-supplied duration, project, person or reviewer can override it.
