@@ -3,7 +3,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/office-work-budget-tab-deploy.yml'
-      - 'office-independent/deployment/hostinger/mount-work-budget-tab.py'
+      - 'office-independent/deployment/hostinger/mount-work-budget-tab-v3.py'
+      - 'office-independent/tests/test_work_budget_tab_v3.py'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -25,7 +26,9 @@ jobs:
         run: |
           set -euo pipefail
           php -l office-independent/public/office-project.php
-          python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab.py
+          python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab-v3.py
+          python3 -m unittest discover -s office-independent/tests -p 'test_work_budget_tab_v3.py' -v
+          php -l office-independent/src/Project/OfficeProjectPageStructure.php
           grep -Fq "'werkbegroting' => 'Werkbegroting'" office-independent/public/office-project.php
           grep -Fq "activeTab === 'werkbegroting'" office-independent/public/office-project.php
           grep -Fq "OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" office-independent/public/office-project.php
@@ -54,7 +57,7 @@ jobs:
           set -euo pipefail
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.work-budget-tab-stage"'
-          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-project.php office-independent/deployment/hostinger/mount-work-budget-tab.py "$USER@$HOST:office_calc_test/.work-budget-tab-stage/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-project.php office-independent/deployment/hostinger/mount-work-budget-tab-v3.py "$USER@$HOST:office_calc_test/.work-budget-tab-stage/"
       - name: Patch only project tab with locked source and atomic rollback
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -64,18 +67,25 @@ jobs:
           set -euo pipefail
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          base="$(php -r '$c = require $argv[1]; if (!is_array($c) || ($c["OFFICE_BASE_PATH"] ?? "") !== "/office-test") exit(31); echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$base" in "$HOME"/domains/brebobv.nl/office_calc_test/release-*/private) ;; *) echo WORK_BUDGET_V3_RELEASE_SCOPE_DENIED; exit 32;; esac
           stage="$HOME/office_calc_test/.work-budget-tab-stage"
           target="$base/public/office-project.php"
+          structure="$base/src/Project/OfficeProjectPageStructure.php"
           test -f "$HOME/domains/brebobv.nl/public_html/office-test/index.php"
-          test -f "$target" && test ! -L "$target"
-          test -f "$stage/office-project.php" && test ! -L "$stage/office-project.php"
+          for file in "$target" "$structure" "$stage/office-project.php" "$stage/mount-work-budget-tab-v3.py"; do
+            test -f "$file" && test ! -L "$file" || { echo WORK_BUDGET_V3_REQUIRED_FILE_MISSING; exit 33; }
+          done
           php -l "$target" >/dev/null
+          php -l "$structure" >/dev/null
           php -l "$stage/office-project.php" >/dev/null
           expected="$(sha256sum "$target" | cut -d ' ' -f 1)"
-          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_TAB_EXPECTED_SHA256="$expected" python3 "$stage/mount-work-budget-tab.py" "$target" "$stage/office-project.php"
-          php -l "$target"
-          grep -Fq "'werkbegroting' => 'Werkbegroting'" "$target"
-          grep -Fq "activeTab === 'werkbegroting'" "$target"
-          echo WORK_BUDGET_TAB_DEPLOY_VERIFIED
+          expected_structure="$(sha256sum "$structure" | cut -d ' ' -f 1)"
+          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_TAB_EXPECTED_SHA256="$expected" OFFICE_WORK_BUDGET_STRUCTURE_EXPECTED_SHA256="$expected_structure" python3 "$stage/mount-work-budget-tab-v3.py" "$target" "$stage/office-project.php" "$structure"
+          php -l "$target" && php -l "$structure"
+          grep -Fq "'werkbegroting' => 'Werkbegroting'" "$structure"
+          grep -Fq "'werkbegroting' => (string) \$workBudgetTabHtml," "$target"
+          echo WORK_BUDGET_V3_TAB_DEPLOY_VERIFIED
           REMOTE
