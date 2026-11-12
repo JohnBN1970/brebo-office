@@ -47,6 +47,8 @@ try {
   $boardEnabled = false;
   $boardCards = [];
   $csrfToken = '';
+  $duplicateCandidates = [];
+  $selectedMailId = null;
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -81,6 +83,11 @@ try {
         exit;
       }
       $boardCards = $board->cards($operatorId);
+      $selectedMailId = filter_var($_GET['inspect_mail'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (is_int($selectedMailId)) {
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailDuplicateCandidates.php';
+        $duplicateCandidates = (new \\Brebo\\Office\\Mail\\OfficeMailDuplicateCandidates($db))->forMessage($selectedMailId, $operatorId);
+      }
     } elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       http_response_code(503); exit('Mailbord niet actief.');
     }
@@ -104,7 +111,7 @@ main{max-width:1100px;margin:36px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
-.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:0;overflow-x:auto;padding:12px 0;align-items:stretch}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:6px;padding:12px;min-height:190px;border-right:1px solid #c8d1dd}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
+ .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:0;overflow-x:auto;padding:12px 0;align-items:stretch}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:6px;padding:12px;min-height:190px;border-right:1px solid #c8d1dd}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
 </style></head><body><main>
 <h1>E-mail</h1>
 <p class="muted">Native Office e-mailomgeving. Drupal is geen onderdeel van deze pagina.</p>
@@ -125,6 +132,13 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <section id="mailbord"><h2>E-mail per module</h2><p class="muted">Persoonlijke berichten staan uitsluitend voor de eigenaar in Privé. Overdracht naar een zakelijke module vereist een afzonderlijke, expliciete actie en is nog niet beschikbaar.</p>
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
+<?php if (is_int($selectedMailId)): ?>
+<div class="candidate-panel"><h3>Controle mogelijke dubbelingen - bericht #<?= (int)$selectedMailId ?></h3>
+<p class="muted">Dit zijn uitsluitend mogelijke vervolgberichten met dezelfde afzender en hetzelfde onderwerp. Er wordt niets automatisch gekoppeld of aangemaakt.</p>
+<?php if ($duplicateCandidates === []): ?><p>Geen overeenkomende e-mails gevonden in de gecontroleerde selectie.</p>
+<?php else: ?><ul><?php foreach ($duplicateCandidates as $candidate): ?><li><strong><?= htmlspecialchars($candidate['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong> - <?= htmlspecialchars($candidate['received_at'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> (bericht #<?= (int)$candidate['id'] ?>)</li><?php endforeach; ?></ul><?php endif; ?>
+<p><a href="/office-test/email#mailbord">Sluiten</a></p></div>
+<?php endif; ?>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
 <div class="board" id="office-mail-columns">
 <?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
@@ -132,6 +146,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
 <article class="mail-card" draggable="true" data-message="<?= (int)$card['id'] ?>">
 <strong><?= htmlspecialchars((string)$card['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
+<p><a href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>#mailbord">Controleer dubbelingen</a></p>
 <p><?= htmlspecialchars((string)$card['sender'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></p>
 <?php if (!empty($card['suggested_module'])): ?><small>AI-voorstel: <?= htmlspecialchars((string)$card['suggested_module'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small><?php endif; ?>
 <?php if ($key !== 'prive'): ?><form method="post" action="/office-test/email">
