@@ -13,6 +13,17 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
     fwrite(STDERR, "Office-test mail prerequisites missing.\n"); exit(2);
 }
 $live = in_array('--import', $argv, true);
+$limit = null;
+foreach ($argv as $arg) {
+    if (str_starts_with($arg, '--max-messages=')) {
+        $raw = substr($arg, strlen('--max-messages='));
+        if (!ctype_digit($raw) || (int)$raw < 1 || (int)$raw > 500) {
+            fwrite(STDERR, "Invalid max-messages (1..500).\n"); exit(2);
+        }
+        $limit = (int)$raw;
+    }
+}
+$remaining = $limit;
 if ($live && (getenv('OFFICE_THREE_FOLDER_IMPORT_ENABLED') !== 'enabled'
     || getenv('OFFICE_THREE_FOLDER_IMPORT_CONFIRMED') !== 'enabled')) {
     fwrite(STDERR, "Import disabled.\n"); exit(2);
@@ -65,6 +76,7 @@ $cutoff = new DateTimeImmutable('2026-10-13 00:00:00', new DateTimeZone('Europe/
 $cutoffTs = $cutoff->getTimestamp();
 $failures = 0;
 foreach ($folders as $folder => $suggestedModule) {
+    if ($live && $remaining === 0) break;
     $stream = @imap_open($root . $folder, $user, $password, OP_READONLY, 1);
     if ($stream === false) { fwrite(STDERR, "FOLDER=$folder ERROR=OPEN_FAILED\n"); ++$failures; continue; }
     try {
@@ -82,6 +94,7 @@ foreach ($folders as $folder => $suggestedModule) {
         $eligible = 0; $processed = 0; $skipped = 0;
         // Read headers only until live import; all messages remain untouched on Zoho.
         for ($n = 1; $n <= $count; ++$n) {
+            if ($live && $remaining === 0) break;
             $uid = imap_uid($stream, $n);
             if (!$uid) throw new RuntimeException('UID lookup failed');
             if ($uid <= $savedUid) continue;
@@ -109,6 +122,7 @@ foreach ($folders as $folder => $suggestedModule) {
                         'suggested_module' => $suggestedModule,
                     ]);
                     ++$processed;
+                    if ($remaining !== null) --$remaining;
                 }
             }
             if ($live) {
