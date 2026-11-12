@@ -80,7 +80,7 @@ try {
     echo 'MISSING_COLUMNS=' . implode(',', $missingColumns) . "\n";
     echo 'LOCKED_BASELINES=' . $count . "\n";
     echo "MUTATIONS=NONE\n";
-    exit(($missing === [] && $notInnoDb === []) ? 0 : 1);
+    exit(($missing === [] && $notInnoDb === [] && $missingColumns === []) ? 0 : 1);
 } catch (Throwable $error) {
     if (isset($db) && $db->inTransaction()) $db->rollBack();
     fwrite(STDERR, 'PREFLIGHT=ERROR CLASS=' . get_class($error) . "\n");
