@@ -83,6 +83,8 @@ $routes = [
   '/office-test/crm/verkoopkansen' => 'office-crm-opportunities.php',
   '/office-test/crm/verkoopkansen/nieuw' => 'office-crm-opportunity-create.php',
   '/office-test/crm/verkoopkansen/fase' => 'office-crm-opportunity-transition.php',
+  // CRM-first Calc draft creation remains fail-closed behind its own flags.
+  '/office-test/calculatie/start' => 'office-calc-crm-start.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/projecten' => 'office-projects.php',
