@@ -16,7 +16,7 @@ final class OfficeCalcCrmTransferService
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function transfer(array $acceptance, array $lines, callable $createProject, callable $verifyCrmAcceptance): array
+    public function transfer(array $acceptance, array $lines, callable $createProject, callable $verifyCrmAcceptance, ?callable $acceptCrmStage = null): array
     {
         if ($this->db->inTransaction()) {
             throw new DomainException('Transfer requires ownership of transaction');
@@ -89,6 +89,11 @@ final class OfficeCalcCrmTransferService
                     $item['quantity'], $item['unit_cost_cents'],
                     $item['budget_cents'], $item['activity_ref'],
                 ]);
+            }
+            // Optional CRM stage transition participates in this same transaction.
+            // A failed or stale transition rolls back project, transfer and budget.
+            if ($acceptCrmStage !== null && $acceptCrmStage($this->db, $acceptance) !== true) {
+                throw new DomainException('CRM stage transition was not confirmed');
             }
             $this->db->commit();
             return ['project_id' => $projectId, 'work_budget_id' => $baselineId, 'acceptance_key' => $key];
