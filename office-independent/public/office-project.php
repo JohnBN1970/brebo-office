@@ -511,9 +511,9 @@ $workBudgetHtml = '<div id="project-werkbegroting"><h2>Werkbegroting</h2>'
   . '<p>Vastgestelde begroting, materialen, inkooporders en deelleveringen.</p>';
 try {
   require_once dirname(__DIR__) . '/src/Finance/OfficeFinanceAccess.php';
-  $financeAccess = new \\Brebo\\Office\\Finance\\OfficeFinanceAccess($db);
+  $financeAccess = new \Brebo\Office\Finance\OfficeFinanceAccess($db, (string)$operator->operatorId);
   // Finance data is never exposed by project-read permission alone.
-  if (!$financeAccess->canRead((string)$operator->operatorId, (int)$projectId)) {
+  if (!$financeAccess->allows('read')) {
     $workBudgetHtml .= '<p>Geen toegang tot financiële projectgegevens.</p>';
   } else {
     $check = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines')");
