@@ -1,5 +1,9 @@
 name: Office-test work budget tab guarded deployment
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-work-budget-tab-deploy.yml'
+      - 'office-independent/deployment/hostinger/mount-work-budget-tab.py'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -13,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate:
-    if: ${{ github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST' }}
+    if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +31,7 @@ jobs:
           grep -Fq "OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" office-independent/public/office-project.php
   deploy:
     needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST' }}
     runs-on: ubuntu-latest
     environment: office-test
     steps:
