@@ -31,20 +31,24 @@ final class OfficeWorkflowDraftRepository
         $this->db->beginTransaction();
         try {
             $lock = $this->db->prepare(
-                'SELECT id FROM office_workflow_blueprints WHERE id = ? AND tenant_id = ? FOR UPDATE'
+                'SELECT id, blueprint_key FROM office_workflow_blueprints WHERE id = ? AND tenant_id = ? FOR UPDATE'
             );
             $lock->execute([$blueprintId, $tenantId]);
-            if (!$lock->fetch(PDO::FETCH_ASSOC)) {
-                throw new \DomainException('Blueprint not found in tenant.');
+            $owner = $lock->fetch(PDO::FETCH_ASSOC);
+            if (!$owner || !hash_equals((string)$owner['blueprint_key'], (string)$definition['key'])) {
+                throw new \DomainException('Blueprint not found in tenant or key mismatch.');
             }
             $version = $this->db->prepare(
-                'SELECT status, definition_sha256 FROM office_workflow_blueprint_versions
+                'SELECT status, definition_json, definition_sha256 FROM office_workflow_blueprint_versions
                  WHERE id = ? AND blueprint_id = ? FOR UPDATE'
             );
             $version->execute([$versionId, $blueprintId]);
             $current = $version->fetch(PDO::FETCH_ASSOC);
             if (!$current || $current['status'] !== 'draft') {
                 throw new \DomainException('Only draft versions may be changed.');
+            }
+            if (!hash_equals((string)$current['definition_sha256'], hash('sha256', (string)$current['definition_json']))) {
+                throw new \DomainException('Stored draft integrity mismatch.');
             }
             if (!hash_equals((string)$current['definition_sha256'], $expectedSha256)) {
                 throw new \DomainException('Draft changed elsewhere; reload before saving.');
