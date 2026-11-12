@@ -8,6 +8,7 @@ on:
       - 'office-independent/public/office-workflow-*.php'
       - 'office-independent/config/workflows/**'
       - 'office-independent/database/office-workflow-*.sql'
+      - 'office-independent/deployment/hostinger/check-workflow-schema.php'
       - 'office-independent/tests/OfficeBreboWorkflowConfigTest.php'
       - 'office-independent/tests/OfficeWorkflowEditorWiringTest.php'
       - 'office-independent/tests/OfficeCommercialWorkflowTest.php'
@@ -52,6 +53,7 @@ jobs:
           php -l office-independent/src/Workflow/OfficeWorkflowDraftRepository.php
           php -l office-independent/src/Workflow/OfficeWorkflowDraftReader.php
           php -l office-independent/src/Workflow/OfficeWorkflowVersionRepository.php
+          php -l office-independent/deployment/hostinger/check-workflow-schema.php
           php -l office-independent/public/office-workflow-draft-api.php
           php -l office-independent/public/office-workflow-preview.php
           php -l office-independent/deployment/hostinger/office-test-index.php
