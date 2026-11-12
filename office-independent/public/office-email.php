@@ -50,8 +50,8 @@ try {
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
-    $operatorId = filter_var($operator->operatorId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-    if (!is_int($operatorId)) throw new RuntimeException('Ongeldige Office-gebruiker.');
+    $operatorId = (string) $operator->operatorId;
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Ongeldige Office-gebruiker.');
     $mailRepo = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
     $mailboxes = $mailRepo->visibleMailboxes($operatorId);
     $boardEnabled = getenv('OFFICE_MAIL_BOARD_SCHEMA_VERIFIED') === 'enabled';
