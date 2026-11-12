@@ -5,6 +5,10 @@ on:
     paths:
       - 'office-independent/src/Quotation/**'
       - 'office-independent/src/Workflow/**'
+      - 'office-independent/public/office-workflow-*.php'
+      - 'office-independent/config/workflows/**'
+      - 'office-independent/database/office-workflow-*.sql'
+      - 'office-independent/tests/OfficeBreboWorkflowConfigTest.php'
       - 'office-independent/tests/OfficeCommercialWorkflowTest.php'
       - 'office-independent/tests/OfficeCommercialTransitionGuardTest.php'
       - 'office-independent/tests/OfficeCrmWorkflowBridgeTest.php'
