@@ -1,5 +1,9 @@
 name: Office material procurement database preflight (read only)
 on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-material-procurement-db-preflight.yml'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -10,7 +14,7 @@ permissions:
   contents: read
 jobs:
   check:
-    if: ${{ inputs.confirmation == 'CHECK-MATERIAL-TEST' }}
+    if: ${{ github.event_name == 'push' || inputs.confirmation == 'CHECK-MATERIAL-TEST' }}
     runs-on: ubuntu-latest
     environment: office-test
     steps:
