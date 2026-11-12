@@ -23,7 +23,7 @@ jobs:
           php -l office-independent/public/office-project.php
           python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab.py
           grep -Fq "'werkbegroting' => 'Werkbegroting'" office-independent/public/office-project.php
-          grep -Fq "$activeTab === 'werkbegroting'" office-independent/public/office-project.php
+          grep -Fq "activeTab === 'werkbegroting'" office-independent/public/office-project.php
           grep -Fq "OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" office-independent/public/office-project.php
   deploy:
     needs: validate
@@ -71,6 +71,6 @@ jobs:
           OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_TAB_EXPECTED_SHA256="$expected" python3 "$stage/mount-work-budget-tab.py" "$target" "$stage/office-project.php"
           php -l "$target"
           grep -Fq "'werkbegroting' => 'Werkbegroting'" "$target"
-          grep -Fq "$activeTab === 'werkbegroting'" "$target"
+          grep -Fq "activeTab === 'werkbegroting'" "$target"
           echo WORK_BUDGET_TAB_DEPLOY_VERIFIED
           REMOTE
