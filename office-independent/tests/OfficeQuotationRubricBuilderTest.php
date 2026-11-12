@@ -19,4 +19,24 @@ if (count($rubrics) !== 2 || count($rubrics[0]['lines']) !== 2
     || $rubrics[1]['review']['quantities_checked'] !== false) {
     throw new RuntimeException('Rubric grouping, source fidelity or review gate failed');
 }
+if ($rubrics[0]['lines'][0]['unit_sales_price_ex_vat'] !== 100.0
+    || abs($rubrics[0]['lines'][1]['unit_sales_price_ex_vat'] - 70.588235) > 0.000001
+    || $rubrics[1]['lines'][0]['unit_sales_price_ex_vat'] !== 50.0) {
+    throw new RuntimeException('Rubric unit selling price missing or incorrect');
+}
+foreach ($rubrics as $rubric) {
+    foreach ($rubric['lines'] as $line) {
+        foreach (['cost_price', 'margin', 'purchase'] as $privateField) {
+            if (array_key_exists($privateField, $line)) throw new RuntimeException('Private price field leaked');
+        }
+    }
+}
+$invalid = $items;
+$invalid[0]['quantity'] = '1e309';
+try {
+    OfficeQuotationRubricBuilder::build($invalid);
+    throw new RuntimeException('Non-finite rubric quantity accepted');
+} catch (InvalidArgumentException $e) {
+    if ($e->getMessage() === 'Non-finite rubric quantity accepted') throw $e;
+}
 echo "OFFERTSTUDIO_RUBRIC_TEST_OK\n";
