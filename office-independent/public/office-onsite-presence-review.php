@@ -57,7 +57,7 @@ try {
    $in=$_POST['in_event_id']??null;$out=$_POST['out_event_id']??null;
    if (!is_string($in) || !is_string($out)) {http_response_code(400);exit('Ongeldige registratie.');}
    (new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db))->approve($id,$in,$out,$operator->operatorId);
-   header('Location: /office-test/onsite/aanwezigheid?id='.$id.'&approved=1',true,303);
+   header('Location: ?id='.$id.'&approved=1',true,303);
    exit;
  }
  $review=(new \Brebo\Office\Inzet\OnSitePresenceReviewRepository($db))
