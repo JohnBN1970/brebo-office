@@ -5,7 +5,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 $scriptNonce = base64_encode(random_bytes(18));
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-" . $scriptNonce . "'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-" . $scriptNonce . "'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { header('Allow: GET'); http_response_code(405); exit; }
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
     || getenv('OFFICE_WORKFLOW_PREVIEW_ENABLED') !== 'enabled'
@@ -70,7 +70,7 @@ th{color:#4a5970}small{color:#64748b}
 <tr><td><button type="button" class="edge" data-edge="<?=h((string)array_search([$label,$route,$action,$condition],$edges,true))?>"><?=h($label)?></button></td><td><?=h($route)?></td><td><code><?=h($action)?></code></td><td><?=h($condition)?></td></tr>
 <?php endforeach; ?></tbody></table>
 <fieldset><legend>Verbinding configureren (lokale simulatie)</legend><p id="selection">Selecteer een verbinding in de tabel.</p><label for="condition">Voorwaarde</label><select id="condition" disabled><option value="always">Altijd</option><option value="acceptance.verified">Acceptatie gecontroleerd</option><option value="calculation.exists">Calculatie aanwezig</option><option value="quotation.accepted">Offerte geaccepteerd</option><option value="document.verified">Document gecontroleerd</option></select><label for="failure">Bij fout</label><select id="failure" disabled><option value="block">Blokkeren</option><option value="retry">Opnieuw proberen</option><option value="assign_task">Taak aanmaken</option></select><p><button id="add" type="button" disabled>Voeg actie toe</button> <button id="reset" type="button">Herstel voorbeeld</button></p><ol id="actions"></ol><p id="message" role="status">Wijzigingen bestaan uitsluitend in deze browsersessie; er wordt niets opgeslagen of uitgevoerd.</p></fieldset><p><small>Demonstratie op basis van voorbeeldgegevens, niet de gepubliceerde databaseconfiguratie. Publiceren en opslaan zijn uitgeschakeld.</small></p>
-</section></main><script nonce="<?=h($scriptNonce)?>">
+<section class="panel" id="draft-editor"><h2>Opgeslagen concept bewerken</h2><p>Open deze pagina met <code>?blueprint_id=1&amp;version_id=1</code> (gebruik de werkelijke database-ID's). Deze editor wijzigt uitsluitend conceptversies. Het voorbeeld hierboven blijft een losse simulatie.</p><label for="definition">Blauwdrukdefinitie (JSON)</label><textarea id="definition" rows="14" style="width:100%;box-sizing:border-box;font:13px monospace" disabled></textarea><p><button type="button" id="load-draft">Concept laden</button> <button type="button" id="save-draft" disabled>Concept opslaan</button> <button type="button" id="publish-draft" disabled>Publiceren</button></p><p id="draft-status" role="status">Nog geen concept geladen.</p></section></main><script nonce="<?=h($scriptNonce)?>">
 (() => {
 'use strict';
 const original = <?=json_encode($edges, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_THROW_ON_ERROR)?>;
@@ -121,5 +121,49 @@ document.getElementById('reset').addEventListener('click',()=>{
  selected=-1;message.textContent='Voorbeeld hersteld; niets opgeslagen.';render();
 });
 render();
+})();
+(() => {
+'use strict';
+const params=new URLSearchParams(location.search);
+const blueprintId=Number(params.get('blueprint_id')),versionId=Number(params.get('version_id'));
+const editor=document.getElementById('definition'),status=document.getElementById('draft-status');
+const load=document.getElementById('load-draft'),save=document.getElementById('save-draft'),publish=document.getElementById('publish-draft');
+const endpoint='/office-test/installatie/workflows/api';
+let csrf='',sha='';
+const enabled=Number.isSafeInteger(blueprintId)&&blueprintId>0&&Number.isSafeInteger(versionId)&&versionId>0;
+load.disabled=!enabled;
+async function request(method,payload){
+ const response=await fetch(method==='GET'?endpoint+'?blueprint_id='+blueprintId+'&version_id='+versionId:endpoint,{
+ method,credentials:'same-origin',headers:method==='POST'?{'Content-Type':'application/json'}:{},
+ ...(method==='POST'?{body:JSON.stringify(payload)}:{})
+ });
+ const result=await response.json();
+ if(!response.ok)throw new Error(result.error||'HTTP '+response.status);
+ return result;
+}
+load.addEventListener('click',async()=>{
+ try{
+ const result=await request('GET');
+ editor.value=JSON.stringify(result.draft.definition,null,2);
+ sha=result.draft.definition_sha256;csrf=result.csrf;
+ editor.disabled=false;save.disabled=false;publish.disabled=false;
+ status.textContent='Conceptversie '+result.draft.version_number+' geladen. Wijzigingen nog niet opgeslagen.';
+ }catch(e){status.textContent='Laden mislukt: '+e.message;}
+});
+save.addEventListener('click',async()=>{
+ try{
+ const definition=JSON.parse(editor.value);
+ const result=await request('POST',{operation:'save',blueprint_id:blueprintId,version_id:versionId,csrf,expected_sha256:sha,definition});
+ sha=result.definition_sha256;status.textContent='Concept opgeslagen. Niet gepubliceerd.';
+ }catch(e){status.textContent='Opslaan mislukt: '+e.message;}
+});
+publish.addEventListener('click',async()=>{
+ if(!confirm('Publiceer deze workflowversie? Lopende dossiers blijven op hun bestaande versie.'))return;
+ try{
+ const result=await request('POST',{operation:'publish',blueprint_id:blueprintId,version_id:versionId,csrf});
+ status.textContent='Versie '+result.published.version_id+' gepubliceerd. Nieuwe dossiers kunnen deze versie gebruiken.';
+ editor.disabled=save.disabled=publish.disabled=true;
+ }catch(e){status.textContent='Publiceren mislukt: '+e.message;}
+});
 })();
 </script></body></html>
