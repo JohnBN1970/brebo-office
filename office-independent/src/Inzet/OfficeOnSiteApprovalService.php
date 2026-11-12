@@ -8,7 +8,9 @@ use DateTimeZone;
 use PDO;
 
 require_once __DIR__ . '/OnSiteHoursReview.php';
-require_once __DIR__ . '/OfficeApprovedHoursPostingService.php';
+require_once __DIR__ . '/OfficeApprovedHoursDecisionRepository.php';
+require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
+require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
@@ -48,13 +50,22 @@ final class OfficeOnSiteApprovalService
         $reference=hash('sha256',$inEventId.'|'.$outEventId);
         $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
+        $this->db->beginTransaction();
+        try {
         $insert=$this->db->prepare("INSERT INTO office_onsite_hours_decisions
             (decision_reference,in_event_id,out_event_id,project_id,person_id,work_date,status,
              reviewed_seconds,reviewer_id,decided_at)
             VALUES (?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())");
         $insert->execute([$reference,$inEventId,$outEventId,$projectId,$personId,
             $in->format('Y-m-d'),$decision['status'],$decision['reviewed_seconds'],$reviewer]);
-        return (new OfficeApprovedHoursPostingService($this->db))
-            ->postPersistedApproval($reference,$reviewer);
+        $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified($reference,$reviewer);
+        $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
+        $bookingId=(new OfficeApprovedHoursBooking($this->db))->append($entry,$reviewer);
+        $this->db->commit();
+        return $bookingId;
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
     }
 }
