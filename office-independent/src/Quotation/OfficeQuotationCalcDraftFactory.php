@@ -63,6 +63,7 @@ final class OfficeQuotationCalcDraftFactory
             foreach ($source['sales_lines'] as $item) {
                 $priceLines[] = $item['description'] . ' — '
                     . number_format($item['quantity'], 2, ',', '.') . ' ' . $item['unit']
+                    . ' × € ' . number_format($item['unit_sales_price_ex_vat'], 2, ',', '.')
                     . ' — € ' . number_format($item['amount_ex_vat_cents'] / 100, 2, ',', '.');
             }
             $priceLines[] = 'Totaal exclusief btw: € '
