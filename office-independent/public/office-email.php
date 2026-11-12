@@ -203,6 +203,14 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php elseif ($crmRecognitionStatus === 'unavailable'): ?><p>CRM-herkenning tijdelijk niet beschikbaar; e-mailcontrole blijft actief.</p>
 <?php else: ?><p>CRM-herkenning niet actief of geen toegang (privéberichten worden niet gecontroleerd).</p><?php endif; ?>
 <h4>Dossiervoorstellen: gebouwen en projecten</h4>
+<?php if ($selectedCard !== null && (string)$selectedCard['module_key'] !== 'prive'): ?>
+<form method="post" action="/office-test/email#mailbord" style="margin:12px 0">
+<input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>">
+<input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
+<input type="hidden" name="module" value="nieuw">
+<button type="submit">Later beoordelen (naar Nieuw)</button>
+</form>
+<?php endif; ?>
 <p class="muted">Controleer alle gevonden adressen. Open het bestaande gebouw of CRM-dossier om de juiste vervolgactie te bepalen. Automatisch koppelen is uitgeschakeld.</p>
 <?php if ($buildingRecognitionStatus === 'checked'): ?>
 <?php if ($buildingProjectCandidates['buildings'] === []): ?><p>Geen toegankelijk gebouw gevonden op basis van postcodes in onderwerp of berichttekst.</p>
