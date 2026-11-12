@@ -209,7 +209,7 @@ echo '</div></section>';
 if ($message !== '') echo '<p role="alert">'.$escape($message).'</p>';
 if ($editing && isset($_GET['saved'])) echo '<p role="status">Concept opgeslagen.</p>';
 if ($storageReady) {
-    echo '<section class="panel draft-editor" id="offerte-editor"><h2>'.($editing ? 'Concept bewerken' : 'Nieuw offerteconcept').'</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
+    echo '<section class="panel draft-editor" id="offerte-editor"><h2>'.($editing ? 'Concept bewerken' : 'Nieuw offerteconcept').'</h2><form method="post" action="/office-test/crm/offertes?type='.$escape($type).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'"><input type="hidden" name="type" value="'.$escape($type).'"><p><label for="quotation-relation-search">Relatie zoeken</label><input id="quotation-relation-search" type="search" autocomplete="off" placeholder="Zoek op relatienaam"><small id="quotation-relation-count" role="status"></small><label>Relatie <select name="relation_id" required><option value="">Kies een relatie</option>';
     foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.($editing && (int)$editing['relation_id'] === (int)$relation['id'] ? ' selected' : '').'>'.$escape((string)$relation['display_name']).'</option>';
     echo '</select></label></p><p><label>Offertetitel <input name="title" maxlength="255" required value="'.($editing ? $escape((string)$editing['title']) : '').'"></label></p>';
     foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $key) {
@@ -229,7 +229,26 @@ echo <<<'HTML'
   const editor = document.querySelector('.draft-editor');
   const navigation = document.querySelector('.chapter-nav');
   if (!editor || !navigation) return;
-  const sections = Array.from(editor.querySelectorAll('p[id^="section-"]'));
+  const relationSearch = editor.querySelector('#quotation-relation-search');
+  const relationSelect = editor.querySelector('select[name="relation_id"]');
+  const relationCount = editor.querySelector('#quotation-relation-count');
+  if (relationSearch && relationSelect) {
+    const options = Array.from(relationSelect.options).filter(option => option.value !== '');
+    const updateRelationFilter = () => {
+      const term = relationSearch.value.trim().toLocaleLowerCase('nl-NL');
+      let count = 0;
+      for (const option of options) {
+        const match = !term || option.textContent.toLocaleLowerCase('nl-NL').includes(term);
+        option.hidden = !match;
+        option.disabled = !match && !option.selected;
+        if (match) count++;
+      }
+      if (relationCount) relationCount.textContent = count + ' relaties gevonden';
+    };
+    relationSearch.addEventListener('input', updateRelationFilter);
+    updateRelationFilter();
+  }
+    const sections = Array.from(editor.querySelectorAll('p[id^="section-"]'));
   const links = Array.from(navigation.querySelectorAll('a[href^="#section-"]'));
   if (!sections.length) return;
   const bar = document.createElement('div');
