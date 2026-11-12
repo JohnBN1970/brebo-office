@@ -166,12 +166,12 @@ header('Content-Type: text/html; charset=utf-8');
 <title>E-mail - BREBO Office</title>
 <style>
 body{margin:0;background:#f4f6fa;color:#1b2c3c;font:15px system-ui,sans-serif}
-main{max-width:1100px;margin:36px auto;padding:0 20px}
+main{max-width:none;margin:20px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
- .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:0;overflow-x:auto;padding:12px 0;align-items:stretch}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:6px;padding:12px;min-height:190px;border-right:1px solid #c8d1dd}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
-</style></head><body><main>
+ .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:8px 0;align-items:stretch;min-width:0;flex:1;height:min(75vh,780px)}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:8px;padding:12px;min-height:0;overflow-y:auto;overflow-x:hidden;border:1px solid #c8d1dd;scrollbar-width:thin}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
+.mail-workspace{display:flex;gap:16px;align-items:stretch;min-width:0}.mail-detail{box-sizing:border-box;flex:0 0 min(380px,34vw);min-width:260px;max-height:min(75vh,780px);overflow-y:auto;scrollbar-width:thin}.mail-detail .candidate-panel{margin:0}.mail-card p{margin:7px 0;font-size:13px}.mail-card strong{font-size:13px;overflow-wrap:anywhere}.lane h3{position:sticky;top:-12px;background:#e9eef6;padding:8px 0;z-index:1}@media(max-width:950px){.mail-workspace{flex-direction:column}.mail-detail{flex:auto;min-width:0;max-height:420px}.board{height:65vh;min-height:400px}}@media(max-width:600px){main{padding:0 10px}.lane{flex-basis:210px}.board{height:60vh}}</style></head><body><main>
 <h1>E-mail</h1>
 
 <div class="grid">
@@ -191,6 +191,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <section id="mailbord"><h2>E-mail per module</h2><p class="muted">Persoonlijke berichten staan uitsluitend voor de eigenaar in Privé. Overdracht naar een zakelijke module vereist een afzonderlijke, expliciete actie en is nog niet beschikbaar.</p>
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
+<div class="mail-workspace"><aside class="mail-detail" aria-label="Dossierherkenning">
 <?php if (is_int($selectedMailId)): ?>
 <div class="candidate-panel"><h3>Automatische dubbelingencontrole - bericht #<?= (int)$selectedMailId ?></h3>
 <p class="muted">Dit zijn uitsluitend mogelijke vervolgberichten met dezelfde afzender en hetzelfde onderwerp. Er wordt niets automatisch gekoppeld of aangemaakt.</p>
@@ -231,6 +232,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php else: ?><ul><?php foreach ($duplicateCandidates as $candidate): ?><li><strong><?= htmlspecialchars($candidate['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong> - <?= htmlspecialchars($candidate['received_at'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> (bericht #<?= (int)$candidate['id'] ?>)</li><?php endforeach; ?></ul><?php endif; ?>
 </div>
 <?php endif; ?>
+</aside>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
 <div class="board" id="office-mail-columns">
 <?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
@@ -250,7 +252,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php endforeach; ?></select></label><button type="submit">Verplaats</button>
 </form><?php else: ?><small>Privé: niet automatisch deelbaar</small><?php endif; ?></article>
 <?php endforeach; ?><div class="lane-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Breedte <?= htmlspecialchars($label,ENT_QUOTES,'UTF-8') ?> aanpassen" title="Sleep om kolombreedte aan te passen"></div></section>
-<?php endforeach; ?></div>
+<?php endforeach; ?></div></div>
 <script>
 (() => {
  let active=null;
