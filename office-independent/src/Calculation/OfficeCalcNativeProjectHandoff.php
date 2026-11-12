@@ -30,12 +30,24 @@ final class OfficeCalcNativeProjectHandoff
         }
         // Caller supplies the verified project title/code and operator identity.
         // Do not infer either from untrusted browser input.
+        $expectedStage = $project['expected_crm_stage'] ?? null;
+        if (!is_string($expectedStage) || !in_array($expectedStage, ['opportunity', 'proposal', 'negotiation'], true)) {
+            throw new DomainException('Expected CRM stage required for atomic acceptance');
+        }
         return OfficeCalcAcceptedOpportunityTransfer::execute(
             $db,
             $acceptance,
             $calculationLines,
             static fn(PDO $transaction, array $accepted): int =>
-                OfficeNativeProjectFactory::create($transaction, $project)
+                OfficeNativeProjectFactory::create($transaction, $project),
+            static function (PDO $transaction, array $accepted) use ($expectedStage): bool {
+                $stmt = $transaction->prepare(
+                    "UPDATE office_crm_opportunities SET stage='won', status='closed' " .
+                    "WHERE id=? AND stage=? AND status='open'"
+                );
+                $stmt->execute([(int)$accepted['crm_opportunity_id'], $expectedStage]);
+                return $stmt->rowCount() === 1;
+            }
         );
     }
 }
