@@ -12,7 +12,7 @@ use PDO;
  */
 final class OfficeCalcAcceptedOpportunityTransfer
 {
-    public static function execute(PDO $db, array $acceptance, array $calculationLines, callable $createProject): array
+    public static function execute(PDO $db, array $acceptance, array $calculationLines, callable $createProject, ?callable $acceptCrmStage = null): array
     {
         require_once __DIR__ . '/OfficeCalcCrmTransferService.php';
         require_once __DIR__ . '/OfficeCalcPersistedCrmAcceptance.php';
@@ -22,7 +22,8 @@ final class OfficeCalcAcceptedOpportunityTransfer
             $calculationLines,
             $createProject,
             static fn(PDO $transaction, array $candidate): bool =>
-                OfficeCalcPersistedCrmAcceptance::verify($transaction, $candidate)
+                OfficeCalcPersistedCrmAcceptance::verify($transaction, $candidate),
+            $acceptCrmStage
         );
     }
 }
