@@ -39,6 +39,19 @@ final class OfficeCalcCrmTransferService
         $budget = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines);
         $this->db->beginTransaction();
         try {
+            // Lock the CRM opportunity first, matching the regular won-transition
+            // lock order. This serializes competing stage changes and prevents
+            // accepting an already closed or stale opportunity.
+            $opportunity = $this->db->prepare(
+                'SELECT stage, status FROM office_crm_opportunities WHERE id=? FOR UPDATE'
+            );
+            $opportunity->execute([(int)$acceptance['crm_opportunity_id']]);
+            $current = $opportunity->fetch(PDO::FETCH_ASSOC);
+            $expectedStage = $acceptance['expected_crm_stage'] ?? null;
+            if (!is_array($current) || $current['status'] !== 'open'
+                || ($expectedStage !== null && $current['stage'] !== $expectedStage)) {
+                throw new DomainException('CRM opportunity is no longer open in expected stage');
+            }
             // Verify persisted CRM acceptance under the same transaction before any
             // project or budget write. The adapter must lock the opportunity row
             // and return true only for the exact accepted calculation/revision.
