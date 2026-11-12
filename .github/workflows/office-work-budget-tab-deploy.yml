@@ -1,0 +1,81 @@
+name: Office-test work budget tab guarded deployment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-work-budget-tab-deploy.yml'
+      - 'office-independent/deployment/hostinger/mount-work-budget-tab.py'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-WORK-BUDGET-TAB-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-page-deploy
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tab source syntax and guards
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-project.php
+          python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab.py
+          grep -Fq "'werkbegroting' => 'Werkbegroting'" office-independent/public/office-project.php
+          grep -Fq "activeTab === 'werkbegroting'" office-independent/public/office-project.php
+          grep -Fq "OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" office-independent/public/office-project.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Stage isolated page-tab patch
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.work-budget-tab-stage"'
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-project.php office-independent/deployment/hostinger/mount-work-budget-tab.py "$USER@$HOST:office_calc_test/.work-budget-tab-stage/"
+      - name: Patch only project tab with locked source and atomic rollback
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test/release-office-test-contractform-20261030/private"
+          stage="$HOME/office_calc_test/.work-budget-tab-stage"
+          target="$base/public/office-project.php"
+          test -f "$HOME/domains/brebobv.nl/public_html/office-test/index.php"
+          test -f "$target" && test ! -L "$target"
+          test -f "$stage/office-project.php" && test ! -L "$stage/office-project.php"
+          php -l "$target" >/dev/null
+          php -l "$stage/office-project.php" >/dev/null
+          expected="$(sha256sum "$target" | cut -d ' ' -f 1)"
+          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_TAB_EXPECTED_SHA256="$expected" python3 "$stage/mount-work-budget-tab.py" "$target" "$stage/office-project.php"
+          php -l "$target"
+          grep -Fq "'werkbegroting' => 'Werkbegroting'" "$target"
+          grep -Fq "activeTab === 'werkbegroting'" "$target"
+          echo WORK_BUDGET_TAB_DEPLOY_VERIFIED
+          REMOTE
