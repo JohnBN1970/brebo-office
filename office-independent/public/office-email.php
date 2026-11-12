@@ -144,7 +144,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
  .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:0;overflow-x:auto;padding:12px 0;align-items:stretch}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:6px;padding:12px;min-height:190px;border-right:1px solid #c8d1dd}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
 </style></head><body><main>
 <h1>E-mail</h1>
-<p class="muted">Native Office e-mailomgeving. Drupal is geen onderdeel van deze pagina.</p>
+
 <div class="grid">
 <article><h2>Inbox</h2><p>Functionele mailboxen en berichten.</p>
 <?php if (!$mailSchemaReady): ?><p class="status">Native database nog niet geactiveerd</p>
