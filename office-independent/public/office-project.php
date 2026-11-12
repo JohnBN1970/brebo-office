@@ -536,6 +536,14 @@ try {
           $workBudgetHtml .= '<tr><td>'.$escape((string)$row['cost_type']).'</td><td>'.(int)$row['line_count'].'</td><td>€ '.number_format((int)$row['total_cents']/100,2,',','.').'</td></tr>';
         }
         $workBudgetHtml .= '</tbody></table>';
+        $detailQuery = $db->prepare('SELECT source_line_id,cost_type,quantity,unit_cost_cents,budget_cents,activity_ref FROM office_calc_work_budget_lines WHERE baseline_id=? ORDER BY cost_type,id LIMIT 250');
+        $detailQuery->execute([(int)$baseline['id']]);
+        $detailRows = $detailQuery->fetchAll(PDO::FETCH_ASSOC);
+        $workBudgetHtml .= '<h3>Begrotingsregels</h3><p>Vastgestelde regels (alleen lezen). Maximaal 250 regels per overzicht.</p><div style="overflow-x:auto"><table><thead><tr><th>Regel</th><th>Soort</th><th>Activiteit</th><th>Aantal</th><th>Eenheidskosten</th><th>Begroot</th></tr></thead><tbody>';
+        foreach ($detailRows as $line) {
+          $workBudgetHtml .= '<tr><td>'.$escape((string)$line['source_line_id']).'</td><td>'.$escape((string)$line['cost_type']).'</td><td>'.$escape((string)($line['activity_ref'] ?? '—')).'</td><td>'.(int)$line['quantity'].'</td><td>€ '.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td>€ '.number_format((int)$line['budget_cents']/100,2,',','.').'</td></tr>';
+        }
+        $workBudgetHtml .= '</tbody></table></div>';
       }
     }
   }
