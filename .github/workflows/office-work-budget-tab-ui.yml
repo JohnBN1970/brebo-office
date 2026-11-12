@@ -1,0 +1,76 @@
+name: Office-test work budget tab layout
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-work-budget-tab-ui.yml'
+      - 'office-independent/deployment/hostinger/mount-work-budget-tab-ui.py'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type STYLE-WORK-BUDGET-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-project-page-deploy
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: ${{ github.event_name == 'pull_request' || (github.ref == 'refs/heads/develop' && inputs.confirmation == 'STYLE-WORK-BUDGET-TEST') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab-ui.py
+          php -l office-independent/public/office-project.php
+  deploy:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop' && inputs.confirmation == 'STYLE-WORK-BUDGET-TEST' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Stage guarded layout patch
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.work-budget-ui-stage"'
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/deployment/hostinger/mount-work-budget-tab-ui.py "$USER@$HOST:office_calc_test/.work-budget-ui-stage/"
+      - name: Apply presentation-only patch
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          root="$(php -r '$c = require $argv[1]; if (!is_array($c) || ($c["OFFICE_BASE_PATH"] ?? "") !== "/office-test") exit(31); echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$root" in "$HOME"/domains/brebobv.nl/office_calc_test/release-*/private) ;; *) echo WORK_BUDGET_UI_RELEASE_SCOPE_DENIED; exit 32;; esac
+          target="$root/public/office-project.php"
+          script="$HOME/office_calc_test/.work-budget-ui-stage/mount-work-budget-tab-ui.py"
+          test -f "$target" && test ! -L "$target" && test -f "$script" && test ! -L "$script"
+          php -l "$target" >/dev/null
+          expected="$(sha256sum "$target" | cut -d ' ' -f 1)"
+          OFFICE_BASE_PATH=/office-test OFFICE_WORK_BUDGET_UI_EXPECTED_SHA256="$expected" python3 "$script" "$target"
+          php -l "$target"
+          grep -Fq 'office-work-budget__kpis{display:grid' "$target"
+          echo WORK_BUDGET_UI_DEPLOY_VERIFIED
+          REMOTE
