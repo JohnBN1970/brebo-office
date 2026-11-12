@@ -10,6 +10,12 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit(3);
 }
+// Supply a trusted local bootstrap that defines $db as a PDO instance.
+// Do not accept a bootstrap path from an HTTP request.
+$bootstrap = getenv('OFFICE_HANDOFF_PDO_BOOTSTRAP');
+if (is_string($bootstrap) && $bootstrap !== '' && is_file($bootstrap)) {
+    require $bootstrap;
+}
 if (!isset($db) || !$db instanceof PDO) {
     fwrite(STDERR, "HANDOFF_PREFLIGHT_PDO_REQUIRED\n");
     exit(3);
