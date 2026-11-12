@@ -202,9 +202,10 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php endforeach; ?></ul><?php endif; ?>
 <?php elseif ($crmRecognitionStatus === 'unavailable'): ?><p>CRM-herkenning tijdelijk niet beschikbaar; e-mailcontrole blijft actief.</p>
 <?php else: ?><p>CRM-herkenning niet actief of geen toegang (privéberichten worden niet gecontroleerd).</p><?php endif; ?>
-<h4>Gebouwen en projecten</h4>
+<h4>Dossiervoorstellen: gebouwen en projecten</h4>
+<p class="muted">Controleer alle gevonden adressen. Open het bestaande gebouw of CRM-dossier om de juiste vervolgactie te bepalen. Automatisch koppelen is uitgeschakeld.</p>
 <?php if ($buildingRecognitionStatus === 'checked'): ?>
-<?php if ($buildingProjectCandidates['buildings'] === []): ?><p>Geen toegankelijk gebouw gevonden op basis van een postcode in het onderwerp.</p>
+<?php if ($buildingProjectCandidates['buildings'] === []): ?><p>Geen toegankelijk gebouw gevonden op basis van postcodes in onderwerp of berichttekst.</p>
 <?php else: ?>
 <ul><?php foreach ($buildingProjectCandidates['buildings'] as $buildingCandidate): ?>
 <li><a href="/office-test/gebouwen?id=<?= (int)$buildingCandidate['id'] ?>"><?= htmlspecialchars((string)$buildingCandidate['building_name'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a> — <?= htmlspecialchars((string)$buildingCandidate['street_address'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>, <?= htmlspecialchars((string)$buildingCandidate['postal_code'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> <?= htmlspecialchars((string)$buildingCandidate['city'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></li>
@@ -213,7 +214,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php foreach ($buildingProjectCandidates['projects'] as $projectCandidate): ?>
 <li>Project #<?= (int)$projectCandidate['project_id'] ?> (gebouw #<?= (int)$projectCandidate['building_id'] ?>)</li>
 <?php endforeach; ?></ul><?php endif; ?>
-<p class="muted">Postcodeherkenning is een voorstel; controleer adres en project voordat je koppelt.</p>
+<p class="muted">Bij meerdere postcodes worden alle toegankelijke kandidaten getoond. Controleer straat, huisnummer en toevoeging voordat je een dossier kiest.</p>
 <?php endif; ?>
 <?php elseif ($buildingRecognitionStatus === 'unavailable'): ?><p>Gebouwenherkenning tijdelijk niet beschikbaar.</p>
 <?php else: ?><p>Gebouwenherkenning niet actief of privébericht.</p><?php endif; ?>
