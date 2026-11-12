@@ -13,7 +13,7 @@ final class OfficeWorkflowPublicationRepository
 {
     public function __construct(private PDO $db) {}
 
-    public function publish(int $tenantId, int $blueprintId, int $versionId, int $actorId, bool $authorized): array
+    public function publish(int $tenantId, int $blueprintId, int $versionId, int $actorId, bool $authorized, string $expectedSha256 = ''): array
     {
         if (!$authorized || min($tenantId, $blueprintId, $versionId, $actorId) < 1) {
             throw new \DomainException('Not authorized to publish workflow.');
@@ -36,6 +36,9 @@ final class OfficeWorkflowPublicationRepository
             $version = $get->fetch(PDO::FETCH_ASSOC);
             if (!$version || $version['status'] !== 'draft') {
                 throw new \DomainException('Only draft versions can be published.');
+            }
+            if ($expectedSha256 !== '' && !hash_equals((string)$version['definition_sha256'], $expectedSha256)) {
+                throw new \DomainException('Draft changed since last review.');
             }
             $json = (string) $version['definition_json'];
             if (!hash_equals((string) $version['definition_sha256'], hash('sha256', $json))) {
