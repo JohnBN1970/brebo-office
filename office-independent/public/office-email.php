@@ -104,8 +104,22 @@ try {
             && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled') {
           try {
             require_once dirname(__DIR__) . '/src/Mail/OfficeMailBuildingProjectRecognition.php';
+            // Read the stored body only after mailbox-level authorization.
+            // No body is rendered or logged; limit extraction to 16 KB.
+            $mailText = (string)$selectedCard['subject'];
+            $bodyStmt = $db->prepare("SELECT m.body_text FROM office_mail_messages m
+                INNER JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+                WHERE m.id=:message AND b.active=1 AND b.mailbox_type='functional'
+                AND EXISTS (SELECT 1 FROM office_mail_mailbox_access a
+                  WHERE a.mailbox_id=b.id AND a.operator_id=:operator AND a.can_read=1)
+                LIMIT 1");
+            $bodyStmt->execute([':message'=>$selectedMailId,':operator'=>$operatorId]);
+            $storedBody = $bodyStmt->fetchColumn();
+            if (is_string($storedBody) && $storedBody !== '') {
+              $mailText .= " " . substr($storedBody, 0, 16384);
+            }
             $buildingProjectCandidates = (new \Brebo\Office\Mail\OfficeMailBuildingProjectRecognition($db))
-              ->forSubject((string)$selectedCard['subject'], $operatorId);
+              ->forSubject($mailText, $operatorId);
             $buildingRecognitionStatus = 'checked';
           } catch (Throwable $buildingRecognitionError) {
             error_log('office_mail_building_recognition_unavailable: ' . $buildingRecognitionError::class);
