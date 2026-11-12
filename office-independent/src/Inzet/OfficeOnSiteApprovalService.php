@@ -8,6 +8,7 @@ use DateTimeZone;
 use PDO;
 
 require_once __DIR__ . '/OnSiteHoursReview.php';
+require_once __DIR__ . '/OnSitePresenceIntervalProjector.php';
 require_once __DIR__ . '/OfficeApprovedHoursDecisionRepository.php';
 require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
 require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
@@ -43,6 +44,23 @@ final class OfficeOnSiteApprovalService
         $in=new DateTimeImmutable($events[$inEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $out=new DateTimeImmutable($events[$outEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $seconds=$out->getTimestamp()-$in->getTimestamp();
+        // Reconstruct the complete OnSite sequence; arbitrary event pairs cannot be approved.
+        $history=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
+            FROM office_onsite_event_inbox WHERE project_id=? AND person_id=?
+            ORDER BY occurred_at_utc DESC,event_id DESC LIMIT 501");
+        $history->execute([$projectId,$personIdForHistory=$events[$inEventId]['person_id']]);
+        $historyEvents=$history->fetchAll(PDO::FETCH_ASSOC);
+        if (count($historyEvents)>500) throw new \DomainException('OnSite history window incomplete');
+        $projected=(new OnSitePresenceIntervalProjector())->project($historyEvents);
+        $matched=false;
+        foreach ($projected['intervals'] as $interval) {
+            if ($interval['arrival_event_id']===$inEventId && $interval['departure_event_id']===$outEventId
+                && (int)$interval['elapsed_seconds']===$seconds) {
+                $matched=true;
+                break;
+            }
+        }
+        if (!$matched) throw new \DomainException('OnSite event pair is not a verified interval');
         $decision=(new OnSiteHoursReview())->decide([
             'approval_status'=>'pending','in_event_id'=>$inEventId,'out_event_id'=>$outEventId,
             'duration_seconds'=>$seconds
