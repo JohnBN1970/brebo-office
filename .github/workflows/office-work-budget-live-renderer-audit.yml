@@ -1,0 +1,70 @@
+name: Office-test work budget live renderer audit
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-work-budget-live-renderer-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-renderer-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure test server SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+      - name: Inspect live project tab renderer without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=12 -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          root="$(php -r '$c = require $argv[1]; if (!is_array($c) || ($c["OFFICE_BASE_PATH"] ?? "") !== "/office-test") exit(31); echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$root" in "$HOME"/domains/brebobv.nl/office_calc_test/release-*/private) ;; *) echo WORK_BUDGET_RENDERER_RELEASE_SCOPE_DENIED; exit 32;; esac
+          project="$root/public/office-project.php"
+          test -f "$project" && test ! -L "$project"
+          php -l "$project" >/dev/null
+          PROJECT="$project" python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import hashlib
+          p = pathlib.Path(os.environ["PROJECT"])
+          src = p.read_text(encoding="utf-8")
+          lines = src.splitlines()
+          print("LIVE_PROJECT_SHA256=" + hashlib.sha256(src.encode()).hexdigest())
+          print("LIVE_RENDER_LINE_COUNT=" + str(len(lines)))
+          needle = ["$activeTab", "$tabs", "$financeHtml", "$financialSectionHtml", "$pageHtml", "$html =", "echo ", "print "]
+          found = 0
+          for i, line in enumerate(lines):
+              if not any(x in line for x in needle):
+                  continue
+              if re.search(r"secret|password|token|credential|authorization|api_key", line, re.IGNORECASE):
+                  continue
+              if i < 600 and "$activeTab" not in line and "$tabs" not in line:
+                  continue
+              # Report only source-code structure, never run-time values or project records.
+              print("LIVE_RENDER_LINE_%s=%s" % (i+1, line.strip()[:320]))
+              found += 1
+              if found >= 45:
+                  break
+          print("LIVE_RENDER_LINE_MATCHES=" + str(found))
+          print("LIVE_RENDER_FINANCE_TERMINATOR_COUNT=" + str(src.count("$financialSectionHtml .= $financeHtml;")))
+          print("LIVE_RENDER_FINANCE_TAB_EXPR_COUNT=" + str(src.count("$activeTab === 'financieel'")))
+          print("LIVE_RENDER_FINANCE_PANEL_COUNT=" + str(src.count("ProjectBudgetPanel::render")))
+          print("WORK_BUDGET_RENDERER_AUDIT_READ_ONLY_OK")
+          PY
+          REMOTE
