@@ -99,7 +99,7 @@ final class OfficeQuotationDraftRepository
     public function getOwnDraft(int $quotationId, int $operatorId): ?array
     {
         $stmt = $this->db->prepare(
-            "SELECT id, relation_id, quotation_type, title, status
+            "SELECT id, relation_id, calculation_id, calculation_version, quotation_type, title, status
              FROM office_quotations
              WHERE id = ? AND created_by = ? AND status = 'draft' LIMIT 1"
         );
