@@ -40,7 +40,12 @@ final class OfficeQuotationCalculationImport
             }
             if ($total > PHP_INT_MAX - $amount) throw new InvalidArgumentException('Sales total overflow');
             $total += $amount;
+            $rubric = $line['rubric'] ?? 'Werkzaamheden';
+            if (!is_string($rubric) || trim($rubric) === '' || mb_strlen($rubric, 'UTF-8') > 200) {
+                throw new InvalidArgumentException('Invalid sales rubric');
+            }
             $items[] = [
+                'rubric' => trim($rubric),
                 'description' => trim($description),
                 'quantity' => (float)$quantity,
                 'unit' => $unit,
