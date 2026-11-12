@@ -4,6 +4,7 @@ $source = file_get_contents(dirname(__DIR__) . '/src/Crm/OfficeCrmWonTransition.
 if (!is_string($source)) throw new RuntimeException('Missing won transition');
 foreach ([
     'beginTransaction()',
+    'SELECT id FROM office_crm_opportunities WHERE id = ? AND stage = ? AND status = ? FOR UPDATE',
     'SELECT stage, status FROM office_crm_opportunities WHERE id = ? FOR UPDATE',
     "\$current['stage'] !== \$from",
     "\$current['status'] !== 'open'",
@@ -18,6 +19,10 @@ foreach ([
 if (strpos($source, 'SELECT stage, status FROM office_crm_opportunities WHERE id = ? FOR UPDATE')
     > strpos($source, 'office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE')) {
     throw new RuntimeException('Opportunity must be locked before acceptance row');
+}
+if (strpos($source, 'SELECT id FROM office_crm_opportunities WHERE id = ? AND stage = ? AND status = ? FOR UPDATE')
+    > strpos($source, 'office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE')) {
+    throw new RuntimeException('Opportunity must be locked before reading optional acceptance');
 }
 if (strpos($source, 'office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE')
     > strpos($source, "->transition(\$opportunityId, \$from, 'won')")) {
