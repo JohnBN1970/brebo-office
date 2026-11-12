@@ -33,11 +33,14 @@ jobs:
             office-independent/public/office-calc-launch.php \
             office-independent/public/office-crm-opportunities.php \
             office-independent/public/office-calc-crm-start.php \
-            office-independent/tests/OfficeCalcCrmStartRouteContractTest.php; do
+            office-independent/tests/OfficeCalcCrmStartRouteContractTest.php \
+            office-independent/src/Calculation/OfficeCalcCrmCanonicalDraftGate.php \
+            office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
           php office-independent/tests/OfficeCalcCrmStartRouteContractTest.php
+          php office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php
           php office-independent/tests/OfficeCalcLaunchCsrfTest.php
           php office-independent/tests/OfficeCrmOpportunityContractTest.php
           php office-independent/tests/OfficeCrmFunnelClosedStagesTest.php
