@@ -2,6 +2,7 @@ name: Office mail duplicate candidates
 on:
   push:
     paths:
+      - 'office-independent/src/Crm/OfficeCrmMailRelationCandidates.php'
       - 'office-independent/src/Mail/OfficeMailDuplicateCandidates.php'
       - 'office-independent/src/Buildings/OfficeBuildingDuplicateCandidates.php'
       - 'office-independent/src/Buildings/OfficeBuildingProjectCandidates.php'
@@ -24,12 +25,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax
         run: |
+          php -l office-independent/src/Crm/OfficeCrmMailRelationCandidates.php
           php -l office-independent/src/Mail/OfficeMailDuplicateCandidates.php
           php -l office-independent/src/Buildings/OfficeBuildingDuplicateCandidates.php
           php -l office-independent/src/Buildings/OfficeBuildingProjectCandidates.php
           php -l office-independent/public/office-email.php
           php -l office-independent/tests/office_duplicate_candidates_smoke.php
           php -l office-independent/tests/office_mail_duplicate_candidates_smoke.php
+          php -l office-independent/tests/office_crm_mail_relation_candidates_smoke.php
       - name: Require SQLite and mbstring
         run: |
           php -r 'if (!extension_loaded("pdo_sqlite") || !extension_loaded("mbstring")) { fwrite(STDERR, "Required PHP extensions missing\n"); exit(1); }'
@@ -37,3 +40,4 @@ jobs:
         run: |
           php office-independent/tests/office_duplicate_candidates_smoke.php
           php office-independent/tests/office_mail_duplicate_candidates_smoke.php
+          php office-independent/tests/office_crm_mail_relation_candidates_smoke.php
