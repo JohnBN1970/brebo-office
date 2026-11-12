@@ -248,6 +248,34 @@ echo <<<'HTML'
   const form = editor.querySelector('form');
   if (!form) return;
   form.insertBefore(bar, sections[0]);
+  // Warn before leaving an unsaved quotation; never claim autosave.
+  const saveButton = form.querySelector('button[type="submit"]');
+  const saveState = document.createElement('small');
+  saveState.setAttribute('role', 'status');
+  saveState.textContent = 'Geen wijzigingen';
+  saveState.style.cssText = 'display:block;margin:8px 0;color:#65748a';
+  if (saveButton) saveButton.insertAdjacentElement('beforebegin', saveState);
+  let dirty = false;
+  form.addEventListener('input', () => {
+    dirty = true;
+    saveState.textContent = 'Niet-opgeslagen wijzigingen';
+  });
+  form.addEventListener('change', () => {
+    dirty = true;
+    saveState.textContent = 'Niet-opgeslagen wijzigingen';
+  });
+  form.addEventListener('submit', () => { dirty = false; saveState.textContent = 'Opslaan…'; });
+  window.addEventListener('beforeunload', event => {
+    if (!dirty) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+  form.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      if (form.reportValidity()) form.requestSubmit();
+    }
+  });
   let active = 0;
   function show(index, focus) {
     active = Math.max(0, Math.min(index, sections.length - 1));
