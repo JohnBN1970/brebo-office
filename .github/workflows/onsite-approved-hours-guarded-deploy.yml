@@ -18,6 +18,46 @@ jobs:
           set -euo pipefail
           for file in office-independent/public/office-onsite-presence-review.php office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/public/office-projects.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php; do php -l "$file"; done
           php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+  inspect:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - name: Configure read-only SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_inspect
+          chmod 600 ~/.ssh/id_onsite_inspect
+      - name: Inspect live pages and service fingerprints without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_inspect"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          for f in public/office-onsite-presence-review.php public/office-projects.php src/Inzet/OfficeOnSiteApprovalService.php src/Inzet/OfficeApprovedHoursWeekRepository.php; do
+            if test ! -f "$active/$f" || test -L "$active/$f"; then echo "LIVE_FILE_MISSING:$f"; continue; fi
+            echo "LIVE_SHA256:$f:$(sha256sum "$active/$f" | cut -d' ' -f1)"
+            php -l "$active/$f"
+            for marker in OfficeOnSiteApprovalService OfficeApprovedHoursWeekRepository approved_week_seconds OfficeProjectPortfolioGantt OfficeProjectPortfolioView; do
+              if grep -Fq "$marker" "$active/$f"; then echo "LIVE_MARKER_PRESENT:$f:$marker"; else echo "LIVE_MARKER_ABSENT:$f:$marker"; fi
+            done
+          done
+          REMOTE
   deploy:
     needs: validate
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'DEPLOY-ONSITE-OFFICE-TEST' }}
