@@ -1,0 +1,46 @@
+name: Office approved hours schema installation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type APPROVED-HOURS-PREFLIGHT or APPROVED-HOURS-INSTALL
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  install:
+    if: ${{ inputs.confirmation == 'APPROVED-HOURS-PREFLIGHT' || inputs.confirmation == 'APPROVED-HOURS-INSTALL' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP lint
+        run: |
+          php -l office-independent/src/Inzet/OfficeApprovedHoursSchema.php
+          php -l office-independent/src/Inzet/OfficeApprovedHoursDecisionSchema.php
+          php -l office-independent/deployment/hostinger/install-approved-hours-schema.php
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_approved_hours
+          chmod 600 ~/.ssh/id_approved_hours
+      - name: Preflight and optional install in Office-test only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_approved_hours"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.approved-hours-schema-stage"'
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/install-approved-hours-schema.php "$remote:office_calc_test/.approved-hours-schema-stage/"
+          if [ "$CONFIRM" = 'APPROVED-HOURS-INSTALL' ]; then mode=--apply; else mode=--preflight; fi
+          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.approved-hours-schema-stage/install-approved-hours-schema.php '$mode'"
