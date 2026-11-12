@@ -47,6 +47,9 @@ jobs:
           php -l office-independent/src/Workflow/OfficeWorkflowDraftRepository.php
           php -l office-independent/src/Workflow/OfficeWorkflowDraftReader.php
           php -l office-independent/src/Workflow/OfficeWorkflowVersionRepository.php
+          php -l office-independent/public/office-workflow-draft-api.php
+          php -l office-independent/public/office-workflow-preview.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeBreboWorkflowConfigTest.php
           php -l office-independent/tests/OfficeWorkflowPublicationPolicyTest.php
           php -l office-independent/tests/OfficeWorkflowBlueprintValidatorTest.php
