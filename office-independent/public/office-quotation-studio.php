@@ -96,7 +96,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         try {
             require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationRubricApprovalRepository.php';
-            (new \\Brebo\\Office\\Quotation\\OfficeQuotationRubricApprovalRepository($db))->approve(
+            (new \Brebo\Office\Quotation\OfficeQuotationRubricApprovalRepository($db))->approve(
                 (int)$quoteId, $quotationOperatorId, $rubricKey, $sourceHash, [
                     'description_checked' => ($_POST['description_checked'] ?? '') === '1',
                     'quantities_checked' => ($_POST['quantities_checked'] ?? '') === '1',
@@ -106,9 +106,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
             header('Location: /office-test/crm/offertes?edit='.(int)$quoteId.'&rubric_saved=1', true, 303);
             exit;
-        } catch (\\DomainException $e) {
+        } catch (\DomainException $e) {
             http_response_code(400); exit('Alle drie rubriekcontroles zijn verplicht.');
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             error_log('OFFERTSTUDIO_RUBRIC_APPROVAL_FAILED '.get_class($e));
             http_response_code(503); exit('Rubriekgoedkeuring kon niet worden opgeslagen.');
         }
@@ -234,9 +234,9 @@ if ($calculationImport !== null) {
     if ($rubricApprovalEnabled && preg_match('/^[a-f0-9]{64}$/D', $rubricSourceHash)) {
         try {
             require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationRubricApprovalRepository.php';
-            $approvedKeys = (new \\Brebo\\Office\\Quotation\\OfficeQuotationRubricApprovalRepository($db))
+            $approvedKeys = (new \Brebo\Office\Quotation\OfficeQuotationRubricApprovalRepository($db))
                 ->approvedKeys((int)$editing['id'], $quotationOperatorId, $rubricSourceHash);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             error_log('OFFERTSTUDIO_RUBRIC_READ_FAILED '.get_class($e));
             $rubricApprovalEnabled = false;
         }
