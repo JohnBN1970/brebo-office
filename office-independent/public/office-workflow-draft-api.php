@@ -82,8 +82,9 @@ try {
     if (($input['operation']??null)==='publish') {
         if (getenv('OFFICE_WORKFLOW_PUBLISH_ENABLED')!=='enabled') workflowReply(403,['error'=>'PUBLISH_DISABLED']);
         // Revalidate the draft before publishing. Never execute workflow actions here.
+        if (!is_string($input['expected_sha256']??null) || preg_match('/^[a-f0-9]{64}$/D', $input['expected_sha256']) !== 1) workflowReply(400,['error'=>'REVISION']);
         $published = (new \Brebo\Office\Workflow\OfficeWorkflowPublicationRepository($db))->publish(
-            (int)$tenantId,$blueprintId,$versionId,$actorId,true);
+            (int)$tenantId,$blueprintId,$versionId,$actorId,true,$input['expected_sha256']);
         workflowReply(200,['published'=>$published]);
     }
     workflowReply(400,['error'=>'OPERATION']);
