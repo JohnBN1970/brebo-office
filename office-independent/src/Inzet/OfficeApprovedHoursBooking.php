@@ -35,7 +35,7 @@ final class OfficeApprovedHoursBooking
                 throw new \InvalidArgumentException('Missing verified approval evidence');
             }
         }
-        if (!in_array($entry['source_kind'], ['onsite_review','supplier_week_review'], true)
+        if (!in_array($entry['source_kind'], ['onsite_review'], true)
             || strlen($entry['source_reference']) > 128
             || strlen($entry['approved_by']) > 128
             || strlen($entry['approval_reference']) > 128
