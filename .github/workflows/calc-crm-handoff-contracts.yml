@@ -5,6 +5,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcNativeProjectHandoff.php'
       - 'office-independent/src/Calculation/OfficeNativeProjectFactory.php'
       - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
+      - 'office-independent/tests/OfficeCalcNativeProjectFactoryContractTest.php'
       - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
       - 'office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php'
       - 'office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php'
@@ -98,6 +99,7 @@ jobs:
             office-independent/tests/OfficeCalcCrmWonTransitionTest.php \
             office-independent/tests/OfficeCalcCrmWonUiRouteTest.php \
             office-independent/tests/OfficeCalcCrmWonPersistedAcceptanceGuardTest.php \
+            office-independent/tests/OfficeCalcNativeProjectFactoryContractTest.php \
             office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php \
             office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php; do
             php -l "$f"
