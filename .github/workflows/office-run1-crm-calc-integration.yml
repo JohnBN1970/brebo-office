@@ -37,13 +37,15 @@ jobs:
             office-independent/src/Calculation/OfficeCalcCrmCanonicalDraftGate.php \
             office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php \
             office-independent/src/Calculation/OfficeCalcCrmCanonicalLookup.php \
-            office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php; do
+            office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php \
+            office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
           php office-independent/tests/OfficeCalcCrmStartRouteContractTest.php
           php office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php
           php office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php
+          php office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php
           php office-independent/tests/OfficeCalcLaunchCsrfTest.php
           php office-independent/tests/OfficeCrmOpportunityContractTest.php
           php office-independent/tests/OfficeCrmFunnelClosedStagesTest.php
