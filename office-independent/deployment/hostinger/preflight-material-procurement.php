@@ -20,7 +20,8 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
-    $db->exec('SET SESSION TRANSACTION READ ONLY');
+    // MySQL information_schema queries below are SELECT-only; do not depend on
+    // server-specific transaction mode syntax or privileges.
     $db->beginTransaction();
     $required = [
         'office_calc_crm_acceptance_transfers',
