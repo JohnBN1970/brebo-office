@@ -25,6 +25,7 @@ jobs:
           php office-independent/tests/OfficeQuotationCalcGenerationServiceTest.php
           php -l office-independent/src/Quotation/OfficeQuotationRubricBuilder.php
           php -l office-independent/src/Quotation/OfficeQuotationRubricReview.php
+          php -l office-independent/src/Quotation/OfficeQuotationRubricApprovalRepository.php
           php office-independent/tests/OfficeQuotationRubricBuilderTest.php
           php office-independent/tests/OfficeQuotationRubricReviewTest.php
       - name: Inspect isolated Hostinger Office-test without changes
