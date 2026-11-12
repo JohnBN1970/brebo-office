@@ -10,8 +10,8 @@ final class OfficeMailBoardRepository {
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
-  public function cards(int $operatorId): array {
-    if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
+  public function cards(string $operatorId): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-gebruiker ontbreekt.');
     $sql = "SELECT m.id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
       CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
       r.suggested_module,r.suggestion_reason
@@ -27,7 +27,7 @@ final class OfficeMailBoardRepository {
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
-  public function move(int $messageId,int $operatorId,string $module): bool {
+  public function move(int $messageId,string $operatorId,string $module): bool {
     if ($messageId<=0 || $operatorId<=0 || !in_array($module,self::MODULES,true)) {
       throw new RuntimeException('Ongeldige verplaatsing.');
     }
