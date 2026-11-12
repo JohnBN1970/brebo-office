@@ -33,7 +33,8 @@ final class OfficeQuotationCalculationImport
             $unit = $line['unit'] ?? null;
             $amount = $line['amount_ex_vat_cents'] ?? null;
             if (!is_string($description) || trim($description) === '' || mb_strlen($description, 'UTF-8') > 500
-                || !is_numeric($quantity) || (float)$quantity <= 0 || (float)$quantity > 100000000
+                || !is_numeric($quantity) || !is_finite((float)$quantity)
+                || (float)$quantity <= 0 || (float)$quantity > 100000000
                 || !is_string($unit) || strlen($unit) > 24
                 || !is_int($amount) || $amount < 0 || $amount > 1000000000000) {
                 throw new InvalidArgumentException('Invalid quotation-facing sales line');
