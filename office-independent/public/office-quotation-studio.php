@@ -282,7 +282,7 @@ echo <<<'HTML'
     if (!preview) return;
     if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Conceptofferte';
     preview.querySelectorAll('article.print-chapter').forEach(node => node.remove());
-    const footer = preview.querySelector('p');
+    const footer = Array.from(preview.children).find(node => node.tagName === 'P') || null;
     for (const section of sections) {
       const textarea = section.querySelector('textarea');
       if (!textarea || !textarea.value.trim()) continue;
