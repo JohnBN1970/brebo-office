@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='crm-http-') as temp:
         assert request(detail,'reader',qualify)[0]==403
         assert request(detail,'editor',qualify)[0]==303
         status,html,_=request(detail,'editor');assert 'Prospect' in html and 'Bestaande relatie' in html
-        stale=dict(qualify,request_key='8'*32,action='update');assert request(detail,'editor',stale)[0]==409
+        stale=dict(qualify,request_key='8'*32,action='update');stale_response=request(detail,'editor',stale);assert stale_response[0]==409,stale_response[:2]
         context=request('/office-test/crm/verkoopkansen/calculatie-context?id='+str(lead),'editor')
         assert context[0]==200 and 'crm_opportunity' in context[1] and 'project_id' not in context[1]
         assert request('/office-test/crm/verkoopkansen/calculatie-context?id='+str(lead),'reader')[0]==403
