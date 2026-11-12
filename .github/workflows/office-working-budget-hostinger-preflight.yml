@@ -92,5 +92,28 @@ jobs:
               echo "WORK_BUDGET_DEPENDENCY_MISSING=$name"
             fi
           done
+          # Diagnose the separately merged project tab without changing server state.
+          if grep -Fq "'werkbegroting' => 'Werkbegroting'" "$target"; then
+            echo WORK_BUDGET_PROJECT_TAB=PRESENT
+          else
+            echo WORK_BUDGET_PROJECT_TAB=MISSING
+          fi
+          if grep -Fq "activeTab === 'werkbegroting'" "$target"; then
+            echo WORK_BUDGET_TAB_RENDER=PRESENT
+          else
+            echo WORK_BUDGET_TAB_RENDER=MISSING
+          fi
+          config="$root/office_calc_test/config/config.php"
+          if test -f "$config" && test ! -L "$config"; then
+            OFFICE_WORK_BUDGET_CONFIG="$config" php -r '
+              $c = require getenv("OFFICE_WORK_BUDGET_CONFIG");
+              if (!is_array($c)) { echo "WORK_BUDGET_CONFIG=INVALID\\n"; exit(1); }
+              foreach (["OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED", "OFFICE_TEST_MATERIAL_PROCUREMENT_PANEL_ENABLED", "OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED"] as $key) {
+                echo $key . "=" . (($c[$key] ?? "") === "enabled" ? "ENABLED" : "DISABLED") . "\\n";
+              }
+            '
+          else
+            echo WORK_BUDGET_CONFIG=UNAVAILABLE
+          fi
           echo WORK_BUDGET_PREFLIGHT_READ_ONLY_OK
           REMOTE
