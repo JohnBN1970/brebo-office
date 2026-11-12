@@ -178,7 +178,7 @@ if ($editing !== null && !empty($editing['calculation_id']) && $storageReady) {
                 break;
             }
         }
-    } catch (\\Throwable $e) {
+    } catch (\Throwable $e) {
         error_log('OFFERTSTUDIO_CALC_IMPORT_READ_FAILED: '.get_class($e));
     }
 }
@@ -282,7 +282,7 @@ echo <<<'HTML'
     if (!preview) return;
     if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Conceptofferte';
     preview.querySelectorAll('article.print-chapter').forEach(node => node.remove());
-    const footer = Array.from(preview.children).find(node => node.tagName === 'P') || null;
+    const footer = Array.from(preview.children).find(node => node.tagName === 'P') || preview.querySelector('button') || null;
     for (const section of sections) {
       const textarea = section.querySelector('textarea');
       if (!textarea || !textarea.value.trim()) continue;
