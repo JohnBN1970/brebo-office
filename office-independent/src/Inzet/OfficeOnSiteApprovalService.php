@@ -44,11 +44,12 @@ final class OfficeOnSiteApprovalService
         $in=new DateTimeImmutable($events[$inEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $out=new DateTimeImmutable($events[$outEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $seconds=$out->getTimestamp()-$in->getTimestamp();
+        if ($seconds < 1 || $seconds > 86400) throw new \DomainException('Invalid OnSite session duration');
         // Reconstruct the complete OnSite sequence; arbitrary event pairs cannot be approved.
         $history=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
             FROM office_onsite_event_inbox WHERE project_id=? AND person_id=?
             ORDER BY occurred_at_utc DESC,event_id DESC LIMIT 501");
-        $history->execute([$projectId,$personIdForHistory=$events[$inEventId]['person_id']]);
+        $history->execute([$projectId,$events[$inEventId]['person_id']]);
         $historyEvents=$history->fetchAll(PDO::FETCH_ASSOC);
         if (count($historyEvents)>500) throw new \DomainException('OnSite history window incomplete');
         $projected=(new OnSitePresenceIntervalProjector())->project($historyEvents);
