@@ -5,11 +5,13 @@ on:
       - feature/office-offertestudio-20261111
     paths:
       - 'office-independent/src/Quotation/**'
+      - 'office-independent/tests/OfficeQuotationCalculationImportTest.php'
       - 'office-independent/tests/OfficeQuotationCalc*Test.php'
       - '.github/workflows/office-quotation-calc-handoff.yml'
   pull_request:
     paths:
       - 'office-independent/src/Quotation/**'
+      - 'office-independent/tests/OfficeQuotationCalculationImportTest.php'
       - 'office-independent/tests/OfficeQuotationCalc*Test.php'
       - '.github/workflows/office-quotation-calc-handoff.yml'
   workflow_dispatch:
@@ -25,9 +27,10 @@ jobs:
           extensions: mbstring, pdo_sqlite
       - name: Lint quotation integration
         run: |
-          for file in office-independent/src/Quotation/*.php office-independent/tests/OfficeQuotationCalc*Test.php; do php -l "$file"; done
+          for file in office-independent/src/Quotation/*.php office-independent/tests/OfficeQuotationCalc*Test.php office-independent/tests/OfficeQuotationCalculationImportTest.php; do php -l "$file"; done
       - name: Calc quotation boundary tests
         run: |
+          php office-independent/tests/OfficeQuotationCalculationImportTest.php
           php office-independent/tests/OfficeQuotationCalcGenerationServiceTest.php
           php office-independent/tests/OfficeQuotationCalcOpportunityGuardTest.php
           php office-independent/tests/OfficeQuotationCalcPostControllerTest.php
