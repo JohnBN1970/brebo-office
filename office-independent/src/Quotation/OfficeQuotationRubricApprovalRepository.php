@@ -48,6 +48,16 @@ final class OfficeQuotationRubricApprovalRepository
                 || !hash_equals((string)($snapshot['source']['source_hash'] ?? ''), $sourceHash)) {
                 throw new RuntimeException('Calculation snapshot changed');
             }
+            // Recompute the signed source identity from the stored sales lines.
+            // A client-provided hash alone is never sufficient for approval.
+            $recomputedHash = hash('sha256', json_encode([
+                'calculation_id' => (int)($snapshot['source']['calculation_id'] ?? 0),
+                'version' => (int)($snapshot['source']['calculation_version'] ?? 0),
+                'sales_lines' => $snapshot['sales_lines'] ?? [],
+            ], JSON_THROW_ON_ERROR));
+            if (!hash_equals($sourceHash, $recomputedHash)) {
+                throw new RuntimeException('Calculation sales lines no longer match source hash');
+            }
             require_once __DIR__ . '/OfficeQuotationRubricBuilder.php';
             $rubrics = OfficeQuotationRubricBuilder::build($snapshot['sales_lines'] ?? []);
             $found = false;
