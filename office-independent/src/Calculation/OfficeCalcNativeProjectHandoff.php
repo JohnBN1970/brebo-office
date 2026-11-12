@@ -32,7 +32,7 @@ final class OfficeCalcNativeProjectHandoff
         // Do not infer either from untrusted browser input.
         require_once dirname(__DIR__) . '/Crm/OfficeCrmFunnel.php';
         $expectedStage = $project['expected_crm_stage'] ?? null;
-        if (!is_string($expectedStage) || !\\Brebo\\Office\\Crm\\OfficeCrmFunnel::canTransition($expectedStage, 'won')) {
+        if (!is_string($expectedStage) || !\Brebo\Office\Crm\OfficeCrmFunnel::canTransition($expectedStage, 'won')) {
             throw new DomainException('Expected CRM stage required for atomic acceptance');
         }
         $acceptance['expected_crm_stage'] = $expectedStage;
