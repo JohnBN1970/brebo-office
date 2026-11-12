@@ -55,19 +55,47 @@ if b"ProjectBudgetPanel::render($workBudgetView)" not in source_section:
     sys.exit("WORK_BUDGET_TAB_SOURCE_MISSING_PANEL")
 # Actual live page already owns the panel inside the finance section.
 live_start = b"// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only."
-if active.count(live_start) != 1 or active.count(end) != 1:
-    # Some Office-test releases already contain the panel but have different
-    # surrounding Finance layout. Avoid guessing which code to move.
-    print("WORK_BUDGET_TAB_LIVE_PANEL_START_COUNT=" + str(active.count(live_start)))
-    print("WORK_BUDGET_TAB_LIVE_FINANCE_END_COUNT=" + str(active.count(end)))
-    print("WORK_BUDGET_TAB_LIVE_PANEL_RENDER_COUNT=" + str(active.count(b"ProjectBudgetPanel::render")))
-    print("WORK_BUDGET_TAB_LIVE_FINANCE_OUTPUT_COUNT=" + str(active.count(b"$financeHtml .=")))
-    print("WORK_BUDGET_TAB_LIVE_FINANCE_VARIABLE_COUNT=" + str(active.count(b"$financeHtml")))
-    print("WORK_BUDGET_TAB_LIVE_SECTION_OUTPUT_COUNT=" + str(active.count(b"$financialSectionHtml .=")))
-    sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_UNEXPECTED")
+# Live Office-test uses a different Finance section terminator than the
+# integrated source. Limit the moved panel to its own closing brace, followed
+# by the next PHP statement; never consume Finance code after that boundary.
+live_panel_stop = b"\n}"
+if active.count(live_start) != 1:
+    sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_START_UNEXPECTED")
 live_begin = active.index(live_start)
-live_finish = active.index(end, live_begin)
+# The source panel's first-level closing brace is located by balanced PHP
+# braces while skipping quoted strings/comments: use a token parser rather
+# than brittle string matching or an unrelated Finance statement.
+import json
+php_probe = r"""<?php
+$src = file_get_contents($argv[1]);
+$start = strpos($src, '// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only.');
+if ($start === false) exit(31);
+$tokens = token_get_all($src);
+$offset = 0; $started = false; $depth = 0; $end = null;
+foreach ($tokens as $token) {
+    $text = is_array($token) ? $token[1] : $token;
+    if (!$started && $offset >= $start && $text === 'if') $started = true;
+    if ($started) {
+        if ($text === '{') $depth++;
+        if ($text === '}') { $depth--; if ($depth === 0) { $end = $offset + 1; break; } }
+    }
+    $offset += strlen($text);
+}
+if ($end === null || $end <= $start) exit(32);
+echo $end;
+"""
+probe = subprocess.run(["php", "-r", php_probe.replace("<?php", ""), str(target)],
+                       capture_output=True, text=True)
+if probe.returncode or not probe.stdout.strip().isdigit():
+    sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_BOUNDARY_NOT_FOUND")
+live_finish = int(probe.stdout.strip())
+if live_finish <= live_begin or live_finish > len(active):
+    sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_BOUNDARY_INVALID")
 live_panel = active[live_begin:live_finish]
+if live_panel.count(b"ProjectBudgetPanel::render") != 1:
+    sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_RENDER_UNEXPECTED")
+if b"OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" not in live_panel or b"is_array($financeContracts)" not in live_panel:
+    sys.exit("WORK_BUDGET_TAB_LIVE_SECURITY_GUARDS_MISSING")
 if b"$financeHtml .=" not in live_panel or b"ProjectBudgetPanel::render" not in live_panel:
     sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_INCOMPATIBLE")
 if b"$workBudgetTabHtml" in active:
