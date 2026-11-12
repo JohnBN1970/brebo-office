@@ -30,6 +30,7 @@ jobs:
           for file in office-independent/src/Quotation/*.php office-independent/tests/OfficeQuotationCalc*Test.php office-independent/tests/OfficeQuotationCalculationImportTest.php; do php -l "$file"; done
       - name: Calc quotation boundary tests
         run: |
+          php office-independent/tests/OfficeQuotationCalcEndToEndTest.php
           php office-independent/tests/OfficeQuotationCalculationImportTest.php
           php office-independent/tests/OfficeQuotationCalcGenerationServiceTest.php
           php office-independent/tests/OfficeQuotationCalcOpportunityGuardTest.php
