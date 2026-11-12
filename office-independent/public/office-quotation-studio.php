@@ -194,6 +194,25 @@ if ($storageReady) {
     echo '</section>';
 }
 if ($calculationImport !== null) {
+    require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationRubricBuilder.php';
+    $rubrics = isset($calculationImport['rubric_proposals']) && is_array($calculationImport['rubric_proposals'])
+        ? $calculationImport['rubric_proposals']
+        : \Brebo\Office\Quotation\OfficeQuotationRubricBuilder::build($calculationImport['sales_lines']);
+    echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Calculatierubrieken · controle vereist</h2><p>Elke rubriek moet inhoudelijk, op hoeveelheden en op verkoopprijzen worden gecontroleerd. Goedkeuren en vrijgeven zijn nog niet geactiveerd.</p>';
+    foreach ($rubrics as $rubric) {
+        if (!is_array($rubric)) continue;
+        echo '<article class="section"><h3>'.$escape((string)($rubric['rubric'] ?? 'Werkzaamheden')).' · Niet goedgekeurd</h3>';
+        echo '<p style="display:block">'. $escape((string)($rubric['description'] ?? 'Wij bieden aan de volgende werkzaamheden uit te voeren:')) .'</p>';
+        echo '<table style="width:100%"><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Verkoop excl. btw</th></tr></thead><tbody>';
+        foreach (($rubric['lines'] ?? []) as $line) {
+            if (!is_array($line)) continue;
+            echo '<tr><td>'.$escape((string)($line['description'] ?? '')).'</td><td>'.(float)($line['quantity'] ?? 0).'</td><td>'.$escape((string)($line['unit'] ?? '')).'</td><td>€ '.number_format(((int)($line['amount_ex_vat_cents'] ?? 0))/100, 2, ',', '.').'</td></tr>';
+        }
+        echo '</tbody></table><p style="display:block"><small>Te controleren: omschrijving · hoeveelheden · verkoopprijzen</small></p></article>';
+    }
+    echo '</section>';
+}
+if ($calculationImport !== null) {
     echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Overgenomen calculatie</h2><p><small>Calculatie #'.(int)$calculationImport['source']['calculation_id'].' · versie '.(int)$calculationImport['source']['calculation_version'].'</small></p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Omschrijving</th><th>Aantal</th><th>Eenheid</th><th style="text-align:right">Verkoop excl. btw</th></tr></thead><tbody>';
     foreach ($calculationImport['sales_lines'] as $line) {
         if (!is_array($line)) continue;
