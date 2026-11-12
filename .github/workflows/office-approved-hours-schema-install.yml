@@ -41,6 +41,6 @@ jobs:
           remote="$USER@$HOST"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_approved_hours"
           ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.approved-hours-schema-stage"'
-          scp $opts -P "$PORT" office-independent/deployment/hostinger/install-approved-hours-schema.php "$remote:office_calc_test/.approved-hours-schema-stage/"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/install-approved-hours-schema.php office-independent/src/Inzet/OfficeApprovedHoursSchema.php office-independent/src/Inzet/OfficeApprovedHoursDecisionSchema.php "$remote:office_calc_test/.approved-hours-schema-stage/"
           if [ "$CONFIRM" = 'APPROVED-HOURS-INSTALL' ]; then mode=--apply; else mode=--preflight; fi
           ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.approved-hours-schema-stage/install-approved-hours-schema.php '$mode'"
