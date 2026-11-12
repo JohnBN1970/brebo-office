@@ -36,6 +36,7 @@ $reject = static function (array $value, string $operator) use ($booking): void 
 $reject($entry,'viewer');
 $reject(array_replace($entry,['approved_by'=>'viewer']),'viewer');
 $reject(array_replace($entry,['source_sha256'=>'invalid']),'manager');
+$reject(array_replace($entry,['source_kind'=>'supplier_week_review']),'manager');
 $reject(array_replace($entry,['work_date'=>'2026-02-30']),'manager');
 $id = $booking->append($entry,'manager');
 if ($id < 1 || (int)$db->query('SELECT COUNT(*) FROM office_inzet_approved_hours')->fetchColumn() !== 1) {
