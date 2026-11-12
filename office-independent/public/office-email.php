@@ -84,6 +84,9 @@ try {
       }
       $boardCards = $board->cards($operatorId);
       $selectedMailId = filter_var($_GET['inspect_mail'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (!is_int($selectedMailId) && $boardCards !== []) {
+        $selectedMailId = (int)$boardCards[0]['id'];
+      }
       if (is_int($selectedMailId)) {
         require_once dirname(__DIR__) . '/src/Mail/OfficeMailDuplicateCandidates.php';
         $duplicateCandidates = (new \Brebo\Office\Mail\OfficeMailDuplicateCandidates($db))->forMessage($selectedMailId, $operatorId);
@@ -133,11 +136,11 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
 <?php if (is_int($selectedMailId)): ?>
-<div class="candidate-panel"><h3>Controle mogelijke dubbelingen - bericht #<?= (int)$selectedMailId ?></h3>
+<div class="candidate-panel"><h3>Automatische dubbelingencontrole - bericht #<?= (int)$selectedMailId ?></h3>
 <p class="muted">Dit zijn uitsluitend mogelijke vervolgberichten met dezelfde afzender en hetzelfde onderwerp. Er wordt niets automatisch gekoppeld of aangemaakt.</p>
 <?php if ($duplicateCandidates === []): ?><p>Geen overeenkomende e-mails gevonden in de gecontroleerde selectie.</p>
 <?php else: ?><ul><?php foreach ($duplicateCandidates as $candidate): ?><li><strong><?= htmlspecialchars($candidate['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong> - <?= htmlspecialchars($candidate['received_at'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> (bericht #<?= (int)$candidate['id'] ?>)</li><?php endforeach; ?></ul><?php endif; ?>
-<p><a href="/office-test/email#mailbord">Sluiten</a></p></div>
+</div>
 <?php endif; ?>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
 <div class="board" id="office-mail-columns">
@@ -146,7 +149,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
 <article class="mail-card" draggable="true" data-message="<?= (int)$card['id'] ?>">
 <strong><?= htmlspecialchars((string)$card['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
-<p><a href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>#mailbord">Controleer dubbelingen</a></p>
+<p><a href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>#mailbord">Open e-mail en herkenning</a></p>
 <p><?= htmlspecialchars((string)$card['sender'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></p>
 <?php if (!empty($card['suggested_module'])): ?><small>AI-voorstel: <?= htmlspecialchars((string)$card['suggested_module'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small><?php endif; ?>
 <?php if ($key !== 'prive'): ?><form method="post" action="/office-test/email">
