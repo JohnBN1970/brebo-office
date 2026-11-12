@@ -32,6 +32,16 @@ final class OfficeCrmWonTransition
         }
         $this->db->beginTransaction();
         try {
+            // Serialize acceptance with concurrent CRM stage changes before
+            // inspecting the persisted calculation acceptance.
+            $opportunity = $this->db->prepare(
+                'SELECT stage, status FROM office_crm_opportunities WHERE id = ? FOR UPDATE'
+            );
+            $opportunity->execute([$opportunityId]);
+            $current = $opportunity->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current) || $current['stage'] !== $from || $current['status'] !== 'open') {
+                throw new DomainException('CRM opportunity changed concurrently');
+            }
             $stmt = $this->db->prepare(
                 'SELECT calculation_id, accepted_revision, status FROM office_crm_calculation_acceptances WHERE opportunity_id = ? FOR UPDATE'
             );
