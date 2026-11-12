@@ -48,7 +48,7 @@ if ($method === 'POST') {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
     $referer = $_SERVER['HTTP_REFERER'] ?? null;
     $fetchSite = $_SERVER['HTTP_SEC_FETCH_SITE'] ?? null;
-    if (is_string($origin) && $origin !== '' && $origin !== 'null') {
+    if (is_string($origin)) {
         // A real Origin must match exactly; never allow a different site.
         if (!hash_equals($expectedOrigin, $origin)) $deny(403,'ORIGIN_MISMATCH');
     } elseif (is_string($fetchSite) && in_array($fetchSite, ['cross-site','same-site'], true)) {
@@ -58,16 +58,16 @@ if ($method === 'POST') {
         || (is_string($referer) && str_starts_with($referer, $expectedOrigin . '/'))) {
         // Strong browser signal for this Office website.
     } else {
-        // Some privacy browsers/proxies omit Origin, Referer and Fetch Metadata.
-        // The mandatory unpredictable Office CSRF cookie + hidden form field,
-        // verified below using hash_equals, remains the authorization boundary.
-        // Cross-origin Origin and Sec-Fetch-Site values are still rejected above.
-        if (!is_string($_POST['csrf'] ?? null)) $deny(403,'ORIGIN_NO_CSRF');
+        // No trustworthy origin evidence: reject, even with a CSRF value.
+        $deny(403,'ORIGIN_MISSING');
     }
     $size = $_SERVER['CONTENT_LENGTH'] ?? '';
     if (!is_string($size) || !ctype_digit($size) || (int)$size > 2048) $deny(413,'BODY_SIZE');
     if (!preg_match('/^application\/x-www-form-urlencoded(?:\s*;\s*charset=UTF-8)?$/iD',
         (string)($_SERVER['CONTENT_TYPE'] ?? ''))) $deny(415,'BODY_TYPE');
+    require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcOpportunityLaunchInput.php';
+    $launchInput = \Brebo\Office\Calculation\OfficeCalcOpportunityLaunchInput::parse($_POST);
+    if ($launchInput === null || $launchInput['opportunity_id'] !== $opportunity) $deny(400,'LAUNCH_INPUT');
 }
 
 try {
@@ -112,7 +112,9 @@ try {
     $record = $q->fetch(PDO::FETCH_ASSOC);
     if (!is_array($record) || $record['status'] !== 'open'
         || !in_array($record['stage'], ['prospect', 'opportunity', 'proposal', 'negotiation'], true)
-        || !ctype_digit((string)$record['revision'])) {
+        || !ctype_digit((string)$record['revision'])
+        || (int)$record['revision'] < 1
+        || ($method === 'POST' && (int)$record['revision'] !== $launchInput['revision'])) {
         if ($db->inTransaction()) $db->rollBack();
         $deny(403,'OPPORTUNITY_STATE');
     }
@@ -159,6 +161,7 @@ echo '<style>body{font:16px system-ui,sans-serif;background:#f5f7fa;color:#21334
 echo '<main><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatie starten</h1><p>Verkoopkans: <strong>' .
     $h((string)$record['title']) . '</strong></p><p>Er wordt nog geen project aangemaakt. De calculatie blijft gekoppeld aan deze verkoopkans.</p>';
 echo '<form method="post" action="/office-test/calculatie/start"><input type="hidden" name="opportunity_id" value="' .
-    $opportunity . '"><input type="hidden" name="csrf" value="' . $h($csrf) .
+    $opportunity . '"><input type="hidden" name="revision" value="' . (int)$record['revision'] .
+    '"><input type="hidden" name="csrf" value="' . $h($csrf) .
     '"><button type="submit">' . (is_array($existing) ? 'Bestaande calculatie openen' : 'Conceptcalculatie aanmaken') .
     '</button></form><p><a href="/office-test/crm/verkoopkansen">Terug naar verkoopkansen</a></p></main></html>';
