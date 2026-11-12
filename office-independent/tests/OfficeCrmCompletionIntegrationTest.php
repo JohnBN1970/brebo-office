@@ -51,6 +51,22 @@ $repo->addActivity('editor',$lead,3,['activity_type'=>'call','title'=>'Nabellen'
 $assert(count($repo->calendar('editor'))===2,'calendar includes both appointments');
 $html=OfficeCrmFunnelViews::render($repo->calendar('editor'),'calendar','/office-test/crm/verkoopkansen','2026-11');
 $assert(str_contains($html,'Inmeting')&&str_contains($html,'Nabellen')&&str_contains($html,'2026-11-30'),'month calendar');
+$calcFlags=[
+    'OFFICE_BASE_PATH'=>'/office-test',
+    'OFFICE_TEST_CRM_ENABLED'=>'enabled',
+    'OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED'=>'enabled',
+    'OFFICE_CALC_CRM_SCHEMA_VERIFIED'=>'enabled',
+];
+$previousCalcFlags=[];foreach($calcFlags as $flag=>$value){$previousCalcFlags[$flag]=getenv($flag);putenv($flag.'='.$value);}
+$calcProbe=[['id'=>$lead,'name'=>'Adviesvraag','stage'=>'opportunity']];
+$assert(str_contains(OfficeCrmFunnelViews::render($calcProbe,'list'),'/office-test/calculatie/start?opportunity_id='.$lead),'existing guarded CRM Calc action preserved');
+putenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED=disabled');
+$assert(!str_contains(OfficeCrmFunnelViews::render($calcProbe,'list'),'/calculatie/start'),'Calc action hidden without schema proof');
+putenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED=enabled');
+$calcProbe[0]['stage']='won';
+$assert(!str_contains(OfficeCrmFunnelViews::render($calcProbe,'list'),'/calculatie/start'),'Calc action hidden on closed opportunity');
+foreach($previousCalcFlags as $flag=>$value)putenv($value===false?$flag:$flag.'='.$value);
+
 $other=$repo->create(2,'Andere kans',2,'editor',[],str_repeat('e',32));
 $reject(fn()=>$repo->completeActivity('editor',$other,1,(int)$activities[0]['id'],str_repeat('f',32)),'cross opportunity activity');
 $repo->completeActivity('editor',$lead,4,(int)$activities[0]['id'],str_repeat('f',32));
