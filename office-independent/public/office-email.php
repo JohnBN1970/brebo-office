@@ -171,21 +171,17 @@ main{max-width:none;margin:20px auto;padding:0 20px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
  .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:8px 0;align-items:stretch;min-width:0;flex:1;height:min(75vh,780px)}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:8px;padding:12px;min-height:0;overflow-y:auto;overflow-x:hidden;border:1px solid #c8d1dd;scrollbar-width:thin}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
-.mail-workspace{display:flex;gap:16px;align-items:stretch;min-width:0}.mail-detail{box-sizing:border-box;flex:0 0 min(380px,34vw);min-width:260px;max-height:min(75vh,780px);overflow-y:auto;scrollbar-width:thin}.mail-detail .candidate-panel{margin:0}.mail-card p{margin:7px 0;font-size:13px}.mail-card strong{font-size:13px;overflow-wrap:anywhere}.lane h3{position:sticky;top:-12px;background:#e9eef6;padding:8px 0;z-index:1}@media(max-width:950px){.mail-workspace{flex-direction:column}.mail-detail{flex:auto;min-width:0;max-height:420px}.board{height:65vh;min-height:400px}}@media(max-width:600px){main{padding:0 10px}.lane{flex-basis:210px}.board{height:60vh}}</style></head><body><main>
+.mail-workspace{display:flex;gap:16px;align-items:stretch;min-width:0}.mail-detail{box-sizing:border-box;flex:0 0 min(380px,34vw);min-width:260px;max-height:min(75vh,780px);overflow-y:auto;scrollbar-width:thin}.mail-detail .candidate-panel{margin:0}.mail-card p{margin:7px 0;font-size:13px}.mail-card strong{font-size:13px;overflow-wrap:anywhere}.lane h3{position:sticky;top:-12px;background:#e9eef6;padding:8px 0;z-index:1}@media(max-width:950px){.mail-workspace{flex-direction:column}.mail-detail{flex:auto;min-width:0;max-height:420px}.board{height:65vh;min-height:400px}}@media(max-width:600px){main{padding:0 10px}.lane{flex-basis:210px}.board{height:60vh}}.mail-workspace{display:grid;grid-template-columns:minmax(0,65fr) minmax(290px,35fr);gap:14px;width:100%;align-items:start}.board{grid-column:1;grid-row:1;width:100%;height:min(72vh,780px);min-height:420px}.mail-detail{grid-column:2;grid-row:1;width:100%;min-width:0;max-height:min(72vh,780px);height:min(72vh,780px);overflow-y:auto}.mail-card{padding:9px}.mail-card form{gap:4px}.mail-card button{cursor:pointer}.mail-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#fff;border:1px solid #dce3eb;border-radius:10px;margin-bottom:12px}.mail-toolbar input{flex:1;min-width:170px;padding:9px;border:1px solid #c8d1dd;border-radius:7px}.mail-toolbar a{white-space:nowrap}.mail-empty-search{display:none;font-size:12px;color:#586c80}.mail-card[hidden]{display:none!important}@media(max-width:1100px){.mail-workspace{grid-template-columns:minmax(0,1fr)}.board{grid-column:1;grid-row:1}.mail-detail{grid-column:1;grid-row:2;max-height:420px;height:auto}}</style></head><body><main>
 <h1>E-mail</h1>
 
-<div class="grid">
-<article><h2>Inbox</h2><p>Functionele mailboxen en berichten.</p>
-<?php if (!$mailSchemaReady): ?><p class="status">Native database nog niet geactiveerd</p>
-<?php elseif ($mailboxes === []): ?><p class="status">Geen actieve mailboxen geconfigureerd</p>
-<?php else: ?>
+<div class="mail-toolbar" role="search">
+<label for="mail-search"><strong>Zoeken in e-mailbord</strong></label>
+<input id="mail-search" type="search" placeholder="Zoek op afzender of onderwerp" autocomplete="off">
 <?php foreach ($mailboxes as $mailbox): ?>
-<p><a href="/office-test/email?mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></a></p>
+<a href="/office-test/email?mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
-<?php endif; ?></article>
-<article><h2>Verzonden</h2><p>Verzonden correspondentie vanuit Office.</p><p class="status">Nog niet aangesloten</p></article>
-<article><h2>Persoonlijke e-mail</h2><p>Alleen expliciet geselecteerde berichten gaan naar Office.</p><p class="status">Native push nog niet aangesloten</p></article>
-<article><h2>Modulebord</h2><p>Office AI stelt een eigenaar voor; verplaats berichten naar de juiste module.</p><p><a href="#mailbord">Open modulebord</a></p></article>
+<a href="#mailbord">Modulebord</a>
+<span class="muted">Verzonden en persoonlijke push: nog niet aangesloten</span>
 </div>
 <?php if ($mailSchemaReady): ?>
 <section id="mailbord"><h2>E-mail per module</h2><p class="muted">Persoonlijke berichten staan uitsluitend voor de eigenaar in Privé. Overdracht naar een zakelijke module vereist een afzonderlijke, expliciete actie en is nog niet beschikbaar.</p>
@@ -255,6 +251,15 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php endforeach; ?></div></div>
 <script>
 (() => {
+ const search=document.getElementById('mail-search');
+ if(search){
+   const cards=Array.from(document.querySelectorAll('.mail-card'));
+   search.addEventListener('input',()=>{
+     const q=search.value.trim().toLocaleLowerCase('nl');
+     cards.forEach(card=>{card.hidden=q!==''&&!card.textContent.toLocaleLowerCase('nl').includes(q);});
+   });
+ }
+
  let active=null;
  document.querySelectorAll('.mail-card').forEach(card=>{
    card.addEventListener('dragstart',event=>{active=card;event.dataTransfer.setData('text/plain',card.dataset.message);});
