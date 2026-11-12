@@ -71,7 +71,8 @@ with tempfile.TemporaryDirectory(prefix='crm-http-') as temp:
         context=request('/office-test/crm/verkoopkansen/calculatie-context?id='+str(lead),'editor')
         assert context[0]==200 and 'crm_opportunity' in context[1] and 'project_id' not in context[1]
         assert request('/office-test/crm/verkoopkansen/calculatie-context?id='+str(lead),'reader')[0]==403
-        activity=dict(csrf=hidden(html,'csrf'),request_key='9'*32,revision=hidden(html,'revision'),action='activity',activity_type='opname',opname_type='measurement',title='Inmeting plannen',scheduled_at='2026-11-18T10:15')
+        status,html,_=request(detail,'editor');assert status==200
+        activity=dict(csrf=hidden(html,'csrf'),request_key=os.urandom(16).hex(),revision=hidden(html,'revision'),action='activity',activity_type='opname',opname_type='measurement',title='Inmeting plannen',scheduled_at='2026-11-18T10:15')
         assert request(detail,'editor',activity)[0]==303
         status,calendar,_=request('/office-test/crm/verkoopkansen?view=calendar&month=2026-11','editor')
         assert status==200 and 'Inmeting plannen' in calendar
