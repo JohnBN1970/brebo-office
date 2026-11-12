@@ -1,0 +1,66 @@
+name: OnSite approved hours recovery preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: office-test
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate source and contracts
+        run: |
+          set -euo pipefail
+          for file in \
+            office-independent/public/office-onsite-presence-review.php \
+            office-independent/public/office-projects.php \
+            office-independent/src/Inzet/OfficeOnSiteApprovalService.php \
+            office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite
+          chmod 600 ~/.ssh/id_onsite
+      - name: Compare active release without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          opts=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "$HOME/.ssh/id_onsite")
+          ssh "${opts[@]}" -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" || exit 20
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "ACTIVE_SCOPE_INVALID"; exit 21;; esac
+          test -d "$active" && test ! -L "$active" || exit 22
+          echo "ACTIVE_RELEASE_SCOPE=VERIFIED"
+          for path in \
+            public/office-onsite-presence-review.php \
+            public/office-projects.php \
+            src/Inzet/OfficeOnSiteApprovalService.php \
+            src/Inzet/OfficeApprovedHoursWeekRepository.php; do
+            if test -f "$active/$path" && test ! -L "$active/$path"; then
+              php -l "$active/$path" >/dev/null
+              echo "ACTIVE_FILE_PRESENT=$path"
+              sha256sum "$active/$path"
+            else
+              echo "ACTIVE_FILE_MISSING=$path"
+            fi
+          done
+          php -r '$c=require $argv[1]; echo "APPROVAL_FLAG=".(($c["OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED"]??null)==="enabled"?"ENABLED":"NOT_ENABLED")."\n";' "$config"
+          echo "ON_SITE_RECOVERY_PREFLIGHT=COMPLETE_NO_ACTIVE_WRITES"
+          REMOTE
