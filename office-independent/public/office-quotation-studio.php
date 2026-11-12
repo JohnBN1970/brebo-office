@@ -83,6 +83,36 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     if (!$storageReady) { http_response_code(503); exit('Opslaan is nog niet geactiveerd.'); }
+    if (($_POST['action'] ?? '') === 'approve_rubric') {
+        if (getenv('OFFICE_QUOTATION_RUBRIC_APPROVALS_ENABLED') !== 'enabled') {
+            http_response_code(503); exit('Rubriekgoedkeuring is nog niet geactiveerd.');
+        }
+        $quoteId = filter_var($_POST['quotation_id'] ?? null, FILTER_VALIDATE_INT);
+        $rubricKey = $_POST['rubric_key'] ?? null;
+        $sourceHash = $_POST['source_hash'] ?? null;
+        if (!$quoteId || !is_string($rubricKey) || !is_string($sourceHash)
+            || count($_POST) > 12) {
+            http_response_code(400); exit('Ongeldige rubriekcontrole.');
+        }
+        try {
+            require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationRubricApprovalRepository.php';
+            (new \\Brebo\\Office\\Quotation\\OfficeQuotationRubricApprovalRepository($db))->approve(
+                (int)$quoteId, $quotationOperatorId, $rubricKey, $sourceHash, [
+                    'description_checked' => ($_POST['description_checked'] ?? '') === '1',
+                    'quantities_checked' => ($_POST['quantities_checked'] ?? '') === '1',
+                    'prices_checked' => ($_POST['prices_checked'] ?? '') === '1',
+                ]
+            );
+            $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/offertes?edit='.(int)$quoteId.'&rubric_saved=1', true, 303);
+            exit;
+        } catch (\\DomainException $e) {
+            http_response_code(400); exit('Alle drie rubriekcontroles zijn verplicht.');
+        } catch (\\Throwable $e) {
+            error_log('OFFERTSTUDIO_RUBRIC_APPROVAL_FAILED '.get_class($e));
+            http_response_code(503); exit('Rubriekgoedkeuring kon niet worden opgeslagen.');
+        }
+    }
     $relationId = filter_var($_POST['relation_id'] ?? null, FILTER_VALIDATE_INT);
     $postedType = is_string($_POST['type'] ?? null) ? $_POST['type'] : '';
     $title = is_string($_POST['title'] ?? null) ? trim($_POST['title']) : '';
@@ -198,17 +228,50 @@ if ($calculationImport !== null) {
     $rubrics = isset($calculationImport['rubric_proposals']) && is_array($calculationImport['rubric_proposals'])
         ? $calculationImport['rubric_proposals']
         : \Brebo\Office\Quotation\OfficeQuotationRubricBuilder::build($calculationImport['sales_lines']);
-    echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Calculatierubrieken · controle vereist</h2><p>Elke rubriek moet inhoudelijk, op hoeveelheden en op verkoopprijzen worden gecontroleerd. Goedkeuren en vrijgeven zijn nog niet geactiveerd.</p>';
+    $rubricApprovalEnabled = getenv('OFFICE_QUOTATION_RUBRIC_APPROVALS_ENABLED') === 'enabled';
+    $approvedKeys = [];
+    $rubricSourceHash = (string)($calculationImport['source']['source_hash'] ?? '');
+    if ($rubricApprovalEnabled && preg_match('/^[a-f0-9]{64}$/D', $rubricSourceHash)) {
+        try {
+            require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationRubricApprovalRepository.php';
+            $approvedKeys = (new \\Brebo\\Office\\Quotation\\OfficeQuotationRubricApprovalRepository($db))
+                ->approvedKeys((int)$editing['id'], $quotationOperatorId, $rubricSourceHash);
+        } catch (\\Throwable $e) {
+            error_log('OFFERTSTUDIO_RUBRIC_READ_FAILED '.get_class($e));
+            $rubricApprovalEnabled = false;
+        }
+    } else {
+        $rubricApprovalEnabled = false;
+    }
+    $approvedCount = count($approvedKeys);
+    echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Calculatierubrieken · '. $approvedCount . ' van '. count($rubrics) .' goedgekeurd</h2><p>Controleer per rubriek de beschrijving, hoeveelheden en verkoopprijzen. Wijzigingen in de calculatie vereisen een nieuwe controle.</p>';
+    if (isset($_GET['rubric_saved'])) echo '<p role="status">Rubriekcontrole opgeslagen.</p>';
     foreach ($rubrics as $rubric) {
         if (!is_array($rubric)) continue;
-        echo '<article class="section"><h3>'.$escape((string)($rubric['rubric'] ?? 'Werkzaamheden')).' · Niet goedgekeurd</h3>';
+        $rubricName = (string)($rubric['rubric'] ?? 'Werkzaamheden');
+        $isApproved = in_array($rubricName, $approvedKeys, true);
+        echo '<article class="section"><h3>'.$escape($rubricName).' · '.($isApproved ? 'Goedgekeurd' : 'Niet goedgekeurd').'</h3>';
         echo '<p style="display:block">'. $escape((string)($rubric['description'] ?? 'Wij bieden aan de volgende werkzaamheden uit te voeren:')) .'</p>';
         echo '<table style="width:100%"><thead><tr><th>Omschrijving</th><th>Aantal</th><th>Eenheid</th><th>Verkoop excl. btw</th></tr></thead><tbody>';
         foreach (($rubric['lines'] ?? []) as $line) {
             if (!is_array($line)) continue;
             echo '<tr><td>'.$escape((string)($line['description'] ?? '')).'</td><td>'.(float)($line['quantity'] ?? 0).'</td><td>'.$escape((string)($line['unit'] ?? '')).'</td><td>€ '.number_format(((int)($line['amount_ex_vat_cents'] ?? 0))/100, 2, ',', '.').'</td></tr>';
         }
-        echo '</tbody></table><p style="display:block"><small>Te controleren: omschrijving · hoeveelheden · verkoopprijzen</small></p></article>';
+        echo '</tbody></table>';
+        if ($rubricApprovalEnabled && !$isApproved) {
+            echo '<form method="post" action="/office-test/crm/offertes?edit='.(int)$editing['id'].'">';
+            echo '<input type="hidden" name="action" value="approve_rubric"><input type="hidden" name="csrf" value="'.$escape($_SESSION['quotation_csrf']).'">';
+            echo '<input type="hidden" name="quotation_id" value="'.(int)$editing['id'].'">';
+            echo '<input type="hidden" name="rubric_key" value="'.$escape($rubricName).'">';
+            echo '<input type="hidden" name="source_hash" value="'.$escape($rubricSourceHash).'">';
+            foreach (['description_checked' => 'Werkbeschrijving gecontroleerd', 'quantities_checked' => 'Hoeveelheden en eenheden gecontroleerd', 'prices_checked' => 'Verkoopprijzen gecontroleerd'] as $key => $label) {
+                echo '<label style="display:block;margin:10px 0"><input style="display:inline;width:auto" type="checkbox" name="'.$key.'" value="1" required> '.$escape($label).'</label>';
+            }
+            echo '<button type="submit">Rubriek goedkeuren</button></form>';
+        } elseif (!$rubricApprovalEnabled) {
+            echo '<p style="display:block"><small>Goedkeuren is nog niet geactiveerd; database en featureflag moeten eerst gecontroleerd worden.</small></p>';
+        }
+        echo '</article>';
     }
     echo '</section>';
 }
