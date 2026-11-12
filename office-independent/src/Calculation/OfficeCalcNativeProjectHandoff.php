@@ -35,6 +35,7 @@ final class OfficeCalcNativeProjectHandoff
         if (!is_string($expectedStage) || !\\Brebo\\Office\\Crm\\OfficeCrmFunnel::canTransition($expectedStage, 'won')) {
             throw new DomainException('Expected CRM stage required for atomic acceptance');
         }
+        $acceptance['expected_crm_stage'] = $expectedStage;
         return OfficeCalcAcceptedOpportunityTransfer::execute(
             $db,
             $acceptance,
