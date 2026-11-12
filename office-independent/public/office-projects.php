@@ -684,15 +684,6 @@ if ($kanbanView) {
           $db, (string)$operator->operatorId, $year, $week
         );
         $portfolioTotals['planned_week_label'] = sprintf('%04d-W%02d', $year, $week);
-        try {
-          require_once dirname(__DIR__) . '/src/Inzet/OfficeApprovedHoursWeekRepository.php';
-          $approved = new \Brebo\Office\Inzet\OfficeApprovedHoursWeekRepository($db);
-          $portfolioTotals['approved_week_seconds'] = $approved->forOperatorWeek(
-            (string)$operator->operatorId, $year, $week
-          );
-        } catch (\Throwable $exception) {
-          // Missing ledger or incomplete approval source must not become zero.
-        }
       } catch (\Throwable $exception) {
         // Planning is unavailable independently of financial KPI sources.
       }
@@ -717,6 +708,34 @@ if ($kanbanView) {
   } catch (\Throwable $exception) {
     // Missing permissions or unverified budget data must never become zero.
     $portfolioTotals = [];
+  }
+  // Approved labour hours are an operational project KPI, not a Finance permission.
+  // The repository independently enforces project membership and only reads approved ledger entries.
+  try {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPortfolioPlannedHours.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeApprovedHoursWeekRepository.php';
+    $approvedWeekNow = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels'));
+    $approvedWeekInput = isset($_GET['week']) && is_string($_GET['week']) ? $_GET['week'] : '';
+    if ($approvedWeekInput !== '') {
+      if (!preg_match('/^(20[2-9][0-9]|2100)-W(0[1-9]|[1-4][0-9]|5[0-3])$/D', $approvedWeekInput, $approvedWeekMatch)) {
+        throw new \InvalidArgumentException('Invalid approved hours week');
+      }
+      $approvedYear = (int)$approvedWeekMatch[1];
+      $approvedWeek = (int)$approvedWeekMatch[2];
+    } else {
+      $approvedYear = (int)$approvedWeekNow->format('o');
+      $approvedWeek = (int)$approvedWeekNow->format('W');
+    }
+    $approvedWeekDate = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($approvedYear,$approvedWeek,1);
+    if ((int)$approvedWeekDate->format('o') !== $approvedYear || (int)$approvedWeekDate->format('W') !== $approvedWeek) {
+      throw new \InvalidArgumentException('Invalid ISO week');
+    }
+    $approvedSeconds = (new \Brebo\Office\Inzet\OfficeApprovedHoursWeekRepository($db))
+      ->forOperatorWeek((string)$operator->operatorId, $approvedYear, $approvedWeek);
+    $portfolioTotals['approved_week_seconds'] = $approvedSeconds;
+    $portfolioTotals['planned_week_label'] = sprintf('%04d-W%02d', $approvedYear, $approvedWeek);
+  } catch (\Throwable $exception) {
+    // Missing ledger or unauthorized rows must not be represented as zero.
   }
   echo \Brebo\Office\Project\OfficeProjectPortfolioView::render($projects, $base, $portfolioTotals);
 } elseif ($projects === []) {
