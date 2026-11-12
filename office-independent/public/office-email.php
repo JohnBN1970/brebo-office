@@ -48,6 +48,8 @@ try {
   $boardCards = [];
   $csrfToken = '';
   $duplicateCandidates = [];
+  $crmRelationCandidates = [];
+  $crmRecognitionStatus = 'not_checked';
   $selectedMailId = null;
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
@@ -90,6 +92,31 @@ try {
       if (is_int($selectedMailId)) {
         require_once dirname(__DIR__) . '/src/Mail/OfficeMailDuplicateCandidates.php';
         $duplicateCandidates = (new \Brebo\Office\Mail\OfficeMailDuplicateCandidates($db))->forMessage($selectedMailId, $operatorId);
+        // CRM recognition is read-only and never runs for personal mail.
+        $selectedCard = null;
+        foreach ($boardCards as $candidateCard) {
+          if ((int)$candidateCard['id'] === $selectedMailId) { $selectedCard = $candidateCard; break; }
+        }
+        if ($selectedCard !== null && (string)$selectedCard['module_key'] !== 'prive'
+            && getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled'
+            && getenv('OFFICE_CRM_AUTH_MODE') === 'session_only'
+            && getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED') === 'enabled') {
+          $activeOperator = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1 LIMIT 1');
+          $activeOperator->execute([$operatorId]);
+          if ($activeOperator->fetchColumn() !== false) {
+            require_once dirname(__DIR__) . '/src/Crm/OfficeCrmMailRelationCandidates.php';
+            try {
+              // CRM currently grants active Office operators access to the relation list.
+              $crmRelationCandidates = (new \\Brebo\\Office\\Crm\\OfficeCrmMailRelationCandidates($db))
+                ->forSender((string)$selectedCard['sender'], static fn(string $relationId): bool => true);
+              $crmRecognitionStatus = 'checked';
+            } catch (Throwable $crmRecognitionError) {
+              error_log('office_mail_crm_recognition_unavailable: ' . $crmRecognitionError::class);
+              $crmRecognitionStatus = 'unavailable';
+            }
+          }
+        }
+
       }
     } elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       http_response_code(503); exit('Mailbord niet actief.');
@@ -138,6 +165,15 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if (is_int($selectedMailId)): ?>
 <div class="candidate-panel"><h3>Automatische dubbelingencontrole - bericht #<?= (int)$selectedMailId ?></h3>
 <p class="muted">Dit zijn uitsluitend mogelijke vervolgberichten met dezelfde afzender en hetzelfde onderwerp. Er wordt niets automatisch gekoppeld of aangemaakt.</p>
+<h4>CRM-relatieherkenning</h4>
+<?php if ($crmRecognitionStatus === 'checked'): ?>
+<?php if ($crmRelationCandidates === []): ?><p>Geen bestaande actieve CRM-relatie op dit afzenderadres gevonden.</p>
+<?php else: ?><ul><?php foreach ($crmRelationCandidates as $relationCandidate): ?>
+<li><a href="/office-test/crm/relaties/detail?id=<?= urlencode((string)$relationCandidate['id']) ?>"><?= htmlspecialchars((string)$relationCandidate['display_name'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></a> — <?= htmlspecialchars((string)$relationCandidate['reason'], ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8') ?></li>
+<?php endforeach; ?></ul><?php endif; ?>
+<?php elseif ($crmRecognitionStatus === 'unavailable'): ?><p>CRM-herkenning tijdelijk niet beschikbaar; e-mailcontrole blijft actief.</p>
+<?php else: ?><p>CRM-herkenning niet actief of geen toegang (privéberichten worden niet gecontroleerd).</p><?php endif; ?>
+<h4>Mogelijk eerdere e-mails</h4>
 <?php if ($duplicateCandidates === []): ?><p>Geen overeenkomende e-mails gevonden in de gecontroleerde selectie.</p>
 <?php else: ?><ul><?php foreach ($duplicateCandidates as $candidate): ?><li><strong><?= htmlspecialchars($candidate['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong> - <?= htmlspecialchars($candidate['received_at'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> (bericht #<?= (int)$candidate['id'] ?>)</li><?php endforeach; ?></ul><?php endif; ?>
 </div>
