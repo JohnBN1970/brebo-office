@@ -1,6 +1,8 @@
 name: Office project portfolio attention contract
 
 on:
+  pull_request:
+    branches: [develop]
   push:
     branches: [develop]
     paths:
@@ -19,6 +21,7 @@ on:
       - 'office-independent/public/office-onsite-presence-review.php'
       - 'office-independent/tests/OfficeApprovedHoursBookingTest.php'
       - 'office-independent/tests/OfficeApprovedHoursEvidenceTest.php'
+      - 'office-independent/tests/OfficeOnSiteApprovalChainContractTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php'
       - 'office-independent/src/Project/OfficeProjectPageStructure.php'
@@ -53,6 +56,7 @@ jobs:
           php -l office-independent/public/office-onsite-presence-review.php
           php -l office-independent/tests/OfficeApprovedHoursBookingTest.php
           php -l office-independent/tests/OfficeApprovedHoursEvidenceTest.php
+          php -l office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
           php -l office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php -l office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php -l office-independent/src/Project/OfficeProjectTrafficLight.php
@@ -62,3 +66,4 @@ jobs:
           php office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php office-independent/tests/OfficeApprovedHoursBookingTest.php
           php office-independent/tests/OfficeApprovedHoursEvidenceTest.php
+          php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
