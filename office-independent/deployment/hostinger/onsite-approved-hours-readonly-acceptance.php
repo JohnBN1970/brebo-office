@@ -70,8 +70,11 @@ if (!is_string($live) || $live==='' || !is_dir($live)) {
         $target=$live.'/'.$file;
         $contents=is_file($target)&&!is_link($target)?file_get_contents($target):false;
         $ok=is_string($contents);
-        foreach($markers as $marker) if (!$ok || !str_contains($contents,$marker)) $ok=false;
-        echo 'DEPLOYED_'.strtoupper(str_replace(['/', '.', '-'],'_', $file)).'='.($ok?'READY':'UNVERIFIED')."\n";
+        $missing=[];
+        foreach($markers as $marker) if (!$ok || !str_contains($contents,$marker)) $missing[]=$marker;
+        $ok=$ok && $missing===[];
+        $state=$ok?'READY':(is_string($contents)?'MARKER_MISMATCH':'FILE_MISSING');
+        echo 'DEPLOYED_'.strtoupper(str_replace(['/', '.', '-'],'_', $file)).'='.$state."\n";
         if (!$ok) $ready=false;
     }
 }
