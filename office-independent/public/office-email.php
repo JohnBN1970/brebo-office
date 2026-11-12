@@ -107,7 +107,7 @@ try {
             require_once dirname(__DIR__) . '/src/Crm/OfficeCrmMailRelationCandidates.php';
             try {
               // CRM currently grants active Office operators access to the relation list.
-              $crmRelationCandidates = (new \\Brebo\\Office\\Crm\\OfficeCrmMailRelationCandidates($db))
+              $crmRelationCandidates = (new \Brebo\Office\Crm\OfficeCrmMailRelationCandidates($db))
                 ->forSender((string)$selectedCard['sender'], static fn(string $relationId): bool => true);
               $crmRecognitionStatus = 'checked';
             } catch (Throwable $crmRecognitionError) {
