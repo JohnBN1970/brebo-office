@@ -9,6 +9,7 @@ on:
       - 'office-independent/config/workflows/**'
       - 'office-independent/database/office-workflow-*.sql'
       - 'office-independent/tests/OfficeBreboWorkflowConfigTest.php'
+      - 'office-independent/tests/OfficeWorkflowEditorWiringTest.php'
       - 'office-independent/tests/OfficeCommercialWorkflowTest.php'
       - 'office-independent/tests/OfficeCommercialTransitionGuardTest.php'
       - 'office-independent/tests/OfficeCrmWorkflowBridgeTest.php'
@@ -55,6 +56,7 @@ jobs:
           php -l office-independent/public/office-workflow-preview.php
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeBreboWorkflowConfigTest.php
+          php -l office-independent/tests/OfficeWorkflowEditorWiringTest.php
           php -l office-independent/tests/OfficeWorkflowPublicationPolicyTest.php
           php -l office-independent/tests/OfficeWorkflowBlueprintValidatorTest.php
           php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
@@ -77,6 +79,7 @@ jobs:
           php office-independent/tests/OfficeWorkflowBlueprintCompilerTest.php
           php office-independent/tests/OfficeWorkflowPublicationPolicyTest.php
           php office-independent/tests/OfficeBreboWorkflowConfigTest.php
+          php office-independent/tests/OfficeWorkflowEditorWiringTest.php
       - name: Verify isolated router and safe feature gates
         run: |
           php -r '$r=file_get_contents("office-independent/deployment/hostinger/office-test-index.php"); $p=file_get_contents("office-independent/public/office-quotation-studio.php"); foreach (["/office-test/crm/offertes", "office-quotation-studio.php"] as $x) { if (!str_contains($r,$x)) exit(1); } foreach (["OFFICE_OFFERTSTUDIO_PREVIEW_ENABLED", "OFFICE_QUOTATIONS_SCHEMA_VERIFIED", "OFFICE_QUOTATIONS_WRITE_ENABLED", "quotation_csrf", "getOwnDraft", "updateOwnDraft"] as $x) { if (!str_contains($p,$x)) exit(2); } echo "Quotation router and gates verified\\n";'
