@@ -56,6 +56,14 @@ if b"ProjectBudgetPanel::render($workBudgetView)" not in source_section:
 # Actual live page already owns the panel inside the finance section.
 live_start = b"// Native work budget panel: Finance ACL must have succeeded, and rollout is test-only."
 if active.count(live_start) != 1 or active.count(end) != 1:
+    # Some Office-test releases already contain the panel but have different
+    # surrounding Finance layout. Avoid guessing which code to move.
+    print("WORK_BUDGET_TAB_LIVE_PANEL_START_COUNT=" + str(active.count(live_start)))
+    print("WORK_BUDGET_TAB_LIVE_FINANCE_END_COUNT=" + str(active.count(end)))
+    print("WORK_BUDGET_TAB_LIVE_PANEL_RENDER_COUNT=" + str(active.count(b"ProjectBudgetPanel::render")))
+    print("WORK_BUDGET_TAB_LIVE_FINANCE_OUTPUT_COUNT=" + str(active.count(b"$financeHtml .=")))
+    print("WORK_BUDGET_TAB_LIVE_FINANCE_VARIABLE_COUNT=" + str(active.count(b"$financeHtml")))
+    print("WORK_BUDGET_TAB_LIVE_SECTION_OUTPUT_COUNT=" + str(active.count(b"$financialSectionHtml .=")))
     sys.exit("WORK_BUDGET_TAB_LIVE_PANEL_UNEXPECTED")
 live_begin = active.index(live_start)
 live_finish = active.index(end, live_begin)
