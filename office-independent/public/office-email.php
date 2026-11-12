@@ -86,7 +86,7 @@ try {
       $selectedMailId = filter_var($_GET['inspect_mail'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (is_int($selectedMailId)) {
         require_once dirname(__DIR__) . '/src/Mail/OfficeMailDuplicateCandidates.php';
-        $duplicateCandidates = (new \\Brebo\\Office\\Mail\\OfficeMailDuplicateCandidates($db))->forMessage($selectedMailId, $operatorId);
+        $duplicateCandidates = (new \Brebo\Office\Mail\OfficeMailDuplicateCandidates($db))->forMessage($selectedMailId, $operatorId);
       }
     } elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       http_response_code(503); exit('Mailbord niet actief.');
