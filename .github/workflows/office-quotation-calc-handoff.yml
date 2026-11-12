@@ -5,6 +5,7 @@ on:
       - feature/office-offertestudio-20261111
     paths:
       - 'office-independent/src/Quotation/**'
+      - 'office-independent/public/office-quotation-studio.php'
       - 'office-independent/tests/OfficeQuotationRubricBuilderTest.php'
       - 'office-independent/tests/OfficeQuotationCalculationImportTest.php'
       - 'office-independent/tests/OfficeQuotationCalc*Test.php'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Quotation/**'
+      - 'office-independent/public/office-quotation-studio.php'
       - 'office-independent/tests/OfficeQuotationRubricBuilderTest.php'
       - 'office-independent/tests/OfficeQuotationCalculationImportTest.php'
       - 'office-independent/tests/OfficeQuotationCalc*Test.php'
@@ -29,7 +31,8 @@ jobs:
           extensions: mbstring, pdo_sqlite
       - name: Lint quotation integration
         run: |
-          for file in office-independent/src/Quotation/*.php office-independent/tests/OfficeQuotationCalc*Test.php office-independent/tests/OfficeQuotationCalculationImportTest.php office-independent/tests/OfficeQuotationRubricBuilderTest.php; do php -l "$file"; done
+          set -e
+          for file in office-independent/src/Quotation/*.php office-independent/public/office-quotation-studio.php office-independent/tests/OfficeQuotationCalc*Test.php office-independent/tests/OfficeQuotationCalculationImportTest.php office-independent/tests/OfficeQuotationRubricBuilderTest.php; do php -l "$file"; done
       - name: Calc quotation boundary tests
         run: |
           php office-independent/tests/OfficeQuotationRubricBuilderTest.php
