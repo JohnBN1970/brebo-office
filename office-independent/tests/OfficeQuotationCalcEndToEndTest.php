@@ -47,4 +47,26 @@ try {
     if ($e->getMessage()==='Bad CSRF accepted') throw $e;
 }
 if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) throw new RuntimeException('Invalid request created draft');
+$wrongRevision = $intent;
+$wrongRevision['calculation_version'] = '4';
+try {
+    $controller->handle('POST', 5, $wrongRevision, $csrf, $resolver);
+    throw new RuntimeException('Mismatched Calc revision accepted');
+} catch (DomainException $e) {
+    if ($e->getMessage() === 'Mismatched Calc revision accepted') throw $e;
+}
+$wrongRelationResolver = static function (int $operatorId, int $calcId, int $version) use ($resolver): array {
+    $authorized = $resolver($operatorId, $calcId, $version);
+    $authorized['relation_id'] = 8;
+    return $authorized;
+};
+try {
+    $controller->handle('POST', 5, $intent, $csrf, $wrongRelationResolver);
+    throw new RuntimeException('Mismatched CRM relation accepted');
+} catch (DomainException $e) {
+    if ($e->getMessage() === 'Mismatched CRM relation accepted') throw $e;
+}
+if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) {
+    throw new RuntimeException('Rejected handoff created an extra draft');
+}
 echo "OFFERTSTUDIO_CALC_END_TO_END=PASS\n";
