@@ -43,7 +43,8 @@ jobs:
           config="$base/config/config.php"
           stage="$HOME/office_calc_test/.onsite-acceptance-stage/onsite-approved-hours-readonly-acceptance.php"
           test -f "$config" && test -f "$stage"
-          active="$base/release-office-test-contractform-20261030/private"
-          test -d "$active" || { echo "ACTIVE_RELEASE=UNVERIFIED"; exit 4; }
+          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo "ACTIVE_RELEASE_SCOPE=INVALID"; exit 4;; esac
+          test -d "$active" && test ! -L "$active" || { echo "ACTIVE_RELEASE=UNVERIFIED"; exit 4; }
           OFFICE_TEST_CONFIG_PATH="$config" OFFICE_TEST_ACTIVE_PRIVATE_PATH="$active" php "$stage"
           REMOTE
