@@ -46,12 +46,19 @@ try{
         $target=$active.'/'.$relative;$parent=dirname($target);
         if(!is_dir($parent)||is_link($target)||!str_starts_with((string)realpath($parent),$active.'/'))throw new RuntimeException('package_target');
         $prior=is_file($target)?file_get_contents($target):null;
-        // Verified Office-test baseline from Git commit 816b81985228: only these two UTF-8 fixes.
+        // Exact historical Git blobs confirmed against active Office-test SHA256.
+        // Unknown source files must still fail closed; do not authorize FunnelViews without reconciliation.
         $knownActive=[
-            'src/Crm/OfficeCrmOpportunityPolicy.php'=>'f8c5ac59c70663b7e52f2dd305e30115eda2e416b5d83b9d99cdafed4fd4de46',
-            'src/Crm/OfficeCrmOpportunityRepository.php'=>'e9bdfa34e07dc7d6a1f3323ae95d5e6a6dd45c098c953ca1f3d4762cbcf23802',
+            'src/Crm/OfficeCrmFunnel.php'=>['105a50416ad9dace030d3dfdb8efa6a07cab52f7f4ce4f36c082d9e6e3628f11'], // 816b81985228
+            'src/Crm/OfficeCrmOpportunityPolicy.php'=>['f8c5ac59c70663b7e52f2dd305e30115eda2e416b5d83b9d99cdafed4fd4de46'],
+            'src/Crm/OfficeCrmOpportunityRepository.php'=>[
+                'e9bdfa34e07dc7d6a1f3323ae95d5e6a6dd45c098c953ca1f3d4762cbcf23802',
+                'a7447b8b3b1802f272dd1bff3c2b3b2ac8a4f97827e74b615e17bffca2a75543', // 985692aed23a
+            ],
+            'public/office-crm-opportunity-detail.php'=>['9b15dd5348098ca78d041821463c1a49a360de5a6d1ce972ef503731a1367e01'], // 125a2c994f50
+            'public/office-crm-opportunity-transition.php'=>['7d1dc3daac30a3b087a9403160b0e66e6f983a3c664ef53399bbaee16a1b74e4'], // 816b81985228
         ];
-        $accepted=array_filter([$spec['prior_sha256']??null,$spec['sha256'],$knownActive[$relative]??null]);
+        $accepted=array_filter(array_merge([$spec['prior_sha256']??null,$spec['sha256']],$knownActive[$relative]??[]));
         if($prior!==null&&!in_array(hash('sha256',$prior),$accepted,true))throw new RuntimeException('unknown_active_source');
         $before[$target]=$prior;$candidates[$target]=file_get_contents($source);
     }
