@@ -12,6 +12,8 @@ on:
       - 'office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php'
       - 'office-independent/src/Inzet/OfficeApprovedHoursBooking.php'
       - 'office-independent/src/Inzet/OfficeApprovedHoursEvidence.php'
+      - 'office-independent/src/Inzet/OfficeApprovedHoursDecisionSchema.php'
+      - 'office-independent/src/Inzet/OfficeApprovedHoursDecisionRepository.php'
       - 'office-independent/tests/OfficeApprovedHoursBookingTest.php'
       - 'office-independent/tests/OfficeApprovedHoursEvidenceTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
@@ -41,6 +43,8 @@ jobs:
           php -l office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php
           php -l office-independent/src/Inzet/OfficeApprovedHoursBooking.php
           php -l office-independent/src/Inzet/OfficeApprovedHoursEvidence.php
+          php -l office-independent/src/Inzet/OfficeApprovedHoursDecisionSchema.php
+          php -l office-independent/src/Inzet/OfficeApprovedHoursDecisionRepository.php
           php -l office-independent/tests/OfficeApprovedHoursBookingTest.php
           php -l office-independent/tests/OfficeApprovedHoursEvidenceTest.php
           php -l office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
