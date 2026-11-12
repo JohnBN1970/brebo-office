@@ -13,7 +13,7 @@ $required = [
     'router' => [$router, "'/office-test/calculatie/start' => 'office-calc-crm-start.php'"],
     'disabled-by-default' => [$start, "getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED') !== 'enabled'"],
     'schema-gate' => [$start, "getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED') !== 'enabled'"],
-    'no-project-required' => [$start, "'/office-test/calculatie?draft_id='"],
+    'no-project-required' => [$start, "'Location: /office-test/calculatie?draft_id='"],
     'revision-check' => [$start, '$launchInput[\'revision\']'],
     'csrf' => [$start, 'hash_equals($csrf, $submitted)'],
     'missing-origin-denied' => [$start, "'ORIGIN_MISSING'"],
