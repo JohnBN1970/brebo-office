@@ -1,0 +1,49 @@
+name: OnSite approved hours read-only runtime acceptance
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/onsite-approved-hours-runtime-acceptance.yml'
+      - 'office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    environment: office-test
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only acceptance probe
+        run: php -l office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_acceptance
+          chmod 600 ~/.ssh/id_onsite_acceptance
+      - name: Inspect active Office-test without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-acceptance-stage"'
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$USER@$HOST:office_calc_test/.onsite-acceptance-stage/"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          stage="$HOME/office_calc_test/.onsite-acceptance-stage/onsite-approved-hours-readonly-acceptance.php"
+          test -f "$config" && test -f "$stage"
+          active="$base/release-office-test-contractform-20261030/private"
+          test -d "$active" || { echo "ACTIVE_RELEASE=UNVERIFIED"; exit 4; }
+          OFFICE_TEST_CONFIG_PATH="$config" OFFICE_TEST_ACTIVE_PRIVATE_PATH="$active" php "$stage"
+          REMOTE
