@@ -2,9 +2,25 @@ name: Office Calc CRM-first acceptance contracts
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Calculation/OfficeCalcNativeProjectHandoff.php'
+      - 'office-independent/src/Calculation/OfficeNativeProjectFactory.php'
+      - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
+      - 'office-independent/tests/OfficeCalcNativeProjectFactoryContractTest.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php'
+      - 'office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
+      - 'office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php'
+      - 'office-independent/src/Crm/OfficeCrmFunnel.php'
+      - 'office-independent/src/Crm/OfficeCrmWonTransition.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -12,9 +28,22 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php'
+      - 'office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php'
+      - 'office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php'
+      - 'office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php'
+      - 'office-independent/src/Crm/OfficeCrmFunnel.php'
+      - 'office-independent/src/Crm/OfficeCrmWonTransition.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/deployment/hostinger/sql/office-crm-calculation-acceptances.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -35,9 +64,21 @@ jobs:
         run: |
           set -euo pipefail
           for f in \
+            office-independent/deployment/hostinger/audit-native-project-handoff-preflight.php \
+            office-independent/src/Calculation/OfficeCalcNativeProjectHandoff.php \
+            office-independent/src/Calculation/OfficeNativeProjectFactory.php \
+            office-independent/src/Calculation/OfficeNativeProjectHandoffPreflight.php \
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
+            office-independent/src/Calculation/OfficeCalcCostCarrierHandoffMapper.php \
+            office-independent/src/Calculation/OfficeCalcPersistedCrmAcceptance.php \
+            office-independent/src/Calculation/OfficeCalcAcceptedOpportunityTransfer.php \
+            office-independent/src/Calculation/OfficeCalcAcceptanceSchemaPreflight.php \
+            office-independent/src/Calculation/OfficeCalcCrmHandoffDecision.php \
+            office-independent/src/Crm/OfficeCrmFunnel.php \
+            office-independent/src/Crm/OfficeCrmWonTransition.php \
+            office-independent/public/office-crm-opportunity-transition.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
           done
@@ -46,7 +87,21 @@ jobs:
             office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
             office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
             office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
-            office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
+            office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php \
+            office-independent/tests/OfficeCalcWorkBudgetLockContractTest.php \
+            office-independent/tests/OfficeCalcFiveCostCarriersHandoffTest.php \
+            office-independent/tests/OfficeCalcCostCarrierHandoffMapperTest.php \
+            office-independent/tests/OfficeCalcNativeTransferIntegrationTest.php \
+            office-independent/tests/OfficeCalcPersistedAcceptanceAdapterTest.php \
+            office-independent/tests/OfficeCalcAcceptanceSchemaPreflightTest.php \
+            office-independent/tests/OfficeCalcCrmHandoffDecisionTest.php \
+            office-independent/tests/OfficeCalcCrmDirectAssignmentStageTest.php \
+            office-independent/tests/OfficeCalcCrmWonTransitionTest.php \
+            office-independent/tests/OfficeCalcCrmWonUiRouteTest.php \
+            office-independent/tests/OfficeCalcCrmWonPersistedAcceptanceGuardTest.php \
+            office-independent/tests/OfficeCalcNativeProjectFactoryContractTest.php \
+            office-independent/tests/OfficeNativeProjectHandoffPreflightTest.php \
+            office-independent/tests/OfficeNativeProjectHandoffAuditContractTest.php; do
             php -l "$f"
             php "$f"
           done

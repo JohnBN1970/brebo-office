@@ -16,7 +16,7 @@ final class OfficeCalcCrmTransferService
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function transfer(array $acceptance, array $lines, callable $createProject, callable $verifyCrmAcceptance): array
+    public function transfer(array $acceptance, array $lines, callable $createProject, callable $verifyCrmAcceptance, ?callable $acceptCrmStage = null): array
     {
         if ($this->db->inTransaction()) {
             throw new DomainException('Transfer requires ownership of transaction');
@@ -24,9 +24,34 @@ final class OfficeCalcCrmTransferService
         require_once __DIR__ . '/OfficeCalcAcceptanceIdentity.php';
         require_once __DIR__ . '/OfficeCalcWorkBudgetHandoff.php';
         $key = OfficeCalcAcceptanceIdentity::key($acceptance);
+        // Native rows contain multiple cost carriers. Convert them to the
+        // established immutable work-budget contract before opening the transaction.
+        // Reject mixed formats instead of silently dropping costs.
+        $nativeCount = count(array_filter($lines, static fn($line): bool =>
+            is_array($line) && array_key_exists('unit_costs_cents', $line)));
+        if ($nativeCount > 0) {
+            if ($nativeCount !== count($lines)) {
+                throw new DomainException('Mixed native and legacy calculation lines');
+            }
+            require_once __DIR__ . '/OfficeCalcCostCarrierHandoffMapper.php';
+            $lines = OfficeCalcCostCarrierHandoffMapper::map($lines);
+        }
         $budget = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines);
         $this->db->beginTransaction();
         try {
+            // Lock the CRM opportunity first, matching the regular won-transition
+            // lock order. This serializes competing stage changes and prevents
+            // accepting an already closed or stale opportunity.
+            $opportunity = $this->db->prepare(
+                'SELECT stage, status FROM office_crm_opportunities WHERE id=? FOR UPDATE'
+            );
+            $opportunity->execute([(int)$acceptance['crm_opportunity_id']]);
+            $current = $opportunity->fetch(PDO::FETCH_ASSOC);
+            $expectedStage = $acceptance['expected_crm_stage'] ?? null;
+            if (!is_array($current) || $current['status'] !== 'open'
+                || ($expectedStage !== null && $current['stage'] !== $expectedStage)) {
+                throw new DomainException('CRM opportunity is no longer open in expected stage');
+            }
             // Verify persisted CRM acceptance under the same transaction before any
             // project or budget write. The adapter must lock the opportunity row
             // and return true only for the exact accepted calculation/revision.
@@ -77,6 +102,11 @@ final class OfficeCalcCrmTransferService
                     $item['quantity'], $item['unit_cost_cents'],
                     $item['budget_cents'], $item['activity_ref'],
                 ]);
+            }
+            // Optional CRM stage transition participates in this same transaction.
+            // A failed or stale transition rolls back project, transfer and budget.
+            if ($acceptCrmStage !== null && $acceptCrmStage($this->db, $acceptance) !== true) {
+                throw new DomainException('CRM stage transition was not confirmed');
             }
             $this->db->commit();
             return ['project_id' => $projectId, 'work_budget_id' => $baselineId, 'acceptance_key' => $key];
