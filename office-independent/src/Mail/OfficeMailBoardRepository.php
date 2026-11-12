@@ -28,7 +28,7 @@ final class OfficeMailBoardRepository {
   }
 
   public function move(int $messageId,string $operatorId,string $module): bool {
-    if ($messageId<=0 || $operatorId<=0 || !in_array($module,self::MODULES,true)) {
+    if ($messageId <= 0 || $operatorId === '' || strlen($operatorId) > 128 || !in_array($module,self::MODULES,true)) {
       throw new RuntimeException('Ongeldige verplaatsing.');
     }
     $this->db->beginTransaction();
