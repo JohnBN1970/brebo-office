@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate:
-    if: ${{ inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST' }}
+    if: ${{ github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-WORK-BUDGET-TAB-TEST' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           php -l office-independent/public/office-project.php
+          python3 -m py_compile office-independent/deployment/hostinger/mount-work-budget-tab.py
           grep -Fq "'werkbegroting' => 'Werkbegroting'" office-independent/public/office-project.php
           grep -Fq "$activeTab === 'werkbegroting'" office-independent/public/office-project.php
           grep -Fq "OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED" office-independent/public/office-project.php
