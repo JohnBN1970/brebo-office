@@ -74,6 +74,13 @@ $assert($repo->calendar('reader')===[],'lost opportunity has no calendar work');
 foreach(['kanban','list'] as $view){$html=OfficeCrmFunnelViews::render($repo->listForViews('reader'),$view);$assert(str_contains($html,'Andere kans'),'closed lost appears in '.$view);}
 $repo->transition($other,'lost','prospect','editor',2,'Nieuwe aanvraag',str_repeat('5',32));
 $assert($repo->detail('editor',$other)['status']==='open','lost can reopen');
+$repo->transition($other,'prospect','opportunity','editor',3,'',str_repeat('8',32));
+$reject(fn()=>$repo->transition($other,'opportunity','won','editor',4,'',str_repeat('9',32)),'direct order requires acceptance evidence');
+$repo->transition($other,'opportunity','won','editor',4,'Directe opdracht bevestigd per e-mail REF-2026-11',str_repeat('9',32));
+$direct=$repo->detail('editor',$other);
+$assert($direct['stage']==='won'&&$direct['status']==='closed','direct acceptance without quote or calculation');
+$assert(str_contains($direct['outcome_note'],'REF-2026-11'),'direct order evidence retained');
+$assert(!isset($direct['project_id']),'direct acceptance creates no implicit project');
 // Historical wins/losses must not evict active opportunities from the funnel (>500 records).
 $insert=$db->prepare("INSERT INTO office_crm_opportunities (relation_id,title,stage,status,next_action_at) VALUES (1,?,?, 'closed',?)");
 for($n=0;$n<620;$n++)$insert->execute(['Historical '. $n,$n%2===0?'won':'lost','2026-01-01 09:00:00']);
