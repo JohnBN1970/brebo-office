@@ -49,6 +49,8 @@ try {
   $csrfToken = '';
   $duplicateCandidates = [];
   $crmRelationCandidates = [];
+  $buildingProjectCandidates = ['buildings'=>[], 'projects'=>[]];
+  $buildingRecognitionStatus = 'not_checked';
   $crmRecognitionStatus = 'not_checked';
   $selectedMailId = null;
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
@@ -96,6 +98,19 @@ try {
         $selectedCard = null;
         foreach ($boardCards as $candidateCard) {
           if ((int)$candidateCard['id'] === $selectedMailId) { $selectedCard = $candidateCard; break; }
+        }
+        if ($selectedCard !== null && (string)$selectedCard['module_key'] !== 'prive'
+            && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
+            && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled') {
+          try {
+            require_once dirname(__DIR__) . '/src/Mail/OfficeMailBuildingProjectRecognition.php';
+            $buildingProjectCandidates = (new \Brebo\Office\Mail\OfficeMailBuildingProjectRecognition($db))
+              ->forSubject((string)$selectedCard['subject'], $operatorId);
+            $buildingRecognitionStatus = 'checked';
+          } catch (Throwable $buildingRecognitionError) {
+            error_log('office_mail_building_recognition_unavailable: ' . $buildingRecognitionError::class);
+            $buildingRecognitionStatus = 'unavailable';
+          }
         }
         if ($selectedCard !== null && (string)$selectedCard['module_key'] !== 'prive'
             && getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled'
@@ -173,6 +188,21 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php endforeach; ?></ul><?php endif; ?>
 <?php elseif ($crmRecognitionStatus === 'unavailable'): ?><p>CRM-herkenning tijdelijk niet beschikbaar; e-mailcontrole blijft actief.</p>
 <?php else: ?><p>CRM-herkenning niet actief of geen toegang (privéberichten worden niet gecontroleerd).</p><?php endif; ?>
+<h4>Gebouwen en projecten</h4>
+<?php if ($buildingRecognitionStatus === 'checked'): ?>
+<?php if ($buildingProjectCandidates['buildings'] === []): ?><p>Geen toegankelijk gebouw gevonden op basis van een postcode in het onderwerp.</p>
+<?php else: ?>
+<ul><?php foreach ($buildingProjectCandidates['buildings'] as $buildingCandidate): ?>
+<li><a href="/office-test/gebouwen?id=<?= (int)$buildingCandidate['id'] ?>"><?= htmlspecialchars((string)$buildingCandidate['building_name'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a> — <?= htmlspecialchars((string)$buildingCandidate['street_address'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>, <?= htmlspecialchars((string)$buildingCandidate['postal_code'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> <?= htmlspecialchars((string)$buildingCandidate['city'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></li>
+<?php endforeach; ?></ul>
+<?php if ($buildingProjectCandidates['projects'] !== []): ?><p>Toegankelijke projecten bij deze gebouwen:</p><ul>
+<?php foreach ($buildingProjectCandidates['projects'] as $projectCandidate): ?>
+<li>Project #<?= (int)$projectCandidate['project_id'] ?> (gebouw #<?= (int)$projectCandidate['building_id'] ?>)</li>
+<?php endforeach; ?></ul><?php endif; ?>
+<p class="muted">Postcodeherkenning is een voorstel; controleer adres en project voordat je koppelt.</p>
+<?php endif; ?>
+<?php elseif ($buildingRecognitionStatus === 'unavailable'): ?><p>Gebouwenherkenning tijdelijk niet beschikbaar.</p>
+<?php else: ?><p>Gebouwenherkenning niet actief of privébericht.</p><?php endif; ?>
 <h4>Mogelijk eerdere e-mails</h4>
 <?php if ($duplicateCandidates === []): ?><p>Geen overeenkomende e-mails gevonden in de gecontroleerde selectie.</p>
 <?php else: ?><ul><?php foreach ($duplicateCandidates as $candidate): ?><li><strong><?= htmlspecialchars($candidate['subject'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong> - <?= htmlspecialchars($candidate['received_at'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> (bericht #<?= (int)$candidate['id'] ?>)</li><?php endforeach; ?></ul><?php endif; ?>
