@@ -14,7 +14,7 @@ final class OfficeApprovedHoursBooking
     public function __construct(private PDO $db) {}
 
     /** @param array<string,mixed> $entry */
-    public function append(array $entry): int
+    public function append(array $entry, string $authenticatedOperatorId): int
     {
         foreach (['project_id','person_id','approved_seconds'] as $key) {
             if (!isset($entry[$key]) || !is_int($entry[$key])) {
@@ -42,6 +42,11 @@ final class OfficeApprovedHoursBooking
             || !preg_match('/^[a-f0-9]{64}$/D', $entry['source_sha256'])
             || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $entry['approved_at'])) {
             throw new \InvalidArgumentException('Invalid approval evidence');
+        }
+        // Never trust a reviewer identity supplied by a request body.
+        if ($authenticatedOperatorId === '' || strlen($authenticatedOperatorId) > 128
+            || !hash_equals($authenticatedOperatorId, $entry['approved_by'])) {
+            throw new \DomainException('Approval reviewer does not match authenticated operator');
         }
         $authority = $this->db->prepare("SELECT 1
             FROM office_project_memberships m
