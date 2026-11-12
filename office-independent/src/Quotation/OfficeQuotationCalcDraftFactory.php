@@ -26,6 +26,7 @@ final class OfficeQuotationCalcDraftFactory
     ): int {
         require_once __DIR__ . '/OfficeQuotationComposer.php';
         require_once __DIR__ . '/OfficeQuotationCalculationImport.php';
+        require_once __DIR__ . '/OfficeQuotationRubricBuilder.php';
         if ($relationId < 1 || $operatorId < 1 || trim($title) === ''
             || mb_strlen($title, 'UTF-8') > 255 || $this->db->inTransaction()) {
             throw new DomainException('Invalid quotation creation context');
@@ -84,6 +85,7 @@ final class OfficeQuotationCalcDraftFactory
                     'source_hash' => $source['source_hash'],
                 ],
                 'sales_lines' => $source['sales_lines'],
+                'rubric_proposals' => OfficeQuotationRubricBuilder::build($source['sales_lines']),
                 'total_ex_vat_cents' => $source['total_ex_vat_cents'],
             ];
             $json = json_encode($snapshot, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
