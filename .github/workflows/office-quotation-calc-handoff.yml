@@ -1,0 +1,33 @@
+name: Office quotation Calc handoff
+on:
+  push:
+    branches:
+      - feature/office-offertestudio-20261111
+    paths:
+      - 'office-independent/src/Quotation/**'
+      - 'office-independent/tests/OfficeQuotationCalc*Test.php'
+      - '.github/workflows/office-quotation-calc-handoff.yml'
+  pull_request:
+    paths:
+      - 'office-independent/src/Quotation/**'
+      - 'office-independent/tests/OfficeQuotationCalc*Test.php'
+      - '.github/workflows/office-quotation-calc-handoff.yml'
+  workflow_dispatch:
+jobs:
+  quotation-calc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite
+      - name: Lint quotation integration
+        run: |
+          for file in office-independent/src/Quotation/*.php office-independent/tests/OfficeQuotationCalc*Test.php; do php -l "$file"; done
+      - name: Calc quotation boundary tests
+        run: |
+          php office-independent/tests/OfficeQuotationCalcGenerationServiceTest.php
+          php office-independent/tests/OfficeQuotationCalcOpportunityGuardTest.php
+          php office-independent/tests/OfficeQuotationCalcPostControllerTest.php
