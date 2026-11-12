@@ -38,4 +38,10 @@ try {
     OfficeQuotationCalculationImport::prepare($invalid);
     throw new RuntimeException('Unversioned calculation accepted');
 } catch (InvalidArgumentException) {}
+$invalid = $snapshot;
+$invalid['sales_lines'][0]['quantity'] = '1e309';
+try {
+    OfficeQuotationCalculationImport::prepare($invalid);
+    throw new RuntimeException('Non-finite quantity accepted');
+} catch (InvalidArgumentException) {}
 echo "OFFERTSTUDIO_CALC_IMPORT_TEST_OK\n";
