@@ -49,6 +49,9 @@ final class OfficeQuotationCalculationImport
                 'description' => trim($description),
                 'quantity' => (float)$quantity,
                 'unit' => $unit,
+                // Quotation-facing unit selling price, derived from verified line totals.
+                // Never expose cost rates or margin fields from the source calculation.
+                'unit_sales_price_ex_vat' => round($amount / 100 / (float)$quantity, 6),
                 'amount_ex_vat_cents' => $amount,
             ];
         }
