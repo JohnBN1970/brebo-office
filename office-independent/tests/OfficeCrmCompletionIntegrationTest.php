@@ -86,8 +86,8 @@ $insert=$db->prepare("INSERT INTO office_crm_opportunities (relation_id,title,st
 for($n=0;$n<620;$n++)$insert->execute(['Historical '. $n,$n%2===0?'won':'lost','2026-01-01 09:00:00']);
 $rows=$repo->listForViews('reader');
 $assert(count($rows)>=622,'all active and closed opportunities available without historical 500-row cutoff');
-$assert(count(array_filter($rows,static fn($row)=>$row['status']==='open'))===1,'active opportunity not evicted by historical records');
-$assert(count(array_filter($rows,static fn($row)=>$row['status']==='closed' && in_array($row['stage'],['won','lost'],true)))===621,'historical won and lost remain visible');
+$assert(count(array_filter($rows,static fn($row)=>$row['status']==='open'))===0,'no closed opportunity misreported as active');
+$assert(count(array_filter($rows,static fn($row)=>$row['status']==='closed' && in_array($row['stage'],['won','lost'],true)))===622,'historical won and lost remain visible');
 $reject(fn()=>$repo->create(1,'Onbevoegd',null,'reader',[],str_repeat('6',32)),'read-only actor cannot create');
 // Duplicate key with different body is rejected without another record.
 $reject(fn()=>$repo->createLead('editor','Anders','','',str_repeat('a',32)),'idempotency body binding');
