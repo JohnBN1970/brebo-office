@@ -13,6 +13,7 @@ on:
       - 'office-independent/src/Inzet/OfficeApprovedHoursBooking.php'
       - 'office-independent/src/Inzet/OfficeApprovedHoursEvidence.php'
       - 'office-independent/tests/OfficeApprovedHoursBookingTest.php'
+      - 'office-independent/tests/OfficeApprovedHoursEvidenceTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioTotalsTest.php'
       - 'office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php'
       - 'office-independent/src/Project/OfficeProjectPageStructure.php'
@@ -41,6 +42,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficeApprovedHoursBooking.php
           php -l office-independent/src/Inzet/OfficeApprovedHoursEvidence.php
           php -l office-independent/tests/OfficeApprovedHoursBookingTest.php
+          php -l office-independent/tests/OfficeApprovedHoursEvidenceTest.php
           php -l office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php -l office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php -l office-independent/src/Project/OfficeProjectTrafficLight.php
@@ -49,3 +51,4 @@ jobs:
           php office-independent/tests/OfficeProjectPortfolioTotalsTest.php
           php office-independent/tests/OfficeProjectPortfolioPlannedHoursTest.php
           php office-independent/tests/OfficeApprovedHoursBookingTest.php
+          php office-independent/tests/OfficeApprovedHoursEvidenceTest.php
