@@ -1,0 +1,26 @@
+name: Project kickstart four-eyes contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeProjectKickstartPolicy.php'
+      - 'office-independent/tests/test_project_kickstart_policy.php'
+      - '.github/workflows/office-project-kickstart-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Project/OfficeProjectKickstartPolicy.php'
+      - 'office-independent/tests/test_project_kickstart_policy.php'
+      - '.github/workflows/office-project-kickstart-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and four-eyes regression tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Project/OfficeProjectKickstartPolicy.php
+          php -l office-independent/tests/test_project_kickstart_policy.php
+          php office-independent/tests/test_project_kickstart_policy.php
