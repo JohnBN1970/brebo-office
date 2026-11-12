@@ -50,6 +50,7 @@ try{
         // Unknown source files must still fail closed; do not authorize FunnelViews without reconciliation.
         $knownActive=[
             'src/Crm/OfficeCrmFunnel.php'=>['105a50416ad9dace030d3dfdb8efa6a07cab52f7f4ce4f36c082d9e6e3628f11'], // 816b81985228
+            'src/Crm/OfficeCrmFunnelViews.php'=>['b63369909c76463aa4325d4abf02d8b4a4236c4d62164fcd09bc6d673b04e045'], // live guarded Calc action preserved in candidate
             'src/Crm/OfficeCrmOpportunityPolicy.php'=>['f8c5ac59c70663b7e52f2dd305e30115eda2e416b5d83b9d99cdafed4fd4de46'],
             'src/Crm/OfficeCrmOpportunityRepository.php'=>[
                 'e9bdfa34e07dc7d6a1f3323ae95d5e6a6dd45c098c953ca1f3d4762cbcf23802',
