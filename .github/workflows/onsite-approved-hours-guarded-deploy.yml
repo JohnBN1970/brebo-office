@@ -74,6 +74,11 @@ jobs:
           for f in public/office-projects.php public/office-onsite-presence-review.php; do
             if test -f "$active/$f" && ! cmp -s "$stage/$f" "$active/$f"; then
               echo "EXISTING_PAGE_DIFFERS_REQUIRES_INTEGRATION:$f"
+              echo "LIVE_SHA256:$(sha256sum "$active/$f" | cut -d' ' -f1)"
+              echo "REPO_SHA256:$(sha256sum "$stage/$f" | cut -d' ' -f1)"
+              for marker in OfficeOnSiteApprovalService OfficeApprovedHoursWeekRepository approved_week_seconds OfficeProjectPortfolioGantt OfficeProjectPortfolioView; do
+                if grep -Fq "$marker" "$active/$f"; then echo "LIVE_MARKER_PRESENT:$f:$marker"; else echo "LIVE_MARKER_ABSENT:$f:$marker"; fi
+              done
               exit 25
             fi
           done
