@@ -270,6 +270,37 @@ echo <<<'HTML'
   }));
   previous.addEventListener('click', () => show(active - 1, true));
   next.addEventListener('click', () => show(active + 1, true));
+  // Live document preview is derived from form fields, never from raw HTML.
+  const preview = document.querySelector('.print-document');
+  const titleInput = form.querySelector('input[name="title"]');
+  const previewTitle = preview?.querySelector('h2');
+  const sectionNames = Object.fromEntries(links.map(link => {
+    const key = link.getAttribute('href').slice('#section-'.length);
+    return [key, link.textContent.trim()];
+  }));
+  function refreshPreview() {
+    if (!preview) return;
+    if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Conceptofferte';
+    preview.querySelectorAll('article.print-chapter').forEach(node => node.remove());
+    const footer = preview.querySelector('p');
+    for (const section of sections) {
+      const textarea = section.querySelector('textarea');
+      if (!textarea || !textarea.value.trim()) continue;
+      const article = document.createElement('article');
+      article.className = 'print-chapter';
+      const heading = document.createElement('h3');
+      heading.textContent = sectionNames[section.id.slice('section-'.length)] || 'Hoofdstuk';
+      const body = document.createElement('p');
+      body.style.whiteSpace = 'pre-line';
+      body.textContent = textarea.value;
+      article.append(heading, body);
+      preview.insertBefore(article, footer);
+    }
+  }
+  if (preview) {
+    form.addEventListener('input', refreshPreview);
+    refreshPreview();
+  }
   show(0, false);
 })();
 </script>
