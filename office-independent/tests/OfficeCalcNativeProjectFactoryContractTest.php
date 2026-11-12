@@ -27,6 +27,9 @@ if (strpos($factory, 'Membership requires additional mandatory fields')
 foreach ([
     'OfficeCalcAcceptedOpportunityTransfer::execute(',
     'OfficeNativeProjectFactory::create($transaction, $project)',
+    'expected_crm_stage',
+    "UPDATE office_crm_opportunities SET stage='won', status='closed'",
+    'return $stmt->rowCount() === 1;',
 ] as $required) {
     if (!str_contains($handoff, $required)) {
         throw new RuntimeException('Missing atomic handoff wiring: ' . $required);
