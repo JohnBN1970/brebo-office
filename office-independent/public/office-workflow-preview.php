@@ -129,7 +129,7 @@ const blueprintId=Number(params.get('blueprint_id')),versionId=Number(params.get
 const editor=document.getElementById('definition'),status=document.getElementById('draft-status');
 const load=document.getElementById('load-draft'),save=document.getElementById('save-draft'),publish=document.getElementById('publish-draft');
 const endpoint='/office-test/installatie/workflows/api';
-let csrf='',sha='';
+let csrf='',sha='',savedText='';
 const enabled=Number.isSafeInteger(blueprintId)&&blueprintId>0&&Number.isSafeInteger(versionId)&&versionId>0;
 load.disabled=!enabled;
 async function request(method,payload){
@@ -144,7 +144,7 @@ async function request(method,payload){
 load.addEventListener('click',async()=>{
  try{
  const result=await request('GET');
- editor.value=JSON.stringify(result.draft.definition,null,2);
+ editor.value=JSON.stringify(result.draft.definition,null,2);savedText=editor.value;
  sha=result.draft.definition_sha256;csrf=result.csrf;
  editor.disabled=false;save.disabled=false;publish.disabled=false;
  status.textContent='Conceptversie '+result.draft.version_number+' geladen. Wijzigingen nog niet opgeslagen.';
@@ -154,13 +154,14 @@ save.addEventListener('click',async()=>{
  try{
  const definition=JSON.parse(editor.value);
  const result=await request('POST',{operation:'save',blueprint_id:blueprintId,version_id:versionId,csrf,expected_sha256:sha,definition});
- sha=result.definition_sha256;status.textContent='Concept opgeslagen. Niet gepubliceerd.';
+ sha=result.definition_sha256;savedText=editor.value;status.textContent='Concept opgeslagen. Niet gepubliceerd.';
  }catch(e){status.textContent='Opslaan mislukt: '+e.message;}
 });
 publish.addEventListener('click',async()=>{
+ if(editor.value!==savedText){status.textContent='Sla wijzigingen eerst op voordat je publiceert.';return;}
  if(!confirm('Publiceer deze workflowversie? Lopende dossiers blijven op hun bestaande versie.'))return;
  try{
- const result=await request('POST',{operation:'publish',blueprint_id:blueprintId,version_id:versionId,csrf});
+ const result=await request('POST',{operation:'publish',blueprint_id:blueprintId,version_id:versionId,csrf,expected_sha256:sha});
  status.textContent='Versie '+result.published.version_id+' gepubliceerd. Nieuwe dossiers kunnen deze versie gebruiken.';
  editor.disabled=save.disabled=publish.disabled=true;
  }catch(e){status.textContent='Publiceren mislukt: '+e.message;}
