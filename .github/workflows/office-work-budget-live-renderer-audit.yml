@@ -61,6 +61,15 @@ jobs:
               found += 1
               if found >= 45:
                   break
+          # Inspect only the renderer map and labels from the active V3 project page.
+          print("LIVE_RENDERER_MAP_CONTEXT_BEGIN")
+          for i, line in enumerate(lines):
+              if not (1048 <= i+1 <= 1089 or ("financieel" in line.lower() and i+1 < 1048)):
+                  continue
+              if re.search(r"secret|password|token|credential|authorization|api_key", line, re.IGNORECASE):
+                  continue
+              print("LIVE_MAP_LINE_%s=%s" % (i+1, line.strip()[:360]))
+          print("LIVE_RENDERER_MAP_CONTEXT_END")
           print("LIVE_RENDER_LINE_MATCHES=" + str(found))
           print("LIVE_RENDER_FINANCE_TERMINATOR_COUNT=" + str(src.count("$financialSectionHtml .= $financeHtml;")))
           print("LIVE_RENDER_FINANCE_TAB_EXPR_COUNT=" + str(src.count("$activeTab === 'financieel'")))
