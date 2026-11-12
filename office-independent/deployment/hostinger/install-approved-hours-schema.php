@@ -32,7 +32,7 @@ foreach ($expected as $table=>$columns) {
 }
 $person=$db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_inzet_people' AND COLUMN_NAME='id'")->fetchColumn();
 echo "PERSON_ID_COLUMN_TYPE=".($person === false ? 'MISSING' : strtolower((string)$person))."\n";
-if ($person !== 'bigint unsigned') { fwrite(STDERR,"PERSON_ID_SCHEMA_UNSUPPORTED\n"); exit(5); }
+if (!is_string($person) || !preg_match('/^bigint(?:\\(\\d+\\))? unsigned$/i', trim($person))) { fwrite(STDERR,"PERSON_ID_SCHEMA_UNSUPPORTED\n"); exit(5); }
 foreach ($existing as $table=>$present) echo $table.'='.($present?'PRESENT':'MISSING')."\n";
 if ($mode === '--preflight') { echo "PREFLIGHT_NO_CHANGES\n"; exit(0); }
 require_once __DIR__.'/OfficeApprovedHoursSchema.php';
