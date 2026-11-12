@@ -104,7 +104,7 @@ main{max-width:1100px;margin:36px auto;padding:0 20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
-.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:12px;overflow-x:auto;padding:12px 0}.lane{flex:0 0 225px;background:#e9eef6;border-radius:10px;padding:12px;min-height:190px}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
+.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:0;overflow-x:auto;padding:12px 0;align-items:stretch}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:6px;padding:12px;min-height:190px;border-right:1px solid #c8d1dd}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
 </style></head><body><main>
 <h1>E-mail</h1>
 <p class="muted">Native Office e-mailomgeving. Drupal is geen onderdeel van deze pagina.</p>
@@ -126,7 +126,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
 <?php if (($_GET['move'] ?? '') === 'saved'): ?><p>Bericht verplaatst. De wijziging is vastgelegd.</p><?php endif; ?>
-<div class="board">
+<div class="board" id="office-mail-columns">
 <?php foreach (['nieuw'=>'Nieuw','prive'=>'Privé','crm'=>'CRM','projecten'=>'Projecten','finance'=>'Finance','documenten'=>'Documenten','inspecties'=>'Inspecties'] as $key=>$label): ?>
 <section class="lane" data-module="<?= $key ?>"><h3><?= $label ?></h3>
 <?php foreach ($boardCards as $card): if ($card['module_key'] !== $key) continue; ?>
@@ -142,7 +142,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <option value="<?= $destination ?>" <?= $destination===$key?'selected':'' ?>><?= $destinationLabel ?></option>
 <?php endforeach; ?></select></label><button type="submit">Verplaats</button>
 </form><?php else: ?><small>Privé: niet automatisch deelbaar</small><?php endif; ?></article>
-<?php endforeach; ?></section>
+<?php endforeach; ?><div class="lane-resizer" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Breedte <?= htmlspecialchars($label,ENT_QUOTES,'UTF-8') ?> aanpassen" title="Sleep om kolombreedte aan te passen"></div></section>
 <?php endforeach; ?></div>
 <script>
 (() => {
@@ -152,15 +152,68 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
    card.addEventListener('dragend',()=>{active=null;});
  });
  document.querySelectorAll('.lane').forEach(lane=>{
-   lane.addEventListener('dragover',event=>event.preventDefault());
+   lane.addEventListener('dragover',event=>{if(active && active.querySelector('form') && lane.dataset.module!=='prive')event.preventDefault();});
    lane.addEventListener('drop',event=>{
      event.preventDefault();
      if(!active)return;
      const form=active.querySelector('form');
+     if(!form || lane.dataset.module==='prive')return;
      form.querySelector('select[name="module"]').value=lane.dataset.module;
      form.requestSubmit();
    });
  });
+
+ // Column separators resize only the column to their left; message drag/drop remains separate.
+ const board=document.getElementById('office-mail-columns');
+ const lanes=Array.from(board.querySelectorAll('.lane'));
+ const storageKey='brebo-office-mail-widths-v1-<?= hash('sha256', (string)($operatorId ?? '')) ?>';
+ const minWidth=145,maxWidth=900;
+ const clamp=n=>Math.max(minWidth,Math.min(maxWidth,n));
+ try {
+   const stored=JSON.parse(localStorage.getItem(storageKey)||'{}');
+   if(stored && typeof stored==='object' && !Array.isArray(stored)){
+     lanes.forEach(lane=>{
+       const value=stored[lane.dataset.module];
+       if(Number.isFinite(value))lane.style.flexBasis=clamp(value)+'px';
+     });
+   }
+ }catch(_error){}
+ const saveWidths=()=>{
+   const values={};
+   lanes.forEach(lane=>values[lane.dataset.module]=Math.round(lane.getBoundingClientRect().width));
+   try{localStorage.setItem(storageKey,JSON.stringify(values));}catch(_error){}
+ };
+ lanes.forEach(lane=>{
+   const handle=lane.querySelector('.lane-resizer');
+   handle.addEventListener('pointerdown',event=>{
+     if(event.button!==0)return;
+     event.preventDefault();
+     const startX=event.clientX;
+     const startWidth=lane.getBoundingClientRect().width;
+     board.classList.add('is-resizing');
+     handle.setPointerCapture(event.pointerId);
+     const onMove=moveEvent=>{
+       lane.style.flexBasis=clamp(startWidth+moveEvent.clientX-startX)+'px';
+     };
+     const finish=()=>{
+       handle.removeEventListener('pointermove',onMove);
+       handle.removeEventListener('pointerup',finish);
+       handle.removeEventListener('pointercancel',finish);
+       board.classList.remove('is-resizing');
+       saveWidths();
+     };
+     handle.addEventListener('pointermove',onMove);
+     handle.addEventListener('pointerup',finish);
+     handle.addEventListener('pointercancel',finish);
+   });
+   handle.addEventListener('keydown',event=>{
+     if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+     event.preventDefault();
+     lane.style.flexBasis=clamp(lane.getBoundingClientRect().width+(event.key==='ArrowRight'?20:-20))+'px';
+     saveWidths();
+   });
+ });
+
 })();
 </script>
 <?php endif; ?></section>
