@@ -182,15 +182,16 @@ if ($editing !== null && !empty($editing['calculation_id']) && $storageReady) {
         error_log('OFFERTSTUDIO_CALC_IMPORT_READ_FAILED: '.get_class($e));
     }
 }
-if ($editing !== null) {
-    echo '<section class="panel print-document" id="documentvoorbeeld"><small>CONCEPT · NIET VERZONDEN</small><h2>'.$escape((string)$editing['title']).'</h2>';
+if ($storageReady) {
+    echo '<section class="panel print-document" id="documentvoorbeeld"><small>CONCEPT · NIET VERZONDEN</small><h2>'.($editing ? $escape((string)$editing['title']) : 'Nieuw offerteconcept').'</h2>';
     foreach (\Brebo\Office\Quotation\OfficeQuotationComposer::sections($type) as $chapter) {
         $body = trim((string)($editing['sections'][$chapter] ?? ''));
         if ($body === '') continue;
         echo '<article class="print-chapter"><h3>'.$escape($sectionLabels[$chapter] ?? $chapter).'</h3><p>'.nl2br($escape($body), false).'</p></article>';
     }
     echo '<p><small>Dit document is uitsluitend een conceptvoorbeeld en geen goedgekeurde of verzonden offerte.</small></p>';
-    echo '<button type="button" onclick="window.print()">Documentvoorbeeld afdrukken / bewaren als PDF</button></section>';
+    if ($editing !== null) echo '<button type="button" onclick="window.print()">Documentvoorbeeld afdrukken / bewaren als PDF</button>';
+    echo '</section>';
 }
 if ($calculationImport !== null) {
     echo '<section class="panel" style="grid-column:2;min-width:0"><h2>Overgenomen calculatie</h2><p><small>Calculatie #'.(int)$calculationImport['source']['calculation_id'].' · versie '.(int)$calculationImport['source']['calculation_version'].'</small></p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Omschrijving</th><th>Aantal</th><th>Eenheid</th><th style="text-align:right">Verkoop excl. btw</th></tr></thead><tbody>';
@@ -280,7 +281,7 @@ echo <<<'HTML'
   }));
   function refreshPreview() {
     if (!preview) return;
-    if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Conceptofferte';
+    if (previewTitle && titleInput) previewTitle.textContent = titleInput.value || 'Nieuw offerteconcept';
     preview.querySelectorAll('article.print-chapter').forEach(node => node.remove());
     const footer = Array.from(preview.children).find(node => node.tagName === 'P') || preview.querySelector('button') || null;
     for (const section of sections) {
