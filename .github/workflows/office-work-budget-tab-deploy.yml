@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/office-work-budget-tab-deploy.yml'
       - 'office-independent/deployment/hostinger/mount-work-budget-tab-v3.py'
+      - 'office-independent/tests/test_work_budget_tab_v3.py'
   workflow_dispatch:
     inputs:
       confirmation:
@@ -56,7 +57,7 @@ jobs:
           set -euo pipefail
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.work-budget-tab-stage"'
-          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-project.php office-independent/deployment/hostinger/mount-work-budget-tab.py "$USER@$HOST:office_calc_test/.work-budget-tab-stage/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-project.php office-independent/deployment/hostinger/mount-work-budget-tab-v3.py "$USER@$HOST:office_calc_test/.work-budget-tab-stage/"
       - name: Patch only project tab with locked source and atomic rollback
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
