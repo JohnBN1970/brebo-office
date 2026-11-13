@@ -9,6 +9,7 @@ on:
       - 'office-independent/src/Project/OfficeProjectKickstartView.php'
       - 'office-independent/tests/test_project_kickstart_view.php'
       - 'office-independent/src/Project/OfficeProjectKickstartReadModel.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartQuestionsRepository.php'
       - 'office-independent/tests/test_project_kickstart_readmodel.php'
       - '.github/workflows/office-project-kickstart-contract.yml'
   push:
@@ -35,6 +36,7 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectKickstartView.php
           php -l office-independent/tests/test_project_kickstart_view.php
           php office-independent/tests/test_project_kickstart_view.php
+          php -l office-independent/src/Project/OfficeProjectKickstartQuestionsRepository.php
           php -l office-independent/src/Project/OfficeProjectKickstartReadModel.php
           php -l office-independent/tests/test_project_kickstart_readmodel.php
           php office-independent/tests/test_project_kickstart_readmodel.php
