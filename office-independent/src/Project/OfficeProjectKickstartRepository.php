@@ -187,7 +187,7 @@ final class OfficeProjectKickstartRepository
         }
         // A status flag alone is insufficient: require both independent
         // approvals on the currently released dossier revision.
-        $q = $this->db->prepare("SELECT id, revision, items_json, critical_open_points FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? AND status = 'released' LIMIT 1");
+        $q = $this->db->prepare("SELECT id, revision, project_leader_user_id, items_json, critical_open_points FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? AND status = 'released' LIMIT 1");
         $q->execute([$projectId,$scopeType,$scopeId]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!$row || (int)$row['critical_open_points'] !== 0) {
@@ -205,7 +205,7 @@ final class OfficeProjectKickstartRepository
             if ($approval['decision'] === 'approved_first') $first = (int)$approval['actor_user_id'];
             if ($approval['decision'] === 'approved_second') $second = (int)$approval['actor_user_id'];
         }
-        if (!$first || !$second || $first === $second) {
+        if (!$first || !$second || $first === $second || $first !== (int)$row['project_leader_user_id']) {
             throw new DomainException('Execution blocked: independent approvals missing');
         }
     }
