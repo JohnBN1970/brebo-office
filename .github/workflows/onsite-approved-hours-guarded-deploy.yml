@@ -18,6 +18,7 @@ jobs:
           set -euo pipefail
           for file in office-independent/public/office-onsite-presence-review.php office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/public/office-projects.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php; do php -l "$file"; done
           php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+          python3 -m py_compile office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py
   inspect:
     needs: validate
     if: ${{ github.event_name == 'workflow_dispatch' }}
