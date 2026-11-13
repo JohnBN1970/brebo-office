@@ -58,6 +58,24 @@ foreach ([['GET', 5], ['POST', 0]] as [$method, $actor]) {
 if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) {
     throw new RuntimeException('Unauthorized request created an extra draft');
 }
+// Client-supplied commercial data must never override the verified server snapshot.
+foreach ([
+    ['relation_id' => '7'],
+    ['opportunity_id' => '9'],
+    ['sales_lines' => [['description' => 'Injected', 'amount_ex_vat_cents' => 1]]],
+    ['unit_sales_price_ex_vat' => '0.01'],
+    ['cost_price' => '1'],
+] as $injectedFields) {
+    try {
+        $controller->handle('POST', 5, array_merge($intent, $injectedFields), $csrf, $resolver);
+        throw new RuntimeException('Client-supplied commercial fields accepted');
+    } catch (DomainException $e) {
+        if ($e->getMessage() === 'Client-supplied commercial fields accepted') throw $e;
+    }
+}
+if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) {
+    throw new RuntimeException('Injected commercial fields created an extra draft');
+}
 $wrongRevision = $intent;
 $wrongRevision['calculation_version'] = '4';
 try {
