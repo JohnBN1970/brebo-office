@@ -21,7 +21,7 @@ final class OfficeExternalTimesheetCsvReader
             rewind($handle);
             $header=fgetcsv($handle,0,$delimiter,'"','');
             if (!is_array($header)) throw new \DomainException('Missing CSV header');
-            $header=array_map(static fn(string $v):string=>mb_strtolower(trim(preg_replace('/^\xEF\xBB\xBF/','',$v))),$header);
+            $header=array_map(static fn(string $v):string=>strtolower(trim(preg_replace('/^\xEF\xBB\xBF/','',$v))),$header);
             $required=['project_id','person_id','work_date','claimed_hours','supplier_reference'];
             if (count($header)!==count(array_unique($header)) || array_diff($required,$header)!==[]) {
                 throw new \DomainException('Missing or duplicated required CSV columns');
