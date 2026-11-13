@@ -5,6 +5,24 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftAccess.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchGate.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchGrantRepository.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchRedeemer.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchIssuer.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmSignedLaunch.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmGrantValidationService.php'
+      - 'office-independent/public/office-calc-grant-validate.php'
+      - 'office-independent/public/office-calc-crm-draft-launch.php'
+      - 'office-independent/public/office-calc-crm-browser-handoff.php'
+      - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/public/office-calc-crm-start.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php'
+      - 'office-independent/deployment/hostinger/sql/office-calc-crm-draft-lines-proposed.sql'
+      - 'office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php'
+      - 'office-independent/deployment/hostinger/sql/office-crm-calc-acceptance-proposed.sql'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -15,6 +33,16 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftAccess.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchGate.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchGrantRepository.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchRedeemer.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmLaunchIssuer.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmSignedLaunch.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmGrantValidationService.php'
+      - 'office-independent/public/office-calc-grant-validate.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php'
       - 'office-independent/tests/OfficeCalc*'
       - 'office-independent/deployment/hostinger/sql/office-calc-crm-work-budget.sql'
@@ -38,6 +66,22 @@ jobs:
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
+            office-independent/src/Calculation/OfficeCalcAcceptanceSnapshotWriter.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftIdentity.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftAccess.php \
+            office-independent/src/Calculation/OfficeCalcCrmLaunchGate.php \
+            office-independent/src/Calculation/OfficeCalcCrmLaunchGrantRepository.php \
+            office-independent/src/Calculation/OfficeCalcCrmLaunchRedeemer.php \
+            office-independent/src/Calculation/OfficeCalcCrmLaunchIssuer.php \
+            office-independent/src/Calculation/OfficeCalcCrmSignedLaunch.php \
+            office-independent/src/Calculation/OfficeCalcCrmGrantValidationService.php \
+            office-independent/public/office-calc-grant-validate.php \
+            office-independent/public/office-calc-crm-draft-launch.php \
+            office-independent/public/office-calc-crm-browser-handoff.php \
+            office-independent/public/office-calc-crm-workbench.php \
+            office-independent/public/office-calc-crm-start.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php \
+            office-independent/src/Calculation/OfficeCalcPersistedAcceptanceVerifier.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php; do
             php -l "$f"
           done
@@ -45,6 +89,22 @@ jobs:
             office-independent/tests/OfficeCalcAcceptanceIdentityTest.php \
             office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
             office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
+            office-independent/tests/OfficeCalcCrmTransferAtomicSqliteTest.php \
+            office-independent/tests/OfficeCalcPersistedAcceptanceVerifierTest.php \
+            office-independent/tests/OfficeCalcAcceptanceSnapshotWriterTest.php \
+            office-independent/tests/OfficeCalcAcceptanceToBudgetIntegrationTest.php \
+            office-independent/tests/OfficeCalcCrmDraftIdentityTest.php \
+            office-independent/tests/OfficeCalcCrmDraftAccessTest.php \
+            office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php \
+            office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php \
+            office-independent/tests/OfficeCalcCrmNativeOpportunityLinkTest.php \
+            office-independent/tests/OfficeCalcCrmLaunchGateTest.php \
+            office-independent/tests/OfficeCalcCrmLaunchGrantRepositoryTest.php \
+            office-independent/tests/OfficeCalcCrmLaunchRedeemerTest.php \
+            office-independent/tests/OfficeCalcCrmLaunchIssueRedeemIntegrationTest.php \
+            office-independent/tests/OfficeCalcCrmSignedLaunchTest.php \
+            office-independent/tests/OfficeCalcCrmGrantValidationServiceTest.php \
+            office-independent/tests/OfficeCalcCrmBrowserHandoffTest.php \
             office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php \
             office-independent/tests/OfficeCalcWorkBudgetSchemaPreflightTest.php; do
             php -l "$f"

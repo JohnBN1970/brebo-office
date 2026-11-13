@@ -25,13 +25,19 @@ final class OfficeCalcCrmTransferService
         require_once __DIR__ . '/OfficeCalcWorkBudgetHandoff.php';
         $key = OfficeCalcAcceptanceIdentity::key($acceptance);
         $budget = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines);
+        if ($this->db->getAttribute(PDO::ATTR_ERRMODE) !== PDO::ERRMODE_EXCEPTION) {
+            throw new DomainException('Transfer requires PDO exception mode');
+        }
         $this->db->beginTransaction();
         try {
-            // Verify persisted CRM acceptance under the same transaction before any
+            // Verify persisted CRM acceptance and EXACT SOURCE LINES under the same transaction before any
             // project or budget write. The adapter must lock the opportunity row
             // and return true only for the exact accepted calculation/revision.
-            if ($verifyCrmAcceptance($this->db, $acceptance) !== true) {
+            if ($verifyCrmAcceptance($this->db, $acceptance, $lines) !== true) {
                 throw new DomainException('CRM acceptance is not verified against persisted Office data');
+            }
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('CRM verifier ended the transfer transaction');
             }
             // Lock the existing opportunity row when present. A unique index
             // closes the concurrent-insert race when the row is not present.
@@ -47,7 +53,14 @@ final class OfficeCalcCrmTransferService
                 }
                 throw new DomainException('CRM acceptance already transferred');
             }
+            // The verifier must also attest the stored source revision AND its
+            // persisted calculation lines. Never trust request-provided amounts.
+            // Project creation remains an injected native Office adapter; no
+            // project or runtime routing is enabled by this service alone.
             $projectId = $createProject($this->db, $acceptance);
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('Project adapter ended the transfer transaction');
+            }
             if (!is_int($projectId) || $projectId < 1) {
                 throw new DomainException('Project creation did not return a valid ID');
             }
@@ -61,11 +74,17 @@ final class OfficeCalcCrmTransferService
                 $acceptance['calculation_id'], $acceptance['accepted_revision'], $projectId,
             ]);
             $transferId = (int)$this->db->lastInsertId();
+            if ($transferId < 1) {
+                throw new DomainException('Transfer was not persisted');
+            }
             $baseline = $this->db->prepare(
                 'INSERT INTO office_calc_work_budget_baselines (acceptance_transfer_id, version_number) VALUES (?, 1)'
             );
             $baseline->execute([$transferId]);
             $baselineId = (int)$this->db->lastInsertId();
+            if ($baselineId < 1) {
+                throw new DomainException('Work budget baseline was not persisted');
+            }
             $lineInsert = $this->db->prepare(
                 'INSERT INTO office_calc_work_budget_lines ' .
                 '(baseline_id, source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref) ' .
@@ -77,6 +96,59 @@ final class OfficeCalcCrmTransferService
                     $item['quantity'], $item['unit_cost_cents'],
                     $item['budget_cents'], $item['activity_ref'],
                 ]);
+            }
+            // Confirm canonical project and all written budget lines before
+            // committing. Neither a generated ID nor a callback return value is
+            // evidence of a durable project-bound locked budget.
+            $check = $this->db->prepare(
+                'SELECT t.office_project_id, b.locked_at, COUNT(l.id) AS line_count ' .
+                'FROM office_calc_crm_acceptance_transfers t ' .
+                'JOIN office_calc_work_budget_baselines b ON b.acceptance_transfer_id = t.id ' .
+                'LEFT JOIN office_calc_work_budget_lines l ON l.baseline_id = b.id ' .
+                'WHERE t.id = ? AND b.id = ? AND t.acceptance_key = ? ' .
+                'GROUP BY t.office_project_id, b.locked_at'
+            );
+            $check->execute([$transferId, $baselineId, $key]);
+            $stored = $check->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($stored)
+                || (int)$stored['office_project_id'] !== $projectId
+                || !is_string($stored['locked_at']) || $stored['locked_at'] === ''
+                || (int)$stored['line_count'] !== count($budget['items'])) {
+                throw new DomainException('Persisted locked work budget verification failed');
+            }
+            // Compare every persisted value with the verified accepted source,
+            // not merely the row count. Reject silent truncation or substitution.
+            $readLines = $this->db->prepare(
+                'SELECT source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref ' .
+                'FROM office_calc_work_budget_lines WHERE baseline_id = ? ORDER BY source_line_id'
+            );
+            $readLines->execute([$baselineId]);
+            $actualLines = $readLines->fetchAll(PDO::FETCH_ASSOC);
+            $expectedLines = $budget['items'];
+            usort($expectedLines, static fn(array $a, array $b): int =>
+                strcmp($a['source_line_id'], $b['source_line_id']));
+            if (count($actualLines) !== count($expectedLines)) {
+                throw new DomainException('Persisted work budget line count differs');
+            }
+            foreach ($expectedLines as $index => $expected) {
+                $actual = $actualLines[$index] ?? null;
+                if (!is_array($actual)
+                    || (string)$actual['source_line_id'] !== $expected['source_line_id']
+                    || (string)$actual['cost_type'] !== $expected['cost_type']
+                    || (int)$actual['quantity'] !== $expected['quantity']
+                    || (int)$actual['unit_cost_cents'] !== $expected['unit_cost_cents']
+                    || (int)$actual['budget_cents'] !== $expected['budget_cents']
+                    || $actual['activity_ref'] !== $expected['activity_ref']) {
+                    throw new DomainException('Persisted work budget line differs from accepted source');
+                }
+            }
+            $projectCheck = $this->db->prepare('SELECT 1 FROM office_projects WHERE id = ?');
+            $projectCheck->execute([$projectId]);
+            if ($projectCheck->fetchColumn() === false) {
+                throw new DomainException('Native Office project was not persisted');
+            }
+            if (!$this->db->inTransaction()) {
+                throw new DomainException('Transfer transaction ended before commit');
             }
             $this->db->commit();
             return ['project_id' => $projectId, 'work_budget_id' => $baselineId, 'acceptance_key' => $key];
