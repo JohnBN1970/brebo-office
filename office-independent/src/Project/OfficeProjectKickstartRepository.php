@@ -13,6 +13,65 @@ final class OfficeProjectKickstartRepository
 {
     public function __construct(private readonly PDO $db) {}
 
+    /**
+     * Save checklist as a new immutable revision marker. The authenticated
+     * actor and project-edit ACL must be verified by the calling controller.
+     * A stale editor cannot overwrite another person's changes.
+     */
+    public function saveChecklist(
+        int $dossierId,
+        int $expectedRevision,
+        int $actorId,
+        bool $canEdit,
+        array $items,
+        int $criticalOpenPoints
+    ): array {
+        if ($dossierId < 1 || $expectedRevision < 1 || $actorId < 1 || !$canEdit || $criticalOpenPoints < 0) {
+            throw new DomainException('Invalid dossier edit');
+        }
+        $keys = OfficeProjectKickstartPolicy::REQUIRED_ITEMS;
+        if (array_diff(array_keys($items), $keys) !== [] || count($items) !== count($keys)) {
+            throw new DomainException('Unexpected or missing checklist fields');
+        }
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $items) || !is_bool($items[$key])) {
+                throw new DomainException('Invalid checklist value');
+            }
+        }
+        $json = json_encode($items, JSON_THROW_ON_ERROR);
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare('SELECT revision, status, items_json, critical_open_points FROM office_project_start_dossiers WHERE id = ? FOR UPDATE');
+            $q->execute([$dossierId]);
+            $current = $q->fetch(PDO::FETCH_ASSOC);
+            if (!$current) throw new DomainException('Dossier not found');
+            if ((int)$current['revision'] !== $expectedRevision) throw new DomainException('Dossier was modified by another user');
+            $previous = (string)$current['status'];
+            if (!in_array($previous, ['draft','changes_requested','awaiting_first_approval','awaiting_second_approval','released'], true)) {
+                throw new DomainException('Invalid dossier status');
+            }
+            if ((string)$current['items_json'] === $json && (int)$current['critical_open_points'] === $criticalOpenPoints) {
+                $this->db->commit();
+                return ['status'=>$previous,'revision'=>$expectedRevision,'changed'=>false];
+            }
+            $nextRevision = $expectedRevision + 1;
+            $q = $this->db->prepare("UPDATE office_project_start_dossiers SET items_json = ?, critical_open_points = ?, revision = ?, status = 'draft', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?");
+            $q->execute([$json,$criticalOpenPoints,$nextRevision,$dossierId,$expectedRevision]);
+            if ($q->rowCount() !== 1) throw new DomainException('Concurrent dossier update');
+            $event = $this->db->prepare('INSERT INTO office_project_start_events (dossier_id, dossier_revision, actor_user_id, event_type, payload_json) VALUES (?,?,?,?,?)');
+            $event->execute([$dossierId,$nextRevision,$actorId,'checklist_updated',json_encode([
+                'previous_status'=>$previous,'previous_revision'=>$expectedRevision,
+                'previous_items'=>json_decode((string)$current['items_json'], true, 512, JSON_THROW_ON_ERROR),
+                'items'=>$items,'critical_open_points'=>$criticalOpenPoints,
+            ], JSON_THROW_ON_ERROR)]);
+            $this->db->commit();
+            return ['status'=>'draft','revision'=>$nextRevision,'changed'=>true];
+        } catch (\\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
     public function approve(int $dossierId, int $actorId, bool $authorized, string $decision, ?string $note = null): array
     {
         if ($dossierId < 1 || $actorId < 1 || !$authorized || !in_array($decision, ['approve','reject'], true)) {
