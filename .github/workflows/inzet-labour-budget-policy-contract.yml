@@ -1,0 +1,35 @@
+name: Inzet labour budget policy contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
+      - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
+      - 'office-independent/tests/OfficeLabourPlannedShiftResolverTest.php'
+      - '.github/workflows/inzet-labour-budget-policy-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
+      - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
+      - 'office-independent/tests/OfficeLabourPlannedShiftResolverTest.php'
+      - '.github/workflows/inzet-labour-budget-policy-contract.yml'
+permissions:
+  contents: read
+jobs:
+  verify-labour-budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP SQLite for isolated contract tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3
+      - name: Verify policy and planned shift contract
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php
+          php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php
+          php office-independent/tests/OfficeLabourPlannedShiftResolverTest.php
