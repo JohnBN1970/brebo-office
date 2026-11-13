@@ -1,0 +1,105 @@
+name: OnSite Office-test missing approval dependencies guarded install
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type INSTALL-ONSITE-DEPS-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate missing approval dependencies
+        run: |
+          set -euo pipefail
+          for f in OfficeApprovedHoursDecisionRepository.php OfficeApprovedHoursEvidence.php OfficeApprovedHoursBooking.php; do
+            php -l "office-independent/src/Inzet/$f"
+          done
+          php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+  install:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'INSTALL-ONSITE-DEPS-OFFICE-TEST' }}
+    environment: office-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure guarded SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_deps
+          chmod 600 ~/.ssh/id_onsite_deps
+      - name: Stage three repository services only
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deps"
+          remote="$USER@$HOST"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.onsite-deps-stage"'
+          scp $opts -P "$PORT" \
+            office-independent/src/Inzet/OfficeApprovedHoursDecisionRepository.php \
+            office-independent/src/Inzet/OfficeApprovedHoursEvidence.php \
+            office-independent/src/Inzet/OfficeApprovedHoursBooking.php \
+            "$remote:office_calc_test/.onsite-deps-stage/"
+      - name: Guarded install and verify active Office-test release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deps"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          stage="$HOME/office_calc_test/.onsite-deps-stage"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          dest="$active/src/Inzet"
+          test -d "$dest" && test ! -L "$dest"
+          files=(OfficeApprovedHoursDecisionRepository.php OfficeApprovedHoursEvidence.php OfficeApprovedHoursBooking.php)
+          for file in "${files[@]}"; do
+            test -f "$stage/$file" && test ! -L "$stage/$file"
+            php -l "$stage/$file" >/dev/null
+            test ! -L "$dest/$file"
+            if test -e "$dest/$file" && ! cmp -s "$dest/$file" "$stage/$file"; then
+              echo "EXISTING_DEPENDENCY_DIFFERS:$file"; exit 25
+            fi
+          done
+          # All safety checks happen before a single write; existing files never overwritten.
+          installed=()
+          for file in "${files[@]}"; do
+            if test -e "$dest/$file"; then
+              echo "ALREADY_MATCHES:$file"
+            else
+              cp -p "$stage/$file" "$dest/$file"
+              chmod 644 "$dest/$file"
+              installed+=("$file")
+              echo "INSTALLED:$file"
+            fi
+          done
+          for file in "${files[@]}"; do
+            if ! php -l "$dest/$file" >/dev/null; then
+              for undo in "${installed[@]}"; do rm -f "$dest/$undo"; done
+              echo "INSTALL_ROLLED_BACK"; exit 26
+            fi
+            test "$(sha256sum "$dest/$file" | cut -d' ' -f1)" = "$(sha256sum "$stage/$file" | cut -d' ' -f1)" || {
+              for undo in "${installed[@]}"; do rm -f "$dest/$undo"; done
+              echo "INSTALL_ROLLED_BACK"; exit 27;
+            }
+          done
+          echo ONSITE_DEPENDENCIES_GUARDED_INSTALL_SUCCESS
+          echo APPROVAL_FLAG_NOT_CHANGED
+          REMOTE
