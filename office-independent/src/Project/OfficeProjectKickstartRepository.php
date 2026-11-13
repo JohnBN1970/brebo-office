@@ -185,9 +185,29 @@ final class OfficeProjectKickstartRepository
         if ($projectId < 1 || $scopeId < 0 || !in_array($scopeType, ['project','building','zone','phase'], true)) {
             throw new DomainException('Invalid start scope');
         }
-        $q = $this->db->prepare("SELECT id FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? AND status = 'released' LIMIT 1");
+        // A status flag alone is insufficient: require both independent
+        // approvals on the currently released dossier revision.
+        $q = $this->db->prepare("SELECT id, revision, items_json, critical_open_points FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? AND status = 'released' LIMIT 1");
         $q->execute([$projectId,$scopeType,$scopeId]);
-        if (!$q->fetchColumn()) throw new DomainException('Execution blocked: start approval missing');
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$row || (int)$row['critical_open_points'] !== 0) {
+            throw new DomainException('Execution blocked: start approval missing');
+        }
+        $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($items) || OfficeProjectKickstartPolicy::missingItems($items) !== []) {
+            throw new DomainException('Execution blocked: incomplete start dossier');
+        }
+        $a = $this->db->prepare("SELECT actor_user_id, decision FROM office_project_start_approvals WHERE dossier_id = ? AND dossier_revision = ? AND decision IN ('approved_first','approved_second') ORDER BY id ASC");
+        $a->execute([(int)$row['id'],(int)$row['revision']]);
+        $first = null;
+        $second = null;
+        while ($approval = $a->fetch(PDO::FETCH_ASSOC)) {
+            if ($approval['decision'] === 'approved_first') $first = (int)$approval['actor_user_id'];
+            if ($approval['decision'] === 'approved_second') $second = (int)$approval['actor_user_id'];
+        }
+        if (!$first || !$second || $first === $second) {
+            throw new DomainException('Execution blocked: independent approvals missing');
+        }
     }
 
     private function record(int $id, int $revision, int $actor, string $decision, ?string $note): void
