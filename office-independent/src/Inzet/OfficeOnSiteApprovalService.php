@@ -12,6 +12,7 @@ require_once __DIR__ . '/OnSitePresenceIntervalProjector.php';
 require_once __DIR__ . '/OfficeApprovedHoursDecisionRepository.php';
 require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
 require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
+require_once __DIR__ . '/OfficeLabourBudgetDebitPostingService.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
@@ -87,6 +88,9 @@ final class OfficeOnSiteApprovalService
             if (!is_array($booking) || !hash_equals((string)$booking['source_sha256'],$entry['source_sha256'])) {
                 throw new \DomainException('Previously approved OnSite booking missing or changed');
             }
+            if (getenv('OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED') === 'enabled') {
+                (new OfficeLabourBudgetDebitPostingService($this->db))->postInsideTransaction((int)$booking['id']);
+            }
             $this->db->commit();
             return (int)$booking['id'];
         }
@@ -99,6 +103,9 @@ final class OfficeOnSiteApprovalService
         $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified($reference,$reviewer);
         $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
         $bookingId=(new OfficeApprovedHoursBooking($this->db))->append($entry,$reviewer);
+        if (getenv('OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED') === 'enabled') {
+            (new OfficeLabourBudgetDebitPostingService($this->db))->postInsideTransaction($bookingId);
+        }
         $this->db->commit();
         return $bookingId;
         } catch (\Throwable $error) {

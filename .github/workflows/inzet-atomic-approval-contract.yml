@@ -1,0 +1,28 @@
+name: Inzet atomic approval contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php'
+      - 'office-independent/tests/OfficeLabourAtomicApprovalContractTest.php'
+      - '.github/workflows/inzet-atomic-approval-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php'
+      - 'office-independent/tests/OfficeLabourAtomicApprovalContractTest.php'
+      - '.github/workflows/inzet-atomic-approval-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify guarded atomic approval
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeOnSiteApprovalService.php
+          php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php
+          php office-independent/tests/OfficeLabourAtomicApprovalContractTest.php
