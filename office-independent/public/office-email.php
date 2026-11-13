@@ -226,7 +226,11 @@ try {
       $mailPage = is_int($mailPage) ? $mailPage : 1;
       $mailQuery = trim((string)($_GET['q'] ?? ''));
       $mailQuery = substr($mailQuery, 0, 120);
-      $boardCards = $board->cards($operatorId, $mailView === 'inbox' ? $mailPage : 1, $mailView === 'inbox' ? $mailQuery : '');
+      $boardCards = $mailView === 'inbox' && $mailFolder !== 'drafts'
+        ? $board->inboxCards($operatorId, $mailPage, $mailQuery, $mailFolder, $selectedMailbox, $mailStatesEnabled)
+        : $board->cards($operatorId, 1);
+      $allFolderCounts = $mailView === 'inbox'
+        ? $board->folderCounts($operatorId, $selectedMailbox, $mailStatesEnabled) : [];
       if ($mailStatesEnabled) {
         $stateStmt = $db->prepare("SELECT s.message_id,s.folder,s.is_read FROM office_mail_message_states s
           JOIN office_mail_messages m ON m.id=s.message_id JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
@@ -556,14 +560,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if ($openedMessage === null): ?>
 <?php if ($mailView === 'inbox'): ?>
 <?php
-$folderCounts=['inbox'=>0,'unread'=>0,'archive'=>0,'spam'=>0,'trash'=>0];
-foreach ($boardCards as $countCard) {
-  if ($selectedMailbox !== null && (int)$countCard['mailbox_id'] !== $selectedMailbox) continue;
-  $countState=$mailStates[(int)$countCard['id']] ?? ['folder'=>'inbox','is_read'=>0];
-  $countFolder=(string)$countState['folder'];
-  if (isset($folderCounts[$countFolder])) ++$folderCounts[$countFolder];
-  if ($countFolder==='inbox' && (int)$countState['is_read']===0) ++$folderCounts['unread'];
-}
+$folderCounts=$allFolderCounts;
 $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten','archive'=>'Archief','spam'=>'Ongewenst','trash'=>'Prullenbak'];
 ?>
 <div class="mail-folder-layout">
