@@ -10,7 +10,8 @@ if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test')exit(3
 $root=realpath((string)($config['OFFICE_PRIVATE_ROOT']??''));
 if($root===false||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private'))exit(4);
 $router=$home.'/domains/brebobv.nl/public_html/office-test/index.php';
-if(!is_file($router))exit(5);
+$rewrite=dirname($router).'/.htaccess';
+if(!is_file($router)||!is_file($rewrite)||is_link($rewrite))exit(5);
 $lock=fopen($base.'/.material-install.lock','c');if(!$lock||!flock($lock,LOCK_EX|LOCK_NB))exit(6);
 $stamp=gmdate('Ymd-His').'-'.bin2hex(random_bytes(4));$backup=$base.'/.material-backups/'.$stamp;
 if(!is_dir(dirname($backup)))mkdir(dirname($backup),0700);mkdir($backup,0700);
@@ -87,6 +88,11 @@ try{
   $newRouter=preg_replace('/(\$routes\s*=\s*\[)/','$1'."\n  '/office-test/materialen' => 'office-materials.php',",$routerContent,1,$count);
   if($count!==1||!is_string($newRouter))throw new RuntimeException('router_mapping_not_found');
  }elseif(!preg_match("~'/office-test/materialen'\\s*=>\\s*'office-materials\\.php'~",$routerContent))throw new RuntimeException('route_already_owned');
+ $rewriteContent=(string)file_get_contents($rewrite);$rewriteRule='RewriteRule ^materialen/?$ index.php [END,QSA]';$newRewrite=$rewriteContent;
+ if(!str_contains($rewriteContent,$rewriteRule)){
+  if(substr_count($rewriteContent,'RewriteEngine On')!==1||preg_match('/(?m)^\\s*RewriteRule[^\\n]*materialen/',$rewriteContent))throw new RuntimeException('material_rewrite_conflict');
+  $newRewrite=str_replace('RewriteEngine On',"RewriteEngine On\n# BREBO material catalogue Office-test\n".$rewriteRule,$rewriteContent);
+ }
  // No existing article tables are created or moved: only their review ledger is installed.
  $sql=file_get_contents($stage.'/sql/material-import-review-ledger.sql');if(!is_string($sql))throw new RuntimeException('ledger_schema_missing');
  $catalogue->exec(str_replace('brebo_material_import_reviews',$prefix.'brebo_material_import_reviews',$sql));
@@ -97,6 +103,7 @@ try{
  if(!is_dir($storage)&&!mkdir($storage,0700,true))throw new RuntimeException('storage_creation_failed');chmod($storage,0700);
  foreach($files as$file)$write($root.'/'.$file,(string)file_get_contents($stage.'/'.$file));
  if($newRouter!==$routerContent){$write($router,$newRouter);$lint($router);}
+ if($newRewrite!==$rewriteContent)$write($rewrite,$newRewrite);
  // Add only a bounded Finance link; preserve the active composed Finance implementation.
  $finance=$root.'/public/office-finance.php';$view=$root.'/src/Finance/OfficeFinanceView.php';$financeLinked=false;
  if(is_file($finance)&&is_file($view)){
@@ -142,6 +149,7 @@ PHP;
   if(in_array($status,[302,401],true)){$httpReady=true;break;}
   usleep(1000000);
  }
+ echo 'MATERIAL_HTTP_STATUS='.$status."\n";
  if(!$httpReady)throw new RuntimeException('anonymous_route_check_failed');
  $manifest=['installed_at'=>gmdate('c'),'source'=>'verified_existing_sales_catalogue','files'=>array_keys($changed),'granted_operator'=>'1','added_permissions'=>$addedGrants,'finance_link'=>$financeLinked];
  file_put_contents($backup.'/manifest.json',json_encode($manifest,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR),LOCK_EX);chmod($backup.'/manifest.json',0600);

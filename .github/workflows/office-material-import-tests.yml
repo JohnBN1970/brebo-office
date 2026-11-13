@@ -27,6 +27,9 @@ jobs:
         run: |
           set -euo pipefail
           for file in office-independent/deployment/hostinger/probe-material-document-contract.php office-independent/deployment/hostinger/install-office-materials-test.php web/modules/custom/brebo_article/src/Infrastructure/ArticleCurrentPriceQuery.php web/modules/custom/brebo_article/src/Controller/ArticleSearchController.php office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          php office-independent/tests/OfficePrivateFileStorageTest.php
+          php office-independent/tests/OfficeDocumentRegistryContractTest.php
+          php office-independent/tests/OfficeDocumentAccessGateTest.php
           php -d disable_functions=link office-independent/tests/MaterialImportPortableStorageTest.php
           for test in office-independent/tests/MaterialImport*Test.php; do if [ "$test" != office-independent/tests/MaterialImportHttpTest.php ]; then php "$test"; fi; done
 
