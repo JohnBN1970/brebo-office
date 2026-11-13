@@ -57,6 +57,8 @@ try {
   $openedAttachments = [];
   $attachmentStatus = 'not_checked';
   $attachmentDuplicateCounts = [];
+  $savedDrafts = [];
+  $draftsEnabled = getenv('OFFICE_MAIL_DRAFTS_SCHEMA_VERIFIED') === 'enabled';
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -120,6 +122,47 @@ try {
         fclose($handle);
         exit;
       }
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'save_draft') {
+        if (!$draftsEnabled) { http_response_code(503); exit('Conceptopslag niet geactiveerd.'); }
+        $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+        $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        if (($origin !== '' && !hash_equals('https://' . $allowedHost,$origin))
+          || ($origin === '' && !str_starts_with($referer,'https://' . $allowedHost . '/'))
+          || !is_string($_POST['csrf'] ?? null)
+          || !hash_equals($csrfToken,$_POST['csrf'])) {
+          http_response_code(403); exit('Ongeldige aanvraag.');
+        }
+        $draftMessage = filter_var($_POST['message_id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $draftType = $_POST['draft_type'] ?? '';
+        $draftTo = $_POST['recipient'] ?? null;
+        $draftSubject = $_POST['subject'] ?? null;
+        $draftBody = $_POST['body_text'] ?? null;
+        if (!is_int($draftMessage) || !in_array($draftType,['reply','forward'],true)
+          || !is_string($draftTo) || strlen($draftTo)>1000
+          || !is_string($draftSubject) || strlen($draftSubject)>512
+          || !is_string($draftBody) || strlen($draftBody)>2097152) {
+          http_response_code(422); exit('Ongeldig concept.');
+        }
+        $allowedDraft = $db->prepare("SELECT 1 FROM office_mail_messages m
+          JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+          WHERE m.id=:message AND b.active=1 AND
+          ((b.mailbox_type='functional' AND EXISTS
+            (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id
+             AND a.operator_id=:operator AND a.can_read=1))
+           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
+          LIMIT 1");
+        $allowedDraft->execute([':message'=>$draftMessage,':operator'=>$operatorId,':owner'=>$operatorId]);
+        if (!$allowedDraft->fetchColumn()) { http_response_code(404); exit('Bericht niet toegankelijk.'); }
+        $saveDraft = $db->prepare("INSERT INTO office_mail_drafts
+          (operator_id,source_message_id,draft_type,recipient,subject,body_text)
+          VALUES (:operator,:message,:type,:recipient,:subject,:body)
+          ON DUPLICATE KEY UPDATE recipient=VALUES(recipient),subject=VALUES(subject),
+            body_text=VALUES(body_text),updated_at=CURRENT_TIMESTAMP");
+        $saveDraft->execute([':operator'=>$operatorId,':message'=>$draftMessage,
+          ':type'=>$draftType,':recipient'=>$draftTo,':subject'=>$draftSubject,':body'=>$draftBody]);
+        header('Location: /office-test/email?inspect_mail='.$draftMessage.'&draft=saved#mail-compose',true,303);
+        exit;
+      }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
         $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
@@ -159,6 +202,14 @@ try {
               LIMIT 1");
           $openStmt->execute([':id'=>$selectedMailId,':operator'=>$operatorId,':owner'=>$operatorId]);
           $openedMessage = $openStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+          if ($openedMessage !== null && $draftsEnabled) {
+            $draftStmt = $db->prepare("SELECT draft_type,recipient,subject,body_text,updated_at
+              FROM office_mail_drafts WHERE operator_id=:operator AND source_message_id=:message");
+            $draftStmt->execute([':operator'=>$operatorId,':message'=>$selectedMailId]);
+            foreach ($draftStmt->fetchAll(PDO::FETCH_ASSOC) as $draftRow) {
+              $savedDrafts[(string)$draftRow['draft_type']] = $draftRow;
+            }
+          }
           if ($openedMessage !== null) {
             try {
               $attachmentStmt = $db->prepare("SELECT att.id,att.filename,att.content_type,att.byte_size,att.sha256
@@ -338,19 +389,26 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <button type="button" class="mail-compose-open" data-action="forward">Doorsturen</button>
 </div>
 <section id="mail-compose" class="mail-compose" hidden aria-label="E-mailconcept">
+<form method="post" action="/office-test/email">
+<input type="hidden" name="action" value="save_draft">
+<input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>">
+<input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
+<input type="hidden" id="mail-compose-type" name="draft_type" value="reply">
 <h3 id="mail-compose-heading">Concept</h3>
 <p class="muted">Concept voorbereiden; rechtstreeks verzenden vanuit Office is nog niet geactiveerd.</p>
 <label for="mail-compose-to">Aan</label>
-<input id="mail-compose-to" type="text" autocomplete="off" placeholder="E-mailadres">
+<input id="mail-compose-to" name="recipient" type="text" autocomplete="off" placeholder="E-mailadres">
 <label for="mail-compose-subject">Onderwerp</label>
-<input id="mail-compose-subject" type="text">
+<input id="mail-compose-subject" name="subject" type="text">
 <label for="mail-compose-body">Bericht</label>
-<textarea id="mail-compose-body" rows="9" placeholder="Schrijf je bericht..."></textarea>
+<textarea id="mail-compose-body" name="body_text" rows="9" placeholder="Schrijf je bericht..."></textarea>
 <div class="mail-reply-actions">
+<?php if ($draftsEnabled): ?><button type="submit">Concept opslaan in Office</button><?php endif; ?>
 <button type="button" id="mail-compose-copy">Kopieer concept</button>
 <button type="button" id="mail-compose-close">Sluiten</button>
 </div>
 <p id="mail-compose-status" class="muted" role="status"></p>
+</form>
 </section>
 <script type="application/json" id="mail-compose-source"><?= json_encode([
  'sender'=>(string)$openedMessage['sender'],
@@ -358,6 +416,8 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
  'subject'=>(string)$openedMessage['subject'],
  'received_at'=>(string)$openedMessage['received_at'],
  'body'=>(string)($openedMessage['body_text'] ?? ''),
+ 'drafts'=>$savedDrafts,
+ 'saved'=>($_GET['draft'] ?? '') === 'saved',
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
 </article>
 <?php endif; ?>
@@ -478,14 +538,26 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
    };
    document.querySelectorAll('.mail-compose-open').forEach(button=>button.addEventListener('click',()=>{
      const forward=button.dataset.action==='forward';
+     const type=forward?'forward':'reply';
+     document.getElementById('mail-compose-type').value=type;
      to.value=forward?'':cleanAddress(source.sender);
      subject.value=(forward?'Fwd: ':'Re: ')+source.subject.replace(/^(?:(?:re|fwd|fw):\\s*)+/i,'');
      body.value=forward?'\\n\\n---------- Doorgestuurd bericht ----------\\nVan: '+source.sender+'\\nDatum: '+source.received_at+'\\nOnderwerp: '+source.subject+'\\n\\n'+source.body:'\\n\\nOp '+source.received_at+' schreef '+source.sender+':\\n'+source.body.split('\\n').map(line=>'> '+line).join('\\n');
+     if(source.drafts && source.drafts[type]){
+       to.value=source.drafts[type].recipient;
+       subject.value=source.drafts[type].subject;
+       body.value=source.drafts[type].body_text;
+     }
      document.getElementById('mail-compose-heading').textContent=forward?'Doorsturen – concept':'Beantwoorden – concept';
      compose.hidden=false;
      status.textContent='';
      to.focus();
    }));
+   if(source.saved){
+     const draftType=source.drafts?.reply?'reply':'forward';
+     document.querySelector('.mail-compose-open[data-action="'+draftType+'"]')?.click();
+     status.textContent='Concept opgeslagen in Office. Niet verzonden.';
+   }
    document.getElementById('mail-compose-close').addEventListener('click',()=>{compose.hidden=true;});
    document.getElementById('mail-compose-copy').addEventListener('click',async()=>{
      const value='Aan: '+to.value+'\\nOnderwerp: '+subject.value+'\\n\\n'+body.value;
