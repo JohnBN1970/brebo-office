@@ -6,6 +6,8 @@ on:
       - 'office-independent/tests/test_project_kickstart_policy.php'
       - 'office-independent/src/Project/OfficeProjectKickstartRepository.php'
       - 'office-independent/schema/office-project-kickstart.sql'
+      - 'office-independent/src/Project/OfficeProjectKickstartView.php'
+      - 'office-independent/tests/test_project_kickstart_view.php'
       - '.github/workflows/office-project-kickstart-contract.yml'
   push:
     branches: [develop]
@@ -26,4 +28,7 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectKickstartPolicy.php
           php -l office-independent/tests/test_project_kickstart_policy.php
           php -l office-independent/src/Project/OfficeProjectKickstartRepository.php
+          php -l office-independent/src/Project/OfficeProjectKickstartView.php
+          php -l office-independent/tests/test_project_kickstart_view.php
+          php office-independent/tests/test_project_kickstart_view.php
           php office-independent/tests/test_project_kickstart_policy.php
