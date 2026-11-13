@@ -111,7 +111,6 @@ jobs:
           test ! -L "$stage/integrate-onsite-approval-live-guarded.py"
           backup="$HOME/office_calc_test/.onsite-backups/onsite-$(date +%Y%m%d-%H%M%S)-$$"
           python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup"
-          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup" --apply
-          OFFICE_TEST_CONFIG_PATH="$config" OFFICE_TEST_ACTIVE_PRIVATE_PATH="$active" php "$stage/onsite-approved-hours-readonly-acceptance.php"
+          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup" --apply --config "$config" --probe "$stage/onsite-approved-hours-readonly-acceptance.php"
           echo ONSITE_GUARDED_DEPLOY_AND_READ_ONLY_ACCEPTANCE_COMPLETE
           REMOTE
