@@ -74,6 +74,52 @@ try {
         throw new RuntimeException('Mailbord CSRF configuratie ontbreekt.');
       }
       $csrfToken = hash_hmac('sha256', $operatorId . '|' . hash('sha256', json_encode($_COOKIE, JSON_THROW_ON_ERROR)), $csrfSecret);
+      // Attachment download: session-authenticated, access-controlled and never a public file URL.
+      $downloadId = filter_var($_GET['download_attachment'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (is_int($downloadId)) {
+        $downloadStmt = $db->prepare("SELECT att.filename,att.content_type,att.byte_size,att.sha256,att.private_storage_key
+          FROM office_mail_attachments att
+          JOIN office_mail_messages m ON m.id=att.message_id
+          JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+          WHERE att.id=:attachment AND b.active=1 AND
+          ((b.mailbox_type='functional' AND EXISTS
+            (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id
+             AND a.operator_id=:operator AND a.can_read=1))
+           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
+          LIMIT 1");
+        $downloadStmt->execute([':attachment'=>$downloadId,':operator'=>$operatorId,':owner'=>$operatorId]);
+        $downloadRow = $downloadStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$downloadRow) { http_response_code(404); exit('Bijlage niet gevonden.'); }
+        $storageRoot = getenv('OFFICE_MAIL_ATTACHMENT_STORAGE_ROOT');
+        if (!is_string($storageRoot) || $storageRoot === '') {
+          http_response_code(503); exit('Private bijlagenopslag nog niet geconfigureerd.');
+        }
+        try {
+          require_once dirname(__DIR__) . '/src/Documents/OfficePrivateFileStorage.php';
+          $storage = new \\Brebo\\Office\\Documents\\OfficePrivateFileStorage($storageRoot);
+          $filePath = $storage->authorizedPath((string)$downloadRow['private_storage_key']);
+          if (!hash_equals((string)$downloadRow['sha256'], (string)hash_file('sha256',$filePath))
+            || filesize($filePath) !== (int)$downloadRow['byte_size']) {
+            throw new RuntimeException('attachment_integrity_mismatch');
+          }
+          $handle = fopen($filePath,'rb');
+          if ($handle === false) throw new RuntimeException('attachment_open_failed');
+        } catch (Throwable $downloadError) {
+          error_log('office_mail_attachment_download_unavailable: '.$downloadError::class);
+          http_response_code(503); exit('Bijlage niet beschikbaar.');
+        }
+        $safeName = trim(preg_replace('/[\\x00-\\x1F\\x7F"\\\\\\/]+/u','_', (string)$downloadRow['filename']) ?? 'bijlage');
+        if ($safeName === '') $safeName='bijlage';
+        $asciiName = preg_replace('/[^A-Za-z0-9._-]/','_', $safeName) ?: 'bijlage';
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="'.$asciiName.'"; filename*=UTF-8\'\''.rawurlencode($safeName));
+        header('Content-Length: '.(string)filesize($filePath));
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, no-store');
+        fpassthru($handle);
+        fclose($handle);
+        exit;
+      }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
         $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
@@ -276,12 +322,15 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php else: ?>
 <ul><?php foreach ($openedAttachments as $attachment): ?>
 <li><strong><?= htmlspecialchars((string)$attachment['filename'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
+<?php if (getenv('OFFICE_MAIL_ATTACHMENT_STORAGE_ROOT')): ?>
+<a href="/office-test/email?download_attachment=<?= (int)$attachment['id'] ?>" aria-label="Download bijlage">Download</a>
+<?php endif; ?>
 <small><?= htmlspecialchars((string)$attachment['content_type'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> · <?= number_format((int)$attachment['byte_size']/1024,1,',','.') ?> KB</small>
 <?php if (($attachmentDuplicateCounts[(string)$attachment['sha256']] ?? 0) > 1): ?>
 <small class="status">Zelfde bestand aangetroffen in <?= (int)$attachmentDuplicateCounts[(string)$attachment['sha256']] ?> toegankelijke berichten</small>
 <?php endif; ?></li>
 <?php endforeach; ?></ul>
-<p class="muted">Bijlagen worden alleen als metadata getoond. Veilig openen en downloaden volgt na aansluiting op de private opslag.</p>
+<p class="muted">Downloaden is alleen beschikbaar wanneer de private bijlagenopslag is geconfigureerd en het originele bestand aanwezig en intact is.</p>
 <?php endif; ?>
 </section>
 <div class="mail-reply-actions"><button type="button" disabled title="Verzenden nog niet aangesloten">Beantwoorden (binnenkort)</button> <button type="button" disabled title="Verzenden nog niet aangesloten">Doorsturen (binnenkort)</button></div>
