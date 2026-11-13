@@ -1,0 +1,14 @@
+name: Inzet external hours review audit schema
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursReviewAuditSchema.php'
+      - 'office-independent/tests/OfficeExternalHoursReviewAuditSchemaContractTest.php'
+      - '.github/workflows/inzet-external-hours-review-audit-schema.yml'
+jobs:
+  audit-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursReviewAuditSchema.php
+      - run: php office-independent/tests/OfficeExternalHoursReviewAuditSchemaContractTest.php
