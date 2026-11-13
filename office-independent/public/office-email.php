@@ -401,7 +401,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <label for="mail-search"><strong>Zoeken in e-mailbord</strong></label>
 <input id="mail-search" type="search" placeholder="Zoek op afzender of onderwerp" autocomplete="off">
 <?php foreach ($mailboxes as $mailbox): ?>
-<a href="/office-test/email?folder=<?= urlencode($mailFolder) ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
+<a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <a href="/office-test/email">Postvak IN</a> <a href="/office-test/email?view=board">Werkverdeling</a>
 <span class="muted">Verzonden en persoonlijke push: nog niet aangesloten</span>
@@ -414,7 +414,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if ($openedMessage !== null): ?>
 <?php if ($mailView === 'board'): ?>
 <div class="mail-thread-list" aria-label="Berichten in huidige module">
-<a class="back-link" href="/office-test/email<?= $mailView === "board" ? "?view=board" : "?folder=".urlencode($mailFolder) ?>#mailbord">← Terug naar overzicht</a>
+<a class="back-link" href="/office-test/email<?= $mailView === "board" ? "?view=board" : "?folder=".$mailFolder ?>#mailbord">← Terug naar overzicht</a>
 <h3><?= htmlspecialchars((string)($selectedCard['module_key'] ?? 'E-mail'),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></h3>
 <?php foreach ($boardCards as $threadCard): if ($mailView === 'board' && $threadCard['module_key'] !== $selectedCard['module_key']) continue; ?>
 <a class="thread-item<?= (int)$threadCard['id']===$selectedMailId ? ' active' : '' ?>" href="/office-test/email?inspect_mail=<?= (int)$threadCard['id'] ?><?= $mailView === "board" ? "&amp;view=board" : "" ?>#mailbord">
@@ -571,7 +571,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <hr><strong>Accounts</strong>
 <a href="/office-test/email?folder=<?= $mailFolder ?>"<?= $selectedMailbox === null ? ' aria-current="page"' : '' ?>>Alle toegankelijke accounts</a>
 <?php foreach ($mailboxes as $mailbox): ?>
-<a href="/office-test/email?folder=<?= urlencode($mailFolder) ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"<?= $selectedMailbox === (int)$mailbox['id'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars((string)$mailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
+<a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"<?= $selectedMailbox === (int)$mailbox['id'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars((string)$mailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <hr>
 <small class="muted">Verzonden e-mail is nog niet aangesloten. Mappen zijn persoonlijke Office-weergaven.</small>
@@ -591,7 +591,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
   if ($mailFolder === 'unread') { if ($cardState['folder'] !== 'inbox' || (int)$cardState['is_read'] !== 0) continue; }
   elseif ($cardState['folder'] !== $mailFolder) continue;
 ?>
-<a class="mail-inbox-item<?= (int)$cardState['is_read']===0 ? ' is-unread' : '' ?>" data-read="<?= (int)$cardState['is_read'] ?>" data-date="<?= htmlspecialchars((string)$card['received_at'],ENT_QUOTES,'UTF-8') ?>" data-sender="<?= htmlspecialchars((string)$card['sender'],ENT_QUOTES,'UTF-8') ?>" data-subject="<?= htmlspecialchars((string)$card['subject'],ENT_QUOTES,'UTF-8') ?>" href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>&amp;folder=<?= urlencode($mailFolder) ?>#mailbord">
+<a class="mail-inbox-item<?= (int)$cardState['is_read']===0 ? ' is-unread' : '' ?>" data-read="<?= (int)$cardState['is_read'] ?>" data-date="<?= htmlspecialchars((string)$card['received_at'],ENT_QUOTES,'UTF-8') ?>" data-sender="<?= htmlspecialchars((string)$card['sender'],ENT_QUOTES,'UTF-8') ?>" data-subject="<?= htmlspecialchars((string)$card['subject'],ENT_QUOTES,'UTF-8') ?>" href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>&amp;folder=<?= $mailFolder ?>#mailbord">
 <strong><?= htmlspecialchars((string)$card['subject'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
 <span><?= htmlspecialchars((string)$card['sender'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></span>
 <small class="mail-inbox-meta"><time datetime="<?= htmlspecialchars((string)$card['received_at'],ENT_QUOTES,'UTF-8') ?>"><?= htmlspecialchars((string)$card['received_at'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></time><span><?= htmlspecialchars((string)$card['module_key'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></span></small>
