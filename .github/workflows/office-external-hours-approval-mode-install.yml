@@ -3,14 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type APPROVAL-MODE-PREFLIGHT or APPROVAL-MODE-INSTALL
+        description: Type APPROVAL-MODE-INSPECT or APPROVAL-MODE-PREFLIGHT
         required: true
         type: string
 permissions:
   contents: read
 jobs:
   migrate:
-    if: ${{ inputs.confirmation == 'APPROVAL-MODE-PREFLIGHT' || inputs.confirmation == 'APPROVAL-MODE-INSTALL' }}
+    if: ${{ inputs.confirmation == 'APPROVAL-MODE-INSPECT' || inputs.confirmation == 'APPROVAL-MODE-PREFLIGHT' }}
     runs-on: ubuntu-latest
     environment: office-test
     steps:
@@ -28,7 +28,7 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_approval_mode
           chmod 600 ~/.ssh/id_approval_mode
-      - name: Office-test preflight or install
+      - name: Office-test read-only inspection or preflight
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
@@ -41,5 +41,5 @@ jobs:
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_approval_mode"
           ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.approval-mode-stage"'
           scp $opts -P "$PORT" office-independent/deployment/hostinger/install-external-hours-approval-mode.php office-independent/src/Inzet/OfficeExternalHoursApprovalModeMigration.php "$remote:office_calc_test/.approval-mode-stage/"
-          if [ "$CONFIRM" = 'APPROVAL-MODE-INSTALL' ]; then mode=--apply; else mode=--preflight; fi
+          if [ "$CONFIRM" = 'APPROVAL-MODE-INSPECT' ]; then mode=--inspect; else mode=--preflight; fi
           ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.approval-mode-stage/install-external-hours-approval-mode.php '$mode'"
