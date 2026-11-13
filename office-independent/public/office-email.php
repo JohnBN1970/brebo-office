@@ -96,7 +96,7 @@ try {
         }
         try {
           require_once dirname(__DIR__) . '/src/Documents/OfficePrivateFileStorage.php';
-          $storage = new \\Brebo\\Office\\Documents\\OfficePrivateFileStorage($storageRoot);
+          $storage = new \Brebo\Office\Documents\OfficePrivateFileStorage($storageRoot);
           $filePath = $storage->authorizedPath((string)$downloadRow['private_storage_key']);
           if (!hash_equals((string)$downloadRow['sha256'], (string)hash_file('sha256',$filePath))
             || filesize($filePath) !== (int)$downloadRow['byte_size']) {
