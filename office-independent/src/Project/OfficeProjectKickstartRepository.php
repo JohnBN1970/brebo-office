@@ -72,6 +72,45 @@ final class OfficeProjectKickstartRepository
         }
     }
 
+    /**
+     * Project leader submits a completed, current dossier revision.
+     * Caller must resolve actor identity and edit rights from Office session/ACL.
+     */
+    public function submitForApproval(
+        int $dossierId,
+        int $expectedRevision,
+        int $actorId,
+        bool $authorized
+    ): array {
+        if ($dossierId < 1 || $expectedRevision < 1 || $actorId < 1 || !$authorized) {
+            throw new DomainException('Unauthorized submission');
+        }
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare('SELECT * FROM office_project_start_dossiers WHERE id = ? FOR UPDATE');
+            $q->execute([$dossierId]);
+            $row = $q->fetch(PDO::FETCH_ASSOC);
+            if (!$row) throw new DomainException('Dossier not found');
+            if ((int)$row['revision'] !== $expectedRevision) throw new DomainException('Stale dossier revision');
+            if ((int)$row['project_leader_user_id'] !== $actorId) throw new DomainException('Project leader required');
+            if (!in_array((string)$row['status'], ['draft','changes_requested'], true)) {
+                throw new DomainException('Invalid submission state');
+            }
+            $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($items) || OfficeProjectKickstartPolicy::missingItems($items) !== [] || (int)$row['critical_open_points'] !== 0) {
+                throw new DomainException('Incomplete start dossier');
+            }
+            $this->setStatus($dossierId, 'awaiting_first_approval', $expectedRevision);
+            $event = $this->db->prepare('INSERT INTO office_project_start_events (dossier_id,dossier_revision,actor_user_id,event_type,payload_json) VALUES (?,?,?,?,?)');
+            $event->execute([$dossierId,$expectedRevision,$actorId,'submitted_for_approval','{}']);
+            $this->db->commit();
+            return ['status'=>'awaiting_first_approval','revision'=>$expectedRevision];
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
     public function approve(int $dossierId, int $actorId, bool $authorized, string $decision, ?string $note = null): array
     {
         if ($dossierId < 1 || $actorId < 1 || !$authorized || !in_array($decision, ['approve','reject'], true)) {
