@@ -66,7 +66,7 @@ final class OfficeProjectKickstartRepository
             ], JSON_THROW_ON_ERROR)]);
             $this->db->commit();
             return ['status'=>'draft','revision'=>$nextRevision,'changed'=>true];
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $error;
         }
