@@ -1,0 +1,14 @@
+name: Inzet external hours approval mode migration contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursApprovalModeMigration.php'
+      - 'office-independent/tests/OfficeExternalHoursApprovalModeMigrationContractTest.php'
+      - '.github/workflows/inzet-external-hours-approval-mode-migration.yml'
+jobs:
+  migration-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursApprovalModeMigration.php
+      - run: php office-independent/tests/OfficeExternalHoursApprovalModeMigrationContractTest.php
