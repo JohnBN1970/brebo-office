@@ -76,6 +76,8 @@ $routes = [
   '/office-test/inloggen' => 'office-login.php',
   '/office-test/uitloggen' => 'office-logout.php',
   '/office-test/mijn-dashboard' => 'office-personal-dashboard.php',
+  '/office-test/email' => 'office-email.php',
+  '/office-test/mail/controle' => 'office-mail-review.php',
   '/office-test/crm/relaties' => 'office-crm-relations.php',
   '/office-test/crm/relaties/nieuw' => 'office-crm-relation-create.php',
   '/office-test/crm/relaties/detail' => 'office-crm-relation-detail.php',
@@ -133,6 +135,15 @@ if ($path === '/office-test/api/workbench/v1/calculation-grants/validate'
 if (is_string($path)
   && preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)) {
   require $private . '/public/office-calc-project-context.php';
+  exit;
+}
+// Personal mailbox push has a separate secret and explicit opt-in gate.
+if ($path === '/office-test/api/mail/v1/personal-push') {
+  if (getenv('OFFICE_PERSONAL_MAIL_PUSH_RECEIVER_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Testpagina niet gevonden.');
+  }
+  require $private . '/public/office-personal-mail-push-receive.php';
   exit;
 }
 // Machine-to-machine intake is opt-in and never exposed by default.

@@ -12,6 +12,7 @@ final class OfficeNavigation {
     'personeel'=>['Personeel','/projecten?view=inzet'],
     'calculatie-offertes'=>['Calculatie & Offertes','/calculatie-offertes'],
     'finance'=>['Finance','/finance'],
+    'email'=>['E-mail','/email'],
     'kwaliteit'=>['Kwaliteit','/kwaliteit'],
     'risicos'=>['Risico’s','/risicos'],
     'inkoop'=>['Inkoop','/inkoop'],
@@ -21,7 +22,8 @@ final class OfficeNavigation {
   private static function h(string $value):string{return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function current(string $path):string {
     if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
-    foreach(['crm','calculatie-offertes','finance','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
+    foreach(['crm','calculatie-offertes','finance','email','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
+    if($path==='/office-test/email'||str_starts_with($path,'/office-test/mail/'))return 'email';
     if(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel'))return 'personeel';
     if(str_starts_with($path,'/office-test/projecten'))return 'projecten';
     return 'bedrijf';
@@ -93,6 +95,7 @@ final class OfficeNavigation {
           ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']]
           : []
       ):[]],
+      ['E-mail','email',array_merge([['E-mailoverzicht','/office-test/email']], getenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED')==='enabled' ? [['Mailcontrole','/office-test/mail/controle']] : [])],
       ['Bedrijfsvoering','bedrijfsvoering',array_merge(self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
@@ -109,6 +112,7 @@ final class OfficeNavigation {
     elseif(str_starts_with($path,'/office-test/inkoop'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/kwaliteit')||str_starts_with($path,'/office-test/risicos'))$selected='kennis';
     elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
+    elseif($path==='/office-test/email'||str_starts_with($path,'/office-test/mail/'))$selected='email';
     elseif(str_starts_with($path,'/office-test/rapporten'))$selected='rapporten';
     elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
