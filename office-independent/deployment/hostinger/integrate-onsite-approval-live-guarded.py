@@ -73,7 +73,19 @@ def operations(a, b):
         None, a.splitlines(), b.splitlines(), autojunk=False
     ).get_opcodes() if op[0] != "equal"]
 
+# Read-only inspect job of run 43519973701 confirmed this exact active review file.
+# Preserve it without altering any live-only approval or authorization behavior.
+VERIFIED_LIVE_REVIEW_SHA = "6f45df0546574965931b05f61a1c11b186da15a25917631fb56f54eb852d184b"
+
 def merge_page(rel, live_bytes, stage_bytes):
+    if rel == "public/office-onsite-presence-review.php" and digest(live_bytes) == VERIFIED_LIVE_REVIEW_SHA:
+        ensure(digest(stage_bytes) == EXPECTED_STAGE[rel],
+               "CANDIDATE_VERSION_CHANGED:" + rel)
+        for marker in MARKERS[rel]:
+            ensure(marker.encode("utf-8") in live_bytes,
+                   "LIVE_REVIEW_MARKER_MISSING:" + marker)
+        print("VERIFIED_LIVE_REVIEW_PRESERVED:" + rel)
+        return live_bytes
     ensure(digest(live_bytes) == EXPECTED_LIVE[rel], "LIVE_VERSION_CHANGED:" + rel)
     ensure(digest(stage_bytes) == EXPECTED_STAGE[rel], "CANDIDATE_VERSION_CHANGED:" + rel)
     old = live_bytes.decode("utf-8")
