@@ -56,6 +56,13 @@ final class OfficeQuotationCalculationImport
                 'amount_ex_vat_cents' => $amount,
             ];
         }
+        // A client-facing offer may only use a fully reconciled sales snapshot.
+        // Never silently drop undistributed tail costs or markup from the offer.
+        if (array_key_exists('total_ex_vat_cents', $snapshot)
+            && (!is_int($snapshot['total_ex_vat_cents'])
+                || $snapshot['total_ex_vat_cents'] !== $total)) {
+            throw new InvalidArgumentException('Calc sales lines do not reconcile with published total');
+        }
         return [
             'calculation_id' => $id,
             'calculation_version' => $version,
