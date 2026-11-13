@@ -92,13 +92,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         // The deployment must provide a callable resolver that independently
         // authenticates Calc access and reads the exact published sales revision.
         $resolverBootstrap = getenv('OFFICE_QUOTATION_CALC_RESOLVER_FILE');
-        if (!is_string($resolverBootstrap) || $resolverBootstrap === ''
-            || !str_starts_with($resolverBootstrap, dirname(__DIR__) . '/')
-            || !is_file($resolverBootstrap)) {
+        $resolverRoot = realpath(dirname(__DIR__) . '/private');
+        $resolverPath = is_string($resolverBootstrap) ? realpath($resolverBootstrap) : false;
+        if ($resolverRoot === false || $resolverPath === false
+            || !str_starts_with($resolverPath, $resolverRoot . DIRECTORY_SEPARATOR)
+            || !is_file($resolverPath) || !is_readable($resolverPath)) {
             http_response_code(503); exit('Beveiligde calculatiebron ontbreekt.');
         }
         try {
-            $resolveAuthorizedCalculation = require $resolverBootstrap;
+            $resolveAuthorizedCalculation = require $resolverPath;
             if (!is_callable($resolveAuthorizedCalculation)) {
                 throw new \RuntimeException('Calc resolver is not callable');
             }
