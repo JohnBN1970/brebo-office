@@ -18,6 +18,7 @@ jobs:
           set -euo pipefail
           for file in office-independent/public/office-onsite-presence-review.php office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/public/office-projects.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php; do php -l "$file"; done
           php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+          python3 -m py_compile office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py
   inspect:
     needs: validate
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -59,7 +60,7 @@ jobs:
           done
           REMOTE
   deploy:
-    needs: validate
+    needs: [validate, inspect]
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'DEPLOY-ONSITE-OFFICE-TEST' }}
     runs-on: ubuntu-latest
     environment: office-test
@@ -74,23 +75,26 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_onsite_deploy
           chmod 600 ~/.ssh/id_onsite_deploy
-      - name: Stage verified files
+      - name: Stage OnSite integration candidates and guarded merge script
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          PORT: ${{ secrets.DEPLOY_PORT }}
-          USER: ${{ secrets.DEPLOY_USER }}
+          HOST: \${{ secrets.DEPLOY_HOST }}
+          PORT: \${{ secrets.DEPLOY_PORT }}
+          USER: \${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
           remote="$USER@$HOST"
-          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.onsite-deploy-stage/public" "$HOME/office_calc_test/.onsite-deploy-stage/src/Inzet"'
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.onsite-deploy-stage/public" "$HOME/office_calc_test/.onsite-deploy-stage/src/Inzet" "$HOME/office_calc_test/.onsite-deploy-stage/src/Project" "$HOME/office_calc_test/.onsite-deploy-stage/src/Finance"'
           scp $opts -P "$PORT" office-independent/public/office-onsite-presence-review.php office-independent/public/office-projects.php "$remote:office_calc_test/.onsite-deploy-stage/public/"
           scp $opts -P "$PORT" office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php "$remote:office_calc_test/.onsite-deploy-stage/src/Inzet/"
-      - name: Verify active release and install only matching or missing files
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPortfolioView.php office-independent/src/Project/OfficeProjectPageStructure.php office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php office-independent/src/Project/OfficeProjectPortfolioTotals.php "$remote:office_calc_test/.onsite-deploy-stage/src/Project/"
+          scp $opts -P "$PORT" office-independent/src/Finance/OfficeFinanceAccess.php "$remote:office_calc_test/.onsite-deploy-stage/src/Finance/"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$remote:office_calc_test/.onsite-deploy-stage/"
+      - name: Verify exact live version, prepare guarded merge and perform read-only acceptance
         env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          PORT: ${{ secrets.DEPLOY_PORT }}
-          USER: ${{ secrets.DEPLOY_USER }}
+          HOST: \${{ secrets.DEPLOY_HOST }}
+          PORT: \${{ secrets.DEPLOY_PORT }}
+          USER: \${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
@@ -103,40 +107,10 @@ jobs:
           active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
           case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
           test -d "$active" && test ! -L "$active"
-          files=(public/office-onsite-presence-review.php src/Inzet/OfficeOnSiteApprovalService.php public/office-projects.php src/Inzet/OfficeApprovedHoursWeekRepository.php)
-          for f in "${files[@]}"; do
-            test -f "$stage/$f" && test ! -L "$stage/$f" || exit 22
-            php -l "$stage/$f"
-            test -d "$(dirname "$active/$f")" && test ! -L "$(dirname "$active/$f")" || { echo TARGET_DIRECTORY_INVALID; exit 23; }
-            test ! -L "$active/$f" || { echo TARGET_SYMLINK_BLOCKED; exit 24; }
-          done
-          # Existing project page may contain live changes absent from Git: never overwrite those.
-          for f in public/office-projects.php public/office-onsite-presence-review.php; do
-            if test -f "$active/$f" && ! cmp -s "$stage/$f" "$active/$f"; then
-              echo "EXISTING_PAGE_DIFFERS_REQUIRES_INTEGRATION:$f"
-              echo "LIVE_SHA256:$(sha256sum "$active/$f" | cut -d' ' -f1)"
-              echo "REPO_SHA256:$(sha256sum "$stage/$f" | cut -d' ' -f1)"
-              for marker in OfficeOnSiteApprovalService OfficeApprovedHoursWeekRepository approved_week_seconds OfficeProjectPortfolioGantt OfficeProjectPortfolioView; do
-                if grep -Fq "$marker" "$active/$f"; then echo "LIVE_MARKER_PRESENT:$f:$marker"; else echo "LIVE_MARKER_ABSENT:$f:$marker"; fi
-              done
-              exit 25
-            fi
-          done
-          for f in src/Inzet/OfficeOnSiteApprovalService.php src/Inzet/OfficeApprovedHoursWeekRepository.php; do
-            if test -f "$active/$f" && ! cmp -s "$stage/$f" "$active/$f"; then
-              echo "EXISTING_SERVICE_DIFFERS_REQUIRES_REVIEW:$f"
-              exit 26
-            fi
-          done
-          for f in "${files[@]}"; do
-            if test ! -e "$active/$f"; then
-              cp -p "$stage/$f" "$active/$f"
-              chmod 644 "$active/$f"
-              php -l "$active/$f"
-              echo "INSTALLED:$f"
-            else
-              echo "ALREADY_MATCHES:$f"
-            fi
-          done
-          echo ONSITE_GUARDED_DEPLOY_COMPLETED
+          test -f "$stage/integrate-onsite-approval-live-guarded.py"
+          test ! -L "$stage/integrate-onsite-approval-live-guarded.py"
+          backup="$HOME/office_calc_test/.onsite-backups/onsite-$(date +%Y%m%d-%H%M%S)-$$"
+          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup"
+          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup" --apply --config "$config" --probe "$stage/onsite-approved-hours-readonly-acceptance.php"
+          echo ONSITE_GUARDED_DEPLOY_AND_READ_ONLY_ACCEPTANCE_COMPLETE
           REMOTE
