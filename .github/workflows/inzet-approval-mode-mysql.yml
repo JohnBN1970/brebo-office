@@ -1,0 +1,29 @@
+name: Inzet approval mode MySQL migration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/tests/OfficeExternalHoursApprovalModeMigrationMySqlTest.php'
+      - '.github/workflows/inzet-approval-mode-mysql.yml'
+jobs:
+  migration-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_inzet_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptest-root-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y php-cli php-mysql
+      - name: Test legacy preservation and both approval modes
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: php office-independent/tests/OfficeExternalHoursApprovalModeMigrationMySqlTest.php
