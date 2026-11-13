@@ -10,6 +10,7 @@ on:
       - 'web/modules/custom/brebo_article/src/**'
       - 'office-independent/deployment/hostinger/install-office-materials-test.php'
       - 'office-independent/deployment/hostinger/probe-material-document-contract.php'
+      - 'office-independent/deployment/hostinger/probe-material-extraction.php'
       - 'office-independent/deployment/hostinger/sql/material-import-review-ledger.sql'
       - '.github/workflows/office-material-import-tests.yml'
 permissions:
@@ -26,7 +27,7 @@ jobs:
       - name: Validate and run material import tests
         run: |
           set -euo pipefail
-          for file in office-independent/deployment/hostinger/probe-material-document-contract.php office-independent/deployment/hostinger/install-office-materials-test.php web/modules/custom/brebo_article/src/Infrastructure/ArticleCurrentPriceQuery.php web/modules/custom/brebo_article/src/Controller/ArticleSearchController.php office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          for file in office-independent/deployment/hostinger/probe-material-extraction.php office-independent/deployment/hostinger/probe-material-document-contract.php office-independent/deployment/hostinger/install-office-materials-test.php web/modules/custom/brebo_article/src/Infrastructure/ArticleCurrentPriceQuery.php web/modules/custom/brebo_article/src/Controller/ArticleSearchController.php office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
           php office-independent/tests/OfficePrivateFileStorageTest.php
           php office-independent/tests/OfficeDocumentRegistryContractTest.php
           php office-independent/tests/OfficeDocumentAccessGateTest.php
@@ -81,6 +82,7 @@ jobs:
           cp office-independent/deployment/hostinger/install-office-materials-test.php material-package/install.php
           cp office-independent/deployment/hostinger/probe-material-document-contract.php material-package/probe-documents.php
           cp office-independent/deployment/hostinger/material-storage-baseline.php material-package/storage-baseline.php
+          cp office-independent/deployment/hostinger/probe-material-extraction.php material-package/probe-extraction.php
           tar -czf material-package.tar.gz -C material-package .
       - name: Install and verify the isolated Office-test overlay
         env:
@@ -108,5 +110,6 @@ jobs:
           tar -xzf "$stage.tar.gz" --no-same-owner -C "$stage"
           php -l "$stage/install.php"
           php "$stage/install.php" "$stage"
+          php "$stage/probe-extraction.php" "$base/config/config.php"
           rm -f "$stage.tar.gz"
           REMOTE
