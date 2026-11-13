@@ -83,6 +83,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     if (!$storageReady) { http_response_code(503); exit('Opslaan is nog niet geactiveerd.'); }
+    // Calc handoff is opt-in and resolves all commercial data on the server.
+    // No browser-submitted CRM IDs, sales lines or prices may be used.
+    if (($_POST['action'] ?? '') === 'generate_quotation') {
+        if (getenv('OFFICE_QUOTATION_CALC_HANDOFF_ENABLED') !== 'enabled') {
+            http_response_code(503); exit('Calculatieoverdracht is nog niet geactiveerd.');
+        }
+        // The deployment must provide a callable resolver that independently
+        // authenticates Calc access and reads the exact published sales revision.
+        $resolverBootstrap = getenv('OFFICE_QUOTATION_CALC_RESOLVER_FILE');
+        if (!is_string($resolverBootstrap) || $resolverBootstrap === ''
+            || !str_starts_with($resolverBootstrap, dirname(__DIR__) . '/')
+            || !is_file($resolverBootstrap)) {
+            http_response_code(503); exit('Beveiligde calculatiebron ontbreekt.');
+        }
+        try {
+            $resolveAuthorizedCalculation = require $resolverBootstrap;
+            if (!is_callable($resolveAuthorizedCalculation)) {
+                throw new \RuntimeException('Calc resolver is not callable');
+            }
+            require_once dirname(__DIR__) . '/src/Quotation/OfficeQuotationCalcPostController.php';
+            $redirect = (new \Brebo\Office\Quotation\OfficeQuotationCalcPostController($db))
+                ->handle('POST', $quotationOperatorId, $_POST, $_SESSION['quotation_csrf'],
+                    $resolveAuthorizedCalculation);
+            $_SESSION['quotation_csrf'] = bin2hex(random_bytes(32));
+            header('Location: ' . $redirect, true, 303);
+            exit;
+        } catch (\DomainException|\InvalidArgumentException $e) {
+            http_response_code(400); exit('Calculatieoverdracht geweigerd: controleer versie en rechten.');
+        } catch (\Throwable $e) {
+            error_log('OFFERTSTUDIO_CALC_HANDOFF_FAILED ' . get_class($e));
+            http_response_code(503); exit('Calculatieoverdracht tijdelijk niet beschikbaar.');
+        }
+    }
     if (($_POST['action'] ?? '') === 'approve_rubric') {
         if (getenv('OFFICE_QUOTATION_RUBRIC_APPROVALS_ENABLED') !== 'enabled') {
             http_response_code(503); exit('Rubriekgoedkeuring is nog niet geactiveerd.');
