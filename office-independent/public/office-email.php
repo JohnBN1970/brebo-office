@@ -54,6 +54,8 @@ try {
   $crmRecognitionStatus = 'not_checked';
   $selectedMailId = null;
   $openedMessage = null;
+  $openedAttachments = [];
+  $attachmentStatus = 'not_checked';
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -110,6 +112,26 @@ try {
               LIMIT 1");
           $openStmt->execute([':id'=>$selectedMailId,':operator'=>$operatorId,':owner'=>$operatorId]);
           $openedMessage = $openStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+          if ($openedMessage !== null) {
+            try {
+              $attachmentStmt = $db->prepare("SELECT att.id,att.filename,att.content_type,att.byte_size
+                FROM office_mail_attachments att
+                INNER JOIN office_mail_messages m ON m.id=att.message_id
+                INNER JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+                WHERE m.id=:message AND b.active=1 AND
+                  ((b.mailbox_type='functional' AND EXISTS
+                    (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id
+                     AND a.operator_id=:operator AND a.can_read=1))
+                   OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
+                ORDER BY att.id LIMIT 100");
+              $attachmentStmt->execute([':message'=>$selectedMailId,':operator'=>$operatorId,':owner'=>$operatorId]);
+              $openedAttachments = $attachmentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+              $attachmentStatus = 'checked';
+            } catch (Throwable $attachmentError) {
+              error_log('office_mail_attachment_metadata_unavailable: ' . $attachmentError::class);
+              $attachmentStatus = 'unavailable';
+            }
+          }
         }
         if ($selectedCard !== null && (string)$selectedCard['module_key'] !== 'prive'
             && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
@@ -183,7 +205,7 @@ main{max-width:none;margin:20px auto;padding:0 20px}
 article{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:22px}
 h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #dce3eb;text-align:left}a{color:#175a91}.muted{color:#586c80}
  .candidate-panel{background:#fff;border:1px solid #dce3eb;border-radius:12px;padding:18px;margin:16px 0}.candidate-panel li{margin:8px 0}.status{font-size:13px;font-weight:650;color:#805a19}.board{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:8px 0;align-items:stretch;min-width:0;flex:1;height:min(75vh,780px)}.lane{box-sizing:border-box;position:relative;flex:0 0 225px;min-width:145px;background:#e9eef6;border-radius:8px;padding:12px;min-height:0;overflow-y:auto;overflow-x:hidden;border:1px solid #c8d1dd;scrollbar-width:thin}.lane h3{padding-right:8px}.lane-resizer{position:absolute;right:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:3;touch-action:none}.lane-resizer:hover,.lane-resizer:focus-visible{background:#3579ac55;outline:none}.board.is-resizing,.board.is-resizing *{cursor:col-resize!important;user-select:none!important}.lane h3{margin:0 0 12px}.mail-card{padding:12px;margin:8px 0;border-radius:8px;cursor:grab}.mail-card p{overflow-wrap:anywhere}.mail-card form{display:grid;gap:7px}.mail-card select{max-width:100%}
-.mail-workspace{display:flex;gap:16px;align-items:stretch;min-width:0}.mail-detail{box-sizing:border-box;flex:0 0 min(380px,34vw);min-width:260px;max-height:min(75vh,780px);overflow-y:auto;scrollbar-width:thin}.mail-detail .candidate-panel{margin:0}.mail-card p{margin:7px 0;font-size:13px}.mail-card strong{font-size:13px;overflow-wrap:anywhere}.lane h3{position:sticky;top:-12px;background:#e9eef6;padding:8px 0;z-index:1}@media(max-width:950px){.mail-workspace{flex-direction:column}.mail-detail{flex:auto;min-width:0;max-height:420px}.board{height:65vh;min-height:400px}}@media(max-width:600px){main{padding:0 10px}.lane{flex-basis:210px}.board{height:60vh}}.mail-workspace{display:grid;grid-template-columns:minmax(0,65fr) minmax(290px,35fr);gap:14px;width:100%;align-items:start}.board{grid-column:1;grid-row:1;width:100%;height:min(72vh,780px);min-height:420px}.mail-detail{grid-column:2;grid-row:1;width:100%;min-width:0;max-height:min(72vh,780px);height:min(72vh,780px);overflow-y:auto}.mail-card{padding:9px}.mail-card form{gap:4px}.mail-card button{cursor:pointer}.mail-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#fff;border:1px solid #dce3eb;border-radius:10px;margin-bottom:12px}.mail-toolbar input{flex:1;min-width:170px;padding:9px;border:1px solid #c8d1dd;border-radius:7px}.mail-toolbar a{white-space:nowrap}.mail-empty-search{display:none;font-size:12px;color:#586c80}.mail-card[hidden]{display:none!important}@media(max-width:1100px){.mail-workspace{grid-template-columns:minmax(0,1fr)}.board{grid-column:1;grid-row:1}.mail-detail{grid-column:1;grid-row:2;max-height:420px;height:auto}}.mail-workspace:not(.is-open){display:block}.mail-workspace:not(.is-open) .mail-detail{display:none}.mail-workspace:not(.is-open) .board{height:min(76vh,830px)}.mail-workspace.is-open{display:grid;grid-template-columns:minmax(210px,24%) minmax(320px,1fr) minmax(260px,27%);gap:12px;align-items:start}.mail-workspace.is-open .mail-detail{grid-column:3;grid-row:1;max-height:76vh;height:76vh}.mail-thread-list{grid-column:1;grid-row:1;background:#fff;border:1px solid #dce3eb;border-radius:9px;height:76vh;overflow-y:auto;padding:12px;box-sizing:border-box}.thread-item{display:block;padding:12px 8px;border-bottom:1px solid #e2e8f0;text-decoration:none;color:#1b2c3c}.thread-item strong,.thread-item small{display:block;overflow-wrap:anywhere}.thread-item small{color:#586c80;margin-top:5px}.thread-item.active{background:#e9eef6}.back-link{display:block;margin-bottom:16px}.mail-reading{grid-column:2;grid-row:1;box-sizing:border-box;height:76vh;overflow-y:auto;padding:22px}.mail-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}.mail-workspace.is-open .mail-detail .candidate-panel{padding:14px}@media(max-width:1100px){.mail-workspace.is-open{grid-template-columns:minmax(190px,35%) minmax(0,1fr)}.mail-workspace.is-open .mail-detail{grid-column:1 / -1;grid-row:2;height:auto;max-height:400px}}@media(max-width:650px){.mail-workspace.is-open{display:flex;flex-direction:column}.mail-thread-list,.mail-reading{width:100%;height:auto;max-height:350px}.mail-workspace.is-open .mail-detail{width:100%}}.mail-card{cursor:pointer}.mail-card:focus-visible{outline:3px solid #175a91;outline-offset:2px}.mail-card:hover{border-color:#91b5d0;background:#f9fcff}</style></head><body><main>
+.mail-workspace{display:flex;gap:16px;align-items:stretch;min-width:0}.mail-detail{box-sizing:border-box;flex:0 0 min(380px,34vw);min-width:260px;max-height:min(75vh,780px);overflow-y:auto;scrollbar-width:thin}.mail-detail .candidate-panel{margin:0}.mail-card p{margin:7px 0;font-size:13px}.mail-card strong{font-size:13px;overflow-wrap:anywhere}.lane h3{position:sticky;top:-12px;background:#e9eef6;padding:8px 0;z-index:1}@media(max-width:950px){.mail-workspace{flex-direction:column}.mail-detail{flex:auto;min-width:0;max-height:420px}.board{height:65vh;min-height:400px}}@media(max-width:600px){main{padding:0 10px}.lane{flex-basis:210px}.board{height:60vh}}.mail-workspace{display:grid;grid-template-columns:minmax(0,65fr) minmax(290px,35fr);gap:14px;width:100%;align-items:start}.board{grid-column:1;grid-row:1;width:100%;height:min(72vh,780px);min-height:420px}.mail-detail{grid-column:2;grid-row:1;width:100%;min-width:0;max-height:min(72vh,780px);height:min(72vh,780px);overflow-y:auto}.mail-card{padding:9px}.mail-card form{gap:4px}.mail-card button{cursor:pointer}.mail-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;background:#fff;border:1px solid #dce3eb;border-radius:10px;margin-bottom:12px}.mail-toolbar input{flex:1;min-width:170px;padding:9px;border:1px solid #c8d1dd;border-radius:7px}.mail-toolbar a{white-space:nowrap}.mail-empty-search{display:none;font-size:12px;color:#586c80}.mail-card[hidden]{display:none!important}@media(max-width:1100px){.mail-workspace{grid-template-columns:minmax(0,1fr)}.board{grid-column:1;grid-row:1}.mail-detail{grid-column:1;grid-row:2;max-height:420px;height:auto}}.mail-workspace:not(.is-open){display:block}.mail-workspace:not(.is-open) .mail-detail{display:none}.mail-workspace:not(.is-open) .board{height:min(76vh,830px)}.mail-workspace.is-open{display:grid;grid-template-columns:minmax(210px,24%) minmax(320px,1fr) minmax(260px,27%);gap:12px;align-items:start}.mail-workspace.is-open .mail-detail{grid-column:3;grid-row:1;max-height:76vh;height:76vh}.mail-thread-list{grid-column:1;grid-row:1;background:#fff;border:1px solid #dce3eb;border-radius:9px;height:76vh;overflow-y:auto;padding:12px;box-sizing:border-box}.thread-item{display:block;padding:12px 8px;border-bottom:1px solid #e2e8f0;text-decoration:none;color:#1b2c3c}.thread-item strong,.thread-item small{display:block;overflow-wrap:anywhere}.thread-item small{color:#586c80;margin-top:5px}.thread-item.active{background:#e9eef6}.back-link{display:block;margin-bottom:16px}.mail-reading{grid-column:2;grid-row:1;box-sizing:border-box;height:76vh;overflow-y:auto;padding:22px}.mail-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55}.mail-workspace.is-open .mail-detail .candidate-panel{padding:14px}@media(max-width:1100px){.mail-workspace.is-open{grid-template-columns:minmax(190px,35%) minmax(0,1fr)}.mail-workspace.is-open .mail-detail{grid-column:1 / -1;grid-row:2;height:auto;max-height:400px}}@media(max-width:650px){.mail-workspace.is-open{display:flex;flex-direction:column}.mail-thread-list,.mail-reading{width:100%;height:auto;max-height:350px}.mail-workspace.is-open .mail-detail{width:100%}}.mail-card{cursor:pointer}.mail-card:focus-visible{outline:3px solid #175a91;outline-offset:2px}.mail-card:hover{border-color:#91b5d0;background:#f9fcff}.mail-attachments{border-top:1px solid #dce3eb;margin-top:22px;padding-top:12px}.mail-attachments li{margin:8px 0;overflow-wrap:anywhere}.mail-attachments small{display:block;color:#586c80}.mail-reply-actions{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}.mail-reply-actions button{padding:9px;border:1px solid #dce3eb;border-radius:7px}</style></head><body><main>
 <h1>E-mail</h1>
 
 <div class="mail-toolbar" role="search">
@@ -218,7 +240,21 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <p class="muted"><?= htmlspecialchars((string)$openedMessage['received_at'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></p>
 <hr>
 <div class="mail-body"><?= htmlspecialchars((string)($openedMessage['body_text'] ?: 'Geen platte berichttekst beschikbaar.'),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></div>
-<p class="muted">Bijlagen en antwoorden zijn nog niet aangesloten.</p>
+<section class="mail-attachments" aria-label="Bijlagen">
+<h3>Bijlagen</h3>
+<?php if ($attachmentStatus === 'unavailable'): ?>
+<p class="muted">Bijlagegegevens tijdelijk niet beschikbaar.</p>
+<?php elseif ($openedAttachments === []): ?>
+<p class="muted">Geen opgeslagen bijlagen bij dit bericht.</p>
+<?php else: ?>
+<ul><?php foreach ($openedAttachments as $attachment): ?>
+<li><strong><?= htmlspecialchars((string)$attachment['filename'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
+<small><?= htmlspecialchars((string)$attachment['content_type'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> · <?= number_format((int)$attachment['byte_size']/1024,1,',','.') ?> KB</small></li>
+<?php endforeach; ?></ul>
+<p class="muted">Bijlagen worden alleen als metadata getoond. Veilig openen en downloaden volgt na aansluiting op de private opslag.</p>
+<?php endif; ?>
+</section>
+<div class="mail-reply-actions"><button type="button" disabled title="Verzenden nog niet aangesloten">Beantwoorden (binnenkort)</button> <button type="button" disabled title="Verzenden nog niet aangesloten">Doorsturen (binnenkort)</button></div>
 </article>
 <?php endif; ?>
 <aside class="mail-detail" aria-label="Dossierherkenning">
