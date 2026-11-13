@@ -43,6 +43,16 @@ final class OfficeQuotationCalcGenerationService
             || ($snapshot['version'] ?? null) !== $request['calculation_version']) {
             throw new DomainException('Verified Calc revision or CRM context missing');
         }
+        // Fail closed if the resolver returns a different calculation context.
+        // A matching version alone is not sufficient when multiple Calc drafts exist.
+        if (isset($authorized['calculation_id'])
+            && $authorized['calculation_id'] !== $request['calculation_id']) {
+            throw new DomainException('Authorized calculation identity mismatch');
+        }
+        if (isset($authorized['calculation_version'])
+            && $authorized['calculation_version'] !== $request['calculation_version']) {
+            throw new DomainException('Authorized calculation version mismatch');
+        }
         // The opportunity must belong to the verified relation. Never trust a
         // browser-supplied CRM association or a resolver without this check.
         $opportunity = $this->db->prepare(
