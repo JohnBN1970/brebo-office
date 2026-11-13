@@ -14,6 +14,8 @@ on:
       - 'office-independent/src/Project/OfficeProjectKickstartActionHandler.php'
       - 'office-independent/tests/test_project_kickstart_action_handler.php'
       - 'office-independent/tests/test_project_kickstart_execution_gate.php'
+      - 'office-independent/src/Project/OfficeProjectExecutionStartGate.php'
+      - 'office-independent/tests/test_project_execution_start_gate.php'
       - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
       - 'office-independent/tests/test_project_kickstart_v3_integration.php'
       - 'office-independent/tests/test_project_kickstart_form_view.php'
@@ -46,6 +48,9 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectDetailV3View.php
           php -l office-independent/tests/test_project_kickstart_v3_integration.php
           php office-independent/tests/test_project_kickstart_v3_integration.php
+          php -l office-independent/src/Project/OfficeProjectExecutionStartGate.php
+          php -l office-independent/tests/test_project_execution_start_gate.php
+          php office-independent/tests/test_project_execution_start_gate.php
           php -l office-independent/tests/test_project_kickstart_execution_gate.php
           php office-independent/tests/test_project_kickstart_execution_gate.php
           php -l office-independent/src/Project/OfficeProjectKickstartActionHandler.php
