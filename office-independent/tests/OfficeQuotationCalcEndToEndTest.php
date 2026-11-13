@@ -47,6 +47,17 @@ try {
     if ($e->getMessage()==='Bad CSRF accepted') throw $e;
 }
 if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) throw new RuntimeException('Invalid request created draft');
+foreach ([['GET', 5], ['POST', 0]] as [$method, $actor]) {
+    try {
+        $controller->handle($method, $actor, $intent, $csrf, $resolver);
+        throw new RuntimeException('Unauthorized quotation creation accepted');
+    } catch (DomainException $e) {
+        if ($e->getMessage() === 'Unauthorized quotation creation accepted') throw $e;
+    }
+}
+if ((int)$db->query('SELECT COUNT(*) FROM office_quotations')->fetchColumn() !== 1) {
+    throw new RuntimeException('Unauthorized request created an extra draft');
+}
 $wrongRevision = $intent;
 $wrongRevision['calculation_version'] = '4';
 try {
