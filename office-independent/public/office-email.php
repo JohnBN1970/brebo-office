@@ -535,16 +535,16 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
    const body=document.getElementById('mail-compose-body');
    const status=document.getElementById('mail-compose-status');
    const cleanAddress=value=>{
-     const match=String(value).match(/<([^<>\\s]+@[^<>\\s]+)>/);
-     return match?match[1]:(String(value).trim().match(/^[^\\s@]+@[^\\s@]+$/)?.[0]||'');
+     const match=String(value).match(/<([^<>\s]+@[^<>\s]+)>/);
+     return match?match[1]:(String(value).trim().match(/^[^\s@]+@[^\s@]+$/)?.[0]||'');
    };
    document.querySelectorAll('.mail-compose-open').forEach(button=>button.addEventListener('click',()=>{
      const forward=button.dataset.action==='forward';
      const type=forward?'forward':'reply';
      document.getElementById('mail-compose-type').value=type;
      to.value=forward?'':cleanAddress(source.sender);
-     subject.value=(forward?'Fwd: ':'Re: ')+source.subject.replace(/^(?:(?:re|fwd|fw):\\s*)+/i,'');
-     body.value=forward?'\\n\\n---------- Doorgestuurd bericht ----------\\nVan: '+source.sender+'\\nDatum: '+source.received_at+'\\nOnderwerp: '+source.subject+'\\n\\n'+source.body:'\\n\\nOp '+source.received_at+' schreef '+source.sender+':\\n'+source.body.split('\\n').map(line=>'> '+line).join('\\n');
+     subject.value=(forward?'Fwd: ':'Re: ')+source.subject.replace(/^(?:(?:re|fwd|fw):\s*)+/i,'');
+     body.value=forward?'\n\n---------- Doorgestuurd bericht ----------\nVan: '+source.sender+'\nDatum: '+source.received_at+'\nOnderwerp: '+source.subject+'\n\n'+source.body:'\n\nOp '+source.received_at+' schreef '+source.sender+':\n'+source.body.split('\n').map(line=>'> '+line).join('\n');
      if(source.drafts && source.drafts[type]){
        to.value=source.drafts[type].recipient;
        subject.value=source.drafts[type].subject;
@@ -562,7 +562,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
    }
    document.getElementById('mail-compose-close').addEventListener('click',()=>{compose.hidden=true;});
    document.getElementById('mail-compose-copy').addEventListener('click',async()=>{
-     const value='Aan: '+to.value+'\\nOnderwerp: '+subject.value+'\\n\\n'+body.value;
+     const value='Aan: '+to.value+'\nOnderwerp: '+subject.value+'\n\n'+body.value;
      try{await navigator.clipboard.writeText(value);status.textContent='Concept gekopieerd. Niet verzonden.';}
      catch(_error){status.textContent='Kopiëren niet toegestaan door browser; selecteer en kopieer de tekst handmatig.';}
    });
