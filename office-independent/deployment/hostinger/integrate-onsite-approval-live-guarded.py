@@ -206,7 +206,24 @@ def main():
                 if line.startswith(("SCOPE=", "APPROVAL_CONFIG_FLAG=", "DEPLOYED_",
                                     "ON_SITE_READ_ONLY_ACCEPTANCE=")):
                     print(line)
-            ensure(probe.returncode == 0, "READ_ONLY_RUNTIME_ACCEPTANCE_BLOCKED")
+            # Deployment may be technically complete while approval is deliberately disabled.
+            # Accept only the known flag-only block; all schema and deployed markers must be ready.
+            lines = probe.stdout.splitlines()
+            flag_only = (
+                probe.returncode == 4
+                and "APPROVAL_CONFIG_FLAG=NOT_SET" in lines
+                and "ON_SITE_BLOCKER=APPROVAL_FLAG_NOT_ENABLED" in lines
+                and "ON_SITE_READ_ONLY_ACCEPTANCE=BLOCKED" in lines
+                and "SCOPE=OFFICE_TEST" in lines
+                and all(
+                    not line.endswith(("=MISSING", "=MISSING_OR_INCOMPLETE", "=MARKER_MISMATCH", "=FILE_MISSING"))
+                    for line in lines
+                )
+                and sum(line.endswith("=READY") for line in lines) == 12
+            )
+            ensure(probe.returncode == 0 or flag_only, "READ_ONLY_RUNTIME_ACCEPTANCE_BLOCKED")
+            if flag_only:
+                print("ON_SITE_INSTALLATION=READY_PENDING_EXPLICIT_FLAG_ACTIVATION")
         except Exception:
             # Roll back every completed replacement, including newly installed modules.
             for rel in reversed(changed):
