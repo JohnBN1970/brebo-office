@@ -52,4 +52,12 @@ try {
 } catch (InvalidArgumentException $e) {
     if ($e->getMessage() === 'Empty sales unit accepted') throw $e;
 }
+$unreconciled = $snapshot;
+$unreconciled['total_ex_vat_cents'] = 200000;
+try {
+    OfficeQuotationCalculationImport::prepare($unreconciled);
+    throw new RuntimeException('Unreconciled sales snapshot accepted');
+} catch (InvalidArgumentException $e) {
+    if ($e->getMessage() === 'Unreconciled sales snapshot accepted') throw $e;
+}
 echo "OFFERTSTUDIO_CALC_IMPORT_TEST_OK\n";
