@@ -62,7 +62,7 @@ try{
  $files=['public/office-materials.php'];foreach(glob($stage.'/src/Materials/*.php')?:[]as$file)$files[]='src/Materials/'.basename($file);
  foreach(['OfficeDocumentRegistry','OfficePrivateFileStorage','OfficeDocumentAccessGate']as$class){
   $file='src/Documents/'.$class.'.php';
-  if(is_file($root.'/'.$file)&&!hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/'.$file))){echo 'MATERIAL_DEPENDENCY_MISMATCH='.$class."\n";throw new RuntimeException('document_dependency_differs');}
+  if(is_file($root.'/'.$file)&&!hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/'.$file)))echo 'MATERIAL_DEPENDENCY_PRESERVED='.$class."\n";
   if(!is_file($root.'/'.$file))$files[]=$file;
  }
  // Validate the already deployed worksheet adapter rather than overwriting OnSite code.
@@ -75,6 +75,10 @@ try{
  if(!is_resource($test))throw new RuntimeException('worksheet_test_start_failed');fclose($testPipes[0]);$testOutput=stream_get_contents($testPipes[1]);stream_get_contents($testPipes[2]);fclose($testPipes[1]);fclose($testPipes[2]);
  if(proc_close($test)!==0||!str_contains($testOutput,'MATERIAL_SOURCE_READER=PASS'))throw new RuntimeException('deployed_worksheet_adapter_test_failed');
 
+ $probePipes=[];$probe=proc_open([PHP_BINARY,$stage.'/probe-documents.php',$root,$stage,$configPath],[['pipe','r'],['pipe','w'],['pipe','w']],$probePipes);
+ if(!is_resource($probe))throw new RuntimeException('document_contract_start_failed');fclose($probePipes[0]);$probeOutput=stream_get_contents($probePipes[1]);stream_get_contents($probePipes[2]);fclose($probePipes[1]);fclose($probePipes[2]);
+ if(proc_close($probe)!==0||!str_contains($probeOutput,'MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=PASS'))throw new RuntimeException('deployed_document_contract_failed');
+ echo "MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=PASS\n";
  $routerContent=file_get_contents($router);$newRouter=$routerContent;
  if(!str_contains($routerContent,"'/office-test/materialen'")){
   $newRouter=preg_replace('/(\$routes\s*=\s*\[)/','$1'."\n  '/office-test/materialen' => 'office-materials.php',",$routerContent,1,$count);
