@@ -12,7 +12,7 @@ foreach([
  'CREATE TABLE brebo_article(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,code VARCHAR(64) UNIQUE,description VARCHAR(512),search_text TEXT,base_unit VARCHAR(16),cost_category VARCHAR(32),active TINYINT,created INT,changed INT)',
  'CREATE TABLE brebo_supplier_article(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,article_id INT,supplier_id INT,supplier_article_no VARCHAR(128),order_unit VARCHAR(16),use_unit VARCHAR(16),conversion_factor DECIMAL(18,6),minimum_order DECIMAL(18,4),active TINYINT,UNIQUE KEY supplier_code(supplier_id,supplier_article_no))',
  'CREATE TABLE brebo_catalog_import(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,supplier_id INT,standard VARCHAR(32),source_name VARCHAR(255),source_hash CHAR(64) UNIQUE,price_date VARCHAR(10),status VARCHAR(32),record_count INT,created INT)',
- 'CREATE TABLE brebo_article_price(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,supplier_article_id INT,catalog_import_id INT,valid_from VARCHAR(10),quantity_from DECIMAL(18,4),net_price DECIMAL(18,4),currency CHAR(3))'
+ 'CREATE TABLE brebo_article_price(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,supplier_article_id INT,catalog_import_id INT,valid_from VARCHAR(10),valid_until VARCHAR(10) NULL,quantity_from DECIMAL(18,4),net_price DECIMAL(18,4),currency CHAR(3))'
 ]as$sql)$db->exec($sql);
 $db->exec(file_get_contents(__DIR__.'/../deployment/hostinger/sql/material-import-review-ledger.sql'));
 require_once __DIR__.'/../src/Documents/OfficeDocumentRegistry.php';
@@ -48,6 +48,7 @@ try{
  $publish=['action'=>'publish','csrf'=>$csrf,'review_token'=>$review,'visible_rows'=>'0','supplier_id'=>'1','currency'=>'EUR','price_date'=>'2026-11-13','number_format'=>'nl','price_is_ex_vat'=>'1','rows'=>[['selected'=>'1','supplier'=>'Leverancier A','article_code'=>'000123','description'=>'Schroeven','price'=>'45,00','price_quantity'=>'100','unit'=>'st','discount_percentage'=>'10']]];
  $saved=$request($alice,$publish);$expect($saved['status']===200&&str_contains($saved['body'],'Materialen en prijsversies opgeslagen'),'review published');
  $expect((string)$db->query('SELECT net_price FROM brebo_article_price')->fetchColumn()==='0.4050','normalized price persisted through real HTTP route');
+ $expect(str_contains($saved['body'],'0,4050')&&str_contains($saved['body'],'alice-test'),'saved price and approving person visible in shared catalogue');
  $expect((string)$db->query('SELECT actor_id FROM brebo_material_import_reviews')->fetchColumn()==='alice','authenticated author persisted');
  $expect((int)$db->query('SELECT COUNT(*) FROM office_document_originals')->fetchColumn()===1,'one immutable original');
  $repeated=$request($alice,$publish);$expect($repeated['status']===422,'consumed review cannot be resubmitted');$expect((int)$db->query('SELECT COUNT(*) FROM brebo_article_price')->fetchColumn()===1,'HTTP retry cannot duplicate prices');

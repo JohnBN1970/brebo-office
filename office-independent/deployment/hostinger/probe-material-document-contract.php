@@ -4,8 +4,10 @@ declare(strict_types=1);
 $root=realpath($argv[1]??'');$stage=realpath($argv[2]??'');$configFile=$argv[3]??'';
 $base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');
 if($root===false||$stage===false||$base===false||!str_starts_with($root,$base.'/release-')||!str_starts_with($stage,$base.'/.material-stage-'))exit(2);
+// Match the web runtime: PHP CLI otherwise resolves its empty document root to the SSH working directory.
+$_SERVER['DOCUMENT_ROOT']=(string)getenv('HOME').'/domains/brebobv.nl/public_html';
 $config=require $configFile;if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test')exit(3);
-$step='load';$db=null;$fixture=$stage.'/document-contract-'.bin2hex(random_bytes(5));
+$exitCode=0;$step='load';$db=null;$fixture=$stage.'/document-contract-'.bin2hex(random_bytes(5));
 try{
  $step='temporary_schema';foreach(['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeDocumentAccessGate']as$class){$relative='/src/Documents/'.$class.'.php';require_once is_file($root.$relative)?$root.$relative:$stage.$relative;}
  $step='database';$db=new PDO((string)$config['OFFICE_INTAKE_PDO_DSN'],(string)$config['OFFICE_INTAKE_DB_USER'],(string)$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
@@ -29,8 +31,10 @@ try{
  $denied=false;try{$gate->requireAccess('other',[['context_type'=>'brebo','context_id'=>'material-catalog']],'read');}catch(Throwable){$denied=true;}
  if(!$denied)throw new RuntimeException('Context authorization contract');
  echo "MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=PASS\n";
-}catch(Throwable $error){fwrite(STDERR,"MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=FAIL\nMATERIAL_DOCUMENT_PROBE_STAGE=".$step."\nMATERIAL_DOCUMENT_PROBE_ERROR=".get_class($error)."\n");exit(10);}
+}catch(Throwable $error){fwrite(STDERR,"MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=FAIL\nMATERIAL_DOCUMENT_PROBE_STAGE=".$step."\nMATERIAL_DOCUMENT_PROBE_ERROR=".get_class($error)."\n");$exitCode=10;}
 finally{
  $db=null;
  $remove=static function(string $path)use(&$remove):void{if(!is_dir($path))return;foreach(scandir($path)?:[]as$name){if($name==='.'||$name==='..')continue;$child=$path.'/'.$name;if(is_dir($child)&&!is_link($child))$remove($child);else @unlink($child);}@rmdir($path);};$remove($fixture);
 }
+
+exit($exitCode);

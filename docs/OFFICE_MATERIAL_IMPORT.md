@@ -49,3 +49,5 @@ De eerste beheerrechten zijn beperkt tot het eerder bevestigde Office-account `1
 De HTTP/MySQL-test bewijst de volledige tekstbron → immutable original → review → €0,4050 per stuk → auteurregistratie, plus CSRF, alleen-lezen rechten en herhaalde verzending. De prijsselectietest bewaakt actuele EUR-basisprijzen: geen toekomstige/verlopen prijzen, vreemde valuta of staffelprijs als stilzwijgende basisprijs; ontdubbeling vindt vóór paginering plaats.
 
 Een grote review wordt in delen getoond en verwerkt met behoud van niet-verwerkte regels. Verouderde formulieren zijn na verwerking ongeldig; invoerveldlimieten mogen geen regels ongemerkt laten wegvallen.
+
+Het prijslijstoverzicht leest dezelfde artikelbron en toont leverancier, artikelcode, omschrijving, actuele EUR-basisprijs, gebruikseenheid en prijsdatum. Nieuwe materiaalimporten tonen ook de Office-accountnaam en goedkeuringstijd. Bestaande SALES-importen zonder Office-review krijgen geen verzonnen auteur. Zoeken en leveranciersfilter werken vóór paginering (50 regels).
