@@ -10,10 +10,11 @@ final class OfficeMailBoardRepository {
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
-  public function cards(string $operatorId, int $page = 1): array {
+  public function cards(string $operatorId, int $page = 1, string $search = ''): array {
     $page = max(1, min(100000, $page));
     $offset = ($page - 1) * 200;
     if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-gebruiker ontbreekt.');
+    $search = mb_substr(trim($search), 0, 120);
     $sql = "SELECT m.id,m.mailbox_id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
       CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
       r.suggested_module,r.suggestion_reason
@@ -23,9 +24,12 @@ final class OfficeMailBoardRepository {
         (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id
          AND a.operator_id=:operator AND a.can_read=1))
         OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
+      " . ($search !== '' ? " AND (m.subject LIKE :search_subject OR m.sender LIKE :search_sender) " : "") . "
       ORDER BY m.received_at DESC,m.id DESC LIMIT 200 OFFSET " . $offset;
     $stmt=$this->db->prepare($sql);
-    $stmt->execute([':operator'=>$operatorId,':owner'=>$operatorId]);
+    $params=[':operator'=>$operatorId,':owner'=>$operatorId];
+    if ($search !== '') { $params[':search_subject']='%'.$search.'%'; $params[':search_sender']='%'.$search.'%'; }
+    $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
