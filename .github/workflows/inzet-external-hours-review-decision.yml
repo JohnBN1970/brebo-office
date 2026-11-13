@@ -1,0 +1,14 @@
+name: Inzet external hours decision repository
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursReviewDecisionRepository.php'
+      - 'office-independent/tests/OfficeExternalHoursReviewDecisionContractTest.php'
+      - '.github/workflows/inzet-external-hours-review-decision.yml'
+jobs:
+  decision-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursReviewDecisionRepository.php
+      - run: php office-independent/tests/OfficeExternalHoursReviewDecisionContractTest.php
