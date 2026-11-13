@@ -14,6 +14,7 @@ require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
 require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
 require_once __DIR__ . '/OfficeLabourBudgetDebitPostingService.php';
 require_once __DIR__ . '/OfficeLabourShiftAggregatePostingService.php';
+require_once __DIR__ . '/OfficeOnSiteFourEyesGuard.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
@@ -90,6 +91,11 @@ final class OfficeOnSiteApprovalService
         $reference=hash('sha256',$inEventId.'|'.$outEventId);
         $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
+        // Aggregate rollout requires a separately identified reviewer.
+        // Guard both first-time approvals and idempotent retries before any write.
+        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled') {
+            (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
+        }
         $this->db->beginTransaction();
         try {
         $existing=$this->db->prepare("SELECT d.decision_reference,d.reviewer_id FROM office_onsite_hours_decisions d WHERE d.in_event_id=? AND d.out_event_id=? LIMIT 1 FOR UPDATE");
