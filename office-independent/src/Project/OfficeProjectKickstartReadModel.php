@@ -36,6 +36,23 @@ final class OfficeProjectKickstartReadModel
                 'created_at'=>(string)$approval['created_at'],
             ];
         }
+        $questionsQuery = $this->db->prepare('SELECT id, created_revision, question, answer, decision_text, owner_user_id, due_date, is_critical, created_at FROM office_project_start_questions WHERE dossier_id = ? ORDER BY id ASC');
+        $questionsQuery->execute([(int)$row['id']]);
+        $questions = [];
+        while ($question = $questionsQuery->fetch(PDO::FETCH_ASSOC)) {
+            $questions[] = [
+                'id'=>(int)$question['id'],
+                'created_revision'=>(int)$question['created_revision'],
+                'question'=>(string)$question['question'],
+                'answer'=>(string)$question['answer'],
+                'decision'=>(string)$question['decision_text'],
+                'owner_user_id'=>$question['owner_user_id'] === null ? null : (int)$question['owner_user_id'],
+                'owner_label'=>$question['owner_user_id'] === null ? 'Niet toegewezen' : 'Gebruiker #'.(int)$question['owner_user_id'],
+                'due_date'=>$question['due_date'],
+                'is_critical'=>(bool)$question['is_critical'],
+                'created_at'=>(string)$question['created_at'],
+            ];
+        }
         return [
             'id'=>(int)$row['id'],
             'project_id'=>(int)$row['project_id'],
@@ -48,6 +65,7 @@ final class OfficeProjectKickstartReadModel
             'created_at'=>(string)$row['created_at'],
             'updated_at'=>(string)$row['updated_at'],
             'approvals'=>$approvals,
+            'questions'=>$questions,
         ];
     }
 }
