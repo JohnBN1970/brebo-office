@@ -5,6 +5,7 @@ on:
       - 'office-independent/src/Materials/**'
       - 'office-independent/tests/Material*'
       - 'office-independent/public/office-materials.php'
+      - 'web/modules/custom/brebo_article/src/**'
       - '.github/workflows/office-material-import-tests.yml'
 permissions:
   contents: read
@@ -20,7 +21,7 @@ jobs:
       - name: Validate and run material import tests
         run: |
           set -euo pipefail
-          for file in office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          for file in web/modules/custom/brebo_article/src/Infrastructure/ArticleCurrentPriceQuery.php web/modules/custom/brebo_article/src/Controller/ArticleSearchController.php office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
           for test in office-independent/tests/MaterialImport*Test.php; do if [ "$test" != office-independent/tests/MaterialImportHttpTest.php ]; then php "$test"; fi; done
 
   http-mysql:

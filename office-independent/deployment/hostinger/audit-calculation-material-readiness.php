@@ -29,6 +29,11 @@ $inspect=static function(string $label,string $dsn,string $user,string $password
 };
 try{
  $inspect('NATIVE',(string)($config['OFFICE_INTAKE_PDO_DSN']??''),(string)($config['OFFICE_INTAKE_DB_USER']??''),(string)($config['OFFICE_INTAKE_DB_PASSWORD']??''));
+ $nativeCheck=new PDO((string)$config['OFFICE_INTAKE_PDO_DSN'],(string)$config['OFFICE_INTAKE_DB_USER'],(string)$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+ $nativeCheck->exec('SET SESSION TRANSACTION READ ONLY');$nativeCheck->beginTransaction();
+ $owner=$nativeCheck->prepare('SELECT COUNT(*) FROM office_operator_accounts WHERE id=? AND username=? AND active=1');$owner->execute(['1','tester_office']);
+ echo 'MATERIAL_OWNER_BINDING='.((int)$owner->fetchColumn()===1?'VERIFIED':'NOT_VERIFIED')."\n";
+ $nativeCheck->rollBack();
  $inspect('LEGACY_READ',(string)($config['OFFICE_FINANCE_READ_PDO_DSN']??''),(string)($config['OFFICE_FINANCE_READ_DB_USER']??''),(string)($config['OFFICE_FINANCE_READ_DB_PASSWORD']??''),(string)($config['OFFICE_FINANCE_TABLE_PREFIX']??''));
  $root=realpath((string)($config['OFFICE_PRIVATE_ROOT']??''));
  $base=realpath(dirname($configFile).'/..');
