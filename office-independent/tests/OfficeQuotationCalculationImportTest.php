@@ -44,4 +44,12 @@ try {
     OfficeQuotationCalculationImport::prepare($invalid);
     throw new RuntimeException('Non-finite quantity accepted');
 } catch (InvalidArgumentException) {}
+$invalid = $snapshot;
+$invalid['sales_lines'][0]['unit'] = '  ';
+try {
+    OfficeQuotationCalculationImport::prepare($invalid);
+    throw new RuntimeException('Empty sales unit accepted');
+} catch (InvalidArgumentException $e) {
+    if ($e->getMessage() === 'Empty sales unit accepted') throw $e;
+}
 echo "OFFERTSTUDIO_CALC_IMPORT_TEST_OK\n";
