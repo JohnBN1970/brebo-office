@@ -1,0 +1,112 @@
+name: Office-test CRM-first Calc unified identity schema
+on:
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-unified-crm-schema-install.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  office-test-crm-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify Office-test DB identity and install only CRM Calc identity/grants
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          timeout: 60s
+          command_timeout: 6m
+          script_stop: false
+          script: |
+            set -eu
+            php <<'PHP'
+            <?php
+            declare(strict_types=1);
+            $cfg=require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+            if(!is_array($cfg)) { echo "CRM_CALC_CONFIG_INVALID\n";exit(1); }
+            $dsn=$cfg['OFFICE_INTAKE_PDO_DSN']??'';
+            if(!is_string($dsn) ||
+                !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn) ||
+                ($cfg['OFFICE_INTAKE_DB_USER']??'')!=='u213420663_office_test') {
+                echo "CRM_CALC_DB_GUARD=FAILED\n";exit(1);
+            }
+            try {
+              $db=new PDO($dsn,$cfg['OFFICE_INTAKE_DB_USER'],$cfg['OFFICE_INTAKE_DB_PASSWORD']??'',[
+                PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_EMULATE_PREPARES=>false,
+                PDO::ATTR_TIMEOUT=>8
+              ]);
+              if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test') {
+                echo "CRM_CALC_DB_IDENTITY=FAILED\n";exit(1);
+              }
+              echo "CRM_CALC_DB_IDENTITY=VERIFIED\n";
+              $q=$db->prepare('SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?');
+              $q->execute(['office_crm_opportunities','id']);
+              $opportunityIdType=strtolower((string)$q->fetchColumn());
+              if(!preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D',$opportunityIdType)) {
+                echo "CRM_CALC_OPPORTUNITY_REFERENCE_TYPE=UNEXPECTED\n";exit(1);
+              }
+              echo "CRM_CALC_OPPORTUNITY_REFERENCE_TYPE=VERIFIED\n";
+              $check=$db->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name=?');
+              foreach(['calculations','calculation_versions','calculation_lines','launch_nonces'] as $table) {
+                $check->execute([$table]);
+                if((int)$check->fetchColumn()!==1) {
+                  echo "CRM_CALC_CANONICAL_TABLE_MISSING\n";exit(1);
+                }
+              }
+              $sql=[
+                'office_calc_crm_drafts'=>"CREATE TABLE office_calc_crm_drafts (
+                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  opportunity_id BIGINT UNSIGNED NOT NULL,
+                  crm_revision BIGINT UNSIGNED NOT NULL,
+                  created_by BIGINT UNSIGNED NOT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  project_id BIGINT UNSIGNED NULL,
+                  PRIMARY KEY(id),
+                  UNIQUE KEY uq_calc_crm_draft_opportunity(opportunity_id),
+                  KEY idx_calc_crm_draft_project(project_id),
+                  CONSTRAINT fk_calc_crm_draft_opportunity FOREIGN KEY(opportunity_id)
+                    REFERENCES office_crm_opportunities(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                'office_calc_crm_launch_grants'=>"CREATE TABLE office_calc_crm_launch_grants (
+                  reference CHAR(64) NOT NULL,
+                  session_hash CHAR(64) NOT NULL,
+                  actor_id BIGINT UNSIGNED NOT NULL,
+                  draft_id BIGINT UNSIGNED NOT NULL,
+                  expires_at DATETIME NOT NULL,
+                  consumed_at DATETIME NULL,
+                  revoked_at DATETIME NULL,
+                  PRIMARY KEY(reference),
+                  KEY idx_calc_crm_grant_draft(draft_id,actor_id),
+                  CONSTRAINT fk_calc_crm_grant_draft FOREIGN KEY(draft_id)
+                    REFERENCES office_calc_crm_drafts(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+              ];
+              foreach($sql as $table=>$ddl) {
+                $check->execute([$table]);
+                if((int)$check->fetchColumn()===0) {
+                  $db->exec($ddl);
+                  echo "CRM_CALC_CREATED_".strtoupper($table)."=YES\n";
+                } else {
+                  echo "CRM_CALC_EXISTING_".strtoupper($table)."=SKIPPED\n";
+                }
+              }
+              $check->execute(['office_calc_crm_draft_lines']);
+              if((int)$check->fetchColumn()!==0) {
+                echo "CRM_CALC_PARALLEL_LINE_STORE=PRESENT_REVIEW_REQUIRED\n";exit(1);
+              }
+              echo "CRM_CALC_CANONICAL_LINE_STORE=CALCULATION_LINES_ONLY\n";
+              echo "CRM_CALC_SCHEMA=READY\n";
+              echo "OLD_CALC_DATABASE_MUTATED=NO\n";
+              echo "OFFICE_TEST_ROUTER_MUTATED=NO\n";
+              echo "FEATURE_FLAGS_CHANGED=NO\n";
+            } catch(Throwable $e) {
+              echo "CRM_CALC_SCHEMA=FAILED_WITHOUT_ERROR_DETAILS\n";
+              exit(1);
+            }
+            PHP

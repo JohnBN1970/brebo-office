@@ -1,0 +1,125 @@
+name: Calc Hostinger loopback runtime smoke
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-hostinger-loopback-smoke.yml'
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-hostinger-loopback-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hostinger-loopback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify private release and start Calc on localhost only
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          command_timeout: 5m
+          script: |
+            set -eu
+            root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            stage="$root/.calc-app-staging"
+            name=calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507
+            release="$root/.calc-app-private-releases/1c5148ae001a551e35febc9cfcd4ceca6c28c507"
+            node=/opt/alt/alt-nodejs22/root/usr/bin/node
+            test -d "$root" && test -f "$root/config/config.php"
+            test ! -L "$stage" && test ! -L "$release"
+            test -x "$node"
+            cd "$stage"
+            sha256sum -c "$name.sha256" >/dev/null
+            test -f "$name.tgz"
+            if tar -tzf "$name.tgz" | grep -E '(^/|(^|/)\.\.(/|$))' >/dev/null; then
+              echo "CALC_PRIVATE_ARCHIVE_UNSAFE=YES"
+              exit 1
+            fi
+            parent="$root/.calc-app-private-releases"
+            test ! -L "$parent"
+            mkdir -p -m 700 "$parent"
+            if [ ! -d "$release" ]; then
+              mkdir -m 700 "$release"
+              tar -xzf "$name.tgz" -C "$release"
+              echo "CALC_NEW_RELEASE_EXTRACTED=YES"
+            else
+              echo "CALC_NEW_RELEASE_ALREADY_PRESENT=YES"
+            fi
+            test -f "$release/apps/api/dist/index.js"
+            test -f "$release/apps/web/dist/index.html"
+            test -f "$release/node_modules/express/package.json"
+            "$node" --check "$release/apps/api/dist/index.js"
+            port=49381
+            logfile=$(mktemp)
+            chmod 600 "$logfile"
+            env NODE_ENV=production PORT="$port" CALC_BIND_HOST=127.0.0.1               MYSQL_HOST=127.0.0.1 MYSQL_PORT=1 MYSQL_DATABASE=isolated_calc_not_connected               MYSQL_USER=ci_no_database MYSQL_PASSWORD=ci_placeholder_no_database_123456789               OFFICE_API_BASE_URL=https://brebobv.nl/office-test               OFFICE_CALC_GRANT_VALIDATION_URL=https://brebobv.nl/office-test/api/workbench/v1/calculation-grants/validate               BREBO_CALC_SHARED_SECRET=temporary_hostinger_smoke_launch_123456789               CALC_SESSION_SECRET=temporary_hostinger_smoke_session_987654321               CALC_OFFICE_GRANT_ENFORCEMENT=enabled               "$node" "$release/apps/api/dist/index.js" >"$logfile" 2>&1 &
+            pid=$!
+            trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; rm -f "$logfile"' EXIT
+            success=0
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+              if ! kill -0 "$pid" 2>/dev/null; then
+                echo "CALC_LOOPBACK_PROCESS_EXITED=YES"
+                for pattern in EACCES EADDRINUSE ERR_MODULE_NOT_FOUND ECONNREFUSED; do
+                  if grep -F "$pattern" "$logfile" >/dev/null 2>&1; then
+                    echo "CALC_NODE_ERROR_CATEGORY=$pattern"
+                  fi
+                done
+                exit 1
+              fi
+              code=$(curl --silent --max-time 2 --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$port/" || true)
+              if [ "$code" = 200 ]; then
+                success=1
+                break
+              fi
+              sleep 1
+            done
+            echo "CALC_LOOPBACK_LAST_HTTP_STATUS=$code"
+            if [ "$success" != 1 ]; then
+              echo "CALC_LOOPBACK_HTTP_READY=NO"
+              if grep -F "API listening on port" "$logfile" >/dev/null 2>&1; then
+                echo "CALC_NODE_LISTEN_MESSAGE=YES"
+              else
+                echo "CALC_NODE_LISTEN_MESSAGE=NO"
+              fi
+              if grep -E 'Error:|ERR_|Exception|EADDRINUSE' "$logfile" >/dev/null 2>&1; then
+                echo "CALC_NODE_STARTUP_ERROR_PATTERN=YES"
+              else
+                echo "CALC_NODE_STARTUP_ERROR_PATTERN=NO"
+              fi
+              if [ -s "$logfile" ]; then echo "CALC_NODE_LOG_PRESENT=YES"; else echo "CALC_NODE_LOG_PRESENT=NO"; fi
+              if command -v ps >/dev/null 2>&1; then
+                state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+                case "$state" in
+                  *Z*) echo "CALC_NODE_PROCESS_STATE=ZOMBIE" ;;
+                  *S*) echo "CALC_NODE_PROCESS_STATE=SLEEPING" ;;
+                  *R*) echo "CALC_NODE_PROCESS_STATE=RUNNING" ;;
+                  *) echo "CALC_NODE_PROCESS_STATE=UNKNOWN" ;;
+                esac
+              fi
+              if command -v ss >/dev/null 2>&1; then
+                if ss -lnt 2>/dev/null | grep -E "[.:]$port[[:space:]]" >/dev/null; then
+                  echo "CALC_LOOPBACK_PORT_LISTENING=YES"
+                else
+                  echo "CALC_LOOPBACK_PORT_LISTENING=NO"
+                fi
+              fi
+              exit 1
+            fi
+            page=$(curl --silent --max-time 3 "http://127.0.0.1:$port/")
+            echo "$page" | grep -F '/assets/' >/dev/null
+            anonymous=$(curl --silent --max-time 3 --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$port/api/crm-draft")
+            test "$anonymous" = 401
+            post=$(curl --silent --max-time 3 --output /dev/null --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"description":"test"}' "http://127.0.0.1:$port/api/crm-draft/lines")
+            test "$post" = 401
+            echo "CALC_HOSTINGER_LOCAL_NODE22_HTTP=PASS"
+            echo "CALC_HOSTINGER_CRM_ANONYMOUS_GET=DENIED"
+            echo "CALC_HOSTINGER_CRM_ANONYMOUS_WRITE=DENIED"
+            echo "CALC_TEMPORARY_LISTEN_HOST=127.0.0.1"
+            echo "CALC_DATABASE_ACCESSED=NO"
+            echo "CALC_PUBLIC_WEBSITE_ACTIVATED=NO"
