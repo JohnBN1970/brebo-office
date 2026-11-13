@@ -1,0 +1,71 @@
+name: Restore Office-test project page from verified OnSite backup
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RESTORE-OFFICE-TEST-PROJECT-PAGE
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  restore:
+    if: ${{ inputs.confirmation == 'RESTORE-OFFICE-TEST-PROJECT-PAGE' }}
+    environment: office-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_project_restore
+          chmod 600 ~/.ssh/id_project_restore
+      - name: Restore only project page if backup and deployed hashes match
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_project_restore"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          target="$active/public/office-projects.php"
+          test -f "$target" && test ! -L "$target"
+          current="$(sha256sum "$target" | cut -d' ' -f1)"
+          expected="1d3cb4dab9291737a7ceef4fb0d7a1618520016d056b77f61c3e0344bdc6bdd4"
+          original="46baab1ecb1ea1d095e2f518ed5c9b1fcee2fa67abca2392046d738f61ab92f9"
+          if test "$current" = "$original"; then echo PROJECT_PAGE_ALREADY_RESTORED; exit 0; fi
+          if test "$current" != "$expected"; then echo PROJECT_PAGE_CHANGED_SINCE_ONSITE_DEPLOY_ABORT; exit 22; fi
+          backup_root="$HOME/office_calc_test/.onsite-backups"
+          test -d "$backup_root" && test ! -L "$backup_root"
+          matches=()
+          for candidate in "$backup_root"/onsite-*/public/office-projects.php; do
+            test -f "$candidate" && test ! -L "$candidate" || continue
+            sha="$(sha256sum "$candidate" | cut -d' ' -f1)"
+            if test "$sha" = "$original"; then matches+=("$candidate"); fi
+          done
+          if test "${#matches[@]}" -ne 1; then echo VERIFIED_ORIGINAL_BACKUP_NOT_UNIQUE_OR_MISSING; exit 23; fi
+          php -l "${matches[0]}" >/dev/null
+          temp="$(mktemp "$active/public/.office-projects-restore.XXXXXX")"
+          trap 'rm -f "$temp"' EXIT
+          cp "${matches[0]}" "$temp"
+          chmod 644 "$temp"
+          test "$(sha256sum "$temp" | cut -d' ' -f1)" = "$original"
+          test "$(sha256sum "$target" | cut -d' ' -f1)" = "$expected" || { echo CONCURRENT_PROJECT_PAGE_CHANGE_ABORT; exit 24; }
+          mv -f "$temp" "$target"
+          test "$(sha256sum "$target" | cut -d' ' -f1)" = "$original"
+          php -l "$target" >/dev/null
+          echo OFFICE_TEST_PROJECT_PAGE_RESTORED_FROM_VERIFIED_BACKUP
+          echo ONSITE_SERVICES_AND_OTHER_PAGES_UNCHANGED
+          echo DATABASE_UNCHANGED
+          REMOTE
