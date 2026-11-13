@@ -1,0 +1,23 @@
+name: Office material import
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Materials/**'
+      - 'office-independent/tests/Material*'
+      - '.github/workflows/office-material-import-tests.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, mbstring, zip, simplexml, pdo_mysql, pdo_sqlite
+      - name: Validate and run material import tests
+        run: |
+          set -euo pipefail
+          for file in office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          for test in office-independent/tests/MaterialImport*Test.php; do php "$test"; done
