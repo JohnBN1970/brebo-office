@@ -40,3 +40,19 @@ CREATE TABLE IF NOT EXISTS office_project_start_events (
   KEY idx_start_event_history (dossier_id,id),
   CONSTRAINT fk_start_event_dossier FOREIGN KEY (dossier_id) REFERENCES office_project_start_dossiers(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS office_project_start_questions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  dossier_id BIGINT UNSIGNED NOT NULL,
+  created_revision INT UNSIGNED NOT NULL,
+  actor_user_id BIGINT UNSIGNED NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  decision_text TEXT NOT NULL,
+  owner_user_id BIGINT UNSIGNED NULL,
+  due_date DATE NULL,
+  is_critical TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_kickstart_questions (dossier_id,id),
+  CONSTRAINT fk_start_question_dossier FOREIGN KEY (dossier_id) REFERENCES office_project_start_dossiers(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
