@@ -37,3 +37,15 @@ Bij publicatie worden factuur en bronhash opnieuw gecontroleerd. Een wijziging s
 - De route is toegevoegd aan het referentierouterbestand. Een actieve samengestelde Hostinger-router mag niet volledig door dat bestand worden vervangen; alleen de nieuwe route gecontroleerd toevoegen.
 
 De read-only Hostinger-inventarisatie van 13 november 2026 bevestigde native Finance-tabellen en sessie-/rechtenbeheer, maar geen SALES-artikeltabellen en geen centraal documentregister in de native testdatabase. De gecontroleerde native config bevatte evenmin een ingestelde legacy leesbron of de bovengenoemde extractiesleutels. Een canonieke artikelprovider moet dus expliciet worden aangesloten; het aanzetten van een flag alleen maakt deze keten niet werkend.
+
+## Gecontroleerde Office-testplaatsing
+
+De vervolgcontrole heeft de bestaande SALES-tabellen in de SB Office-brondatabase daadwerkelijk gevonden. De installatieadapter leest die bestaande configuratie alleen op de host en legt de providerverwijzing in de private Office-testconfig vast; credentials komen niet in GitHub of de uitvoer.
+
+`install-office-materials-test.php` installeert uitsluitend de nieuwe module, het bestaande centrale documentregister en de aanvullende artikelreview-ledger. De samengestelde router en Finance-weergave krijgen alleen begrensde toevoegingen; bestaande bestanden worden niet volledig door repositoryversies vervangen. De bestaande OnSite-werkbladadapter blijft behouden en wordt met bronfixtures getest. Herstelkopieën en een installatiemanifest blijven privaat bewaard.
+
+De eerste beheerrechten zijn beperkt tot het eerder bevestigde Office-account `1`, uitsluitend wanneer de actuele accountnaam exact aan de bevestigde binding voldoet en het account actief is. Andere accounts krijgen geen automatische rechten. Zowel `read` als `import` worden bij iedere schrijfhandeling opnieuw gecontroleerd.
+
+De HTTP/MySQL-test bewijst de volledige tekstbron → immutable original → review → €0,4050 per stuk → auteurregistratie, plus CSRF, alleen-lezen rechten en herhaalde verzending. De prijsselectietest bewaakt actuele EUR-basisprijzen: geen toekomstige/verlopen prijzen, vreemde valuta of staffelprijs als stilzwijgende basisprijs; ontdubbeling vindt vóór paginering plaats.
+
+Een grote review wordt in delen getoond en verwerkt met behoud van niet-verwerkte regels. Verouderde formulieren zijn na verwerking ongeldig; invoerveldlimieten mogen geen regels ongemerkt laten wegvallen.

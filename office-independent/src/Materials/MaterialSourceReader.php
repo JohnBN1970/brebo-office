@@ -80,6 +80,7 @@ final class MaterialSourceReader
                 for($i=0;$i<$zip->numFiles;$i++){
                     $stat=$zip->statIndex($i);$name=(string)$stat['name'];$total+=(int)$stat['size'];
                     if($total>30000000||str_contains($name,'..')||str_starts_with($name,'/')||str_contains($name,'\\'))throw new \DomainException('Onveilig of te groot archief.');
+                    if(preg_match('/\.(?:xml|rels)$/i',$name))$this->xml((string)$zip->getFromIndex($i));
                 }
                 if($extension==='docx'){
                     $document=$zip->getFromName('word/document.xml');if(!is_string($document))throw new \InvalidArgumentException('Word-document ontbreekt.');
