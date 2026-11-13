@@ -1,0 +1,34 @@
+name: Office labour budget runtime readiness
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readonly:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/deployment/hostinger/check-labour-budget-readiness.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_labour_readiness
+          chmod 600 ~/.ssh/id_labour_readiness
+      - name: Read-only Office-test check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_labour_readiness"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.labour-readiness-stage"'
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/check-labour-budget-readiness.php "$remote:office_calc_test/.labour-readiness-stage/"
+          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.labour-readiness-stage/check-labour-budget-readiness.php"
