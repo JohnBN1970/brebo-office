@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Explicit CLI-only Office-test schema migration. Never run from web requests. */
 if (PHP_SAPI !== 'cli') exit(3);
 $mode=$argv[1] ?? '';
-if (!in_array($mode,['--preflight','--apply'],true)) { fwrite(STDERR,"MODE_REQUIRED\n"); exit(2); }
+if (!in_array($mode,['--preflight','--inspect'],true)) { fwrite(STDERR,"MODE_REQUIRED\n"); exit(2); }
 $configPath=getenv('OFFICE_TEST_CONFIG_PATH');
 if (!is_string($configPath) || !is_file($configPath)) { fwrite(STDERR,"CONFIG_MISSING\n"); exit(2); }
 $config=require $configPath;
@@ -41,6 +41,24 @@ $q=$db->prepare('SELECT CONSTRAINT_NAME,CHECK_CLAUSE FROM information_schema.CHE
 $q->execute(['chk_external_review_distinct','chk_external_review_mode']);
 $checks=[];
 foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) $checks[$row['CONSTRAINT_NAME']]=$row['CHECK_CLAUSE'];
+if ($mode==='--inspect') {
+    $reviewerNullable=$cols['second_reviewer']['IS_NULLABLE'] ?? 'UNKNOWN';
+    $legacy=isset($checks['chk_external_review_distinct']);
+    $modern=isset($checks['chk_external_review_mode']);
+    echo "APPROVAL_MODE_COLUMN=".($hasMode?'PRESENT':'MISSING')."\n";
+    echo "SECOND_REVIEWER_NULLABLE=".$reviewerNullable."\n";
+    echo "LEGACY_DISTINCT_CHECK=".($legacy?'PRESENT':'MISSING')."\n";
+    echo "MODE_CHECK=".($modern?'PRESENT':'MISSING')."\n";
+    $stage='MANUAL_REVIEW_REQUIRED';
+    if (!$hasMode && $reviewerNullable==='NO' && $legacy && !$modern) $stage='LEGACY';
+    elseif ($hasMode && $reviewerNullable==='NO' && $legacy && !$modern) $stage='COLUMN_ADDED';
+    elseif ($hasMode && $reviewerNullable==='YES' && $legacy && !$modern) $stage='REVIEWER_NULLABLE';
+    elseif ($hasMode && $reviewerNullable==='YES' && !$legacy && !$modern) $stage='CHECKS_MISSING';
+    elseif ($hasMode && $reviewerNullable==='YES' && !$legacy && $modern) $stage='COMPLETE';
+    echo "MIGRATION_STAGE=".$stage."\n";
+    echo "INSPECT_READ_ONLY_NO_CHANGES\n";
+    exit($stage==='MANUAL_REVIEW_REQUIRED'?7:0);
+}
 if ($hasMode && !isset($checks['chk_external_review_mode'])) {
     fwrite(STDERR,"MODE_CHECK_MISSING\n"); exit(7);
 }
