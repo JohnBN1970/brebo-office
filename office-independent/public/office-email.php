@@ -56,6 +56,7 @@ try {
   $openedMessage = null;
   $openedAttachments = [];
   $attachmentStatus = 'not_checked';
+  $attachmentDuplicateCounts = [];
   $mailSchemaReady = getenv('OFFICE_NATIVE_MAIL_SCHEMA_VERIFIED') === 'enabled';
   if ($mailSchemaReady) {
     require_once dirname(__DIR__) . '/src/Mail/OfficeNativeMailboxRepository.php';
@@ -114,7 +115,7 @@ try {
           $openedMessage = $openStmt->fetch(PDO::FETCH_ASSOC) ?: null;
           if ($openedMessage !== null) {
             try {
-              $attachmentStmt = $db->prepare("SELECT att.id,att.filename,att.content_type,att.byte_size
+              $attachmentStmt = $db->prepare("SELECT att.id,att.filename,att.content_type,att.byte_size,att.sha256
                 FROM office_mail_attachments att
                 INNER JOIN office_mail_messages m ON m.id=att.message_id
                 INNER JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
@@ -127,6 +128,32 @@ try {
               $attachmentStmt->execute([':message'=>$selectedMailId,':operator'=>$operatorId,':owner'=>$operatorId]);
               $openedAttachments = $attachmentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
               $attachmentStatus = 'checked';
+              // Compare only attachment hashes of messages visible to this operator.
+              // No storage keys or binary content are returned.
+              if ($openedAttachments !== []) {
+                $hashes = array_values(array_unique(array_filter(
+                  array_column($openedAttachments, 'sha256'),
+                  static fn($hash):bool => is_string($hash) && preg_match('/^[a-f0-9]{64}$/D', $hash) === 1
+                )));
+                if ($hashes !== []) {
+                  $hashPlaceholders = implode(',', array_fill(0, count($hashes), '?'));
+                  $duplicateSql = "SELECT att.sha256,COUNT(DISTINCT att.message_id) AS message_count
+                    FROM office_mail_attachments att
+                    JOIN office_mail_messages m ON m.id=att.message_id
+                    JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+                    WHERE att.sha256 IN ($hashPlaceholders) AND b.active=1 AND
+                    ((b.mailbox_type='functional' AND EXISTS
+                      (SELECT 1 FROM office_mail_mailbox_access a
+                       WHERE a.mailbox_id=b.id AND a.operator_id=? AND a.can_read=1))
+                     OR (b.mailbox_type='personal' AND b.owner_operator_id=?))
+                    GROUP BY att.sha256";
+                  $duplicateStmt = $db->prepare($duplicateSql);
+                  $duplicateStmt->execute(array_merge($hashes, [$operatorId,$operatorId]));
+                  foreach ($duplicateStmt->fetchAll(PDO::FETCH_ASSOC) as $hashRow) {
+                    $attachmentDuplicateCounts[(string)$hashRow['sha256']] = (int)$hashRow['message_count'];
+                  }
+                }
+              }
             } catch (Throwable $attachmentError) {
               error_log('office_mail_attachment_metadata_unavailable: ' . $attachmentError::class);
               $attachmentStatus = 'unavailable';
@@ -249,7 +276,10 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php else: ?>
 <ul><?php foreach ($openedAttachments as $attachment): ?>
 <li><strong><?= htmlspecialchars((string)$attachment['filename'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
-<small><?= htmlspecialchars((string)$attachment['content_type'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> · <?= number_format((int)$attachment['byte_size']/1024,1,',','.') ?> KB</small></li>
+<small><?= htmlspecialchars((string)$attachment['content_type'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> · <?= number_format((int)$attachment['byte_size']/1024,1,',','.') ?> KB</small>
+<?php if (($attachmentDuplicateCounts[(string)$attachment['sha256']] ?? 0) > 1): ?>
+<small class="status">Zelfde bestand aangetroffen in <?= (int)$attachmentDuplicateCounts[(string)$attachment['sha256']] ?> toegankelijke berichten</small>
+<?php endif; ?></li>
 <?php endforeach; ?></ul>
 <p class="muted">Bijlagen worden alleen als metadata getoond. Veilig openen en downloaden volgt na aansluiting op de private opslag.</p>
 <?php endif; ?>
