@@ -15,6 +15,15 @@ $lock=fopen($base.'/.material-install.lock','c');if(!$lock||!flock($lock,LOCK_EX
 $stamp=gmdate('Ymd-His').'-'.bin2hex(random_bytes(4));$backup=$base.'/.material-backups/'.$stamp;
 if(!is_dir(dirname($backup)))mkdir(dirname($backup),0700);mkdir($backup,0700);
 $changed=[];$addedGrants=[];$db=null;$configWrittenHash=null;
+$phpFingerprint=static function(string $path):string{
+ $source=str_replace("\r\n","\n",(string)file_get_contents($path));$parts=[];
+ foreach(token_get_all($source)as$token){
+  if(is_array($token)){if(in_array($token[0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true))continue;$parts[]=[$token[0],$token[1]];}
+  else $parts[]=$token;
+ }
+ return hash('sha256',serialize($parts));
+};
+
 $write=static function(string $path,string $content)use(&$changed,$backup):void{
  if(is_link($path))throw new RuntimeException('symlink_target_denied');
  if(!array_key_exists($path,$changed)){
@@ -53,7 +62,7 @@ try{
  $files=['public/office-materials.php'];foreach(glob($stage.'/src/Materials/*.php')?:[]as$file)$files[]='src/Materials/'.basename($file);
  foreach(['OfficeDocumentRegistry','OfficePrivateFileStorage','OfficeDocumentAccessGate']as$class){
   $file='src/Documents/'.$class.'.php';
-  if(is_file($root.'/'.$file)&&!hash_equals((string)hash_file('sha256',$root.'/'.$file),(string)hash_file('sha256',$stage.'/'.$file)))throw new RuntimeException('document_dependency_differs');
+  if(is_file($root.'/'.$file)&&!hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/'.$file))){echo 'MATERIAL_DEPENDENCY_MISMATCH='.$class."\n";throw new RuntimeException('document_dependency_differs');}
   if(!is_file($root.'/'.$file))$files[]=$file;
  }
  // Validate the already deployed worksheet adapter rather than overwriting OnSite code.
