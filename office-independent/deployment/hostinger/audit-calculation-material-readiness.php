@@ -41,10 +41,15 @@ try{
  $settingsFile=$sourceRoot.'/web/sites/default/settings.php';
  if(is_file($settingsFile)){
   $databases=[];$settings=[];$app_root=$sourceRoot.'/web';$site_path='sites/default';
+  if(is_file($sourceRoot.'/vendor/autoload.php'))require_once $sourceRoot.'/vendor/autoload.php';
+  if(!defined('DRUPAL_ROOT'))define('DRUPAL_ROOT',$app_root);
   ob_start();
-  try{require $settingsFile;}catch(Throwable){$databases=[];}
+  try{require $settingsFile;}catch(Throwable $settingsError){$databases=[];echo '';}
   finally{ob_end_clean();}
   $options=$databases['default']['default']??null;
+  echo 'SBOFFICE_SOURCE_DATABASE_ARRAY='.(is_array($options)?'PRESENT':'MISSING')."\n";
+  if(is_array($options)){echo 'SBOFFICE_SOURCE_DRIVER='.(($options['driver']??'')==='mysql'?'MYSQL':'OTHER')."\n";echo 'SBOFFICE_SOURCE_PREFIX_KIND='.get_debug_type($options['prefix']??'')."\n";}
+  if(is_array($options)&&is_array($options['prefix']??null)&&isset($options['prefix']['default']))$options['prefix']=$options['prefix']['default'];
   if(is_array($options)&&($options['driver']??'')==='mysql'&&is_string($options['prefix']??'')){
    $host=(string)($options['host']??'localhost');$name=(string)($options['database']??'');
    if(preg_match('/^[a-zA-Z0-9_.-]+$/D',$host)&&preg_match('/^[a-zA-Z0-9_]+$/D',$name)){

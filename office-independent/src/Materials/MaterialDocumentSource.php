@@ -24,7 +24,7 @@ final class MaterialDocumentSource
         $doc=$this->original($actorId,$documentId);
         $bytes=file_get_contents($doc['path']);if(!is_string($bytes))throw new \RuntimeException('Document kon niet worden gelezen.');
         $result=$this->reader->read((string)$doc['original_filename'],(string)$doc['mime_type'],$bytes,$defaults);
-        $result['source']=['kind'=>'office_document','document_id'=>$documentId,'reference'=>'office:document:'.$documentId,'sha256'=>(string)$doc['sha256']];
+        $result['source']=['kind'=>'office_document','document_id'=>$documentId,'reference'=>'office:original:'.$doc['sha256'],'sha256'=>(string)$doc['sha256']];
         return $result;
     }
     public function verify(string $actorId,array $source):void

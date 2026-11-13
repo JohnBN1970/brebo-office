@@ -20,7 +20,7 @@ final class MaterialImportRows
     {
         if(count($matrix)>10000)throw new \DomainException('Materiaallijst bevat meer dan 10.000 regels.');
         $header=null;$headerRow=-1;
-        foreach(array_slice($matrix,0,50,true)as$index=>$row){
+        foreach(($mapping===[]?array_slice($matrix,0,50,true):[])as$index=>$row){
             if(!is_array($row))continue;
             $candidate=[];
             foreach($row as$column=>$value){
@@ -56,10 +56,13 @@ final class MaterialImportRows
         if(strlen($text)>8000000)throw new \DomainException('Brontekst is te groot.');
         $text=preg_replace('/^\xEF\xBB\xBF/','',$text)??$text;
         $lines=preg_split('/\r\n|\n|\r/',$text)?:[];
+        $unmapped=[];$unmappedScore=0;
         foreach(["\t",';','|',',']as$delimiter){
             $matrix=array_map(static fn(string $line):array=>str_getcsv($line,$delimiter,'"',''),$lines);
             $table=$this->proposeTable($matrix,[],$defaults);
             if($table['mapping']!==[])return $table+['method'=>'table'];
+            $score=count(array_filter($matrix,static fn(array $row):bool=>count($row)>1))*min(50,max(array_map('count',$matrix)?:[0]));
+            if($score>$unmappedScore){$unmapped=$matrix;$unmappedScore=$score;}
         }
         $rows=[];
         foreach(preg_split('/\n\s*\n/u',$text)?:[]as$block){
@@ -75,7 +78,7 @@ final class MaterialImportRows
             foreach(['supplier','article_code','description','price','unit']as$field)if(trim((string)($item[$field]??''))==='')$item['issues'][]='Ontbrekend: '.$field;
             $rows[]=$item;
         }
-        return ['rows'=>$rows,'issues'=>$rows===[]?['Geen eenduidige materiaalregels herkend. Controleer de bron en de veldkoppeling.']:[],'mapping'=>[],'method'=>'labelled_text','text'=>$text];
+        return ['rows'=>$rows,'issues'=>$rows===[]?['Geen eenduidige materiaalregels herkend. Controleer de bron en de veldkoppeling.']:[],'mapping'=>[],'method'=>'labelled_text','text'=>$text,'matrix'=>$rows===[]?$unmapped:[]];
     }
 
     /** Explicitly reviewed values only. Prices are normalized per use unit, excluding VAT. */

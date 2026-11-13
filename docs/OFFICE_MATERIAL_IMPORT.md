@@ -10,7 +10,7 @@ De aanvullende `brebo_material_import_reviews`-tabel bewaart de goedkeurende Off
 
 Native route `/office-test/materialen` ontvangt een bestand, geplakte tekst, een bestaande native inkoopfactuur of een bestaand Office-document. Een document uit een e-mail-/projectdossier wordt via zijn bestaande document-ID geopend: de originele binary wordt niet nogmaals opgeslagen.
 
-Herkenning geeft voorstellen, nooit goedkeuring. Elke geselecteerde regel vraagt leverancier, artikelcode, omschrijving, bronprijs, prijsaantal, eenheid, korting, valuta en prijsdatum. Expliciete bevestiging van prijzen exclusief btw is verplicht. Afwijkende bronkolommen worden op veldnamen herkend; de domeininterface ondersteunt ook expliciete veldkoppeling. De eerste schermversie toont herkende regels ter correctie; een bediening voor onherkende kolomkoppelingen is nog niet toegevoegd.
+Herkenning geeft voorstellen, nooit goedkeuring. Elke geselecteerde regel vraagt leverancier, artikelcode, omschrijving, bronprijs, prijsaantal, eenheid, korting, valuta en prijsdatum. Expliciete bevestiging van prijzen exclusief btw is verplicht. Afwijkende bronkolommen worden op veldnamen herkend; de domeininterface ondersteunt ook expliciete veldkoppeling. Het scherm toont ook bronkolommen, werkbladkeuze en een expliciete veldkoppeling met eerste gegevensregel wanneer koppen niet herkenbaar zijn.
 
 Ondersteund: CSV/TSV/tekst, gelabelde tekstblokken, SALES-XML, XLSX en DOCX-tabellen. PDF/afbeeldingen gebruiken uitsluitend de bestaande geconfigureerde Office-extractieprovider. Onbekende bestandsformaten of onvoldoende herkenning blijven open. Dit is geen garantie dat iedere willekeurige vorm of vrije tekst automatisch kan worden herkend.
 

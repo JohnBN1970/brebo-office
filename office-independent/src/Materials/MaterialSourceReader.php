@@ -99,7 +99,7 @@ final class MaterialSourceReader
                 }
             }finally{$zip->close();}
             require_once dirname(__DIR__).'/Inzet/OnSiteXlsxCellReader.php';
-            $book=(new \Brebo\Office\Inzet\OnSiteXlsxCellReader())->read($path,2000,30000000);$rows=[];$issues=[];
+            $book=(new \Brebo\Office\Inzet\OnSiteXlsxCellReader())->read($path,2000,30000000);$rows=[];$issues=[];$unmapped=[];
             foreach($book['cells']as$sheet=>$cells){
                 $matrix=[];
                 foreach($cells as$address=>$value){
@@ -111,9 +111,10 @@ final class MaterialSourceReader
                 $proposal=(new MaterialImportRows())->proposeTable($matrix,[],$defaults);
                 foreach($proposal['rows']as$row){$row['source_row']=$sheet.':'.$row['source_row'];$rows[]=$row;}
                 foreach($proposal['issues']as$issue)$issues[]=$sheet.': '.$issue;
+                if($proposal['rows']===[]&&$matrix!==[])$unmapped[]=['sheet'=>$sheet,'matrix'=>$matrix];
             }
             if($formula)$issues[]='Excel bevat formules: getoonde cachewaarden zijn niet opnieuw berekend en moeten worden gecontroleerd.';
-            return ['status'=>'review','rows'=>$rows,'issues'=>$issues,'source_hash'=>hash('sha256',$bytes),'method'=>'xlsx'];
+            return ['status'=>'review','rows'=>$rows,'issues'=>$issues,'source_hash'=>hash('sha256',$bytes),'method'=>'xlsx','unmapped_tables'=>$unmapped,'matrix'=>$rows===[]?($unmapped[0]['matrix']??[]):[]];
         }finally{@unlink($path);}
     }
 }

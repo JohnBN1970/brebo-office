@@ -18,4 +18,5 @@ $text=$n->proposeText("Leverancier: Bouwmarkt\nArtikelcode: 000001\nOmschrijving
 expectMaterial(count($text['rows'])===2,'labelled paragraphs');expectMaterial($text['rows'][1]['article_code']==='000002','code in prose');
 $unknown=$n->proposeText('Een doos materiaal kost misschien veertig euro.');expectMaterial($unknown['rows']===[]&&count($unknown['issues'])>0,'uncertain prose stays unresolved');
 $mapped=$n->proposeTable([['00009','Plaat','12.50','m2']],['article_code'=>0,'description'=>1,'price'=>2,'unit'=>3],['supplier'=>'Bouwmarkt']);expectMaterial(count($mapped['rows'])===1,'manual mapping without header');
+$unknownColumns=$n->proposeText("XYZ;ABC;DEF;GHI\n00002;Plaat;12,50;m2");expectMaterial(count($unknownColumns['matrix'])===2,'unrecognized columns remain available for mapping');
 echo "MATERIAL_ROWS=PASS\n";

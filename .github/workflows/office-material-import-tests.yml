@@ -16,9 +16,33 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: bcmath, mbstring, zip, simplexml, pdo_mysql, pdo_sqlite
+          extensions: bcmath, mbstring, zip, simplexml, pdo_mysql, pdo_sqlite, curl
       - name: Validate and run material import tests
         run: |
           set -euo pipefail
           for file in office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
-          for test in office-independent/tests/MaterialImport*Test.php; do php "$test"; done
+          for test in office-independent/tests/MaterialImport*Test.php; do if [ "$test" != office-independent/tests/MaterialImportHttpTest.php ]; then php "$test"; fi; done
+
+  http-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: materials-test-only
+          MYSQL_DATABASE: office_material_import_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmaterials-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, bcmath, mbstring, curl
+      - run: php office-independent/tests/MaterialImportHttpTest.php
+        env:
+          MATERIAL_TEST_DATABASE: office_material_import_test
+          MATERIAL_TEST_PASSWORD: materials-test-only

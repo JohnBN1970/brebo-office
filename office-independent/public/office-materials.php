@@ -39,8 +39,14 @@ try{
   $stored=$storage->put($path);$registry=new \Brebo\Office\Documents\OfficeDocumentRegistry($db);
   $id=$registry->register($stored,$filename,$filename,$mime,'office_material_import');$registry->attachContext($id,'brebo','material-catalog','supporting');return $id;
  };
- $message='';$proposal=null;$reviewToken='';
+ $message='';$proposal=null;$reviewToken='';$page=max(0,(int)($_GET['page']??0));
+ if(is_string($_GET['review_token']??null)){
+  $reviewToken=$_GET['review_token'];$pending=$_SESSION['material_reviews'][$reviewToken]??null;
+  if(is_array($pending)&&$pending['actor_id']===$operator->operatorId&&$pending['expires']>=time())$proposal=$pending['proposal'];
+  else{$reviewToken='';$message='De materiaalreview is verlopen.';}
+ }
  if(($_SERVER['REQUEST_METHOD']??'')==='POST'){
+  if(!$canImport){http_response_code(403);exit('Geen recht om materialen te importeren.');}
   $access->requireImport($operator->operatorId);
   if(!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['material_csrf'],$_POST['csrf'])){http_response_code(403);exit('Ongeldige materiaalreview.');}
   try{
@@ -49,9 +55,13 @@ try{
     if(!is_array($review)||$review['actor_id']!==$operator->operatorId||$review['expires']<time())throw new DomainException('De materiaalreview is verlopen. Lees de bron opnieuw in.');
     $supplierId=filter_var($_POST['supplier_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
     if(!is_int($supplierId)||!isset($supplierNames[$supplierId]))throw new DomainException('Kies een bestaande leverancier.');
-    $input=[];
+    $visible=array_filter(explode(',',(string)($_POST['visible_rows']??'')),static fn(string $id):bool=>ctype_digit($id));
+    if($visible===[]||!is_array($_POST['rows']??null))throw new DomainException('De review is onvolledig verzonden.');
+    foreach($visible as$id){foreach(['article_code','description','price','unit','price_quantity','discount_percentage','supplier']as$field)if(!is_string($_POST['rows'][$id][$field]??null))throw new DomainException('De review is onvolledig verzonden. Verwerk minder regels tegelijk.');}
+    $input=[];$selectedIds=[];
     foreach($review['proposal']['rows']as$i=>$original){
-     $change=$_POST['rows'][$i]??[];if(!is_array($change)||($change['selected']??'')!=='1')continue;
+     $change=$_POST['rows'][$i]??[];if(!is_array($change)||!in_array((string)$i,$visible,true)||(($change['selected']??'')!=='1'&&($_POST['select_visible']??'')!=='1'))continue;
+     $selectedIds[]=$i;
      $row=$original;
      foreach(['article_code','description','price','unit','price_quantity','discount_percentage','supplier']as$field)if(isset($change[$field])&&is_string($change[$field]))$row[$field]=$change[$field];
      if(trim((string)($row['supplier']??''))==='')$row['supplier']=$supplierNames[$supplierId];
@@ -64,8 +74,32 @@ try{
     else throw new DomainException('Onbekende materiaalbron.');
     $publisher=new \Brebo\Office\Materials\MaterialCatalogPublisher(new \Brebo\Office\Materials\PdoMaterialCatalogStore($canonical,$prefix),new \Brebo\Office\Materials\MaterialImportRows(),static fn(string $actor):bool=>$access->allows($actor,'read')&&$access->allows($actor,'import'));
     $result=$publisher->publish($operator->operatorId,$supplierId,$source,$input,time());
+    $remaining=$review['proposal'];foreach($selectedIds as$id)unset($remaining['rows'][$id]);
     unset($_SESSION['material_reviews'][$reviewToken]);$reviewToken='';
+    if($remaining['rows']!==[]){$reviewToken=bin2hex(random_bytes(24));$proposal=$remaining;$_SESSION['material_reviews'][$reviewToken]=['actor_id'=>$operator->operatorId,'expires'=>time()+1800,'proposal'=>$remaining];$page=0;}
     $message=($result['status']==='already_imported'?'Deze selectie was al verwerkt. ':'Materialen en prijsversies opgeslagen. ').$result['records'].' regel(s). Bestaande vastgestelde calculaties blijven behouden.';
+   }elseif(($_POST['action']??'')==='map'){
+    $reviewToken=(string)($_POST['review_token']??'');$review=$_SESSION['material_reviews'][$reviewToken]??null;
+    if(!is_array($review)||$review['actor_id']!==$operator->operatorId||$review['expires']<time())throw new DomainException('De materiaalreview is verlopen.');
+    $original=$review['proposal'];$matrix=$original['matrix']??[];
+    if(isset($original['unmapped_tables'])&&isset($_POST['table_index'])){
+      $tableIndex=filter_var($_POST['table_index'],FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+      if(!is_int($tableIndex)||!isset($original['unmapped_tables'][$tableIndex]))throw new DomainException('Ongeldige werkbladkeuze.');
+      $matrix=$original['unmapped_tables'][$tableIndex]['matrix'];
+    }
+    $first=filter_var($_POST['first_row']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>100000]]);
+    if(!is_int($first)||!is_array($matrix))throw new DomainException('Kies de eerste gegevensregel.');
+    $mapping=[];
+    foreach((array)($_POST['mapping']??[])as$field=>$column){
+      if($column==='')continue;
+      $column=filter_var($column,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>16383]]);
+      if(!is_int($column))throw new DomainException('Ongeldige bronkolom.');$mapping[$field]=$column;
+    }
+    if($mapping===[])throw new DomainException('Koppel minimaal één bronkolom.');
+    $selected=array_filter($matrix,static fn($key):bool=>is_int($key)&&$key>=$first-1,ARRAY_FILTER_USE_KEY);
+    $proposal=(new \Brebo\Office\Materials\MaterialImportRows())->proposeTable($selected,$mapping);
+    $proposal['source']=$original['source'];$proposal['matrix']=$matrix;$proposal['unmapped_tables']=$original['unmapped_tables']??[];
+    $_SESSION['material_reviews'][$reviewToken]['proposal']=$proposal;
    }elseif(($_POST['action']??'')==='preview'){
     $mode=(string)($_POST['source_mode']??'file');
     if($mode==='invoice'){
@@ -83,7 +117,7 @@ try{
      $tmp=tempnam(sys_get_temp_dir(),'material-text-');if($tmp===false)throw new RuntimeException('Brontekst kon niet worden verwerkt.');
      try{file_put_contents($tmp,$text);$id=$storeUpload($tmp,'Materiaallijst.txt','text/plain');$proposal=$documentSource()->read($operator->operatorId,$id);}finally{@unlink($tmp);}
     }else throw new DomainException('Onbekende bronkeuze.');
-    if(count($proposal['rows'])>1000)throw new DomainException('Deze bron bevat meer dan 1000 reviewregels. Splits de bron voor een controleerbare import.');
+    if(count($proposal['rows'])>10000)throw new DomainException('Deze bron bevat meer dan 10.000 reviewregels. Splits de bron voor een controleerbare import.');
     $reviewToken=bin2hex(random_bytes(24));
     while(count($_SESSION['material_reviews'])>=3)array_shift($_SESSION['material_reviews']);
     $_SESSION['material_reviews'][$reviewToken]=['actor_id'=>$operator->operatorId,'expires'=>time()+1800,'proposal'=>$proposal];
@@ -98,14 +132,25 @@ $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTI
 </style></head><body><main><header><div><h1>Materialen en prijzen</h1><p>Controleer leveranciersartikelen uit prijslijsten, offertes en inkoopfacturen.</p></div><a href="/office-test">Office</a></header>
 <?php if($message!==''):?><p class="notice" role="status"><?=$h($message)?></p><?php endif?>
 <?php if($canImport):?><section><h2>Bron inlezen</h2><form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="<?=$h($_SESSION['material_csrf'])?>"><input type="hidden" name="action" value="preview">
-<label>Bron<select name="source_mode"><option value="file">Bestand uploaden</option><option value="text">Tekst plakken</option><option value="invoice">Bestaande inkoopfactuur</option><option value="document">Bestaand Office-document uit dossier of e-mail</option></select></label>
+<label>Bron<select name="source_mode"><option value="file">Bestand uploaden</option><option value="text">Tekst plakken</option><option value="invoice"<?=isset($_GET['invoice_id'])?' selected':''?>>Bestaande inkoopfactuur</option><option value="document">Bestaand Office-document uit dossier of e-mail</option></select></label>
 <label>Bestand<input type="file" name="source" accept=".csv,.tsv,.txt,.xml,.xlsx,.docx,.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif"></label><p class="muted">Maximaal 20 MB. PDF en scans gebruiken de geconfigureerde Office-documentherkenning.</p>
 <label>Brontekst<textarea name="source_text" rows="4"></textarea></label><div class="grid"><label>Inkoopfactuurnummer in Office<input name="invoice_id" inputmode="numeric" value="<?=$h($_GET['invoice_id']??'')?>"></label><label>Office-documentnummer<input name="document_id" inputmode="numeric" value="<?=$h($_GET['document_id']??'')?>"></label></div><button type="submit">Inlezen en controleren</button></form></section><?php endif?>
 <?php if(is_array($proposal)):?><section><h2>Herkenning controleren</h2><p class="muted">Neem uitsluitend materiaalregels op. Transport, arbeid en onderaanneming horen niet automatisch in de materialenprijslijst.</p>
 <?php foreach($proposal['issues']??[]as$issue):?><p class="warning"><?=$h($issue)?></p><?php endforeach?>
-<?php if(($proposal['rows']??[])!==[]):?><form method="post"><input type="hidden" name="csrf" value="<?=$h($_SESSION['material_csrf'])?>"><input type="hidden" name="action" value="publish"><input type="hidden" name="review_token" value="<?=$h($reviewToken)?>">
-<div class="grid"><label>Bestaande leverancier<select name="supplier_id" required><option value="">Kies leverancier…</option><?php foreach($suppliers as$supplier):?><option value="<?=$h($supplier['id'])?>"><?=$h($supplier['name'])?></option><?php endforeach?></select></label><label>Prijsdatum<input type="date" name="price_date" required value="<?=$h($proposal['rows'][0]['price_date']??date('Y-m-d'))?>"></label><label>Valuta<input name="currency" maxlength="3" value="<?=$h($proposal['rows'][0]['currency']??'EUR')?>" required></label><label>Getalnotatie<select name="number_format"><option value="auto">Automatisch, twijfel blijft open</option><option value="nl">Nederlands: 1.234,56</option><option value="international">Internationaal: 1,234.56</option></select></label></div>
-<div class="scroll"><table><thead><tr><th>Materiaal opnemen</th><th>Leverancier uit bron</th><th>Artikelcode</th><th>Omschrijving</th><th>Prijs uit bron</th><th>Prijs per aantal</th><th>Eenheid</th><th>Korting %</th><th>Bron / controle</th></tr></thead><tbody>
-<?php foreach($proposal['rows']as$i=>$row):?><tr><td><input aria-label="Materiaalregel <?=$i+1?> opnemen" type="checkbox" name="rows[<?=$i?>][selected]" value="1"></td><?php foreach(['supplier','article_code','description','price','price_quantity','unit','discount_percentage']as$field):?><td><input aria-label="<?=$h($field)?> regel <?=$i+1?>" name="rows[<?=$i?>][<?=$h($field)?>]" value="<?=$h($row[$field]??(in_array($field,['price_quantity'],true)?'1':($field==='discount_percentage'?'0':'')))?>"></td><?php endforeach?><td class="source"><?=$h($row['source_fragment']??('Bronregel '.($row['source_row']??$i+1)))?><?php foreach($row['issues']??[]as$issue):?><p class="warning"><?=$h($issue)?></p><?php endforeach?></td></tr><?php endforeach?>
+<?php if(!empty($proposal['matrix'])):
+$matrix=$proposal['matrix'];$columns=[];foreach(array_slice($matrix,0,20,true)as$rawRow)foreach(array_keys($rawRow)as$column)$columns[(int)$column]=(int)$column;ksort($columns);
+?><details<?=($proposal['rows']??[])===[]?' open':''?>><summary>Bronkolommen controleren of koppelen</summary><form method="post"><input type="hidden" name="csrf" value="<?=$h($_SESSION['material_csrf'])?>"><input type="hidden" name="action" value="map"><input type="hidden" name="review_token" value="<?=$h($reviewToken)?>">
+<?php if(!empty($proposal['unmapped_tables'])):?><label>Werkblad<select name="table_index"><?php foreach($proposal['unmapped_tables']as$index=>$table):?><option value="<?=$index?>"><?=$h($table['sheet'])?></option><?php endforeach?></select></label><?php endif?>
+<div class="scroll"><table><thead><tr><th>Bronregel</th><?php foreach($columns as$column):?><th>Kolom <?=$column+1?></th><?php endforeach?></tr></thead><tbody><?php foreach(array_slice($matrix,0,8,true)as$index=>$rawRow):?><tr><td><?=$index+1?></td><?php foreach($columns as$column):?><td><?=$h($rawRow[$column]??'')?></td><?php endforeach?></tr><?php endforeach?></tbody></table></div>
+<div class="grid"><?php foreach(['supplier'=>'Leverancier','article_code'=>'Artikelcode','description'=>'Omschrijving','price'=>'Prijs','unit'=>'Eenheid','price_quantity'=>'Prijs per aantal','discount_percentage'=>'Korting']as$field=>$label):?><label><?=$label?><select name="mapping[<?=$field?>]"><option value="">Niet in de bron</option><?php foreach($columns as$column):?><option value="<?=$column?>"<?=isset($proposal['mapping'][$field])&&$proposal['mapping'][$field]===$column?' selected':''?>>Kolom <?=$column+1?></option><?php endforeach?></select></label><?php endforeach?></div>
+<label>Eerste gegevensregel<input type="number" name="first_row" min="1" max="100000" value="1" required></label><button type="submit">Veldkoppeling toepassen</button></form></details>
+<?php endif?>
+<?php if(($proposal['rows']??[])!==[]):
+$inputLimit=(int)ini_get('max_input_vars');$pageSize=$inputLimit<=0?100:min(100,max(1,intdiv(max(40,$inputLimit)-32,8)));$page=min($page,max(0,(int)ceil(count($proposal['rows'])/$pageSize)-1));$visibleRows=array_slice($proposal['rows'],$page*$pageSize,$pageSize,true);$firstRow=reset($proposal['rows']);
+?><p><?=count($proposal['rows'])?> nog te beoordelen regel(s) · pagina <?=$page+1?> van <?=(int)ceil(count($proposal['rows'])/$pageSize)?></p><nav><?php if($page>0):?><a href="?review_token=<?=$h($reviewToken)?>&amp;page=<?=$page-1?>">Vorige regels</a> <?php endif?><?php if(($page+1)*$pageSize<count($proposal['rows'])):?><a href="?review_token=<?=$h($reviewToken)?>&amp;page=<?=$page+1?>">Volgende regels</a><?php endif?></nav>
+<form method="post"><input type="hidden" name="visible_rows" value="<?=$h(implode(',',array_keys($visibleRows)))?>"><input type="hidden" name="csrf" value="<?=$h($_SESSION['material_csrf'])?>"><input type="hidden" name="action" value="publish"><input type="hidden" name="review_token" value="<?=$h($reviewToken)?>">
+<div class="grid"><label>Bestaande leverancier<select name="supplier_id" required><option value="">Kies leverancier…</option><?php foreach($suppliers as$supplier):?><option value="<?=$h($supplier['id'])?>"><?=$h($supplier['name'])?></option><?php endforeach?></select></label><label>Prijsdatum<input type="date" name="price_date" required value="<?=$h($firstRow['price_date']??date('Y-m-d'))?>"></label><label>Valuta<input name="currency" maxlength="3" value="<?=$h($firstRow['currency']??'EUR')?>" required></label><label>Getalnotatie<select name="number_format"><option value="auto">Automatisch, twijfel blijft open</option><option value="nl">Nederlands: 1.234,56</option><option value="international">Internationaal: 1,234.56</option></select></label></div>
+<label><input type="checkbox" name="select_visible" value="1"> Alle getoonde regels zijn gecontroleerd materiaal en mogen worden opgenomen.</label><div class="scroll"><table><thead><tr><th>Materiaal opnemen</th><th>Leverancier uit bron</th><th>Artikelcode</th><th>Omschrijving</th><th>Prijs uit bron</th><th>Prijs per aantal</th><th>Eenheid</th><th>Korting %</th><th>Bron / controle</th></tr></thead><tbody>
+<?php foreach($visibleRows as$i=>$row):?><tr><td><input aria-label="Materiaalregel <?=$i+1?> opnemen" type="checkbox" name="rows[<?=$i?>][selected]" value="1"></td><?php foreach(['supplier','article_code','description','price','price_quantity','unit','discount_percentage']as$field):?><td><input aria-label="<?=$h($field)?> regel <?=$i+1?>" name="rows[<?=$i?>][<?=$h($field)?>]" value="<?=$h($row[$field]??(in_array($field,['price_quantity'],true)?'1':($field==='discount_percentage'?'0':'')))?>"></td><?php endforeach?><td class="source"><?=$h($row['source_fragment']??('Bronregel '.($row['source_row']??$i+1)))?><?php foreach($row['issues']??[]as$issue):?><p class="warning"><?=$h($issue)?></p><?php endforeach?></td></tr><?php endforeach?>
 </tbody></table></div><label><input type="checkbox" name="price_is_ex_vat" value="1" required> De geselecteerde prijzen, prijsbasis, korting en gebruikseenheden zijn gecontroleerd; de prijzen zijn exclusief btw.</label><button type="submit">Goedgekeurde materialen en prijsversies opslaan</button></form><?php endif?></section><?php endif?>
 </main></body></html>
