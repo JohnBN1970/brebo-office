@@ -28,3 +28,15 @@ CREATE TABLE IF NOT EXISTS office_project_start_approvals (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- Future migration: versioned document refs, Q&A, actions, meeting records and
 -- immutable change-event audit; no activation until all are implemented.
+
+CREATE TABLE IF NOT EXISTS office_project_start_events (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  dossier_id BIGINT UNSIGNED NOT NULL,
+  dossier_revision INT UNSIGNED NOT NULL,
+  actor_user_id BIGINT UNSIGNED NOT NULL,
+  event_type VARCHAR(40) NOT NULL,
+  payload_json JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_start_event_history (dossier_id,id),
+  CONSTRAINT fk_start_event_dossier FOREIGN KEY (dossier_id) REFERENCES office_project_start_dossiers(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
