@@ -99,7 +99,7 @@ final class OfficeOnSiteApprovalService
              reviewed_seconds,reviewer_id,decided_at)
             VALUES (?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())");
         $insert->execute([$reference,$inEventId,$outEventId,$projectId,$personId,
-            $in->format('Y-m-d'),$decision['status'],$decision['reviewed_seconds'],$reviewer]);
+            $in->setTimezone(new DateTimeZone('Europe/Brussels'))->format('Y-m-d'),$decision['status'],$decision['reviewed_seconds'],$reviewer]);
         $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified($reference,$reviewer);
         $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
         $bookingId=(new OfficeApprovedHoursBooking($this->db))->append($entry,$reviewer);
