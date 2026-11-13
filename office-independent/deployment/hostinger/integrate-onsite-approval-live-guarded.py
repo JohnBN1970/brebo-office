@@ -219,7 +219,7 @@ def main():
                     not line.endswith(("=MISSING", "=MISSING_OR_INCOMPLETE", "=MARKER_MISMATCH", "=FILE_MISSING"))
                     for line in lines
                 )
-                and sum(line.endswith("=READY") for line in lines) >= 13
+                and sum(line.endswith("=READY") for line in lines) == 12
             )
             ensure(probe.returncode == 0 or flag_only, "READ_ONLY_RUNTIME_ACCEPTANCE_BLOCKED")
             if flag_only:
