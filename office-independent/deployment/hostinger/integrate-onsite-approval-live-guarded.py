@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--stage", type=Path, required=True)
     parser.add_argument("--backup", type=Path, required=True)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--probe", type=Path)
     args = parser.parse_args()
     active = args.active
     stage = args.stage
@@ -121,6 +123,10 @@ def main():
     ensure(str(args.backup).startswith(str(Path.home() / "office_calc_test" / ".onsite-backups" / "")),
            "BACKUP_SCOPE_REJECTED")
     ensure(not args.backup.exists(), "BACKUP_ALREADY_EXISTS")
+    if args.apply:
+        ensure(args.config is not None and args.probe is not None, "RUNTIME_PROBE_REQUIRED")
+        safe_file(args.config)
+        safe_file(args.probe)
     staged = {}
     for rel in list(EXPECTED_LIVE) + list(SERVICES) + list(DEPENDENCIES):
         stage_file = stage / rel
@@ -189,6 +195,18 @@ def main():
                 changed.append(rel)
                 lint(target)
                 print("INTEGRATED:" + rel)
+            probe_env = dict(os.environ)
+            probe_env["OFFICE_TEST_CONFIG_PATH"] = str(args.config)
+            probe_env["OFFICE_TEST_ACTIVE_PRIVATE_PATH"] = str(active)
+            probe = subprocess.run(
+                ["php", str(args.probe)], capture_output=True,
+                text=True, env=probe_env, check=False,
+            )
+            for line in probe.stdout.splitlines():
+                if line.startswith(("SCOPE=", "APPROVAL_CONFIG_FLAG=", "DEPLOYED_",
+                                    "ON_SITE_READ_ONLY_ACCEPTANCE=")):
+                    print(line)
+            ensure(probe.returncode == 0, "READ_ONLY_RUNTIME_ACCEPTANCE_BLOCKED")
         except Exception:
             # Roll back every completed replacement, including newly installed modules.
             for rel in reversed(changed):
