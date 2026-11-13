@@ -138,8 +138,9 @@ try {
         $draftSubject = $_POST['subject'] ?? null;
         $draftBody = $_POST['body_text'] ?? null;
         if (!is_int($draftMessage) || !in_array($draftType,['reply','forward'],true)
-          || !is_string($draftTo) || strlen($draftTo)>1000
-          || !is_string($draftSubject) || strlen($draftSubject)>512
+          || !is_string($draftTo) || strlen($draftTo)>1000 || preg_match('/[\\r\\n\\x00-\\x1F\\x7F]/', $draftTo)
+          || ($draftTo !== '' && !filter_var(trim($draftTo), FILTER_VALIDATE_EMAIL))
+          || !is_string($draftSubject) || strlen($draftSubject)>512 || preg_match('/[\\r\\n\\x00-\\x1F\\x7F]/', $draftSubject)
           || !is_string($draftBody) || strlen($draftBody)>2097152) {
           http_response_code(422); exit('Ongeldig concept.');
         }
@@ -160,7 +161,7 @@ try {
             body_text=VALUES(body_text),updated_at=CURRENT_TIMESTAMP");
         $saveDraft->execute([':operator'=>$operatorId,':message'=>$draftMessage,
           ':type'=>$draftType,':recipient'=>$draftTo,':subject'=>$draftSubject,':body'=>$draftBody]);
-        header('Location: /office-test/email?inspect_mail='.$draftMessage.'&draft=saved#mail-compose',true,303);
+        header('Location: /office-test/email?inspect_mail='.$draftMessage.'&draft=saved&draft_type='.$draftType.'#mail-compose',true,303);
         exit;
       }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -418,6 +419,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
  'body'=>(string)($openedMessage['body_text'] ?? ''),
  'drafts'=>$savedDrafts,
  'saved'=>($_GET['draft'] ?? '') === 'saved',
+ 'saved_type'=>in_array(($_GET['draft_type'] ?? ''), ['reply','forward'], true) ? $_GET['draft_type'] : 'reply',
 ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE) ?></script>
 </article>
 <?php endif; ?>
@@ -554,7 +556,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
      to.focus();
    }));
    if(source.saved){
-     const draftType=source.drafts?.reply?'reply':'forward';
+     const draftType=source.saved_type;
      document.querySelector('.mail-compose-open[data-action="'+draftType+'"]')?.click();
      status.textContent='Concept opgeslagen in Office. Niet verzonden.';
    }
