@@ -4,9 +4,11 @@ on:
     paths:
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
+      - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
+      - 'office-independent/tests/OfficeLabourShiftApprovalLinkSchemaTest.php'
       - 'office-independent/tests/OfficeLabourPlannedShiftResolverTest.php'
       - '.github/workflows/inzet-labour-budget-policy-contract.yml'
   push:
@@ -14,9 +16,11 @@ on:
     paths:
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
+      - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
+      - 'office-independent/tests/OfficeLabourShiftApprovalLinkSchemaTest.php'
       - 'office-independent/tests/OfficeLabourPlannedShiftResolverTest.php'
       - '.github/workflows/inzet-labour-budget-policy-contract.yml'
 permissions:
@@ -35,7 +39,9 @@ jobs:
           set -euo pipefail
           php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php
+          php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
           php office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php
+          php office-independent/tests/OfficeLabourShiftApprovalLinkSchemaTest.php
           php office-independent/tests/OfficeLabourPlannedShiftResolverTest.php
