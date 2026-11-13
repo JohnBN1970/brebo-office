@@ -77,9 +77,9 @@ jobs:
           chmod 600 ~/.ssh/id_onsite_deploy
       - name: Stage OnSite integration candidates and guarded merge script
         env:
-          HOST: \${{ secrets.DEPLOY_HOST }}
-          PORT: \${{ secrets.DEPLOY_PORT }}
-          USER: \${{ secrets.DEPLOY_USER }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
@@ -92,9 +92,9 @@ jobs:
           scp $opts -P "$PORT" office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$remote:office_calc_test/.onsite-deploy-stage/"
       - name: Verify exact live version, prepare guarded merge and perform read-only acceptance
         env:
-          HOST: \${{ secrets.DEPLOY_HOST }}
-          PORT: \${{ secrets.DEPLOY_PORT }}
-          USER: \${{ secrets.DEPLOY_USER }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
