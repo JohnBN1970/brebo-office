@@ -39,4 +39,12 @@ try {
 } catch (InvalidArgumentException $e) {
     if ($e->getMessage() === 'Non-finite rubric quantity accepted') throw $e;
 }
+$tampered = [
+    ['rubric' => 'Kozijnen', 'description' => 'Levering', 'quantity' => 2,
+     'unit' => 'st', 'amount_ex_vat_cents' => 120000, 'unit_sales_price_ex_vat' => 0.01],
+];
+$derived = OfficeQuotationRubricBuilder::build($tampered);
+if ($derived[0]['lines'][0]['unit_sales_price_ex_vat'] !== 600.0) {
+    throw new RuntimeException('Unverified unit price used in quotation rubric');
+}
 echo "OFFERTSTUDIO_RUBRIC_TEST_OK\n";
