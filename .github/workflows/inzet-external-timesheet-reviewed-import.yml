@@ -1,0 +1,14 @@
+name: Inzet external timesheet reviewed import
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalTimesheetReviewedImport.php'
+      - 'office-independent/tests/OfficeExternalTimesheetReviewedImportContractTest.php'
+      - '.github/workflows/inzet-external-timesheet-reviewed-import.yml'
+jobs:
+  reviewed-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalTimesheetReviewedImport.php
+      - run: php office-independent/tests/OfficeExternalTimesheetReviewedImportContractTest.php
