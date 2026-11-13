@@ -73,6 +73,13 @@ if ($pid===0) {
     }
 }
 fclose($pair[1]);
+// Forked children inherit the parent's MySQL socket. Replace the parent's
+// connection before either process starts a transaction.
+unset($service,$insert,$db);
+$db=new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFICE_INZET_TEST_PASSWORD'),[
+    PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
+]);
+$service=new OfficeLabourShiftAggregatePostingService($db);
 fwrite($pair[0],'G');
 fclose($pair[0]);
 $db->beginTransaction();
@@ -80,7 +87,7 @@ try {
     $service->postInsideTransaction($concurrentIds[1]);
     $db->commit();
 } catch (Throwable $error) {
-    if ($db->inTransaction()) $db->rollBack();
+    try { if ($db->inTransaction()) $db->rollBack(); } catch (Throwable $ignored) {}
     pcntl_waitpid($pid,$status);
     throw $error;
 }
