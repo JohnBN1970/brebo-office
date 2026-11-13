@@ -8,6 +8,8 @@ on:
       - 'office-independent/schema/office-project-kickstart.sql'
       - 'office-independent/src/Project/OfficeProjectKickstartView.php'
       - 'office-independent/tests/test_project_kickstart_view.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartReadModel.php'
+      - 'office-independent/tests/test_project_kickstart_readmodel.php'
       - '.github/workflows/office-project-kickstart-contract.yml'
   push:
     branches: [develop]
@@ -22,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install SQLite PHP driver
+        run: sudo apt-get update && sudo apt-get install -y php-sqlite3
       - name: PHP syntax and four-eyes regression tests
         run: |
           set -euo pipefail
@@ -31,4 +35,7 @@ jobs:
           php -l office-independent/src/Project/OfficeProjectKickstartView.php
           php -l office-independent/tests/test_project_kickstart_view.php
           php office-independent/tests/test_project_kickstart_view.php
+          php -l office-independent/src/Project/OfficeProjectKickstartReadModel.php
+          php -l office-independent/tests/test_project_kickstart_readmodel.php
+          php office-independent/tests/test_project_kickstart_readmodel.php
           php office-independent/tests/test_project_kickstart_policy.php
