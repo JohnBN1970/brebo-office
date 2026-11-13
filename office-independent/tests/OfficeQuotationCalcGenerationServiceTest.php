@@ -22,7 +22,9 @@ try {
         return [];
     });
     throw new RuntimeException('Unauthenticated request accepted');
-} catch (DomainException) {}
+} catch (DomainException $e) {
+    if (str_contains($e->getMessage(), 'accepted')) throw $e;
+}
 if ($called) throw new RuntimeException('Resolver called for unauthenticated request');
 try {
     $service->generate(5, $intent, static function (int $operatorId, int $calculationId, int $version) use (&$called) {
@@ -35,7 +37,9 @@ try {
         ]];
     });
     throw new RuntimeException('Mismatched source revision accepted');
-} catch (DomainException) {}
+} catch (DomainException $e) {
+    if (str_contains($e->getMessage(), 'accepted')) throw $e;
+}
 if (!$called) throw new RuntimeException('Resolver not called for authenticated request');
 foreach ([
     ['calculation_id' => 99, 'calculation_version' => 2],
