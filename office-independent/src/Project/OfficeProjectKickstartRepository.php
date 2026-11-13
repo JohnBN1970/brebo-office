@@ -111,9 +111,9 @@ final class OfficeProjectKickstartRepository
         }
     }
 
-    public function approve(int $dossierId, int $actorId, bool $authorized, string $decision, ?string $note = null): array
+    public function approve(int $dossierId, int $expectedRevision, int $actorId, bool $authorized, string $decision, ?string $note = null): array
     {
-        if ($dossierId < 1 || $actorId < 1 || !$authorized || !in_array($decision, ['approve','reject'], true)) {
+        if ($dossierId < 1 || $expectedRevision < 1 || $actorId < 1 || !$authorized || !in_array($decision, ['approve','reject'], true)) {
             throw new DomainException('Not authorized or invalid decision');
         }
         $this->db->beginTransaction();
@@ -123,11 +123,21 @@ final class OfficeProjectKickstartRepository
             $row = $q->fetch(PDO::FETCH_ASSOC);
             if (!$row) throw new DomainException('Dossier not found');
             $revision = (int)$row['revision'];
+            if ($revision !== $expectedRevision) throw new DomainException('Stale dossier approval');
             $status = (string)$row['status'];
             $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($items)) throw new DomainException('Invalid checklist');
             if ($decision === 'reject') {
                 if (!in_array($status, ['awaiting_first_approval','awaiting_second_approval'], true)) throw new DomainException('Invalid status');
+                if ($status === 'awaiting_first_approval' && (int)$row['project_leader_user_id'] !== $actorId) {
+                    throw new DomainException('Project leader required for first review');
+                }
+                if ($status === 'awaiting_second_approval') {
+                    $first = $this->db->prepare("SELECT actor_user_id FROM office_project_start_approvals WHERE dossier_id = ? AND dossier_revision = ? AND decision = 'approved_first' ORDER BY id DESC LIMIT 1");
+                    $first->execute([$dossierId,$revision]);
+                    $firstActor = $first->fetchColumn();
+                    if (!$firstActor || (int)$firstActor === $actorId) throw new DomainException('Independent second reviewer required');
+                }
                 $this->record($dossierId, $revision, $actorId, 'rejected', $note);
                 $this->setStatus($dossierId, 'changes_requested', $revision);
                 $this->db->commit();
@@ -143,8 +153,8 @@ final class OfficeProjectKickstartRepository
                 $this->setStatus($dossierId, 'awaiting_second_approval', $revision);
                 $next = 'awaiting_second_approval';
             } elseif ($status === 'awaiting_second_approval') {
-                $first = $this->db->prepare("SELECT actor_user_id, dossier_revision FROM office_project_start_approvals WHERE dossier_id = ? AND decision = 'approved_first' ORDER BY id DESC LIMIT 1");
-                $first->execute([$dossierId]);
+                $first = $this->db->prepare("SELECT actor_user_id, dossier_revision FROM office_project_start_approvals WHERE dossier_id = ? AND dossier_revision = ? AND decision = 'approved_first' ORDER BY id DESC LIMIT 1");
+                $first->execute([$dossierId,$revision]);
                 $firstRow = $first->fetch(PDO::FETCH_ASSOC);
                 $evaluation = OfficeProjectKickstartPolicy::evaluateSecondApproval([
                     'status'=>$status,'revision'=>$revision,'items'=>$items,
