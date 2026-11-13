@@ -42,3 +42,11 @@ Projectoverzicht toont de startstatus zonder eigen tweede administratie.
 5. Blokkeer uitvoering server-side tot twee goedkeuringen op dezelfde revisie aanwezig zijn.
 6. Test gelijktijdige goedkeuring, dubbele verzoeken, rolwisseling, ingetrokken rechten, gewijzigde revisie, scopewissel, kritieke open punten en rollback.
 7. Pas na groene acceptatietests en expliciete toestemming test-only uitrollen.
+
+## Status codewijzigingen 13 november 2026
+- `OfficeProjectKickstartRepository::saveChecklist`: optimistische revisiecontrole, wijzigingen auditen en status terug naar concept.
+- `OfficeProjectKickstartRepository::submitForApproval`: alleen de toegewezen projectleider kan een compleet dossier op de actuele revisie indienen.
+- `OfficeProjectKickstartRepository::approve`: transacties en twee verschillende goedkeurders, maar **nog geen gekoppelde Office HTTP-controller of ACL-implementatie**.
+- `OfficeProjectKickstartReadModel` en `OfficeProjectKickstartView`: read-only teruglezen en veilig weergeven.
+- **Open:** database-installatie, formulieracties, CSRF, persistente kickstartvragen/antwoorden/besluiten, wijzigingsaudit voor alle gekoppelde bronnen, live V3-integratie en server-side gate in iedere uitvoeringsroute.
+- **Belangrijk:** de testfeatureflag mag pas worden ingeschakeld na volledige end-to-end-acceptatie; de aanwezigheid van `assertReleased` betekent niet dat de uitvoeringsroutes reeds worden geblokkeerd.
