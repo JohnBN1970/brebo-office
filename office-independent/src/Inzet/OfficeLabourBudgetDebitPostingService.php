@@ -23,6 +23,22 @@ final class OfficeLabourBudgetDebitPostingService
         if ($this->db->inTransaction()) throw new \LogicException('Budget posting owns its transaction');
         $this->db->beginTransaction();
         try {
+            $id = $this->postInsideTransaction($approvedHoursId);
+            $this->db->commit();
+            return $id;
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /** Caller owns the transaction, including any approval decision and hours booking. */
+    public function postInsideTransaction(int $approvedHoursId): int
+    {
+        if ($approvedHoursId < 1 || !$this->db->inTransaction()) {
+            throw new \LogicException('Verified booking and caller-owned transaction required');
+        }
+
             $stmt = $this->db->prepare('SELECT id,project_id,person_id,work_date,approved_seconds,source_sha256
                 FROM office_inzet_approved_hours WHERE id = ? FOR UPDATE');
             $stmt->execute([$approvedHoursId]);
@@ -36,7 +52,6 @@ final class OfficeLabourBudgetDebitPostingService
                 if (!hash_equals((string)$previous['source_sha256'], (string)$entry['source_sha256'])) {
                     throw new \DomainException('Existing budget debit evidence changed');
                 }
-                $this->db->commit();
                 return (int)$previous['id'];
             }
             $shift = (new OfficeLabourPlannedShiftResolver($this->db))->resolve(
@@ -57,11 +72,6 @@ final class OfficeLabourBudgetDebitPostingService
                 (string)$entry['source_sha256'],
             ]);
             $id = (int)$this->db->lastInsertId();
-            $this->db->commit();
             return $id;
-        } catch (\Throwable $error) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
-            throw $error;
-        }
     }
 }
