@@ -22,6 +22,13 @@ final class OfficeQuotationRubricBuilder
             if (!is_numeric($line['quantity']) || !is_finite((float)$line['quantity']) || (float)$line['quantity'] <= 0) {
                 throw new InvalidArgumentException('Invalid rubric quantity');
             }
+            $amount = $line['amount_ex_vat_cents'];
+            if (!is_int($amount) || $amount < 0 || $amount > 1000000000000) {
+                throw new InvalidArgumentException('Invalid rubric sales amount');
+            }
+            // Always derive customer-facing unit price from the verified line total.
+            // Never trust an independently supplied unit price on a rubric line.
+            $unitPrice = round($amount / 100 / (float)$line['quantity'], 6);
             $label = trim((string)($line['rubric'] ?? 'Werkzaamheden'));
             if ($label === '' || mb_strlen($label, 'UTF-8') > 200) {
                 throw new InvalidArgumentException('Invalid rubric');
@@ -45,10 +52,10 @@ final class OfficeQuotationRubricBuilder
                 'description' => (string)$line['description'],
                 'quantity' => $line['quantity'],
                 'unit' => (string)$line['unit'],
-                'unit_sales_price_ex_vat' => $line['unit_sales_price_ex_vat'] ?? round((int)$line['amount_ex_vat_cents'] / 100 / (float)$line['quantity'], 6),
-                'amount_ex_vat_cents' => (int)$line['amount_ex_vat_cents'],
+                'unit_sales_price_ex_vat' => $unitPrice,
+                'amount_ex_vat_cents' => $amount,
             ];
-            $rubrics[$label]['total_ex_vat_cents'] += (int)$line['amount_ex_vat_cents'];
+            $rubrics[$label]['total_ex_vat_cents'] += $amount;
         }
         return array_values($rubrics);
     }
