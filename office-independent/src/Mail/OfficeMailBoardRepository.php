@@ -14,7 +14,7 @@ final class OfficeMailBoardRepository {
     $page = max(1, min(100000, $page));
     $offset = ($page - 1) * 200;
     if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-gebruiker ontbreekt.');
-    $search = mb_substr(trim($search), 0, 120);
+    $search = substr(trim($search), 0, 120);
     $sql = "SELECT m.id,m.mailbox_id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
       CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
       r.suggested_module,r.suggestion_reason
