@@ -33,6 +33,29 @@ final class OfficeMailOutgoingPolicy {
   }
 
   /**
+   * Read-only schema check against the existing Office PDO connection.
+   * No separate database, credentials, or migrations are used.
+   */
+  public static function schemaStatus(\PDO $db): array {
+    $required=[
+      'office_mail_mailboxes'=>['id','address','mailbox_type','owner_operator_id','active'],
+      'office_mail_mailbox_access'=>['mailbox_id','operator_id','can_send'],
+    ];
+    $stmt=$db->query("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_mail_mailboxes','office_mail_mailbox_access')");
+    $found=[];
+    foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+      $found[(string)$row['TABLE_NAME']][(string)$row['COLUMN_NAME']]=true;
+    }
+    $missing=[];
+    foreach ($required as $table=>$columns) {
+      foreach ($columns as $column) {
+        if (!isset($found[$table][$column])) $missing[]=$table.'.'.$column;
+      }
+    }
+    return ['ready'=>$missing===[],'missing'=>$missing];
+  }
+
+  /**
    * Resolve a sender from the authenticated operator, never from browser input.
    * Functional mailboxes require an explicit send grant; read access is insufficient.
    * Personal mailboxes can only be used by their owner.
@@ -41,6 +64,8 @@ final class OfficeMailOutgoingPolicy {
     if ($operatorId==='' || strlen($operatorId)>128 || $mailboxId<=0) {
       throw new InvalidArgumentException('Ongeldige afzenderselectie.');
     }
+    $schema=self::schemaStatus($db);
+    if (!$schema['ready']) throw new \RuntimeException('Office mail verzendrechten-schema niet gereed.');
     $stmt=$db->prepare("SELECT b.id,b.address,b.label,b.mailbox_type
       FROM office_mail_mailboxes b
       WHERE b.id=:mailbox AND b.active=1
