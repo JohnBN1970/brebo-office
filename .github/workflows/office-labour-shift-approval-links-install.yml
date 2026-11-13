@@ -1,0 +1,45 @@
+name: Office labour shift approval links installation
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type SHIFT-LINKS-PREFLIGHT or SHIFT-LINKS-INSTALL
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  install:
+    if: ${{ inputs.confirmation == 'SHIFT-LINKS-PREFLIGHT' || inputs.confirmation == 'SHIFT-LINKS-INSTALL' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
+          php -l office-independent/deployment/hostinger/install-labour-shift-approval-links.php
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_shift_links
+          chmod 600 ~/.ssh/id_shift_links
+      - name: Office-test preflight or explicit install
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          CONFIRM: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          remote="$USER@$HOST"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_shift_links"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.labour-shift-links-stage"'
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/install-labour-shift-approval-links.php office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php "$remote:office_calc_test/.labour-shift-links-stage/"
+          if [ "$CONFIRM" = 'SHIFT-LINKS-INSTALL' ]; then mode=--apply; else mode=--preflight; fi
+          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.labour-shift-links-stage/install-labour-shift-approval-links.php '$mode'"
