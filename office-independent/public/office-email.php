@@ -666,7 +666,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
    items.forEach(item=>inboxList.appendChild(item));
  });
  const updateInbox=()=>{
-   const q=(search?.value||'').trim().toLocaleLowerCase('nl');
+   const q=''; // Server handles full-mailbox search; client filter only handles read status.
    const mode=listFilter?.value||'all';
    let visible=0;
    document.querySelectorAll('.mail-inbox-item').forEach(item=>{
@@ -679,9 +679,9 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
    if(empty)empty.hidden=visible!==0;
  };
  if(listFilter)listFilter.addEventListener('change',updateInbox);
- if(search)search.addEventListener('input',updateInbox);
+ 
  updateInbox();
- if(search){
+ if(search && !inboxList){
    const cards=Array.from(document.querySelectorAll('.mail-card'));
    search.addEventListener('input',()=>{
      const q=search.value.trim().toLocaleLowerCase('nl');
