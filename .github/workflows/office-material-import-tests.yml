@@ -4,6 +4,7 @@ on:
     paths:
       - 'office-independent/src/Materials/**'
       - 'office-independent/tests/Material*'
+      - 'office-independent/public/office-materials.php'
       - '.github/workflows/office-material-import-tests.yml'
 permissions:
   contents: read
@@ -19,5 +20,5 @@ jobs:
       - name: Validate and run material import tests
         run: |
           set -euo pipefail
-          for file in office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          for file in office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
           for test in office-independent/tests/MaterialImport*Test.php; do php "$test"; done

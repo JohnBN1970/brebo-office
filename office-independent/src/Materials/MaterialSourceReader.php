@@ -11,10 +11,10 @@ final class MaterialSourceReader
     public function read(string $filename,string $mime,string $bytes,array $defaults=[]):array
     {
         if($bytes===''||strlen($bytes)>20000000)throw new \DomainException('Bronbestand ontbreekt of is groter dan 20 MB.');
-        $normalizer=new MaterialImportRows();$extension=strtolower(pathinfo($filename,PATHINFO_EXTENSION));
+        $originalHash=hash('sha256',$bytes);$normalizer=new MaterialImportRows();$extension=strtolower(pathinfo($filename,PATHINFO_EXTENSION));
         if(in_array($extension,['csv','tsv','txt'],true)||in_array($mime,['text/plain','text/csv','text/tab-separated-values'],true)){
             if(!mb_check_encoding($bytes,'UTF-8'))$bytes=mb_convert_encoding($bytes,'UTF-8','Windows-1252');
-            return $normalizer->proposeText($bytes,$defaults)+['source_hash'=>hash('sha256',$bytes),'status'=>'review'];
+            return $normalizer->proposeText($bytes,$defaults)+['source_hash'=>$originalHash,'status'=>'review'];
         }
         if($extension==='xml'||in_array($mime,['application/xml','text/xml'],true))return $this->xmlRows($bytes,$defaults);
         if(in_array($extension,['xlsx','docx'],true))return $this->officeArchive($bytes,$extension,$defaults);
