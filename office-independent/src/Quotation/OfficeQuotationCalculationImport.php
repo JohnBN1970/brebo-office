@@ -35,7 +35,7 @@ final class OfficeQuotationCalculationImport
             if (!is_string($description) || trim($description) === '' || mb_strlen($description, 'UTF-8') > 500
                 || !is_numeric($quantity) || !is_finite((float)$quantity)
                 || (float)$quantity <= 0 || (float)$quantity > 100000000
-                || !is_string($unit) || strlen($unit) > 24
+                || !is_string($unit) || trim($unit) === '' || mb_strlen($unit, 'UTF-8') > 24
                 || !is_int($amount) || $amount < 0 || $amount > 1000000000000) {
                 throw new InvalidArgumentException('Invalid quotation-facing sales line');
             }
@@ -49,7 +49,7 @@ final class OfficeQuotationCalculationImport
                 'rubric' => trim($rubric),
                 'description' => trim($description),
                 'quantity' => (float)$quantity,
-                'unit' => $unit,
+                'unit' => trim($unit),
                 // Quotation-facing unit selling price, derived from verified line totals.
                 // Never expose cost rates or margin fields from the source calculation.
                 'unit_sales_price_ex_vat' => round($amount / 100 / (float)$quantity, 6),
