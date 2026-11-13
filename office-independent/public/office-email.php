@@ -58,6 +58,10 @@ try {
   $attachmentStatus = 'not_checked';
   $attachmentDuplicateCounts = [];
   $savedDrafts = [];
+  $mailStatesEnabled = getenv('OFFICE_MAIL_STATES_SCHEMA_VERIFIED') === 'enabled';
+  $mailFolder = in_array(($_GET['folder'] ?? 'inbox'), ['inbox','unread','archive','trash','spam','drafts'], true) ? $_GET['folder'] : 'inbox';
+  $mailStates = [];
+  $folderDrafts = [];
   $mailView = (($_GET['view'] ?? '') === 'board') ? 'board' : 'inbox';
   $selectedMailbox = filter_var($_GET['mailbox'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
   $selectedMailbox = is_int($selectedMailbox) ? $selectedMailbox : null;
@@ -125,6 +129,41 @@ try {
         fclose($handle);
         exit;
       }
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'mail_state') {
+        if (!$mailStatesEnabled) { http_response_code(503); exit('Mailmappen nog niet geactiveerd.'); }
+        $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+        $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        if (($origin !== '' && !hash_equals('https://' . $allowedHost,$origin))
+          || ($origin === '' && !str_starts_with($referer,'https://' . $allowedHost . '/'))
+          || !is_string($_POST['csrf'] ?? null) || !hash_equals($csrfToken,$_POST['csrf'])) {
+          http_response_code(403); exit('Ongeldige aanvraag.');
+        }
+        $stateMessage = filter_var($_POST['message_id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $stateAction = $_POST['state_action'] ?? '';
+        if (!is_int($stateMessage) || !in_array($stateAction,['read','unread','archive','trash','spam','restore'],true)) {
+          http_response_code(422); exit('Ongeldige mapactie.');
+        }
+        $check = $db->prepare("SELECT 1 FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+          WHERE m.id=:message AND b.active=1 AND
+          ((b.mailbox_type='functional' AND EXISTS
+            (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:operator AND a.can_read=1))
+           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner)) LIMIT 1");
+        $check->execute([':message'=>$stateMessage,':operator'=>$operatorId,':owner'=>$operatorId]);
+        if (!$check->fetchColumn()) { http_response_code(404); exit('Bericht niet toegankelijk.'); }
+        $newFolder = ['archive'=>'archive','trash'=>'trash','spam'=>'spam','restore'=>'inbox'][$stateAction] ?? null;
+        if ($newFolder !== null) {
+          $stmt = $db->prepare("INSERT INTO office_mail_message_states(operator_id,message_id,folder,is_read)
+            VALUES (:operator,:message,:folder,0) ON DUPLICATE KEY UPDATE folder=VALUES(folder)");
+          $stmt->execute([':operator'=>$operatorId,':message'=>$stateMessage,':folder'=>$newFolder]);
+        } else {
+          $stmt = $db->prepare("INSERT INTO office_mail_message_states(operator_id,message_id,folder,is_read)
+            VALUES (:operator,:message,'inbox',:read) ON DUPLICATE KEY UPDATE is_read=VALUES(is_read)");
+          $stmt->execute([':operator'=>$operatorId,':message'=>$stateMessage,':read'=>$stateAction==='read'?1:0]);
+        }
+        $returnFolder = in_array(($_POST['return_folder'] ?? ''),['inbox','unread','archive','trash','spam'],true) ? $_POST['return_folder'] : 'inbox';
+        header('Location: /office-test/email?folder='.$returnFolder.'#mailbord',true,303);
+        exit;
+      }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'save_draft') {
         if (!$draftsEnabled) { http_response_code(503); exit('Conceptopslag niet geactiveerd.'); }
         $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -184,6 +223,28 @@ try {
         exit;
       }
       $boardCards = $board->cards($operatorId);
+      if ($mailStatesEnabled) {
+        $stateStmt = $db->prepare("SELECT s.message_id,s.folder,s.is_read FROM office_mail_message_states s
+          JOIN office_mail_messages m ON m.id=s.message_id JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+          WHERE s.operator_id=:operator AND b.active=1 AND
+          ((b.mailbox_type='functional' AND EXISTS
+            (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:access_operator AND a.can_read=1))
+           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))");
+        $stateStmt->execute([':operator'=>$operatorId,':access_operator'=>$operatorId,':owner'=>$operatorId]);
+        foreach ($stateStmt->fetchAll(PDO::FETCH_ASSOC) as $state) $mailStates[(int)$state['message_id']]=$state;
+      }
+      if ($draftsEnabled && $mailFolder === 'drafts') {
+        $draftList = $db->prepare("SELECT d.source_message_id,d.draft_type,d.subject,d.updated_at
+          FROM office_mail_drafts d JOIN office_mail_messages m ON m.id=d.source_message_id
+          JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+          WHERE d.operator_id=:operator AND b.active=1 AND
+          ((b.mailbox_type='functional' AND EXISTS
+            (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:access_operator AND a.can_read=1))
+           OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
+          ORDER BY d.updated_at DESC LIMIT 200");
+        $draftList->execute([':operator'=>$operatorId,':access_operator'=>$operatorId,':owner'=>$operatorId]);
+        $folderDrafts=$draftList->fetchAll(PDO::FETCH_ASSOC);
+      }
       $selectedMailId = filter_var($_GET['inspect_mail'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       // Keep the category board visible until a message is explicitly opened.
       if (is_int($selectedMailId)) {
@@ -477,23 +538,37 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if ($mailView === 'inbox'): ?>
 <div class="mail-folder-layout">
 <nav class="mail-folder-nav" aria-label="Postvakken">
-<strong>Postvakken</strong>
-<a href="/office-test/email"<?= $selectedMailbox === null ? ' aria-current="page"' : '' ?>>Alle inkomende e-mails</a>
+<strong>Mappen</strong>
+<?php foreach (['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten','archive'=>'Archief','spam'=>'Ongewenst','trash'=>'Prullenbak'] as $folderKey=>$folderLabel): ?>
+<a href="/office-test/email?folder=<?= $folderKey ?>"<?= $mailFolder === $folderKey ? ' aria-current="page"' : '' ?>><?= $folderLabel ?></a>
+<?php endforeach; ?>
+<hr><strong>Accounts</strong>
+<a href="/office-test/email?folder=<?= $mailFolder ?>"<?= $selectedMailbox === null ? ' aria-current="page"' : '' ?>>Alle toegankelijke accounts</a>
 <?php foreach ($mailboxes as $mailbox): ?>
 <a href="/office-test/email?mailbox=<?= (int)$mailbox['id'] ?>"<?= $selectedMailbox === (int)$mailbox['id'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars((string)$mailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <hr>
-<small class="muted">Concepten worden per bericht opgeslagen. Verzonden, archief en prullenbak zijn nog niet aangesloten.</small>
+<small class="muted">Verzonden e-mail is nog niet aangesloten. Mappen zijn persoonlijke Office-weergaven.</small>
 </nav>
-<div class="mail-inbox-list" aria-label="Inkomende e-mails">
-<?php foreach ($boardCards as $card): if ($selectedMailbox !== null && (int)$card['mailbox_id'] !== $selectedMailbox) continue; ?>
+<div class="mail-inbox-list" aria-label="Berichten in geselecteerde map">
+<?php if ($mailFolder === 'drafts'): ?>
+<?php foreach ($folderDrafts as $draft): ?>
+<a class="mail-inbox-item" href="/office-test/email?inspect_mail=<?= (int)$draft['source_message_id'] ?>&amp;draft=saved&amp;draft_type=<?= urlencode((string)$draft['draft_type']) ?>#mail-compose"><strong><?= htmlspecialchars((string)$draft['subject'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong><span><?= htmlspecialchars((string)$draft['draft_type'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></span><small><?= htmlspecialchars((string)$draft['updated_at'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small></a>
+<?php endforeach; ?>
+<?php else: ?>
+<?php foreach ($boardCards as $card):
+  if ($selectedMailbox !== null && (int)$card['mailbox_id'] !== $selectedMailbox) continue;
+  $cardState=$mailStates[(int)$card['id']] ?? ['folder'=>'inbox','is_read'=>0];
+  if ($mailFolder === 'unread') { if ($cardState['folder'] !== 'inbox' || (int)$cardState['is_read'] !== 0) continue; }
+  elseif ($cardState['folder'] !== $mailFolder) continue;
+?>
 <a class="mail-inbox-item" href="/office-test/email?inspect_mail=<?= (int)$card['id'] ?>#mailbord">
 <strong><?= htmlspecialchars((string)$card['subject'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong>
 <span><?= htmlspecialchars((string)$card['sender'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></span>
 <small><?= htmlspecialchars((string)$card['mailbox_label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?> · <?= htmlspecialchars((string)$card['module_key'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small>
 </a>
 <?php endforeach; ?>
-<?php if ($boardCards === []): ?><p class="muted">Geen toegankelijke berichten gevonden.</p><?php endif; ?>
+<?php endif; ?>
 </div>
 </div>
 <?php else: ?>
