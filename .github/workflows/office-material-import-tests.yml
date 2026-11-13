@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Materials/**'
+      - 'office-independent/src/Documents/OfficePrivateFileStorage.php'
+      - 'office-independent/deployment/hostinger/material-storage-baseline.php'
       - 'office-independent/tests/Material*'
       - 'office-independent/public/office-materials.php'
       - 'web/modules/custom/brebo_article/src/**'
@@ -25,6 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           for file in office-independent/deployment/hostinger/probe-material-document-contract.php office-independent/deployment/hostinger/install-office-materials-test.php web/modules/custom/brebo_article/src/Infrastructure/ArticleCurrentPriceQuery.php web/modules/custom/brebo_article/src/Controller/ArticleSearchController.php office-independent/public/office-materials.php office-independent/src/Materials/*.php office-independent/tests/MaterialImport*Test.php; do php -l "$file"; done
+          php -d disable_functions=link office-independent/tests/MaterialImportPortableStorageTest.php
           for test in office-independent/tests/MaterialImport*Test.php; do if [ "$test" != office-independent/tests/MaterialImportHttpTest.php ]; then php "$test"; fi; done
 
   http-mysql:
@@ -74,6 +77,7 @@ jobs:
           cp office-independent/deployment/hostinger/sql/material-import-review-ledger.sql material-package/sql/
           cp office-independent/deployment/hostinger/install-office-materials-test.php material-package/install.php
           cp office-independent/deployment/hostinger/probe-material-document-contract.php material-package/probe-documents.php
+          cp office-independent/deployment/hostinger/material-storage-baseline.php material-package/storage-baseline.php
           tar -czf material-package.tar.gz -C material-package .
       - name: Install and verify the isolated Office-test overlay
         env:

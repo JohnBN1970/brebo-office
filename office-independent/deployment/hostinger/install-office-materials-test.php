@@ -62,7 +62,10 @@ try{
  $files=['public/office-materials.php'];foreach(glob($stage.'/src/Materials/*.php')?:[]as$file)$files[]='src/Materials/'.basename($file);
  foreach(['OfficeDocumentRegistry','OfficePrivateFileStorage','OfficeDocumentAccessGate']as$class){
   $file='src/Documents/'.$class.'.php';
-  if(is_file($root.'/'.$file)&&!hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/'.$file)))echo 'MATERIAL_DEPENDENCY_PRESERVED='.$class."\n";
+  if(is_file($root.'/'.$file)&&!hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/'.$file))){
+   if($class==='OfficePrivateFileStorage'&&hash_equals($phpFingerprint($root.'/'.$file),$phpFingerprint($stage.'/storage-baseline.php'))){$files[]=$file;echo "MATERIAL_STORAGE_PORTABILITY_UPGRADE=VERIFIED_BASELINE\n";}
+   else echo 'MATERIAL_DEPENDENCY_PRESERVED='.$class."\n";
+  }
   if(!is_file($root.'/'.$file))$files[]=$file;
  }
  // Validate the already deployed worksheet adapter rather than overwriting OnSite code.
@@ -75,7 +78,7 @@ try{
  if(!is_resource($test))throw new RuntimeException('worksheet_test_start_failed');fclose($testPipes[0]);$testOutput=stream_get_contents($testPipes[1]);stream_get_contents($testPipes[2]);fclose($testPipes[1]);fclose($testPipes[2]);
  if(proc_close($test)!==0||!str_contains($testOutput,'MATERIAL_SOURCE_READER=PASS'))throw new RuntimeException('deployed_worksheet_adapter_test_failed');
 
- $probePipes=[];$probe=proc_open([PHP_BINARY,$stage.'/probe-documents.php',$root,$stage,$configPath],[['pipe','r'],['pipe','w'],['pipe','w']],$probePipes);
+ $probePipes=[];$probe=proc_open([PHP_BINARY,$stage.'/probe-documents.php',$root,$stage,$configPath,in_array('src/Documents/OfficePrivateFileStorage.php',$files,true)?'staged-storage':'existing-storage'],[['pipe','r'],['pipe','w'],['pipe','w']],$probePipes);
  if(!is_resource($probe))throw new RuntimeException('document_contract_start_failed');fclose($probePipes[0]);$probeOutput=stream_get_contents($probePipes[1]);$probeError=stream_get_contents($probePipes[2]);fclose($probePipes[1]);fclose($probePipes[2]);
  if(proc_close($probe)!==0||!str_contains($probeOutput,'MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=PASS')){foreach(explode("\n",$probeError)as$diagnostic)if(preg_match('/^MATERIAL_DOCUMENT_PROBE_(?:STAGE|ERROR)=[A-Za-z_\\\\]+$/D',$diagnostic))echo $diagnostic."\n";throw new RuntimeException('deployed_document_contract_failed');}
  echo "MATERIAL_DEPLOYED_DOCUMENT_CONTRACT=PASS\n";

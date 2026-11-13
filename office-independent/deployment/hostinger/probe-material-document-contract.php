@@ -9,7 +9,7 @@ $_SERVER['DOCUMENT_ROOT']=(string)getenv('HOME').'/domains/brebobv.nl/public_htm
 $config=require $configFile;if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test')exit(3);
 $exitCode=0;$step='load';$db=null;$fixture=$stage.'/document-contract-'.bin2hex(random_bytes(5));
 try{
- $step='temporary_schema';foreach(['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeDocumentAccessGate']as$class){$relative='/src/Documents/'.$class.'.php';require_once is_file($root.$relative)?$root.$relative:$stage.$relative;}
+ $step='temporary_schema';foreach(['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeDocumentAccessGate']as$class){$relative='/src/Documents/'.$class.'.php';require_once ($class==='OfficePrivateFileStorage'&&($argv[4]??'')==='staged-storage')?$stage.$relative:(is_file($root.$relative)?$root.$relative:$stage.$relative);}
  $step='database';$db=new PDO((string)$config['OFFICE_INTAKE_PDO_DSN'],(string)$config['OFFICE_INTAKE_DB_USER'],(string)$config['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
  if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')throw new RuntimeException('Wrong database');
  foreach([
@@ -18,6 +18,7 @@ try{
  'CREATE TEMPORARY TABLE office_document_sources(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,document_id BIGINT UNSIGNED,source_system VARCHAR(80),source_external_id VARCHAR(255),received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)',
  'CREATE TEMPORARY TABLE office_document_contexts(document_id BIGINT UNSIGNED,context_type VARCHAR(32),context_id VARCHAR(100),relation_role VARCHAR(32),created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(document_id,context_type,context_id,relation_role))'
  ]as$sql)$db->exec($sql);
+ echo 'MATERIAL_STORAGE_ATOMIC_LINK='.(function_exists('link')?'AVAILABLE':'UNAVAILABLE')."\n";
  $step='storage';mkdir($fixture,0700);mkdir($fixture.'/storage',0700);file_put_contents($fixture.'/source.txt','Material module contract fixture');
  $storage=new \Brebo\Office\Documents\OfficePrivateFileStorage($fixture.'/storage');$stored=$storage->put($fixture.'/source.txt');
  if(!isset($stored['sha256'],$stored['storage_provider'],$stored['storage_key'],$stored['size'])||$stored['sha256']!==hash_file('sha256',$fixture.'/source.txt'))throw new RuntimeException('Storage contract');
