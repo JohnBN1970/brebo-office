@@ -42,4 +42,4 @@ jobs:
           ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.external-hours-stage"'
           scp $opts -P "$PORT" office-independent/deployment/hostinger/install-external-hours-claims.php office-independent/src/Inzet/OfficeExternalHoursClaimSchema.php "$remote:office_calc_test/.external-hours-stage/"
           if [ "$CONFIRM" = 'EXTERNAL-HOURS-INSTALL' ]; then mode=--apply; else mode=--preflight; fi
-          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \\$HOME/office_calc_test/.external-hours-stage/install-external-hours-claims.php '$mode'"
+          ssh $opts -p "$PORT" "$remote" "OFFICE_TEST_CONFIG_PATH=\$HOME/domains/brebobv.nl/office_calc_test/config/config.php php \$HOME/office_calc_test/.external-hours-stage/install-external-hours-claims.php '$mode'"
