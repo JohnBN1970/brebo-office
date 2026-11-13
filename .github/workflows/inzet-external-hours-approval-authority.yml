@@ -1,0 +1,14 @@
+name: Inzet external hours approval authority
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursApprovalAuthorityPolicy.php'
+      - 'office-independent/tests/OfficeExternalHoursApprovalAuthorityPolicyTest.php'
+      - '.github/workflows/inzet-external-hours-approval-authority.yml'
+jobs:
+  authority:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursApprovalAuthorityPolicy.php
+      - run: php office-independent/tests/OfficeExternalHoursApprovalAuthorityPolicyTest.php
