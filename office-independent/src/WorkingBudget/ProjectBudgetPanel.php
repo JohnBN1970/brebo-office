@@ -115,9 +115,19 @@ final class ProjectBudgetPanel
             if ($lockedTotal !== null && (!is_int($lockedTotal) || $lockedTotal !== $totalBudget)) {
                 throw new InvalidArgumentException('Locked budget total differs from cost lines.');
             }
+            $aggregate = static function (mixed $cents): string {
+                if ($cents === null) return '—';
+                if (!is_int($cents) || $cents < 0) {
+                    throw new InvalidArgumentException('Invalid aggregate cost amount.');
+                }
+                return '€ '.number_format($cents / 100, 2, ',', '.');
+            };
             $html .= '<tr><th scope="row">Totaal</th><td>€ '
                 .number_format($totalBudget / 100, 2, ',', '.')
-                .'</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>';
+                .'</td><td>'.self::e($aggregate($kpis['awarded_cents'] ?? null))
+                .'</td><td>'.self::e($aggregate($kpis['actual_cents'] ?? null))
+                .'</td><td>'.self::e($aggregate($kpis['forecast_cents'] ?? null))
+                .'</td></tr></tbody></table></div>';
 
         }
         $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
