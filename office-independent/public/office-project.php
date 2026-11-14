@@ -601,6 +601,7 @@ try {
     $financeHtml = '<p>Het financiële overzicht is nog niet beschikbaar.</p>';
 }
 
+$workBudgetProcurement = null;
 // Read-only Office procurement commitments: independent of invoicing and bank transactions.
 // Show only after Finance ACL succeeded, and only with explicit governance activation.
 if (is_array($financeContracts)
@@ -621,6 +622,15 @@ if (is_array($financeContracts)
                 )
             );
             $commitment = $source->awardedProjectCommitment((string) $operator->operatorId, (int) $projectId, $buildingIds);
+            // Reuse the exact ACL-scoped canonical order records in the single Werkbegroting.
+            // A commitment is not a posted actual or an open balance.
+            require_once dirname(__DIR__) . '/src/WorkingBudget/OfficeProcurementBudgetAdapter.php';
+            $workBudgetProcurement = \Brebo\Office\WorkingBudget\OfficeProcurementBudgetAdapter::fromAwardedOrders(
+                (int) $projectId, $commitment['orders']
+            );
+            if ($workBudgetProcurement['awarded_cents'] !== $commitment['commitment_cents']) {
+                throw new \RuntimeException('Procurement totals do not reconcile.');
+            }
             $financeHtml .= '<section class="module"><h3>Verstrekte inkoopverplichtingen</h3><dl>'
                 . '<dt>Totaal excl. btw</dt><dd><strong>€ '
                 . number_format($commitment['commitment_cents'] / 100, 2, ',', '.')
@@ -673,7 +683,7 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
             );
         }
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
-            ->forAuthorizedProject((int)$projectId, null, null, $laborEvidence);
+            ->forAuthorizedProject((int)$projectId, $workBudgetProcurement, null, $laborEvidence);
         $workBudgetTabHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
         // Project-scoped, read-only material and procurement view.
         // The enclosing Finance ACL and test-only flag are mandatory.
