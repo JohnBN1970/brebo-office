@@ -42,17 +42,21 @@ final class OfficeProjectKickstartView
         foreach ($questions as $question) {
             if (!is_array($question)) continue;
             $html .= '<article><strong>'.$e($question['question'] ?? '').'</strong>'
-                . '<p>Antwoord: '.$e($question['answer'] ?? 'Nog open').'</p>'
-                . '<p>Besluit: '.$e($question['decision'] ?? 'Nog niet vastgelegd').'</p>'
-                . '<p>Verantwoordelijke: '.$e($question['owner_label'] ?? 'Niet toegewezen').'</p></article>';
+                . '<p>Antwoord: '.$e(trim((string)($question['answer'] ?? '')) !== '' ? $question['answer'] : 'Nog open').'</p>'
+                . '<p>Besluit: '.$e(trim((string)($question['decision'] ?? '')) !== '' ? $question['decision'] : 'Nog niet vastgelegd').'</p>'
+                . '<p>Verantwoordelijke: '.$e($question['owner_label'] ?? 'Niet toegewezen').'</p>'
+                . '<p>Deadline: '.$e($question['due_date'] ?: 'Niet vastgesteld').'</p>'
+                . (($question['is_critical'] ?? false) && trim((string)($question['decision'] ?? '')) === '' ? '<p><strong>Kritiek punt: besluit ontbreekt</strong></p>' : '')
+                . '</article>';
         }
         $html .= '<h3>Goedkeuringshistorie</h3>';
         if ($approvals === []) $html .= '<p>Er zijn nog geen goedkeuringen geregistreerd.</p>';
+        $decisions = ['approved_first'=>'Eerste goedkeuring','approved_second'=>'Tweede goedkeuring','rejected'=>'Afgewezen'];
         foreach ($approvals as $approval) {
             if (!is_array($approval)) continue;
-            $html .= '<p>'.$e($approval['actor_label'] ?? 'Onbekend').' · '
-                .$e($approval['decision_label'] ?? 'Onbekend').' · '
-                .$e($approval['created_at'] ?? '').'</p>';
+            $html .= '<p>'.$e($approval['actor_label'] ?? ('Office-gebruiker #'.(int)($approval['actor_user_id'] ?? 0))).' · '
+                .$e($approval['decision_label'] ?? ($decisions[(string)($approval['decision'] ?? '')] ?? 'Onbekend')).' · '
+                .$e($approval['created_at'] ?? '').' · Revisie '.(int)($approval['revision'] ?? 0).'</p>';
         }
         return $html.'</section>';
     }
