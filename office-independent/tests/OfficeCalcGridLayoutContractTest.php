@@ -28,7 +28,14 @@ foreach([
  'Extra transport nodig?',
  'Materiaalverlies voorzien?',
  'Bescherming werkgebied nodig?',
- 'Geen automatische boeking'
+ 'Geen automatische boeking',
+ 'material_loss_percent',
+ 'extra_labor_hours',
+ 'OfficeCalcQuantityAdjustments',
+ 'INVALID_MATERIAL_LOSS',
+ 'INVALID_EXTRA_HOURS',
+ 'ADJUSTMENT_EDIT_UNSUPPORTED',
+ 'ADJUSTMENT_CONFLICT'
 ] as $contract){
  if(!str_contains($source,$contract))throw new RuntimeException('Calc grid regression: '.$contract);
 }
