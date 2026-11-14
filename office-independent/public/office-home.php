@@ -64,6 +64,7 @@ if (isset($_GET['office_css'])) {
   }
   header('Content-Type: text/css; charset=utf-8');
   header('X-Content-Type-Options: nosniff');
+  header('Content-Disposition: inline; filename="office-home.css"');
   readfile($cssPath);
   exit;
 }
