@@ -447,7 +447,7 @@ if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
       $inzetHtml .= '<p>OnSite-registraties zijn nog niet aangesloten. De testdatabase bevat nog geen klokregistratietabel.</p>';
     } else {
       $inzetHtml .= '<p>Alle registraties zijn ter controle; hier worden nog geen uren goedgekeurd.</p>';
-      $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>In</th><th>Uit</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
+      $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>In</th><th>Uit</th><th>Geplande uren</th><th>Status</th></tr></thead><tbody>';
       foreach ($inzetOverview['sessions'] as $session) {
         $inzetHtml .= '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at'])
           . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>'
@@ -505,7 +505,10 @@ $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
 ;
 // Read-only project-scoped roster. Never fetch shifts from another project or bypass membership checks.
 $projectWeekHtml = '<section class="project-panel"><h3>Weekplanning van dit project</h3>';
-if (!\Brebo\Office\Intake\OfficeMount::isTest()
+if ($activeTab !== 'arbeid-inzet') {
+  // Other project tabs must not query personnel schedules or expose staffing details.
+  $projectWeekHtml = '';
+} elseif (!\Brebo\Office\Intake\OfficeMount::isTest()
     || getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') !== 'enabled'
     || getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') !== 'enabled') {
   $projectWeekHtml .= '<p class="project-muted">Weekplanning is niet geactiveerd.</p>';
