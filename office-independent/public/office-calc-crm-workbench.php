@@ -145,8 +145,29 @@ try {
         $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
         if($collaborationEnabled)$exactUnitCost=$price;
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
+        // Optional adjustments are calculated only on new lines. Source quantities in Gebouwen are never written.
+        $adjustmentReason='';
+        if($collaborationEnabled&&trim((string)($_POST['line_id']??''))===''){
+            $loss=trim(str_replace(',','.',(string)($_POST['material_loss_percent']??'')));
+            $extra=trim(str_replace(',','.',(string)($_POST['extra_labor_hours']??'')));
+            if($loss!==''||$extra!==''){
+                require_once dirname(__DIR__).'/src/Calculation/OfficeCalcQuantityAdjustments.php';
+                if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
+                if($loss!==''){
+                    if((string)($_POST['cost_type']??'')!=='material')$deny(400,'ADJUSTMENT_TYPE');
+                    $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
+                    $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
+                    $exactQuantity=$calc['gross_quantity'];
+                }else{
+                    if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
+                    $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
+                    $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
+                    $exactQuantity=$calc['total_hours'];
+                }
+            }
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd'),$exactQuantity,$exactUnitCost,$unit);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -263,6 +284,7 @@ echo '</select></label>';
 echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" name="quantity" value="'.$editQuantity.'" required></label>';
 if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
+if($collaborationEnabled&&$edit===null)echo '<fieldset><legend>Optionele calculatiecorrectie</legend><p class="muted">Materiaalverlies alleen bij type Materiaal; extra uren alleen bij type Arbeid. De ingevoerde hoeveelheid is de netto-/basishoeveelheid. Correcties worden bij opslaan doorgerekend en in de revisiereden vastgelegd.</p><label>Materiaalverlies (%) <input type="text" inputmode="decimal" name="material_loss_percent" placeholder="bijv. 8"></label> <label>Extra arbeidsuren <input type="text" inputmode="decimal" name="extra_labor_hours" placeholder="bijv. 12"></label></fieldset>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
 echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
