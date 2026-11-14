@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Calculation/**'
+      - 'office-independent/src/Materials/**'
+      - 'office-independent/tests/OfficeCalcDraftMaterialSourceTest.php'
       - 'office-independent/public/office-calc-crm*'
       - 'office-independent/tests/OfficeCalcDraftCollaboration*'
       - 'office-independent/deployment/hostinger/*calc*collab*'
@@ -21,8 +23,9 @@ jobs:
       - name: Validate collaboration and existing CRM Calc contracts
         run: |
           set -euo pipefail
-          for file in office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php office-independent/tests/OfficeCalcDraftCollaborationTest.php office-independent/deployment/hostinger/install-calc-collaboration.php; do php -l "$file"; done
+          for file in office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcDraftMaterialSource.php office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php office-independent/src/Materials/*.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php office-independent/tests/OfficeCalcDraftCollaborationTest.php office-independent/deployment/hostinger/install-calc-collaboration.php; do php -l "$file"; done
           php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
           for file in office-independent/tests/OfficeCalcCrm*Test.php; do php "$file"; done
   inspect-host:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-collaboration-20261114'
@@ -83,8 +86,11 @@ jobs:
       - name: Package the bounded native update
         run: |
           set -euo pipefail
-          mkdir -p collab-package/src/Calculation collab-package/public collab-package/baselines
+          mkdir -p collab-package/src/Calculation collab-package/src/Materials collab-package/public collab-package/baselines
           cp office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php collab-package/src/Calculation/
+          cp office-independent/src/Calculation/OfficeCalcDraftMaterialSource.php office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php collab-package/src/Calculation/
+          cp office-independent/src/Materials/*.php collab-package/src/Materials/
+          cp office-independent/public/office-calc-crm-material-panel.php collab-package/public/
           cp office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php collab-package/public/
           cp office-independent/deployment/hostinger/calc-collaboration-baselines/*.php collab-package/baselines/
           cp office-independent/deployment/hostinger/sql/office-calc-draft-collaboration.sql collab-package/schema.sql

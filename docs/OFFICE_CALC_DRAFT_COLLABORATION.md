@@ -15,3 +15,11 @@ De installer verifieert de bestaande editor en opslagadapter tegen exact bekende
 Validatie omvat het bestaande CRM-contract, rechten per concept, directe intrekking, onveranderde revisiemomenten, vier-decimale prijzen, auditrollback, echte HTTP-formulieren en twee onafhankelijke MySQL-schrijvers met één winnende opslag.
 
 De externe Node-werkbank en de tekeningen-/e-mailketen naar canonieke gebouwelementen blijven afzonderlijk werk; deze uitbreiding claimt geen volledige ketenacceptatie daarvan. Geschiedenis en revisiemomenten in deze eerste native uitbreiding volgen de bestaande toegang tot bewerkbare CRM-concepten.
+
+## Materiaalkeuze
+
+De native werkbank kan met afzonderlijk `materials/read`-recht zoeken in de al aangesloten canonieke prijslijst. Bij opnemen controleert de server het leveranciersartikel én de getoonde actuele prijsversie opnieuw. Een browserprijs wordt niet overgenomen. De gekozen gebruikseenheid, prijs, leverancier, artikel-/prijsreferentie, datum en volledige bronomschrijving worden in de bestaande Calc-prijsbronvelden bewaard (het contract uit Calc-migraties 002/003).
+
+Een volgende prijslijstimport wijzigt bestaande calculatieregels niet. Alleen de hoeveelheid aanpassen behoudt de oorspronkelijke prijsreferentie. Handmatig een andere prijs, eenheid of kostensoort invoeren maakt de prijsbron expliciet handmatig; de oorspronkelijke bron blijft in de audit terug te vinden. Een nieuwe prijs tijdens de selectie geeft een conflict en vraagt opnieuw kiezen. Uitval van de prijslijst blokkeert alleen de materiaalkeuze, niet het bewerken van bestaande calculatieregels.
+
+Deze wijziging activeert geen acceptatie naar werkbegroting en rondt geen vier-decimale eenheidsprijzen of fractiehoeveelheden stilzwijgend af om een oudere overdrachtsinterface passend te maken.

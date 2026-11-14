@@ -4,9 +4,9 @@ declare(strict_types=1);
 if(getenv('CALC_COLLAB_TEST_DATABASE')!=='office_calc_collaboration_test')throw new RuntimeException('Disposable collaboration database required');
 $dsn='mysql:host=127.0.0.1;dbname=office_calc_collaboration_test;charset=utf8mb4';$password=getenv('CALC_COLLAB_TEST_PASSWORD')?:'';
 $db=new PDO($dsn,'root',$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
-foreach(['OfficeCalcCrmDraftLineRepository','OfficeCalcDraftCollaboration']as$class)require_once __DIR__.'/../src/Calculation/'.$class.'.php';
+foreach(['OfficeCalcCrmDraftLineRepository','OfficeCalcDraftCollaboration','OfficeCalcDraftPriceSourceSchema']as$class)require_once __DIR__.'/../src/Calculation/'.$class.'.php';
 use Brebo\Office\Calculation\{OfficeCalcCrmDraftLineRepository,OfficeCalcDraftCollaboration,OfficeCalcDraftConflict};
-putenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED=enabled');$repo=new OfficeCalcCrmDraftLineRepository($db);$collab=new OfficeCalcDraftCollaboration($db);$rights=static fn(PDO $connection,int $actor,int $opportunity):bool=>$opportunity===11&&$collab->canEdit($actor,1);
+putenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED=enabled');putenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED=enabled');$repo=new OfficeCalcCrmDraftLineRepository($db);$collab=new OfficeCalcDraftCollaboration($db);$rights=static fn(PDO $connection,int $actor,int $opportunity):bool=>$opportunity===11&&$collab->canEdit($actor,1);
 if(($argv[1]??'')==='--worker'){
  try{$repo->save(1,(int)$argv[2],'shared','material','Concurrent writer '.$argv[2],1,2500,null,$rights,(string)$argv[3],'Parallel save');echo 'SAVED';}
  catch(OfficeCalcDraftConflict){echo 'CONFLICT';}exit;
@@ -21,11 +21,23 @@ foreach([
  'CREATE TABLE calculation_lines(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,version_id BIGINT,parent_id BIGINT NULL,sort_order INT,line_type VARCHAR(32),code VARCHAR(64),description VARCHAR(500),unit VARCHAR(32),quantity DECIMAL(19,4),labour_unit_cost DECIMAL(19,4) DEFAULT 0,material_unit_cost DECIMAL(19,4) DEFAULT 0,equipment_unit_cost DECIMAL(19,4) DEFAULT 0,subcontracting_unit_cost DECIMAL(19,4) DEFAULT 0,other_unit_cost DECIMAL(19,4) DEFAULT 0)'
 ]as$sql)$db->exec($sql);
 $db->exec(file_get_contents(__DIR__.'/../deployment/hostinger/sql/office-calc-draft-collaboration.sql'));
+foreach(\Brebo\Office\Calculation\OfficeCalcDraftPriceSourceSchema::columns()as$name=>$definition)$db->exec('ALTER TABLE calculation_lines ADD COLUMN `'.$name.'` '.$definition);
+foreach([
+ 'CREATE TABLE office_module_permissions(operator_id VARCHAR(128),module VARCHAR(32),permission VARCHAR(32))',
+ 'CREATE TABLE brebo_supplier(id INT PRIMARY KEY,name VARCHAR(255),active TINYINT)',
+ 'CREATE TABLE brebo_article(id INT PRIMARY KEY,description VARCHAR(512),base_unit VARCHAR(32),active TINYINT)',
+ 'CREATE TABLE brebo_supplier_article(id INT PRIMARY KEY,supplier_id INT,article_id INT,supplier_article_no VARCHAR(128),use_unit VARCHAR(32),active TINYINT)',
+ 'CREATE TABLE brebo_catalog_import(id INT PRIMARY KEY,status VARCHAR(32))',
+ 'CREATE TABLE brebo_article_price(id INT PRIMARY KEY,supplier_article_id INT,catalog_import_id INT,currency CHAR(3),quantity_from DECIMAL(19,4),valid_from VARCHAR(10),valid_until VARCHAR(10),net_price DECIMAL(19,4))',
+ 'CREATE TABLE brebo_material_import_reviews(catalog_import_id INT PRIMARY KEY,actor_id VARCHAR(128),reviewed_at BIGINT)'
+]as$sql)$db->exec($sql);
+$db->exec("INSERT INTO office_module_permissions VALUES('7','materials','read'); INSERT INTO brebo_supplier VALUES(1,'Supplier Fixture',1); INSERT INTO brebo_article VALUES(1,'Schroeven bron','st',1); INSERT INTO brebo_supplier_article VALUES(1,1,1,'000123','st',1); INSERT INTO brebo_catalog_import VALUES(1,'actief'); INSERT INTO brebo_article_price VALUES(1,1,1,'EUR',1,'2026-11-14',NULL,'0.4050')");
+
 $db->exec("INSERT INTO office_operator_accounts VALUES('7','Owner Fixture',1,1),('8','Editor Fixture',1,1),('9','Other Fixture',1,1); INSERT INTO office_crm_opportunities VALUES(11,4,'proposal','open'); INSERT INTO office_calc_crm_drafts(id,opportunity_id,crm_revision,project_id,created_by) VALUES(1,11,4,NULL,7)");
 $tokens=['owner'=>str_repeat('a',64),'editor'=>str_repeat('b',64),'other'=>str_repeat('c',64)];$q=$db->prepare('INSERT INTO office_operator_sessions VALUES(?,?,?,NULL)');foreach(['owner'=>'7','editor'=>'8','other'=>'9']as$label=>$id)$q->execute([hash('sha256',$tokens[$label]),$id,gmdate('Y-m-d H:i:s',time()+3600)]);
 $root=sys_get_temp_dir().'/office-calc-collab-http-'.bin2hex(random_bytes(6));mkdir($root,0700);mkdir($root.'/public',0700);
 $page=realpath(__DIR__.'/../public/office-calc-crm-workbench.php');file_put_contents($root.'/public/router.php',"<?php \$_SERVER['HTTPS']='on'; require ".var_export($page,true).";");
-$env=getenv();foreach(['OFFICE_BASE_PATH'=>'/office-test','OFFICE_TEST_CRM_ENABLED'=>'enabled','OFFICE_CRM_AUTH_MODE'=>'session_only','OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED'=>'enabled','OFFICE_CALC_CRM_SCHEMA_VERIFIED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_ENABLED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED'=>'enabled','OFFICE_PUBLIC_HOST'=>'office-calc-collab.test','OFFICE_INTAKE_PDO_DSN'=>$dsn,'OFFICE_INTAKE_DB_USER'=>'root','OFFICE_INTAKE_DB_PASSWORD'=>$password]as$key=>$value)$env[$key]=$value;
+$env=getenv();foreach(['OFFICE_BASE_PATH'=>'/office-test','OFFICE_TEST_CRM_ENABLED'=>'enabled','OFFICE_CRM_AUTH_MODE'=>'session_only','OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED'=>'enabled','OFFICE_CALC_CRM_SCHEMA_VERIFIED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_ENABLED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED'=>'enabled','OFFICE_CALC_DRAFT_MATERIALS_ENABLED'=>'enabled','OFFICE_MATERIALS_CANONICAL_SCHEMA_VERIFIED'=>'enabled','OFFICE_MATERIALS_CANONICAL_PDO_DSN'=>$dsn,'OFFICE_MATERIALS_CANONICAL_DB_USER'=>'root','OFFICE_MATERIALS_CANONICAL_DB_PASSWORD'=>$password,'OFFICE_PUBLIC_HOST'=>'office-calc-collab.test','OFFICE_INTAKE_PDO_DSN'=>$dsn,'OFFICE_INTAKE_DB_USER'=>'root','OFFICE_INTAKE_DB_PASSWORD'=>$password]as$key=>$value)$env[$key]=$value;
 $port=random_int(18000,23000);$pipes=[];$server=proc_open([PHP_BINARY,'-S','127.0.0.1:'.$port,'-t',$root.'/public',$root.'/public/router.php'],[['pipe','r'],['file',$root.'/server.log','a'],['file',$root.'/server.log','a']],$pipes,null,$env);if(!is_resource($server))throw new RuntimeException('HTTP fixture server failed');
 $csrfCookies=[];
 $request=static function(?string $actor,array $post=[],string $query='draft_id=1')use($port,$tokens,&$csrfCookies):array{
@@ -49,6 +61,12 @@ try{
  $row=$db->query("SELECT quantity,material_unit_cost,unit FROM calculation_lines WHERE code='M:shared'")->fetch(PDO::FETCH_ASSOC);$expect($row['quantity']==='12.5000'&&$row['material_unit_cost']==='0.4050'&&$row['unit']==='st','Four-decimal prices and quantities persisted');
  $editor=$request('editor');$expect($request('editor',['draft_id'=>1,'csrf'=>$post['csrf'],'action'=>'checkpoint','expected_revision'=>$hidden($editor['body'],'expected_revision'),'reason'=>'Review kozijnstaat'])['status']===303,'Immutable checkpoint');$event=(int)$db->query("SELECT id FROM office_calc_crm_draft_changes WHERE event_kind='revision_saved'")->fetchColumn();
  $detail=$request('owner',[],'draft_id=1&change_id='.$event);$expect($detail['status']===200&&str_contains($detail['body'],'Editor Fixture')&&str_contains($detail['body'],'Eenheidskosten was'),'Author and checkpoint details rendered');
+ $materials=$request('owner',[],'draft_id=1&material_q=000123');$expect($materials['status']===200&&str_contains($materials['body'],'Opnemen in calculatie'),'Catalogue selection in native workbench');
+ $materialPost=['draft_id'=>1,'csrf'=>$csrf,'action'=>'add_material','expected_revision'=>$hidden($materials['body'],'expected_revision'),'supplier_article_id'=>1,'price_id'=>1,'material_q'=>'000123','material_quantity'=>'3.5','unit_price_eur'=>'99999'];
+ $expect($request('owner',$materialPost)['status']===303,'Reviewed catalogue material inserted');
+ $materialRow=$db->query("SELECT quantity,material_unit_cost FROM calculation_lines WHERE source_reference='sales:price:1'")->fetch(PDO::FETCH_ASSOC);$expect($materialRow['quantity']==='3.5000'&&$materialRow['material_unit_cost']==='0.4050','Browser price cannot override the server catalogue');
+ $db->exec("INSERT INTO brebo_article_price VALUES(2,1,1,'EUR',1,'2026-11-14',NULL,'0.5000')");$current=$request('owner');$materialPost['expected_revision']=$hidden($current['body'],'expected_revision');$stalePrice=$request('owner',$materialPost);$expect($stalePrice['status']===409&&str_contains($stalePrice['body'],'materiaalprijs is gewijzigd'),'Changed catalogue price needs renewed review');
+ $materialPost['csrf']=$post['csrf'];$expect($request('editor',$materialPost)['status']===403,'Calc editor does not implicitly get catalogue rights');
  // Two independent worker processes contend on the actual MySQL draft row lock.
  $fresh=$collab->read(1,7,$rights,$repo);$workers=[];foreach([7,8]as$id){$out=[];$proc=proc_open([PHP_BINARY,__FILE__,'--worker',(string)$id,$fresh['token']],[['pipe','r'],['pipe','w'],['pipe','w']],$out);if(!is_resource($proc))throw new RuntimeException('Worker failed');fclose($out[0]);$workers[]=[$proc,$out];}
  $results=[];foreach($workers as[$proc,$out]){$results[]=trim(stream_get_contents($out[1]));$error=stream_get_contents($out[2]);fclose($out[1]);fclose($out[2]);if(proc_close($proc)!==0)throw new RuntimeException('Concurrent worker failed');}sort($results);$expect($results===['CONFLICT','SAVED'],'Exactly one concurrent writer wins');

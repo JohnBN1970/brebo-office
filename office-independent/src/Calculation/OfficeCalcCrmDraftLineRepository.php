@@ -54,7 +54,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -65,6 +65,12 @@ final class OfficeCalcCrmDraftLineRepository
         if($exactQuantity!==null&&(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0))throw new DomainException('Ongeldige hoeveelheid.');
         if($exactUnitCost!==null&&!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$exactUnitCost))throw new DomainException('Ongeldige eenheidsprijs.');
         if($unit!==null&&(trim($unit)===''||mb_strlen($unit)>32))throw new DomainException('Ongeldige eenheid.');
+        $priceSourcesEnabled=getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled';
+        if($priceSource!==null){
+            if(!$priceSourcesEnabled||$costType!=='material'||($priceSource['price_source_type']??'')!=='article'||$exactUnitCost===null||bccomp((string)($priceSource['source_unit_price']??'-1'),$exactUnitCost,4)!==0||($priceSource['unit']??null)!==$unit)throw new DomainException('Ongeldige gecontroleerde materiaalbron.');
+            foreach(['office_source_id'=>128,'source_reference'=>255,'source_supplier'=>255,'source_details'=>65000]as$key=>$max)if(!is_string($priceSource[$key]??null)||mb_strlen($priceSource[$key])>$max)throw new DomainException('Onvolledige materiaalbron.');
+            $date=(string)($priceSource['source_price_date']??'');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d',$date);if(!$parsed||$parsed->format('Y-m-d')!==$date)throw new DomainException('Ongeldige prijsdatum.');
+        }
         $this->db->beginTransaction();
         try {
             require_once __DIR__.'/OfficeCalcCrmDraftAccess.php';
@@ -87,9 +93,9 @@ final class OfficeCalcCrmDraftLineRepository
             $version=$this->version($draftId,true);
             $codes=array_map(static fn(string $prefix):string=>$prefix.':'.$lineId,array_values(self::TYPES));
             $holders=implode(',',array_fill(0,count($codes),'?'));
-            $q=$this->db->prepare('SELECT id FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
+            $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
             $q->execute(array_merge([$version],$codes));
-            $existing=$q->fetchColumn();
+            $existingRow=$q->fetch(PDO::FETCH_ASSOC);$existing=$existingRow===false?false:$existingRow['id'];
             $value=$exactUnitCost??number_format($unitCostCents/100,4,'.','');
             $storedQuantity=$exactQuantity??$quantity;
             $costs=array_fill_keys(array_values(self::COST_COLUMNS),'0.0000');
@@ -111,6 +117,19 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
             }
+            if($priceSourcesEnabled){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                $preserve=false;
+                if($priceSource===null&&is_array($existingRow)&&($existingRow['price_source_type']??'manual')==='article'){
+                    $sameCode=(string)$existingRow['code']===$code;$samePrice=bccomp((string)$existingRow[self::COST_COLUMNS[$costType]],(string)$value,4)===0;
+                    $preserve=$sameCode&&$samePrice&&($unit===null||(string)$existingRow['unit']===$unit);
+                }
+                if(!$preserve){
+                    $source=$priceSource??['price_source_type'=>'manual','office_source_id'=>null,'source_reference'=>null,'source_supplier'=>null,'source_unit_price'=>null,'source_price_date'=>null,'source_document_id'=>null,'source_details'=>null];
+                    $q=$this->db->prepare('UPDATE calculation_lines SET price_source_type=?,office_source_id=?,source_reference=?,source_supplier=?,source_unit_price=?,source_price_date=?,source_document_id=?,source_details=? WHERE id=? AND version_id=?');
+                    $q->execute([$source['price_source_type'],$source['office_source_id'],$source['source_reference'],$source['source_supplier'],$source['source_unit_price'],$source['source_price_date'],$source['source_document_id'],$source['source_details'],$lineRowId,$version]);
+                }
+            }
             $q=$this->db->prepare('SELECT COALESCE(SUM(quantity*(labour_unit_cost+material_unit_cost+equipment_unit_cost+subcontracting_unit_cost+other_unit_cost)),0) FROM calculation_lines WHERE version_id=?');
             $q->execute([$version]);
             $total=$q->fetchColumn();
@@ -130,7 +149,7 @@ final class OfficeCalcCrmDraftLineRepository
         (new OfficeCalcCrmDraftAccess($this->db))->assertCanManage($actorId,$draftId,$canManageOpportunity);
         $version=$this->version($draftId,false);
         if ($version===null) return [];
-        $q=$this->db->prepare('SELECT code,description,unit,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost FROM calculation_lines WHERE version_id=? AND line_type=? ORDER BY sort_order,id');
+        $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND line_type=? ORDER BY sort_order,id');
         $q->execute([$version,'item']);
         $results=[];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -146,6 +165,10 @@ final class OfficeCalcCrmDraftLineRepository
                 'quantity_decimal'=>(string)$row['quantity'],
                 'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
                 'unit'=>(string)($row['unit']??''),
+                'price_source_type'=>(string)($row['price_source_type']??'manual'),
+                'source_supplier'=>(string)($row['source_supplier']??''),
+                'source_reference'=>(string)($row['source_reference']??''),
+                'source_details'=>(string)($row['source_details']??''),
                 'unit_cost_cents'=>(int)round((float)$row[self::COST_COLUMNS[$type]]*100),
                 'activity_ref'=>null,
             ];

@@ -1,0 +1,12 @@
+<?php
+declare(strict_types=1);
+if(!isset($materialSource,$h,$draft,$csrf,$expectedRevision,$workbenchUrl)||$materialSource===null)return;
+echo '<section class="panel"><h2>Materiaal uit de vaste prijslijst</h2><p class="muted">De gecontroleerde prijs per gebruikseenheid wordt vastgelegd met leverancier, bronartikel en prijsversie. Een latere prijslijstwijziging verandert de calculatieregel niet automatisch.</p><form method="get" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><label>Artikelcode, leverancier of omschrijving <input name="material_q" maxlength="120" value="'.$h($materialQuery).'" required></label><button type="submit">Zoeken</button></form>';
+if($materialQuery!==''){
+ echo '<div style="overflow:auto"><table><thead><tr><th>Leverancier</th><th>Artikelcode</th><th>Omschrijving</th><th>Prijs excl. btw</th><th>Eenheid</th><th>Opnemen</th></tr></thead><tbody>';
+ foreach($materialRows as$item){$quantity=(isset($_POST['supplier_article_id'])&&(int)$_POST['supplier_article_id']===(int)$item['supplier_article_id'])?str_replace(',','.',(string)($_POST['material_quantity']??'1')):'1';
+  echo '<tr><td>'.$h((string)$item['supplier']).'</td><td>'.$h((string)$item['article_code']).'</td><td>'.$h((string)$item['description']).'</td><td>€ '.number_format((float)$item['net_price'],4,',','.').'<br><small>'.$h((string)$item['valid_from']).'</small></td><td>'.$h((string)$item['unit']).'</td><td><form method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="action" value="add_material"><input type="hidden" name="supplier_article_id" value="'.(int)$item['supplier_article_id'].'"><input type="hidden" name="price_id" value="'.(int)$item['price_id'].'"><input type="hidden" name="material_q" value="'.$h($materialQuery).'"><label>Aantal <input aria-label="Aantal artikel '.$h((string)$item['article_code']).'" type="number" min="0.0001" max="999999" step="0.0001" name="material_quantity" value="'.$h($quantity).'" required></label><button type="submit">Opnemen in calculatie</button></form></td></tr>';
+ }
+ if($materialRows===[])echo '<tr><td colspan="6">Geen actuele gecontroleerde basisprijzen gevonden.</td></tr>';echo '</tbody></table></div><p class="muted">Maximaal 50 resultaten. Verfijn de zoekterm als het artikel ontbreekt.</p>';
+}
+echo '</section>';

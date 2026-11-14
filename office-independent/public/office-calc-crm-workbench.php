@@ -17,7 +17,7 @@ if (getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled'
     || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
     || (!$collaborationEnabled&&(getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled'||getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')!=='enabled'))) $deny(404);
-$conflict='';$actionError='';
+$conflict='';$actionError='';$materialSource=null;$catalog=null;$materialRows=[];$materialQuery='';$materialWarning='';
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) $deny(405);
 $host=$_SERVER['HTTP_HOST']??'';
@@ -81,6 +81,17 @@ try {
             return $q->fetchColumn()!==false&&$collaboration->canEdit($user,$draft);
         };
     }
+    if($collaborationEnabled&&getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled'){
+        foreach(['MaterialCatalogConnection','MaterialCatalogReadModel','OfficeMaterialAccess']as$class)require_once dirname(__DIR__).'/src/Materials/'.$class.'.php';
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDraftMaterialSource.php';
+        $materialAccess=new \Brebo\Office\Materials\OfficeMaterialAccess($db);
+        if($materialAccess->allows($operator->operatorId,'read')){
+            try{
+                $catalog=new \Brebo\Office\Materials\MaterialCatalogReadModel(\Brebo\Office\Materials\MaterialCatalogConnection::fromEnvironment(),getenv('OFFICE_MATERIALS_CANONICAL_TABLE_PREFIX')?:'');
+                $materialSource=new \Brebo\Office\Calculation\OfficeCalcDraftMaterialSource($catalog,$materialAccess);
+            }catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
+        }
+    }
     $repo=new \Brebo\Office\Calculation\OfficeCalcCrmDraftLineRepository($db);
     $csrf=$_COOKIE['office_project_csrf']??null;
     if (!is_string($csrf)||!preg_match('/^[a-f0-9]{64}$/D',$csrf)) {
@@ -92,6 +103,16 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+        if($action==='add_material'){
+            if($materialWarning!=='')$deny(503,'PRICE_SOURCE_UNAVAILABLE');
+            if($collaboration===null||$materialSource===null)throw new DomainException('Geen materiaalrecht.');
+            $articleId=filter_var($_POST['supplier_article_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$priceId=filter_var($_POST['price_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            $materialQuantity=str_replace(',','.',trim((string)($_POST['material_quantity']??'1')));
+            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
+            $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
+            $repo->save($draft,$actor,bin2hex(random_bytes(12)),'material',$source['description'],1,0,null,$rights,(string)($_POST['expected_revision']??''),'Materiaal uit prijslijst: '.$source['source_reference'],$materialQuantity,$source['unit_price'],$source['unit'],$source);
+            header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
+        }
         if($collaboration!==null&&in_array($action,['grant','remove','checkpoint'],true)){
             $expected=(string)($_POST['expected_revision']??'');
             if($action==='checkpoint')$collaboration->checkpoint($draft,$actor,(string)($_POST['reason']??''),$expected,$rights);
@@ -141,6 +162,11 @@ if($collaboration!==null){
         }
     }catch(DomainException){$deny(403,'DRAFT_ACCESS');}catch(Throwable){$deny(503,'HISTORY_UNAVAILABLE');}
 }
+if($materialSource!==null){
+    $query=$_GET['material_q']??$_POST['material_q']??'';$materialQuery=is_string($query)?mb_substr(trim($query),0,120):'';
+    try{if($materialQuery!=='')$materialRows=$catalog->search($materialQuery,null,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));}catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
+    $materialRows=array_slice($materialRows,0,50);
+}
 $editId=filter_input(INPUT_GET,'edit_line_id',FILTER_UNSAFE_RAW);
 $edit=null;
 if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
@@ -185,11 +211,12 @@ echo '<div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Aantal regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></div>';
-echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Actie</th></tr>';
+echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Prijsbron</th><th>Actie</th></tr>';
 $total=0;
 foreach($lines as $line) {
     $subtotal=$lineAmount($line);if(!$collaborationEnabled)$total+=$subtotal;
-    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.').'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $sourceLabel=($line['price_source_type']??'manual')==='article'?($line['source_supplier'].' · '.$line['source_reference']):'Handmatig';
+    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.').'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?'':$h((string)$edit['description']);
@@ -197,7 +224,7 @@ $editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quan
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
 $editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
-if($lines===[]) echo '<tr><td colspan="6" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
+if($lines===[]) echo '<tr><td colspan="7" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
 echo '</table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
@@ -221,5 +248,7 @@ if($edit!==null) echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annulere
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
+if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
+require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '</main></body></html>';
