@@ -11,6 +11,7 @@ expectMaterial($table['rows'][0]['approved']===false,'recognition never approves
 $row=$table['rows'][0]+['price_quantity'=>'100','discount_percentage'=>'10','currency'=>'EUR','price_date'=>'2026-11-13','price_is_ex_vat'=>true,'number_format'=>'nl'];$row['approved']=true;
 $approved=$n->approve($row);expectMaterial($approved['net_price']==='0.4050','45 euros per 100 less 10 percent');
 expectMaterial($n->decimal('1.234,56','nl')==='1234.560000','Dutch price');expectMaterial($n->decimal('1,234.56','international')==='1234.560000','international price');
+expectMaterial($n->decimal("1\u{00a0}234,56",'nl')==='1234.560000','nonbreaking grouping');expectMaterial($n->decimal("1\u{202f}234.56",'international')==='1234.560000','narrow grouping');rejectMaterial(fn()=>$n->decimal('12 34,56','nl'));
 rejectMaterial(fn()=>$n->decimal('1,234'));rejectMaterial(fn()=>$n->decimal('-1'));rejectMaterial(fn()=>$n->decimal('1e3'));rejectMaterial(fn()=>$n->decimal('1.23.4','nl'));
 foreach(['price'=>'','article_code'=>'','unit'=>'','price_quantity'=>'0','discount_percentage'=>'100','price_date'=>'2026-02-30','currency'=>'']as$key=>$value)rejectMaterial(fn()=>$n->approve(array_replace($row,[$key=>$value])));
 rejectMaterial(fn()=>$n->approve(array_replace($row,['approved'=>false])));rejectMaterial(fn()=>$n->approve(array_replace($row,['price_is_ex_vat'=>false])));

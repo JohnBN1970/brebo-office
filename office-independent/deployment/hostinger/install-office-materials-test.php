@@ -104,6 +104,13 @@ try{
  foreach($files as$file)$write($root.'/'.$file,(string)file_get_contents($stage.'/'.$file));
  if($newRouter!==$routerContent){$write($router,$newRouter);$lint($router);}
  if($newRewrite!==$rewriteContent)$write($rewrite,$newRewrite);
+ // Patch the shared URL map before exposing the invoice link, preserving all composed routes.
+ $mount=$root.'/src/Intake/OfficeMount.php';$mountBody=(string)file_get_contents($mount);
+ if(!preg_match("~'materialen'\\s*=>\\s*'/materialen'~",$mountBody)){
+  $mountAnchor="      'finance' => '/finance',";
+  if(substr_count($mountBody,$mountAnchor)!==1)throw new RuntimeException('material_mount_anchor_missing');
+  $write($mount,str_replace($mountAnchor,"      'materialen' => '/materialen',\n".$mountAnchor,$mountBody));$lint($mount);
+ }
  // Add only a bounded Finance link; preserve the active composed Finance implementation.
  $finance=$root.'/public/office-finance.php';$view=$root.'/src/Finance/OfficeFinanceView.php';$financeLinked=false;
  if(is_file($finance)&&is_file($view)){

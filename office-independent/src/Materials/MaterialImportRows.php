@@ -113,7 +113,12 @@ final class MaterialImportRows
     public function decimal(string $raw,string $format='auto'):string
     {
         if(!in_array($format,['auto','nl','international'],true))throw new \InvalidArgumentException('Onbekende getalnotatie.');
-        $raw=trim(str_replace(["\u{00a0}",'€','EUR'],[' ','',''],$raw));
+        $raw=trim(str_replace(["\u{00a0}","\u{202f}",'€','EUR'],[' ',' ','',''],$raw));
+        if(str_contains($raw,' ')){
+            // Grouping must be explicit thousands, never silently join arbitrary OCR digits.
+            if(!preg_match('/^[0-9]{1,3}(?: [0-9]{3})+(?:[.,][0-9]{1,6})?$/D',$raw))throw new \InvalidArgumentException('Ongeldige duizendtallen.');
+            $raw=str_replace(' ','',$raw);
+        }
         if($raw===''||strlen($raw)>32||preg_match('/[^0-9.,]/D',$raw))throw new \InvalidArgumentException('Ongeldige prijs of hoeveelheid.');
         if($format==='auto'){
             if(str_contains($raw,',')&&str_contains($raw,'.'))$format=strrpos($raw,',')>strrpos($raw,'.')?'nl':'international';
