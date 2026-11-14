@@ -36,3 +36,25 @@ Bestaande route `/office-test/calculatie?draft_id={id}` blijft leidend. De besta
 - Alle bestaande beveiligings- en auditcontracten blijven groen.
 - Offerte #1 zonder bronbinding blijft terecht geblokkeerd; nieuwe offerte vanuit actuele Calc-revisie slaat binding automatisch op.
 - Project ontstaat pas na aantoonbare acceptatie, met één vergrendelde werkbegroting.
+
+## Bindend visueel referentiebeeld — WpCalc screenshot (14 november 2026)
+De opdrachtgever heeft een screenshot van WpCalc aangeleverd. Dit is de **leidende interactiereferentie**; de eerdere KPI-kaarten/tabs mogen het centrale spreadsheet **niet vervangen**.
+
+### Vereiste schermopbouw
+- Compacte Office-navigatie en één regel met veelgebruikte acties, géén groot dashboard boven het raster.
+- **Linkerpaneel permanent zichtbaar**: uitklapbare elementen-/bouwkostenboom met codes en hoofdstukken (bijvoorbeeld 21 Buitenwanden, 22 Binnenwanden, 31 Buitenwandopeningen). Zoek/selecteer element en spring naar bijbehorende calculatieregels. Boom en raster afzonderlijk scrollbaar, verstelbare paneelbreedte.
+- **Centraal, schermvullend spreadsheetraster**: rijnummers, selecteerbare cellen, keyboard-navigatie, inline bewerken en kopiëren/plakken van meerdere cellen. Kolommen conform referentie: status, omschrijving, hoeveelheid, eenheid, norm, uren, tarief, loon, materiaal, materieel, (stel)post, onderaanneming, kosten/eenheid, subtotaal. Horizontale scroll met vastgezette rijnummers/omschrijving; kolombreedtes aanpasbaar.
+- **Groepsregels in herkenbare turkoois/groene tint** met inspringing, inklappen/uitklappen en subtotalen; afwijkingen of nog niet ingevulde gegevens met signaalkleur. Hoofdgroepen en paragrafen volgen de bestaande canonieke Calc-structuur.
+- **Contextmenu op rij/cel** (rechtermuisknop en toetsenbordalternatief): nieuwe regel, meerdere regels, kopiëren, knippen, plakken, verwijderen, parameterdetails, paragraaf/element, uittrekstaat, deelcalculatie en tarief/norm. Toon alleen acties die server-side werkelijk beschikbaar en geautoriseerd zijn.
+- **Werkbladen onderaan**: Data, Uren, Staart. Dit zijn views op dezelfde calculatie, geen drie databases. Onderliggende werkbladen tonen geen verzonnen totalen.
+- **Compacte informatiebalk**: naam, revisie, opslagstatus, totaal kostprijs/verkoop/marge; geen grote tegels boven het werkblad.
+- Materialen, tekeningen, vragenlijst, revisies en samenwerking via **zijpanelen/dialoog** vanuit werkbalk/contextmenu; raster blijft zichtbaar.
+
+### Gedrag
+- Spreadsheetinteractie mag nooit server-authoritative totalisatie, CSRF, rechten, concurrency/409, audit, immutable revisies of canonieke materiaalprijsbronnen omzeilen.
+- Virtuele rijen/lazy rendering voor grote calculaties; celwijzigingen met zichtbare dirty-state, save/undo volgens bestaande contracten. Geen autosave die ongemerkt een revisie vastlegt.
+- Breedbeeld eerst; kleinere schermen met inklapbare boom en horizontaal scrollbaar raster, zonder layoutverspringing bij navigatie.
+- Bewaar de bestaande Office-test route en native data; **geen WpCalc-code kopiëren**. De screenshot is uitsluitend de functionele/visuele referentie.
+
+### Afwijking t.o.v. eerdere mock-up
+De eerder voorgestelde grote KPI-tegels, horizontale module-tabs en kaart met enkele voorbeeldregels zijn **vervallen** als primaire layout. Bouw de spreadsheetgerichte werkplek hierboven.
