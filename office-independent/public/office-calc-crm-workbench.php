@@ -263,9 +263,30 @@ foreach($lines as $line) {
     $unitCost=number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.');
     $rowTotal=number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.');
     $costCells=['labor','material','equipment','other','subcontract'];
-    echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td title="Norm niet beschikbaar">—</td><td title="Uren niet beschikbaar">—</td><td title="Tarief niet beschikbaar">—</td>';
-    foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
-    echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $editing=$edit!==null&&(string)$edit['line_id']===(string)$line['line_id'];
+    if($editing){
+        $formId='calc-inline-edit';
+        $net=(string)($line['net_quantity_decimal']??$line['quantity_decimal']??$line['quantity']);
+        $lossValue=(string)($line['material_loss_percent']??'');
+        $extraValue=(string)($line['extra_labor_hours']??'');
+        echo '<tr class="calc-inline-row"><td>'.$rowNumber.'</td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" value="'.$h((string)$line['description']).'" required></td>';
+        echo '<td><select form="'.$formId.'" class="calc-inline-input" name="cost_type">';
+        foreach($typeLabels as $kind=>$label)echo '<option value="'.$h($kind).'"'.((string)$line['cost_type']===$kind?' selected':'').'>'.$h($label).'</option>';
+        echo '</select></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" name="quantity" min="0.0001" step="0.0001" value="'.$h($net).'" required></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit" maxlength="32" value="'.$h((string)($line['unit']??'st')).'" required></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" value="'.$h($lossValue).'" placeholder="0"></td>';
+        echo '<td>—</td><td>—</td><td>—</td>';
+        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
+        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
+        echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
+    }else{
+        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td title="Norm niet beschikbaar">—</td><td title="Uren niet beschikbaar">—</td><td title="Tarief niet beschikbaar">—</td>';
+        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    }
 }
 $guidedOptions=['crane'=>['Kraan nodig?','Kraanhuur','equipment','dag'],'scaffold'=>['Steiger nodig?','Steigerhuur','equipment','week'],'toilet'=>['Bouwtoilet nodig?','Bouwtoilet','other','week'],'labor'=>['Extra arbeidsuren nodig?','Extra montageuren','labor','uur'],'transport'=>['Extra transport nodig?','Extra transportkosten','other','rit'],'waste'=>['Materiaalverlies voorzien?','Extra materiaal wegens snijverlies','material','m2'],'protection'=>['Bescherming werkgebied nodig?','Beschermingsmateriaal werkgebied','material','m2']];
 $guidedKey=is_string($_GET['guided']??null)?(string)$_GET['guided']:'';
@@ -287,12 +308,17 @@ if($edit===null){
     echo '<td>—</td><td>—</td><td>—</td><td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
 }
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
+if($edit!==null){
+ echo '<form id="calc-inline-edit" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="line_id" value="'.$h((string)$edit['line_id']).'">';
+ if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Calculatieregel direct in tabel gewijzigd">';
+ echo '<input type="hidden" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'"></form>';
+}
 if($edit===null){
  echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value=""></form>';
 }
-if($edit!==null||$guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+if($guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
     echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Controleer de nettohoeveelheid en correctie voordat je opslaat.</p>';
 }
