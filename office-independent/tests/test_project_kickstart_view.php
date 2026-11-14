@@ -21,7 +21,7 @@ $criticalHtml = OfficeProjectKickstartView::render(
     [['question'=>'Steiger veilig?','answer'=>'','decision'=>'','owner_label'=>'Werkvoorbereider','due_date'=>'2026-11-18','is_critical'=>true]],
     [['actor_user_id'=>7,'decision'=>'approved_first','revision'=>2,'created_at'=>'2026-11-13']]
 );
-foreach (['Kritiek punt: besluit ontbreekt','Nog niet vastgelegd','2026-11-18','Eerste goedkeuring','Revisie 2'] as $needle) {
+foreach (['Kritiek punt: besluit ontbreekt','Nog niet vastgelegd','2026-11-18','Eerste goedkeuring','Revisie 2','Vervallen door nieuwe revisie'] as $needle) {
     if (!str_contains($criticalHtml,$needle)) throw new RuntimeException('Missing kickstart detail: '.$needle);
 }
 echo "KICKSTART_VIEW_TESTS_OK\\n";
