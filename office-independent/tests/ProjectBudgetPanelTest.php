@@ -39,4 +39,14 @@ try {
     ]);
     throw new RuntimeException('Posted labor actuals incorrectly accepted.');
 } catch (InvalidArgumentException $expected) {}
+try {
+    ProjectBudgetPanel::render([
+        'project_id'=>42,
+        'kpis'=>['baseline_cents'=>120001],
+        'source_status'=>['baseline'=>'locked'],
+        'cost_lines'=>[['code'=>'L1','cost_type'=>'labor','activity_ref'=>'A',
+            'baseline_cents'=>120000]],
+    ]);
+    throw new RuntimeException('Mismatched locked budget total incorrectly accepted.');
+} catch (InvalidArgumentException $expected) {}
 echo "PROJECT_BUDGET_PANEL_TEST=PASS\\n";
