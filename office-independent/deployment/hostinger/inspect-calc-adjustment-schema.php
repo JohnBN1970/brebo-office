@@ -4,8 +4,8 @@ declare(strict_types=1);
 // runtime environment. No configuration files or secrets are printed.
 if(PHP_SAPI!=='cli')exit(2);
 $dsn=(string)getenv('OFFICE_INTAKE_PDO_DSN');
-$user=(string)getenv('OFFICE_INTAKE_PDO_USER');
-$pass=(string)getenv('OFFICE_INTAKE_PDO_PASSWORD');
+$user=(string)getenv('OFFICE_INTAKE_DB_USER');
+$pass=(string)getenv('OFFICE_INTAKE_DB_PASSWORD');
 if($dsn===''||$user===''){fwrite(STDERR,"SCHEMA_CHECK=ENV_NOT_LOADED\n");exit(2);}
 try{
  $db=new PDO($dsn,$user,$pass,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
