@@ -95,7 +95,7 @@ final class ProjectBudgetPanel
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
                     . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
             }
-            $html .= '</tbody></table><h3>Kostenbewaking per kostensoort</h3>'
+            $html .= '</tbody></table><h3>Kostenverdeling en bewaking per kostensoort</h3>'
                 . '<p>Begroot is afkomstig uit de vergrendelde werkbegroting. Verplicht, werkelijk en prognose worden pas per kostensoort getoond na gecontroleerde bronkoppeling.</p>'
                 . '<div class="office-work-budget__cost-table"><table><thead><tr>'
                 . '<th scope="col">Kostensoort</th><th scope="col">Begroot</th>'
