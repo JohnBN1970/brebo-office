@@ -3,6 +3,15 @@ if (PHP_SAPI !== 'cli') { fwrite(STDERR, "ON_SITE_ACTIVATION_SCOPE=REJECTED\n");
 $path=getenv('OFFICE_TEST_CONFIG_PATH');
 if (!is_string($path) || !is_file($path) || is_link($path)) { fwrite(STDERR,"ON_SITE_CONFIG_PATH=INVALID\n"); exit(2); }
 echo "ON_SITE_PHP_ACTIVATION=START\n";
+// The config is sourced from a chain of required files. PHP may short-circuit
+// the process when loaded from a different context, so guard all fatal exits.
+register_shutdown_function(static function (): void {
+    $error=error_get_last();
+    if (is_array($error) && in_array($error['type'], [E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR], true)) {
+        echo "ON_SITE_PHP_FATAL_TYPE=".$error['type']."\n";
+    }
+});
+
 $original=file_get_contents($path);
 // Config may use relative paths and load chained PHP includes. Execute in its
 // own directory so the original loader resolves relative paths as intended.
@@ -12,7 +21,10 @@ echo "ON_SITE_CONFIG_LOAD=START\n";
 $before=require $path;
 echo "ON_SITE_CONFIG_LOAD=COMPLETE\n";
 if ($previousCwd!==false) chdir($previousCwd);
+echo "ON_SITE_CONFIG_SCOPE_CHECK=START\n";
 $key='OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED';
+echo "ON_SITE_CONFIG_TYPE=".get_debug_type($before)."\n";
+echo "ON_SITE_CONFIG_BASE_PATH_VALID=".(is_array($before) && ($before['OFFICE_BASE_PATH']??null)==='/office-test'?'YES':'NO')."\n";
 if (!is_array($before) || ($before['OFFICE_BASE_PATH']??'')!=='/office-test') { fwrite(STDERR,"SCOPE_REJECTED\n"); exit(1); }
 if (array_key_exists($key,$before)) {
     if ($before[$key]==='enabled') { echo "ALREADY_ENABLED\n"; exit(0); }
