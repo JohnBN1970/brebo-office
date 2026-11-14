@@ -229,7 +229,7 @@ foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTota
 $canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
-main{display:block;width:100%;max-width:none;margin:0;padding:8px;min-width:0}.workspace,.gridlayout,.panel{min-width:0}a{color:#205a98}header,.panel{background:#fff;border:1px solid #cbd4df;border-radius:3px;padding:10px;margin-bottom:7px}
+main{display:block;width:100%;max-width:none;margin:0;padding:8px;min-width:0}.office-shell>main{width:100%!important;max-width:none!important;margin:0!important;padding:12px!important}.workspace,.gridlayout,.panel{min-width:0}a{color:#205a98}header,.panel{background:#fff;border:1px solid #cbd4df;border-radius:3px;padding:10px;margin-bottom:7px}
 header{display:flex;justify-content:space-between;gap:12px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
 h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62748b;margin:3px 0}
 .metrics{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 8px;padding:5px 10px;background:#f8fafc;border:1px solid #d8e0ea}.metric{display:flex;align-items:center;gap:8px}
