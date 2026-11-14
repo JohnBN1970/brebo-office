@@ -26,6 +26,7 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
           php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
+          php -l office-independent/deployment/hostinger/calc-adjustment-manifest.php
           php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
@@ -48,18 +49,8 @@ jobs:
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php "$remote:$stage/OfficeCalcCrmDraftLineRepository.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php "$remote:$stage/OfficeCalcQuantityAdjustments.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/install-calc-adjustment-files.php "$remote:$stage/install.php"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "STAGE='$stage' php -r '
-            \$base=realpath(getenv("HOME")."/domains/brebobv.nl/office_calc_test");
-            \$config=require \$base."/config/config.php";
-            \$root=realpath((string)(\$config["OFFICE_PRIVATE_ROOT"]??""));
-            if((\$config["OFFICE_BASE_PATH"]??"")!=="/office-test"||!\$root||!str_starts_with(\$root,\$base."/release-")||!str_ends_with(\$root,"/private"))exit(3);
-            \$names=["workbench.php"=>"public/office-calc-crm-workbench.php","OfficeCalcCrmDraftLineRepository.php"=>"src/Calculation/OfficeCalcCrmDraftLineRepository.php","OfficeCalcQuantityAdjustments.php"=>"src/Calculation/OfficeCalcQuantityAdjustments.php"];
-            \$hashes=[];
-            foreach(\$names as \$name=>\$path){\$file=\$root."/".\$path;if(is_link(\$file))exit(4);\$hashes[\$name]=is_file(\$file)?hash_file("sha256",\$file):null;}
-            \$stage=realpath(getenv("HOME")."/".getenv("STAGE"));
-            if(!\$stage||!str_starts_with(\$stage,\$base."/.calc-grid-stage-"))exit(5);
-            if(file_put_contents(\$stage."/expected.json",json_encode(\$hashes,JSON_THROW_ON_ERROR))===false)exit(6);
-          '"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/calc-adjustment-manifest.php "$remote:$stage/manifest.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/manifest.php' \"\$HOME/$stage\""
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/install.php' \"\$HOME/$stage\" \"\$HOME/$stage/expected.json\""
       - name: Verify anonymous Office-test response
         run: |
