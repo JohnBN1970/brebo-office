@@ -26,8 +26,8 @@ $require(str_contains($controller,"OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED") &
     'OnSite feature flag and CSRF protection required');
 $require(str_contains($weekly,'office_inzet_approved_hours') && str_contains($weekly,"m.permission IN ('read','manage')"),
     'Approved weekly hours must come from the ACL-scoped ledger');
-$require(str_contains($portfolio,'Approved labour hours are an operational project KPI'),
+$require(str_contains($portfolio,'Portfolio labour KPI is cumulative; week-specific hours belong in Inzet.'),
     'Approved weekly hours must not require Finance permission');
-$require(str_contains($portfolio,"$"."portfolioTotals['approved_week_seconds']"),
-    'Approved week total must reach the portfolio view');
+$require(str_contains($portfolio,"$"."portfolioTotals['approved_cumulative_seconds']"),
+    'Approved cumulative total must reach the portfolio view');
 echo "ONSITE_APPROVAL_CHAIN_CONTRACT_OK\n";
