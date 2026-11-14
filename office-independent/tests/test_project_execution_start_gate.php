@@ -8,6 +8,7 @@ use Brebo\Office\Project\OfficeProjectExecutionStartGate;
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_project_start_dossiers (id INTEGER PRIMARY KEY, project_id INTEGER, scope_type TEXT, scope_id INTEGER, revision INTEGER, project_leader_user_id INTEGER, status TEXT, items_json TEXT, critical_open_points INTEGER)');
+$db->exec('CREATE TABLE office_project_start_questions (id INTEGER PRIMARY KEY, dossier_id INTEGER, is_critical INTEGER, decision_text TEXT)');
 $db->exec('CREATE TABLE office_project_start_approvals (id INTEGER PRIMARY KEY, dossier_id INTEGER, dossier_revision INTEGER, actor_user_id INTEGER, decision TEXT)');
 $items=[];
 foreach (\Brebo\Office\Project\OfficeProjectKickstartPolicy::REQUIRED_ITEMS as $key) $items[$key]=true;
