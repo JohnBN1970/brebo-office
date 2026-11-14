@@ -64,6 +64,36 @@ try {
     }
     exit;
   }
+  // Read-only Sent view; outbound delivery remains disabled until end-to-end acceptance.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['folder'] ?? '') === 'sent') {
+    require_once dirname(__DIR__) . '/src/Mail/OfficeMailOutboundDeliveryRepository.php';
+    require_once dirname(__DIR__) . '/src/Mail/OfficeMailSentRepository.php';
+    $ledger = new \Brebo\Office\Mail\OfficeMailOutboundDeliveryRepository($db);
+    if (!$ledger->schemaReady()) {
+      http_response_code(503);
+      exit('Verzonden is nog niet beschikbaar.');
+    }
+    $operatorId = (string)$operator->operatorId;
+    $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1,'max_range'=>100000]]);
+    $page = is_int($page) ? $page : 1;
+    $rows = (new \Brebo\Office\Mail\OfficeMailSentRepository($db))->accepted($operatorId, 50, ($page-1)*50);
+    header('Content-Type: text/html; charset=UTF-8');
+    $esc = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
+    echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verzonden - BREBO Office</title>';
+    echo '<style>body{font:15px system-ui,sans-serif;max-width:1100px;margin:30px auto;padding:0 16px;color:#17324d}table{border-collapse:collapse;width:100%}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce3eb}a{color:#175a91}small{color:#586c80}</style></head><body>';
+    echo '<p><a href="/office-test/email">Terug naar e-mail</a></p><h1>Verzonden</h1>';
+    echo '<p><small>Postfix geaccepteerd; aflevering bij de ontvanger is niet bevestigd.</small></p>';
+    echo '<table><thead><tr><th>Datum</th><th>Van</th><th>Aan</th><th>Onderwerp</th></tr></thead><tbody>';
+    foreach ($rows as $row) {
+      echo '<tr><td>'.$esc($row['updated_at']).'</td><td>'.$esc($row['sender_address']).'</td><td>'.$esc($row['recipient']).'</td><td>'.$esc($row['subject']).'</td></tr>';
+    }
+    if ($rows === []) echo '<tr><td colspan="4">Geen verzonden berichten gevonden.</td></tr>';
+    echo '</tbody></table>';
+    if ($page > 1) echo '<a href="/office-test/email?folder=sent&amp;page='.($page-1).'">Vorige</a> ';
+    if (count($rows) === 50) echo '<a href="/office-test/email?folder=sent&amp;page='.($page+1).'">Volgende</a>';
+    echo '</body></html>';
+    exit;
+  }
   $mailboxes = [];
   $messages = [];
   $proposals = [];
@@ -435,7 +465,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <a href="/office-test/email">Postvak IN</a> <a href="/office-test/email?view=board">Werkverdeling</a>
-<span class="muted">Verzonden en persoonlijke push: nog niet aangesloten</span>
+<a href="/office-test/email?folder=sent">Verzonden</a> <span class="muted">Persoonlijke push: nog niet aangesloten</span>
 </div>
 <?php if ($mailSchemaReady): ?>
 <section id="mailbord"><h2><?= $mailView === "board" ? "Werkverdeling per module" : "Postvak IN" ?></h2><p class="muted">Persoonlijke berichten blijven privé. Office-labels zijn werkverdeling, geen afzonderlijke mailboxen.</p>
@@ -598,7 +628,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"<?= $selectedMailbox === (int)$mailbox['id'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars((string)$mailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <hr>
-<small class="muted">Verzonden e-mail is nog niet aangesloten. Mappen zijn persoonlijke Office-weergaven.</small>
+<a href="/office-test/email?folder=sent">Verzonden</a><small class="muted">Mappen zijn persoonlijke Office-weergaven.</small>
 </nav>
 <div class="mail-inbox-panel">
 <?php if (!$mailStatesEnabled): ?><p class="mail-feature-note">Mapacties en gelezenstatus zijn nog niet geactiveerd. De berichten blijven beschikbaar in Postvak IN.</p><?php endif; ?>
