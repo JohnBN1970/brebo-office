@@ -28,11 +28,15 @@ putenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED=enabled');putenv('OFFICE_CALC_DR
 $catalog=new MaterialCatalogReadModel($db);$sourceAdapter=new OfficeCalcDraftMaterialSource($catalog,new OfficeMaterialAccess($db));$repo=new OfficeCalcCrmDraftLineRepository($db);$collab=new OfficeCalcDraftCollaboration($db);$rights=static fn(PDO $db,int $actor,int $opportunity):bool=>$actor===7&&$opportunity===11;
 $expect=static function(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);};
 $blocked=false;try{$sourceAdapter->choose('8',1,1,'2026-11-14');}catch(DomainException){$blocked=true;}$expect($blocked,'Catalogue rights independent from calculation editing');
+$blocked=false;try{$sourceAdapter->choose('7',1,1,'2026-11-14');}catch(OfficeCalcDraftConflict){$blocked=true;}$expect($blocked,'Active legacy import without review is not a controlled material');
+$db->exec("INSERT INTO brebo_material_import_reviews VALUES(1,'7',1794600000); INSERT INTO brebo_catalog_import VALUES(2,'actief')");
 $source=$sourceAdapter->choose('7',1,1,'2026-11-14');$state=$collab->read(1,7,$rights,$repo);$repo->save(1,7,'material','material',$source['description'],1,0,null,$rights,$state['token'],'Price list', '12.5',$source['unit_price'],$source['unit'],$source);
 $row=$db->query('SELECT * FROM calculation_lines')->fetch(PDO::FETCH_ASSOC);$expect($row['price_source_type']==='article'&&$row['source_reference']==='sales:price:1'&&(float)$row['material_unit_cost']===0.405,'Canonical price and provenance');
-$db->exec("INSERT INTO brebo_article_price VALUES(2,1,1,'EUR',1,'2026-11-14',NULL,'0.5000')");
+$db->exec("INSERT INTO brebo_article_price VALUES(2,1,2,'EUR',1,'2026-11-14',NULL,'0.5000')");
 $blocked=false;try{$sourceAdapter->choose('7',1,1,'2026-11-14');}catch(OfficeCalcDraftConflict){$blocked=true;}$expect($blocked,'Changed price selection is rejected');
 $expect((float)$db->query('SELECT material_unit_cost FROM calculation_lines')->fetchColumn()===0.405,'Catalogue changes do not change existing calculation');
+$expect($catalog->currentArticle(1,'2026-11-14')===null,'Do not fall back to an older reviewed price when the latest price is unreviewed');
+$db->exec("INSERT INTO brebo_material_import_reviews VALUES(2,'7',1794600001)");$expect($sourceAdapter->choose('7',1,2,'2026-11-14')['unit_price']==='0.5000','New price selectable after its review');
 $state=$collab->read(1,7,$rights,$repo);$repo->save(1,7,'material','material','More material',1,0,null,$rights,$state['token'],'Quantity only','20','0.4050','st');
 $expect($db->query('SELECT source_reference FROM calculation_lines')->fetchColumn()==='sales:price:1','Quantity edit retains original price version');
 $state=$collab->read(1,7,$rights,$repo);$repo->save(1,7,'material','material','Manual price',1,0,null,$rights,$state['token'],'Explicit manual override','20','0.4500','st');

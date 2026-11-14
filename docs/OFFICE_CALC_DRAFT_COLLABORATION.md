@@ -25,3 +25,5 @@ Een volgende prijslijstimport wijzigt bestaande calculatieregels niet. Alleen de
 Deze wijziging activeert geen acceptatie naar werkbegroting en rondt geen vier-decimale eenheidsprijzen of fractiehoeveelheden stilzwijgend af om een oudere overdrachtsinterface passend te maken.
 
 Niet-ingelogde browserbezoekers gaan naar het bestaande Office-aanmeldscherm. Anonieme POST-verzoeken blijven geweigerd; aanmelden geeft op zichzelf geen calculatie- of materialenrecht.
+
+Selecteerbare materiaalprijzen vereisen een expliciete Office-reviewregistratie met auteur en tijdstip. Een oudere actieve SALES-import zonder die registratie blijft zichtbaar in het algemene prijslijstoverzicht, maar wordt niet als beoordeeld calculatiemateriaal geselecteerd. Wanneer de nieuwste prijs nog niet beoordeeld is, wordt ook niet stilzwijgend teruggevallen op een oudere beoordeelde prijs.
