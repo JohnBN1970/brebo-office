@@ -3,14 +3,13 @@
 import argparse
 import json
 import re
-from collections import Counter
 from pathlib import Path
 
 EXTENSIONS = {".php", ".html", ".htm", ".twig", ".js", ".jsx", ".ts", ".tsx", ".vue"}
 SKIP = {".git", "vendor", "node_modules", "dist", "build", "coverage"}
-STYLE_BLOCK = re.compile(r"<style\\b[^>]*>(.*?)</style\\s*>", re.I | re.S)
-STYLE_ATTR = re.compile(r"(?<![\\w-])style\\s*=\\s*([\\"'])(.*?)\\1", re.I | re.S)
-CSS_LINK = re.compile(r"<link\\b[^>]*\\bhref\\s*=\\s*([\\"'])([^\\"']+\\.css(?:\\?[^\\"']*)?)\\1", re.I | re.S)
+STYLE_BLOCK = re.compile(r"<style\b[^>]*>(.*?)</style\s*>", re.I | re.S)
+STYLE_ATTR = re.compile(r"(?<![\w-])style\s*=\s*([\"'])(.*?)\1", re.I | re.S)
+CSS_LINK = re.compile(r"<link\b[^>]*\bhref\s*=\s*([\"'])([^\"']+\.css(?:\?[^\"']*)?)\1", re.I | re.S)
 
 def inventory(root):
     records = []
