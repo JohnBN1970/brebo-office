@@ -1,0 +1,39 @@
+name: Verify native Calc adjustments
+on:
+  push:
+    branches:
+      - feature/calc-wpcalc-grid-20261114
+  pull_request:
+    paths:
+      - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/tests/OfficeCalc*'
+      - '.github/workflows/verify-native-calc-adjustments.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, mbstring, pdo_sqlite
+      - name: Syntax checks
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php -l office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php -l office-independent/tests/OfficeCalcGridLayoutContractTest.php
+      - name: Pure calculation and layout regressions
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
+          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
