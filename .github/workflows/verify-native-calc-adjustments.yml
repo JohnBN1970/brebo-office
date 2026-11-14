@@ -7,6 +7,7 @@ on:
     paths:
       - 'office-independent/public/office-calc-crm-workbench.php'
       - 'office-independent/deployment/hostinger/install-calc-adjustment-files.php'
+      - 'office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php'
       - '.github/workflows/deploy-native-calc-adjustment-files.yml'
       - 'office-independent/src/Calculation/**'
       - 'office-independent/tests/OfficeCalc*'
@@ -32,6 +33,9 @@ jobs:
         run: |
           set -euo pipefail
           php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
+          php -l office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          grep -q "getenv('OFFICE_INTAKE_DB_USER')" office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          grep -q "getenv('OFFICE_INTAKE_DB_PASSWORD')" office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
           php -l office-independent/public/office-calc-crm-workbench.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
