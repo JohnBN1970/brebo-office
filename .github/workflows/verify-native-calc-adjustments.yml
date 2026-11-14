@@ -1,0 +1,59 @@
+name: Verify native Calc adjustments
+on:
+  push:
+    branches:
+      - feature/calc-wpcalc-grid-20261114
+  pull_request:
+    paths:
+      - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/deployment/hostinger/install-calc-adjustment-files.php'
+      - 'office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php'
+      - 'office-independent/deployment/hostinger/apply-calc-adjustment-schema.php'
+      - '.github/workflows/deploy-native-calc-adjustment-files.yml'
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/tests/OfficeCalc*'
+      - '.github/workflows/verify-native-calc-adjustments.yml'
+      - '.github/workflows/office-test-calc-schema-migration.yml'
+      - '.github/workflows/office-test-calc-activation-preflight.yml'
+      - '.github/workflows/office-test-calc-activation.yml'
+      - 'office-independent/deployment/hostinger/activate-calc-adjustments.php'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, mbstring, pdo_sqlite
+      - name: Validate deployment workflow syntax
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/deploy-native-calc-adjustment-files.yml .github/workflows/office-test-calc-schema-migration.yml .github/workflows/office-test-calc-activation-preflight.yml .github/workflows/office-test-calc-activation.yml
+      - name: Syntax checks
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/activate-calc-adjustments.php
+          php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
+          php -l office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          php -l office-independent/deployment/hostinger/apply-calc-adjustment-schema.php
+          grep -q "getenv('OFFICE_INTAKE_DB_USER')" office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          grep -q "getenv('OFFICE_INTAKE_DB_PASSWORD')" office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php -l office-independent/src/Calculation/OfficeCalcLaborNorm.php
+          php -l office-independent/tests/OfficeCalcLaborNormTest.php
+          php -l office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php -l office-independent/tests/OfficeCalcGridLayoutContractTest.php
+      - name: Pure calculation and layout regressions
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcLaborNormTest.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
+          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php

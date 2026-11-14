@@ -54,7 +54,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -65,6 +65,26 @@ final class OfficeCalcCrmDraftLineRepository
         if($exactQuantity!==null&&(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0))throw new DomainException('Ongeldige hoeveelheid.');
         if($exactUnitCost!==null&&!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$exactUnitCost))throw new DomainException('Ongeldige eenheidsprijs.');
         if($unit!==null&&(trim($unit)===''||mb_strlen($unit)>32))throw new DomainException('Ongeldige eenheid.');
+        $adjustmentEnabled=getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled';
+        if($quantityAdjustment!==null){
+            if(!$adjustmentEnabled||$exactQuantity===null||$exactUnitCost===null)throw new DomainException('Correctieopslag niet beschikbaar.');
+            require_once __DIR__.'/OfficeCalcQuantityAdjustments.php';
+            $checked=OfficeCalcQuantityAdjustments::snapshot(
+                $exactQuantity,
+                $quantityAdjustment['net_quantity']??null,
+                $quantityAdjustment['material_loss_percent']??null,
+                $quantityAdjustment['extra_labor_hours']??null,
+                $costType
+            );
+            if($checked['net_quantity']===null)throw new DomainException('Nettohoeveelheid ontbreekt.');
+        }
+        if($labor!==null){
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||$costType!=='labor'||$exactQuantity===null||$exactUnitCost===null)throw new DomainException('Arbeidsnormopslag niet beschikbaar.');
+            require_once __DIR__.'/OfficeCalcLaborNorm.php';
+            $computed=OfficeCalcLaborNorm::calculate($exactQuantity,(string)($labor['driver']??''),(string)($labor['input']??''),(string)($labor['hourly_rate']??''));
+            if(bccomp($computed['labor_unit_cost'],$exactUnitCost,4)!==0)throw new DomainException('Arbeidskosten komen niet overeen met de normberekening.');
+            $labor=$computed;
+        }
         $priceSourcesEnabled=getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled';
         if($priceSource!==null){
             if(!$priceSourcesEnabled||$costType!=='material'||($priceSource['price_source_type']??'')!=='article'||$exactUnitCost===null||bccomp((string)($priceSource['source_unit_price']??'-1'),$exactUnitCost,4)!==0||($priceSource['unit']??null)!==$unit)throw new DomainException('Ongeldige gecontroleerde materiaalbron.');
@@ -96,6 +116,16 @@ final class OfficeCalcCrmDraftLineRepository
             $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
             $q->execute(array_merge([$version],$codes));
             $existingRow=$q->fetch(PDO::FETCH_ASSOC);$existing=$existingRow===false?false:$existingRow['id'];
+            // Do not silently invalidate a persisted adjustment when an existing line is edited.
+            // Require explicit correction metadata for edits of adjusted rows, so the stored snapshot cannot be invalidated.
+            if($adjustmentEnabled&&$existing!==false&&$quantityAdjustment===null){
+                $check=$this->db->prepare('SELECT calc_material_loss_percent,calc_extra_labor_hours FROM calculation_lines WHERE id=? AND version_id=?');
+                $check->execute([(int)$existing,$version]);
+                $adjusted=$check->fetch(PDO::FETCH_ASSOC);
+                if(is_array($adjusted)&&($adjusted['calc_material_loss_percent']!==null||$adjusted['calc_extra_labor_hours']!==null)){
+                    throw new DomainException('Bewerk eerst de correctie; bestaande gecorrigeerde regel is beveiligd.');
+                }
+            }
             $value=$exactUnitCost??number_format($unitCostCents/100,4,'.','');
             $storedQuantity=$exactQuantity??$quantity;
             $costs=array_fill_keys(array_values(self::COST_COLUMNS),'0.0000');
@@ -116,6 +146,23 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['labour_unit_cost'],$costs['material_unit_cost'],
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
+            }
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_norm=?,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver=? WHERE id=? AND version_id=?');
+                $q->execute([$labor['norm']??null,$labor['hours']??null,$labor['hourly_rate']??null,$labor['driver']??null,$lineRowId,$version]);
+            }
+            if($quantityAdjustment!==null){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                $q=$this->db->prepare('UPDATE calculation_lines SET calc_net_quantity=?,calc_material_loss_percent=?,calc_extra_labor_hours=?,calc_quantity_source=?,calc_quantity_source_ref=? WHERE id=? AND version_id=?');
+                $q->execute([
+                    $quantityAdjustment['net_quantity'],
+                    $quantityAdjustment['material_loss_percent']??null,
+                    $quantityAdjustment['extra_labor_hours']??null,
+                    'manual',
+                    null,
+                    $lineRowId,$version
+                ]);
             }
             if($priceSourcesEnabled){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
@@ -163,6 +210,13 @@ final class OfficeCalcCrmDraftLineRepository
                 'description'=>$row['description'],
                 'quantity'=>(int)$row['quantity'],
                 'quantity_decimal'=>(string)$row['quantity'],
+                'net_quantity_decimal'=>(string)($row['calc_net_quantity']??$row['quantity']),
+                'material_loss_percent'=>isset($row['calc_material_loss_percent'])?(string)$row['calc_material_loss_percent']:null,
+                'labor_norm'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_norm'])?(string)$row['calc_labor_norm']:null,
+                'labor_hours'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_hours'])?(string)$row['calc_labor_hours']:null,
+                'labor_hourly_rate'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_hourly_rate'])?(string)$row['calc_labor_hourly_rate']:null,
+                'labor_driver'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_driver'])?(string)$row['calc_labor_driver']:null,
+                'extra_labor_hours'=>isset($row['calc_extra_labor_hours'])?(string)$row['calc_extra_labor_hours']:null,
                 'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
                 'unit'=>(string)($row['unit']??''),
                 'price_source_type'=>(string)($row['price_source_type']??'manual'),

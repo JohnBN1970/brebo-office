@@ -145,8 +145,62 @@ try {
         $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
         if($collaborationEnabled)$exactUnitCost=$price;
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
+        // Optional adjustments are calculated only on new lines. Source quantities in Gebouwen are never written.
+        $adjustmentReason='';$adjustmentMetadata=null;
+        if($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')!=='enabled'&&(
+            trim((string)($_POST['material_loss_percent']??''))!==''||
+            trim((string)($_POST['extra_labor_hours']??''))!==''))$deny(400,'ADJUSTMENT_SCHEMA_UNVERIFIED');
+        if($collaborationEnabled){
+            $loss=trim(str_replace(',','.',(string)($_POST['material_loss_percent']??'')));
+            $extra=trim(str_replace(',','.',(string)($_POST['extra_labor_hours']??'')));
+            if($loss===''&&$extra===''&&trim((string)($_POST['line_id']??''))!==''&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'){
+                $adjustmentMetadata=['net_quantity'=>$exactQuantity,'material_loss_percent'=>null,'extra_labor_hours'=>null];
+                $adjustmentReason='Nettohoeveelheid opnieuw vastgesteld zonder correctie';
+            }
+            if($loss!==''||$extra!==''){
+                require_once dirname(__DIR__).'/src/Calculation/OfficeCalcQuantityAdjustments.php';
+                if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
+                if($loss!==''){
+                    if((string)($_POST['cost_type']??'')!=='material')$deny(400,'ADJUSTMENT_TYPE');
+                    if(!preg_match('/^[0-9]{1,3}(?:\\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
+                    $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
+                    $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
+                    $exactQuantity=$calc['gross_quantity'];
+                    $adjustmentMetadata=['net_quantity'=>$calc['net_quantity'],'material_loss_percent'=>$loss,'extra_labor_hours'=>null];
+                }else{
+                    if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
+                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
+                    $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
+                    $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
+                    $exactQuantity=$calc['total_hours'];
+                    $adjustmentMetadata=['net_quantity'=>$calc['base_hours'],'material_loss_percent'=>null,'extra_labor_hours'=>$extra];
+                }
+            }
+        }
+        if(trim((string)($_POST['labor_norm']??''))!==''||trim((string)($_POST['labor_hours']??''))!==''){
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||(string)($_POST['cost_type']??'')!=='labor'||trim((string)($_POST['labor_hourly_rate']??''))==='')$deny(400,'LABOR_INPUT_INCOMPLETE');
+        }
+        $labor=null;
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)($_POST['cost_type']??'')==='labor'&&trim((string)($_POST['labor_hourly_rate']??''))!==''){
+            if(!$collaborationEnabled||$adjustmentMetadata!==null)$deny(400,'LABOR_NOT_AVAILABLE');
+            require_once dirname(__DIR__).'/src/Calculation/OfficeCalcLaborNorm.php';
+            $driver=(string)($_POST['labor_driver']??'norm');
+            $input=str_replace(',','.',trim((string)($_POST[$driver==='hours'?'labor_hours':'labor_norm']??'')));
+            $rate=str_replace(',','.',trim((string)($_POST['labor_hourly_rate']??'')));
+            $labor=\Brebo\Office\Calculation\OfficeCalcLaborNorm::calculate($exactQuantity,$driver,$input,$rate);
+            $labor['input']=$input;
+            $exactUnitCost=$labor['labor_unit_cost'];
+            $cost=(int)bcdiv(bcmul($exactUnitCost,'100',4),'1',0);
+            $adjustmentReason='Arbeid '.$labor['hours'].' uur, norm '.$labor['norm'].', tarief '.$labor['hourly_rate'].' (leidend '.$driver.')';
+        }
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&$collaborationEnabled&&$labor===null){
+            foreach($repo->list($draft,$actor,$rights) as $existingLabor){
+                if((string)$existingLabor['line_id']===$lineId&&($existingLabor['labor_driver']??null)!==null)
+                    throw new DomainException('Arbeidsregel vereist norm/uren en tarief; bestaande waarden worden niet gewist.');
+            }
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd'),$exactQuantity,$exactUnitCost,$unit);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -196,41 +250,111 @@ $lineAmount=static function(array $line)use($collaborationEnabled):string|int{
 foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]=$collaborationEnabled?bcadd((string)$categoryTotals[$kind],(string)$lineAmount($line),8):$categoryTotals[$kind]+$lineAmount($line);}
 $canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
-:root{color-scheme:light}*{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#f3f5fa;color:#192f47;margin:0}
-main{max-width:1350px;margin:28px auto;padding:0 24px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #dce3ee;border-radius:12px;padding:24px;margin-bottom:18px}
-header{display:flex;justify-content:space-between;gap:16px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
-h1{font-size:27px;margin:10px 0}h2{font-size:20px;margin:0 0 16px}.muted{color:#62748b;margin:5px 0}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:18px 0}.metric{background:#fff;border:1px solid #dce3ee;border-radius:10px;padding:18px}
-.metric span{color:#64758b;display:block;margin-bottom:8px}.metric strong{font-size:22px}
-.gridlayout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
-table{width:100%;border-collapse:collapse}td,th{padding:12px;border-bottom:1px solid #e4e9f1;text-align:left}th{font-size:12px;color:#5a6d84}
-td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow-x:auto}.amount{font-size:24px;font-weight:700}
-form{background:#f4f6f9;padding:16px;border-radius:8px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.calc-fields label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:11px;border:1px solid #b6c3d4;border-radius:7px;background:#fff}
-button{background:#304a95;border:0;border-radius:7px;color:#fff;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:25px;text-align:center;color:#718198}
-dl{display:grid;grid-template-columns:1fr auto;gap:12px;margin:0}dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650}
-@media(max-width:900px){.gridlayout{display:block}main{margin:14px auto;padding:0 12px}header{display:block}.calc-fields{grid-template-columns:1fr}}
+:root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
+main{display:block;width:100%;max-width:none;margin:0;padding:8px;min-width:0}.office-shell>main{width:100%!important;max-width:none!important;margin:0!important;padding:12px!important}.workspace,.gridlayout,.panel{min-width:0}a{color:#205a98}header,.panel{background:#fff;border:1px solid #cbd4df;border-radius:3px;padding:10px;margin-bottom:7px}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
+h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62748b;margin:3px 0}
+.metrics{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 8px;padding:5px 10px;background:#f8fafc;border:1px solid #d8e0ea}.metric{display:flex;align-items:center;gap:8px}
+.metric span{color:#64758b}.metric strong{font-size:14px}
+.gridlayout{display:block}.line-editor{display:none;margin-top:8px}.line-editor:target,.line-editor.is-editing,.line-editor.has-conflict{display:block}.grid-toolbar{padding:7px 9px;background:#f3f6fa;border:1px solid #d6dfea;border-bottom:0}.guided-questions{display:flex;flex-wrap:wrap;gap:8px}.guided-choice{padding:9px 12px;border:1px solid #bdcbe0;border-radius:4px;text-decoration:none;color:#244c89;background:#f5f8fd}.grid-toolbar a{display:inline-block;background:#304a95;color:#fff;text-decoration:none;padding:7px 11px;border-radius:3px;font-weight:700}
+table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:5px 7px;border:1px solid #e1e5ec;text-align:left}th{font-size:11px;color:#334b66;background:#e8eef6;position:sticky;top:0;z-index:1}
+tbody tr:nth-child(even){background:#f5f9fc}tbody tr:hover{background:#d6f1ec}td:first-child{font-variant-numeric:tabular-nums;color:#62748b;background:#f0f3f8}
+td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:120px}.calc-inline-input{box-sizing:border-box;width:100%;min-width:65px;padding:5px;border:1px solid #b8c7d8;border-radius:2px;background:#fff}.calc-inline-description{min-width:190px}.calc-inline-row td{background:#edf5ff!important}.calc-inline-row button{white-space:nowrap}.calc-inline-row .calc-inline-factor{min-width:85px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
+form{background:#f4f6f9;padding:10px;border-radius:3px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.calc-fields label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:7px;border:1px solid #b6c3d4;border-radius:3px;background:#fff}
+button{background:#304a95;border:0;border-radius:3px;color:#fff;padding:8px 11px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:20px;text-align:center;color:#718198}
+dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650}
+.workbench{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px}.element-tree{background:#fff;border:1px solid #cbd4df;padding:8px;min-height:500px;max-height:calc(100vh - 115px);overflow:auto}.element-tree h2{border-bottom:1px solid #d8e0ea;padding-bottom:7px}.element-tree ul{list-style:none;margin:0;padding:0}.element-tree li{padding:5px 3px;border-bottom:1px solid #edf0f4;font-size:12px}.element-tree li:before{content:"▸ ";color:#8c9aad}.sheet-label{background:#d8e5f2;border:1px solid #bfcfe1;padding:6px 9px;font-weight:700}.sheet-tabs{padding:6px 8px;background:#f4f6fa;border-top:1px solid #cbd4df}.sheet-tabs span{padding:4px 12px;border:1px solid #cbd4df;background:white}.sheet-tabs span:first-child{border-bottom:2px solid #3665b3;color:#244c89}
+@media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 </style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
-echo '<div class="metrics">';
+echo '<div class="workbench"><aside class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
+foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
+echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
-echo '<div class="metric"><span>Aantal regels</span><strong>'.count($lines).'</strong></div>';
-echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></div>';
-echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Prijsbron</th><th>Actie</th></tr>';
+echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
+echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
+echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+
 $total=0;
+$rowNumber=0;
 foreach($lines as $line) {
+    ++$rowNumber;
     $subtotal=$lineAmount($line);if(!$collaborationEnabled)$total+=$subtotal;
     $sourceLabel=($line['price_source_type']??'manual')==='article'?($line['source_supplier'].' · '.$line['source_reference']):'Handmatig';
-    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.').'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $unitCost=number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.');
+    $rowTotal=number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.');
+    $costCells=['labor','material','equipment','other','subcontract'];
+    $editing=$edit!==null&&(string)$edit['line_id']===(string)$line['line_id'];
+    if($editing){
+        $formId='calc-inline-edit';
+        $net=(string)($line['net_quantity_decimal']??$line['quantity_decimal']??$line['quantity']);
+        $lossValue=(string)($line['material_loss_percent']??'');
+        $extraValue=(string)($line['extra_labor_hours']??'');
+        echo '<tr class="calc-inline-row"><td>'.$rowNumber.'</td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" value="'.$h((string)$line['description']).'" required></td>';
+        echo '<td><select form="'.$formId.'" class="calc-inline-input" name="cost_type">';
+        foreach($typeLabels as $kind=>$label)echo '<option value="'.$h($kind).'"'.((string)$line['cost_type']===$kind?' selected':'').'>'.$h($label).'</option>';
+        echo '</select></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" name="quantity" min="0.0001" step="0.0001" value="'.$h($net).'" required></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit" maxlength="32" value="'.$h((string)($line['unit']??'st')).'" required></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" value="'.$h($lossValue).'" placeholder="0"></td>';
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)$line['cost_type']==='labor'){
+            echo '<td><input form="'.$formId.'" name="labor_norm" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_norm']??'')).'" placeholder="Norm"></td>';
+            echo '<td><input form="'.$formId.'" name="labor_hours" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hours']??'')).'" placeholder="Uren"></td>';
+            echo '<td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';
+        }else echo '<td>—</td><td>—</td><td>—</td>';
+        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
+        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
+        echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
+    }else{
+        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
+        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    }
 }
+$guidedOptions=['crane'=>['Kraan nodig?','Kraanhuur','equipment','dag'],'scaffold'=>['Steiger nodig?','Steigerhuur','equipment','week'],'toilet'=>['Bouwtoilet nodig?','Bouwtoilet','other','week'],'labor'=>['Extra arbeidsuren nodig?','Extra montageuren','labor','uur'],'transport'=>['Extra transport nodig?','Extra transportkosten','other','rit'],'waste'=>['Materiaalverlies voorzien?','Extra materiaal wegens snijverlies','material','m2'],'protection'=>['Bescherming werkgebied nodig?','Beschermingsmateriaal werkgebied','material','m2']];
+$guidedKey=is_string($_GET['guided']??null)?(string)$_GET['guided']:'';
+$guidedPreset=$edit===null?($guidedOptions[$guidedKey]??null):null;
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
-$editDescription=$edit===null?'':$h((string)$edit['description']);
-$editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quantity']));
+$editDescription=$edit===null?($guidedPreset===null?'':$h($guidedPreset[1])):$h((string)$edit['description']);
+$editQuantity=$edit===null?'':$h((string)($edit['net_quantity_decimal']??$edit['quantity_decimal']??$edit['quantity']));
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
-$editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
-$selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
-if($lines===[]) echo '<tr><td colspan="7" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
-echo '</table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
-echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
+$editUnit=$edit===null?($guidedPreset===null?'st':$h($guidedPreset[3])):$h((string)(($edit['unit']??'')?:'st'));
+$selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(string)$edit['cost_type'];
+if($lines===[]) echo '<tr><td colspan="18" class="empty">Nog geen calculatieregels. Vul hieronder de eerste regel in.</td></tr>';
+if($edit===null){
+    $inlineForm='calc-inline-new';
+    echo '<tr class="calc-inline-row"><td>+</td><td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" placeholder="Omschrijving" required></td>';
+    echo '<td><select form="'.$inlineForm.'" class="calc-inline-input" name="cost_type" id="calc-inline-type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" type="number" name="quantity" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" value="1" required></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" name="unit" maxlength="32" value="st" required></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" placeholder="0" title="Alleen voor materiaal" '.(!($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')?'disabled':'').'></td>';
+    if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
+        echo '<td><input form="'.$inlineForm.'" name="labor_norm" type="number" min="0" step="0.0001" placeholder="Norm"></td><td><input form="'.$inlineForm.'" name="labor_hours" type="number" min="0" step="0.0001" placeholder="Uren"></td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
+    }else echo '<td>—</td><td>—</td><td>—</td>';
+    echo '<td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
+}
+echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
+if($edit!==null){
+ echo '<form id="calc-inline-edit" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="line_id" value="'.$h((string)$edit['line_id']).'">';
+ if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Calculatieregel direct in tabel gewijzigd">';
+ echo '<input type="hidden" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'">';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm"'.(($edit['labor_driver']??'norm')==='norm'?' selected':'').'>Norm</option><option value="hours"'.(($edit['labor_driver']??'')==='hours'?' selected':'').'>Uren</option></select></label>';
+ echo '</form>';
+}
+if($edit===null){
+ echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+ if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
+ echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm">Norm</option><option value="hours">Uren</option></select></label>';
+ echo '</form>';
+}
+if($guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
+    echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Controleer de nettohoeveelheid en correctie voordat je opslaat.</p>';
+}
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
@@ -247,12 +371,39 @@ echo '</select></label>';
 echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" name="quantity" value="'.$editQuantity.'" required></label>';
 if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
+if($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')echo '<fieldset><legend>Optionele calculatiecorrectie</legend><p class="muted">Materiaalverlies alleen bij type Materiaal; extra uren alleen bij type Arbeid. De ingevoerde hoeveelheid is de netto-/basishoeveelheid. Correcties worden bij opslaan doorgerekend en in de revisiereden vastgelegd.</p><label>Materiaalverlies (%) <input type="text" inputmode="decimal" name="material_loss_percent" value="'.$h((string)($edit['material_loss_percent']??'')).'" placeholder="bijv. 8"></label> <label>Extra arbeidsuren <input type="text" inputmode="decimal" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'" placeholder="bijv. 12"></label></fieldset>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
-if($edit!==null) echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a>';
-echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
+echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
+echo '</form></section>';}
+echo '</div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
+echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">Kies een voorziening. Controleer de hoeveelheid en prijs voordat je de voorgestelde regel opslaat.</p><div class="guided-questions">';
+foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
+echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wordt alleen een aanvullende materiaalpost voorgesteld; een procentuele berekening op de nettohoeveelheid uit Gebouwen is nog niet gekoppeld. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
-echo '</main></body></html>';
+echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div><script>
+(function(){
+  "use strict";
+  const search=document.getElementById("calc-element-search");
+  const list=document.getElementById("calc-element-list");
+  const status=document.getElementById("calc-element-search-status");
+  if(!search||!list||!status)return;
+  const items=Array.from(list.querySelectorAll("li"));
+  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const filter=()=>{
+    const query=normalize(search.value);
+    let visible=0;
+    for(const item of items){
+      const match=normalize(item.textContent||"").includes(query);
+      item.hidden=!match;
+      if(match)visible++;
+    }
+    status.textContent=query?(visible+" van "+items.length+" elementen gevonden"):"";
+  };
+  search.addEventListener("input",filter);
+  search.addEventListener("keydown",event=>{if(event.key==="Escape"){search.value="";filter();}});
+})();
+</script></main></body></html>';

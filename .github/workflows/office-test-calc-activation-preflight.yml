@@ -1,0 +1,42 @@
+name: Office-test Calc activation preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-test-calc-activation-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Validate read-only release gate
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/check-calc-adjustment-activation.php
+      - name: Inspect Office-test release gate without writes
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_preflight
+          chmod 600 ~/.ssh/id_calc_preflight
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.calc-activation-stage-$(git rev-parse HEAD)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_preflight -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_preflight -P "$PORT" office-independent/deployment/hostinger/check-calc-adjustment-activation.php "$remote:$stage/check.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_preflight -p "$PORT" "$remote" "php -l '$stage/check.php' && php '$stage/check.php'"

@@ -1,0 +1,75 @@
+name: Office-test Calc labor schema
+on:
+  push:
+    branches:
+      - feature/calc-wpcalc-grid-20261114
+    paths:
+      - '.github/workflows/office-test-calc-labor-schema.yml'
+      - 'office-independent/deployment/hostinger/inspect-calc-labor-schema.php'
+  workflow_dispatch:
+    inputs:
+      apply_schema:
+        description: 'Type APPLY to authorize additive labor schema migration on Office-test'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-calc-labor-schema
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Lint labor schema scripts
+        run: |
+          php -l office-independent/deployment/hostinger/inspect-calc-labor-schema.php
+          php -l office-independent/deployment/hostinger/apply-calc-labor-schema.php
+      - name: Diagnose active Office-test labor wiring (read-only)
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_labor_diag
+          chmod 600 ~/.ssh/id_calc_labor_diag
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_diag -p "$PORT" "$USER@$HOST" 'php -r '\''$base=getenv("HOME")."/domains/brebobv.nl/office_calc_test";$cfg=require $base."/config/config.php";$root=realpath($cfg["OFFICE_PRIVATE_ROOT"]??"");$page=$root."/public/office-calc-crm-workbench.php";$repo=$root."/src/Calculation/OfficeCalcCrmDraftLineRepository.php";echo "LABOR_FLAG=".(($cfg["OFFICE_CALC_LABOR_SCHEMA_VERIFIED"]??"") === "enabled"?"ENABLED":"DISABLED")."\\n";echo "PAGE_PRESENT=".(is_file($page)?"YES":"NO")."\\n";echo "PAGE_HAS_LABOR_FIELDS=".(is_file($page)&&str_contains(file_get_contents($page),"name=\\\"labor_norm\\\"")?"YES":"NO")."\\n";echo "REPOSITORY_HAS_LABOR=".(is_file($repo)&&str_contains(file_get_contents($repo),"calc_labor_norm")?"YES":"NO")."\\n";'\'''
+      - name: Inspect Office-test schema and optionally migrate
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          APPLY: ${{ inputs.apply_schema }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_labor_schema
+          chmod 600 ~/.ssh/id_calc_labor_schema
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.calc-labor-schema-stage-$(git rev-parse HEAD)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_schema -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_schema -P "$PORT" office-independent/deployment/hostinger/inspect-calc-labor-schema.php "$remote:$stage/inspect.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_schema -P "$PORT" office-independent/deployment/hostinger/apply-calc-labor-schema.php "$remote:$stage/apply.php"
+          if [[ "$EVENT" == "workflow_dispatch" && "$APPLY" == "APPLY" ]]; then
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_schema -p "$PORT" "$remote" "php '$stage/apply.php' --apply && php '$stage/inspect.php'"
+          else
+            set +e
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_schema -p "$PORT" "$remote" "php '$stage/inspect.php'"
+            result=$?
+            set -e
+            if [[ "$result" -eq 1 ]]; then echo "LABOR_SCHEMA=REQUIRES_EXPLICIT_APPLY"; elif [[ "$result" -ne 0 ]]; then exit "$result"; fi
+          fi
