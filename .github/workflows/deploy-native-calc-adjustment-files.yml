@@ -1,0 +1,63 @@
+name: Deploy native Calc adjustment files to Office-test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-native-calc-grid-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, mbstring
+      - name: Validate all candidate files
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
+          php -l office-independent/deployment/hostinger/calc-adjustment-manifest.php
+          php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
+          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
+      - name: Stage and install complete file set
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_adjustments
+          chmod 600 ~/.ssh/id_calc_adjustments
+          test "$(git branch --show-current)" = 'feature/calc-wpcalc-grid-20261114'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/calc-wpcalc-grid-20261114)"
+          remote="$USER@$HOST"
+          revision="$(git rev-parse HEAD)"
+          stage="domains/brebobv.nl/office_calc_test/.calc-grid-stage-$revision"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$stage/workbench.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php "$remote:$stage/OfficeCalcCrmDraftLineRepository.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php "$remote:$stage/OfficeCalcQuantityAdjustments.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/install-calc-adjustment-files.php "$remote:$stage/install.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/calc-adjustment-manifest.php "$remote:$stage/manifest.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/manifest.php' \"\$HOME/$stage\""
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/install.php' \"\$HOME/$stage\" \"\$HOME/$stage/expected.json\""
+      - name: Verify anonymous Office-test response
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' 'https://brebobv.nl/office-test/calculatie/samenwerken')"
+          echo "OFFICE_TEST_ANONYMOUS_HTTP=$status"
+          [[ "$status" == '200' || "$status" == '302' || "$status" == '303' ]]
