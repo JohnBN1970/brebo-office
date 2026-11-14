@@ -1,0 +1,10 @@
+<?php
+declare(strict_types=1);
+$base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');if(!$base)exit(2);chdir($base.'/config');$c=require $base.'/config/config.php';$root=realpath((string)($c['OFFICE_PRIVATE_ROOT']??''));if(($c['OFFICE_BASE_PATH']??'')!=='/office-test'||!$root||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private'))exit(3);
+foreach(array_merge(glob($root.'/src/Quotation/*.php')?:[],glob($root.'/src/Workflow/*Acceptance*.php')?:[],glob($root.'/public/*quot*.php')?:[])as$f)echo 'QUOTATION_FILE='.str_replace($root.'/','',$f).' SHA256='.hash_file('sha256',$f)."\n";
+$db=new PDO((string)$c['OFFICE_INTAKE_PDO_DSN'],(string)$c['OFFICE_INTAKE_DB_USER'],(string)$c['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')exit(4);$db->exec('SET SESSION TRANSACTION READ ONLY');$db->beginTransaction();
+$tables=['office_project_memberships','office_document_contexts','office_document_originals','office_quotations','office_quotation_versions','office_quotation_rubric_approvals','office_commercial_acceptances','office_projects','office_crm_opportunities','office_documents','office_document_context_links','office_calc_crm_drafts','calculations','calculation_versions','calculation_lines'];
+foreach($tables as$t){$q=$db->prepare('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');$q->execute([$t]);$cols=$q->fetchAll(PDO::FETCH_ASSOC);echo 'HANDOFF_SCHEMA.'.$t.'='.json_encode($cols,JSON_THROW_ON_ERROR)."\n";}
+try{foreach($db->query('SELECT status,COUNT(*) AS n FROM office_quotations GROUP BY status')->fetchAll(PDO::FETCH_ASSOC)as$r)echo 'QUOTE_STATUS='.$r['status'].' COUNT='.$r['n']."\n";}catch(Throwable){}
+foreach(['OFFICE_QUOTATION_CALC_HANDOFF_ENABLED','OFFICE_QUOTATION_RUBRIC_APPROVALS_ENABLED','OFFICE_QUOTATIONS_WRITE_ENABLED']as$k)echo $k.'='.($c[$k]??'unset')."\n";
+$db->rollBack();echo "QUOTATION_HANDOFF_INSPECTION=READ_ONLY_OK\n";

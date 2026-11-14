@@ -10,7 +10,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $db->exec("CREATE TABLE office_crm_relations (id INTEGER PRIMARY KEY, status TEXT);
 CREATE TABLE office_crm_opportunities (id INTEGER PRIMARY KEY, relation_id INTEGER);
-CREATE TABLE office_quotations (id INTEGER PRIMARY KEY AUTOINCREMENT, relation_id INTEGER, calculation_id INTEGER, calculation_version INTEGER, quotation_type TEXT, title TEXT, status TEXT, version INTEGER, amount_ex_vat_cents INTEGER, created_by INTEGER);
+CREATE TABLE office_quotations (id INTEGER PRIMARY KEY AUTOINCREMENT, relation_id INTEGER, opportunity_id INTEGER, calculation_id INTEGER, calculation_version INTEGER, quotation_type TEXT, title TEXT, status TEXT, version INTEGER, amount_ex_vat_cents INTEGER, created_by INTEGER);
 CREATE TABLE office_quotation_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, quotation_id INTEGER, section_key TEXT, sort_order INTEGER, enabled INTEGER, body TEXT, provenance TEXT);
 CREATE TABLE office_quotation_versions (id INTEGER PRIMARY KEY AUTOINCREMENT, quotation_id INTEGER, version INTEGER, snapshot_json TEXT, snapshot_sha256 TEXT, created_by INTEGER);
 INSERT INTO office_crm_relations VALUES (7, 'active');
