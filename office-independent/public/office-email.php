@@ -219,7 +219,18 @@ try {
           echo "SEND_PREFLIGHT=READY\nMAIL_SENDING=NOT_ATTEMPTED\n";
         } catch (Throwable $sendCheckError) {
           http_response_code(422);
-          echo "SEND_PREFLIGHT=BLOCKED\nMAIL_SENDING=NOT_ATTEMPTED\n";
+          // Stable, non-sensitive failure codes; never expose SQL, session or transport details.
+          $failureCode = 'VALIDATION_OR_PERMISSION';
+          if (!\Brebo\Office\Mail\OfficeMailOutgoingPolicy::enabled()) {
+            $failureCode = 'OUTBOUND_DISABLED';
+          } elseif ($sendCheckError instanceof \InvalidArgumentException) {
+            $failureCode = 'INVALID_MESSAGE_OR_SENDER';
+          } elseif (str_contains($sendCheckError->getMessage(), 'Geen verzendrechten')) {
+            $failureCode = 'SENDER_NOT_AUTHORIZED';
+          } elseif (str_contains($sendCheckError->getMessage(), 'schema')) {
+            $failureCode = 'SENDER_SCHEMA_NOT_READY';
+          }
+          echo "SEND_PREFLIGHT=BLOCKED\nREASON=".$failureCode."\nMAIL_SENDING=NOT_ATTEMPTED\n";
         }
         exit;
       }
