@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../src/Project/OfficeProjectPageStructure.php';
 require_once __DIR__ . '/../src/Project/OfficeProjectPortfolioView.php';
+require_once __DIR__ . '/../src/Project/OfficeProjectTrafficLight.php';
 use Brebo\Office\Project\OfficeProjectPageStructure as S;
 use Brebo\Office\Project\OfficeProjectPortfolioView as V;
 $rows=[
