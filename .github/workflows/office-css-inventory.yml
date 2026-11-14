@@ -7,6 +7,7 @@ on:
       - 'office-independent/**'
       - 'tools/audit_office_css.py'
       - 'tools/check_office_home_css_parity.py'
+      - 'tools/check_office_home_css_route.py'
       - '.github/workflows/office-css-inventory.yml'
 
 permissions:
@@ -21,6 +22,8 @@ jobs:
         run: php -l office-independent/public/office-home.php
       - name: Verify staged Office home CSS parity
         run: python3 tools/check_office_home_css_parity.py
+      - name: Verify test-only CSS routing and security
+        run: python3 tools/check_office_home_css_route.py
       - name: Generate CSS inventory
         run: |
           python3 tools/audit_office_css.py --root office-independent --json office-css-inventory.json --markdown office-css-inventory.md
