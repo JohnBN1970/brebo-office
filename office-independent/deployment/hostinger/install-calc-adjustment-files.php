@@ -17,6 +17,7 @@ $files=[
  'workbench.php'=>'public/office-calc-crm-workbench.php',
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
+ 'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
 ];
 $expected=json_decode((string)file_get_contents($manifestPath),true);
 if(!is_array($expected)||array_keys($expected)!==array_keys($files))exit(4);
@@ -64,7 +65,7 @@ try{
   fclose($pipes[0]);$output=stream_get_contents($pipes[1]).stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
   if(proc_close($process)!==0)throw new RuntimeException('postlint_'.$name.':'.$output);
  }
- echo "CALC_FILES_INSTALL=SUCCESS\nCALC_FILES_COUNT=3\nCALC_DATABASE=UNCHANGED\nCALC_FLAGS=UNCHANGED\n";
+ echo "CALC_FILES_INSTALL=SUCCESS\nCALC_FILES_COUNT=4\nCALC_DATABASE=UNCHANGED\nCALC_FLAGS=UNCHANGED\n";
 }catch(Throwable $error){
  $rollbackOk=true;
  foreach(array_reverse($installed) as $dest){
