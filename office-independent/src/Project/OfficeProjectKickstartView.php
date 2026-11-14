@@ -56,7 +56,8 @@ final class OfficeProjectKickstartView
             if (!is_array($approval)) continue;
             $html .= '<p>'.$e($approval['actor_label'] ?? ('Office-gebruiker #'.(int)($approval['actor_user_id'] ?? 0))).' · '
                 .$e($approval['decision_label'] ?? ($decisions[(string)($approval['decision'] ?? '')] ?? 'Onbekend')).' · '
-                .$e($approval['created_at'] ?? '').' · Revisie '.(int)($approval['revision'] ?? 0).'</p>';
+                .$e($approval['created_at'] ?? '').' · Revisie '.(int)($approval['revision'] ?? 0)
+                .((int)($approval['revision'] ?? 0) !== $revision ? ' · Vervallen door nieuwe revisie' : ' · Huidige revisie').'</p>';
         }
         return $html.'</section>';
     }
