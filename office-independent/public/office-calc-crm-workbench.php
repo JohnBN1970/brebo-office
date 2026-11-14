@@ -330,12 +330,16 @@ echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($colla
 if($edit!==null){
  echo '<form id="calc-inline-edit" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="line_id" value="'.$h((string)$edit['line_id']).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Calculatieregel direct in tabel gewijzigd">';
- echo '<input type="hidden" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'"></form>';
+ echo '<input type="hidden" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'">';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm"'.(($edit['labor_driver']??'norm')==='norm'?' selected':'').'>Norm</option><option value="hours"'.(($edit['labor_driver']??'')==='hours'?' selected':'').'>Uren</option></select></label>';
+ echo '</form>';
 }
 if($edit===null){
  echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
- echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value=""></form>';
+ echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm">Norm</option><option value="hours">Uren</option></select></label>';
+ echo '</form>';
 }
 if($guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
