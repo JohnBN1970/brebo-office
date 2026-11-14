@@ -1,0 +1,41 @@
+name: Office calculation and material readiness
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-calculation-material-readiness.yml'
+      - 'office-independent/deployment/hostinger/audit-calculation-material-readiness.php'
+permissions:
+  contents: read
+concurrency:
+  group: office-material-readiness-readonly
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-material-import-20261113'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - run: php -l office-independent/deployment/hostinger/audit-calculation-material-readiness.php
+      - name: Configure read-only inspection channel
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_material_audit
+          chmod 600 ~/.ssh/id_material_audit
+      - name: Inspect configured schemas without application or data writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_material_audit -p "$PORT" "$USER@$HOST" 'php /dev/stdin "$HOME/domains/brebobv.nl/office_calc_test/config/config.php"' < office-independent/deployment/hostinger/audit-calculation-material-readiness.php

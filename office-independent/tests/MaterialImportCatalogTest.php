@@ -1,0 +1,42 @@
+<?php
+declare(strict_types=1);
+foreach(['MaterialImportRows','MaterialCatalogStore','MaterialCatalogPublisher','PdoMaterialCatalogStore','OfficeMaterialAccess','MaterialInvoiceSource']as$class)require_once __DIR__.'/../src/Materials/'.$class.'.php';
+require_once __DIR__.'/../src/Finance/OfficeFinanceAccess.php';
+use Brebo\Office\Materials\{MaterialImportRows,MaterialCatalogPublisher,PdoMaterialCatalogStore,MaterialInvoiceSource,OfficeMaterialAccess};
+function catalogueExpect(bool $yes,string $message):void{if(!$yes)throw new RuntimeException($message);}
+function catalogueReject(callable $fn):void{try{$fn();}catch(DomainException|OutOfBoundsException|PDOException){return;}throw new RuntimeException('Expected rejection');}
+$db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+$db->exec('CREATE TABLE brebo_supplier(id INTEGER PRIMARY KEY,name TEXT,active INTEGER);
+ CREATE TABLE brebo_article(id INTEGER PRIMARY KEY AUTOINCREMENT,code TEXT UNIQUE,description TEXT,search_text TEXT,base_unit TEXT,cost_category TEXT,active INTEGER,created INTEGER,changed INTEGER);
+ CREATE TABLE brebo_supplier_article(id INTEGER PRIMARY KEY AUTOINCREMENT,article_id INTEGER,supplier_id INTEGER,supplier_article_no TEXT,order_unit TEXT,use_unit TEXT,conversion_factor TEXT,minimum_order TEXT,active INTEGER,UNIQUE(supplier_id,supplier_article_no));
+ CREATE TABLE brebo_catalog_import(id INTEGER PRIMARY KEY AUTOINCREMENT,supplier_id INTEGER,standard TEXT,source_name TEXT,source_hash TEXT UNIQUE,price_date TEXT,status TEXT,record_count INTEGER,created INTEGER);
+ CREATE TABLE brebo_article_price(id INTEGER PRIMARY KEY AUTOINCREMENT,supplier_article_id INTEGER,catalog_import_id INTEGER,valid_from TEXT,quantity_from TEXT,net_price TEXT,currency TEXT);
+ CREATE TABLE brebo_material_import_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT,catalog_import_id INTEGER UNIQUE,actor_id TEXT,source_sha256 TEXT,source_reference TEXT,source_json TEXT,reviewed_rows_json TEXT,reviewed_at INTEGER);
+ INSERT INTO brebo_supplier VALUES(1,"Leverancier A",1),(2,"Leverancier B",1);
+ CREATE TABLE office_operator_accounts(id TEXT PRIMARY KEY,active INTEGER);
+ CREATE TABLE office_module_permissions(operator_id TEXT,module TEXT,permission TEXT);
+ CREATE TABLE office_projects(id INTEGER PRIMARY KEY,title TEXT);
+ CREATE TABLE office_project_memberships(operator_id TEXT,project_id INTEGER,permission TEXT);
+ INSERT INTO office_operator_accounts VALUES("alice",1),("bob",1),("inactive",0);
+ INSERT INTO office_projects VALUES(1,"Project A"),(2,"Project B");
+ INSERT INTO office_project_memberships VALUES("alice",1,"read"),("bob",2,"read");
+ INSERT INTO office_module_permissions VALUES("alice","materials","read"),("alice","materials","import"),("alice","finance","read"),("bob","finance","read"),("inactive","materials","read"),("inactive","materials","import");
+ CREATE TABLE office_finance_invoices(id INTEGER PRIMARY KEY,supplier_id TEXT,supplier_name TEXT,invoice_number TEXT,invoice_date TEXT,currency TEXT,status TEXT,updated_at TEXT);
+ CREATE TABLE office_finance_invoice_lines(id INTEGER PRIMARY KEY,invoice_id INTEGER,line_number INTEGER,description TEXT,quantity TEXT,unit TEXT,unit_price TEXT,net_amount TEXT,office_project_id INTEGER);
+ INSERT INTO office_finance_invoices VALUES(1,"source-supplier-99","Leverancier A","F-001","2026-11-13","EUR","approved","2026-11-13T10:00:00");
+ INSERT INTO office_finance_invoice_lines VALUES(11,1,1,"Schroeven","100","st","0.50","45.00",1);');
+$access=new OfficeMaterialAccess($db);$access->requireImport('alice');catalogueReject(fn()=>$access->requireImport('bob'));catalogueReject(fn()=>$access->requireImport('inactive'));
+$invoiceSource=new MaterialInvoiceSource($db);$invoice=$invoiceSource->read('alice',1,[11]);catalogueExpect($invoice['rows'][0]['price']==='0.450000','actual net invoice price after discount');catalogueExpect($invoice['rows'][0]['article_code']==='','never guess absent invoice article code');catalogueReject(fn()=>$invoiceSource->read('bob',1));
+$invoiceSource->verify('alice',$invoice['source']);$db->exec('UPDATE office_finance_invoice_lines SET net_amount="46.00" WHERE id=11');catalogueReject(fn()=>$invoiceSource->verify('alice',$invoice['source']));
+$publisher=new MaterialCatalogPublisher(new PdoMaterialCatalogStore($db),new MaterialImportRows(),static fn(string $actor):bool=>$access->allows($actor,'read')&&$access->allows($actor,'import'));
+$row=$invoice['rows'][0];$row['article_code']='000123';$row['approved']=true;
+$source=['sha256'=>str_repeat('a',64),'reference'=>'office:document:123'];
+$first=$publisher->publish('alice',1,$source,[$row],1000);catalogueExpect($first['status']==='completed','publish');catalogueExpect($first['articles_created']===1,'new material');
+$again=$publisher->publish('alice',1,$source,[$row],1001);catalogueExpect($again['status']==='already_imported','safe retry');catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_article_price')->fetchColumn()===1,'no duplicate price');
+$db->exec("INSERT INTO office_module_permissions VALUES('bob','materials','read'),('bob','materials','import')");
+$new=array_replace($row,['price'=>'0.55']);$publisher->publish('bob',1,['sha256'=>str_repeat('b',64),'reference'=>'office:document:124'],[$new],1002);catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_article')->fetchColumn()===1,'existing supplier article reused');catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_article_price')->fetchColumn()===2,'price history retained');
+$other=array_replace($row,['supplier'=>'Leverancier B']);$publisher->publish('alice',2,$source,[$other],1003);catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_article')->fetchColumn()===2,'same code other supplier stays distinct');
+$before=(int)$db->query('SELECT COUNT(*) FROM brebo_catalog_import')->fetchColumn();
+$mismatch=array_replace($row,['unit'=>'doos']);catalogueReject(fn()=>$publisher->publish('alice',1,['sha256'=>str_repeat('c',64),'reference'=>'office:document:125'],[$mismatch],1004));catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_catalog_import')->fetchColumn()===$before,'unit mismatch rolls back');
+$db->exec('DROP TABLE brebo_material_import_reviews');catalogueReject(fn()=>$publisher->publish('alice',1,['sha256'=>str_repeat('d',64),'reference'=>'office:document:126'],[$row],1005));catalogueExpect((int)$db->query('SELECT COUNT(*) FROM brebo_catalog_import')->fetchColumn()===$before,'audit failure rolls back');
+echo "MATERIAL_CATALOG_AND_INVOICE=PASS\n";

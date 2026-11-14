@@ -608,6 +608,11 @@ try {
   $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';
   $search = is_string($_GET['q'] ?? null) ? substr($_GET['q'],0,120) : '';
   $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 1;
+  if($view==='dossier' && getenv('OFFICE_MATERIALS_ENABLED')==='enabled'){
+    require_once dirname(__DIR__).'/src/Materials/OfficeMaterialAccess.php';
+    $materialAccess=new \Brebo\Office\Materials\OfficeMaterialAccess($db);
+    $data['can_import_materials']=$materialAccess->allows($operator->operatorId,'read')&&$materialAccess->allows($operator->operatorId,'import');
+  }
   $html = \Brebo\Office\Finance\OfficeFinanceView::render($data, $view, $queue, $page, $search);
 } catch (\DomainException $e) {
   http_response_code(403);

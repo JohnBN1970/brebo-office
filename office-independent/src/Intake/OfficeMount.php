@@ -53,6 +53,7 @@ final class OfficeMount {
       'documenten' => '/documenten',
       'documenten/nieuw' => '/documenten/nieuw',
       'projecten/detail' => '/projecten/detail',
+      'materialen' => '/materialen',
       'finance' => '/finance',
       'kwaliteit' => '/kwaliteit',
       'risicos' => '/risicos',
