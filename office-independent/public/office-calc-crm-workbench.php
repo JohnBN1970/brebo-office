@@ -202,7 +202,7 @@ header{display:flex;justify-content:space-between;gap:12px;align-items:center}he
 h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62748b;margin:3px 0}
 .metrics{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 8px;padding:5px 10px;background:#f8fafc;border:1px solid #d8e0ea}.metric{display:flex;align-items:center;gap:8px}
 .metric span{color:#64758b}.metric strong{font-size:14px}
-.gridlayout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:8px;align-items:start}
+.gridlayout{display:block}.line-editor{display:none;margin-top:8px}.line-editor:target,.line-editor.is-editing,.line-editor.has-conflict{display:block}.grid-toolbar{padding:7px 9px;background:#f3f6fa;border:1px solid #d6dfea;border-bottom:0}.grid-toolbar a{display:inline-block;background:#304a95;color:#fff;text-decoration:none;padding:7px 11px;border-radius:3px;font-weight:700}
 table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:5px 7px;border:1px solid #e1e5ec;text-align:left}th{font-size:11px;color:#334b66;background:#e8eef6;position:sticky;top:0;z-index:1}
 tbody tr:nth-child(even){background:#f5f9fc}tbody tr:hover{background:#d6f1ec}td:first-child{font-variant-numeric:tabular-nums;color:#62748b;background:#f0f3f8}
 td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:420px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
@@ -220,7 +220,7 @@ echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculat
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
-echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><a href="#calc-line-editor">+ Regel</a></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
@@ -241,9 +241,9 @@ $editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quan
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
 $editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
-if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
+if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Kies + Regel om de eerste post toe te voegen.</td></tr>';
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
-echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
+echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
@@ -261,7 +261,7 @@ echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':
 if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
-if($edit!==null) echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a>';
+echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
