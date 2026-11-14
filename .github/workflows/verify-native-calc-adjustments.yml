@@ -15,6 +15,8 @@ on:
       - '.github/workflows/verify-native-calc-adjustments.yml'
       - '.github/workflows/office-test-calc-schema-migration.yml'
       - '.github/workflows/office-test-calc-activation-preflight.yml'
+      - '.github/workflows/office-test-calc-activation.yml'
+      - 'office-independent/deployment/hostinger/activate-calc-adjustments.php'
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,10 +33,11 @@ jobs:
           extensions: bcmath, mbstring, pdo_sqlite
       - name: Validate deployment workflow syntax
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/deploy-native-calc-adjustment-files.yml .github/workflows/office-test-calc-schema-migration.yml .github/workflows/office-test-calc-activation-preflight.yml
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/deploy-native-calc-adjustment-files.yml .github/workflows/office-test-calc-schema-migration.yml .github/workflows/office-test-calc-activation-preflight.yml .github/workflows/office-test-calc-activation.yml
       - name: Syntax checks
         run: |
           set -euo pipefail
+          php -l office-independent/deployment/hostinger/activate-calc-adjustments.php
           php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
           php -l office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
           php -l office-independent/deployment/hostinger/apply-calc-adjustment-schema.php
