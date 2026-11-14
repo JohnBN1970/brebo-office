@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Read-only post-deployment verification of all three installed PHP files.
+// Read-only post-deployment verification of all four installed PHP files.
 $base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');
 $stage=realpath($argv[1]??'');
 if(!$base||!$stage||!str_starts_with($stage,$base.'/.calc-grid-stage-'))exit(2);
@@ -12,6 +12,7 @@ $paths=[
  'workbench.php'=>'public/office-calc-crm-workbench.php',
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
+ 'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
 ];
 foreach($paths as $name=>$path){
  $src=$stage.'/'.$name;
@@ -26,4 +27,4 @@ foreach($paths as $name=>$path){
  fclose($pipes[0]);stream_get_contents($pipes[1]);stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
  if(proc_close($process)!==0)exit(7);
 }
-echo "CALC_VERIFY=PASS\nCALC_VERIFIED_FILES=3\n";
+echo "CALC_VERIFY=PASS\nCALC_VERIFIED_FILES=4\n";
