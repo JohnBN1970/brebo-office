@@ -508,7 +508,11 @@ $arbeidInzetHtml = '<div id="project-arbeid-inzet"><h2>Arbeid &amp; Inzet</h2>'
   . '<p>Plan medewerkers, controleer OnSite-registraties en keur uren goed vanuit het bestaande Inzet-proces. De Werkbegroting bewaakt de kosten.</p>'
   . '<div class="modules">'
   . '<div class="module"><strong>Personeelsplanning</strong><small>Projectteam, beschikbaarheid en geplande uren.</small><p><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/projectkaart?id=' . (int) $projectId) . '">Projectteam en inzet openen</a></p></div>'
-  . '<div class="module"><strong>Urenregistratie en controle</strong><small>OnSite-aanwezigheid, afwijkingen en goedkeuring via bestaande beveiligde schermen.</small><p><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet') . '">Urencontrole openen</a></p></div>'
+  . '<div class="module"><strong>OnSite · urencontrole</strong><small>Registraties beoordelen en, indien geactiveerd en bevoegd, goedkeuren en boeken.</small><p>'
+  . (\Brebo\Office\Intake\OfficeMount::isTest()
+      ? '<a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/onsite/aanwezigheid?id=' . (int) $projectId) . '">Aanwezigheid controleren</a>'
+      : 'Aanwezigheidscontrole alleen beschikbaar in Office-test.')
+  . '</p></div>'
   . '</div>' . $inzetHtml . '</div>';
 $financialSectionHtml = '<section id="project-financieel" aria-label="Contract en financiële afspraken">'
   . '<h3>Contract en financiële afspraken</h3>'
