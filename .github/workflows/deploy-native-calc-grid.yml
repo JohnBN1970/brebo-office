@@ -52,3 +52,5 @@ jobs:
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$base/workbench.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/deployment/hostinger/install-calc-grid-only.php "$remote:$base/install.php"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$EXPECTED'"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -l '$base/workbench.php'"
+          curl --fail --silent --show-error --max-time 20 --output /dev/null --write-out 'OFFICE_TEST_ANONYMOUS_HTTP=%{http_code}\\n' 'https://brebobv.nl/office-test/calculatie/samenwerken'
