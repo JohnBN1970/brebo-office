@@ -147,12 +147,10 @@ try {
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         // Optional adjustments are calculated only on new lines. Source quantities in Gebouwen are never written.
         $adjustmentReason='';$adjustmentMetadata=null;
+        if($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')!=='enabled'&&(
+            trim((string)($_POST['material_loss_percent']??''))!==''||
+            trim((string)($_POST['extra_labor_hours']??''))!==''))$deny(400,'ADJUSTMENT_SCHEMA_UNVERIFIED');
         if($collaborationEnabled){
-            if(trim((string)($_POST['line_id']??''))!==''&&(
-                trim((string)($_POST['material_loss_percent']??''))!==''||
-                trim((string)($_POST['extra_labor_hours']??''))!==''))$deny(400,'ADJUSTMENT_EDIT_UNSUPPORTED');
-        }
-        if($collaborationEnabled&&trim((string)($_POST['line_id']??''))===''){
             $loss=trim(str_replace(',','.',(string)($_POST['material_loss_percent']??'')));
             $extra=trim(str_replace(',','.',(string)($_POST['extra_labor_hours']??'')));
             if($loss!==''||$extra!==''){
@@ -270,7 +268,7 @@ $guidedKey=is_string($_GET['guided']??null)?(string)$_GET['guided']:'';
 $guidedPreset=$edit===null?($guidedOptions[$guidedKey]??null):null;
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?($guidedPreset===null?'':$h($guidedPreset[1])):$h((string)$edit['description']);
-$editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quantity']));
+$editQuantity=$edit===null?'':$h((string)($edit['net_quantity_decimal']??$edit['quantity_decimal']??$edit['quantity']));
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
 $editUnit=$edit===null?($guidedPreset===null?'st':$h($guidedPreset[3])):$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(string)$edit['cost_type'];
@@ -278,7 +276,7 @@ if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatierege
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
-    echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Wijzigen is tijdelijk geblokkeerd totdat de correctie-editor beschikbaar is.</p>';
+    echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Controleer de nettohoeveelheid en correctie voordat je opslaat.</p>';
 }
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
@@ -296,7 +294,7 @@ echo '</select></label>';
 echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" name="quantity" value="'.$editQuantity.'" required></label>';
 if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
-if($collaborationEnabled&&$edit===null&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')echo '<fieldset><legend>Optionele calculatiecorrectie</legend><p class="muted">Materiaalverlies alleen bij type Materiaal; extra uren alleen bij type Arbeid. De ingevoerde hoeveelheid is de netto-/basishoeveelheid. Correcties worden bij opslaan doorgerekend en in de revisiereden vastgelegd.</p><label>Materiaalverlies (%) <input type="text" inputmode="decimal" name="material_loss_percent" placeholder="bijv. 8"></label> <label>Extra arbeidsuren <input type="text" inputmode="decimal" name="extra_labor_hours" placeholder="bijv. 12"></label></fieldset>';
+if($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')echo '<fieldset><legend>Optionele calculatiecorrectie</legend><p class="muted">Materiaalverlies alleen bij type Materiaal; extra uren alleen bij type Arbeid. De ingevoerde hoeveelheid is de netto-/basishoeveelheid. Correcties worden bij opslaan doorgerekend en in de revisiereden vastgelegd.</p><label>Materiaalverlies (%) <input type="text" inputmode="decimal" name="material_loss_percent" value="'.$h((string)($edit['material_loss_percent']??'')).'" placeholder="bijv. 8"></label> <label>Extra arbeidsuren <input type="text" inputmode="decimal" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'" placeholder="bijv. 12"></label></fieldset>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
 echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
