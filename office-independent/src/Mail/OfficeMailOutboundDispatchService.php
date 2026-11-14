@@ -35,6 +35,11 @@ final class OfficeMailOutboundDispatchService {
     );
     // The outgoing flag is checked again immediately before transport invocation.
     $draft = OfficeMailOutgoingPolicy::validateDraft($recipient, $subject, $body);
+    // Fail before reserving a delivery when the feature has been disabled.
+    // A reserved record must represent a real transport attempt or an uncertain outcome.
+    if (!OfficeMailOutgoingPolicy::enabled()) {
+      throw new RuntimeException('Uitgaande Office e-mail staat uit.');
+    }
     $deliveryId = $this->ledger->reserve($idempotencyKey, $mailboxId, $operatorId, $draft);
     try {
       if (!OfficeMailOutgoingPolicy::enabled()) {
