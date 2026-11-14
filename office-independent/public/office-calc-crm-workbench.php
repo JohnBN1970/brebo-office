@@ -237,7 +237,7 @@ h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62
 .gridlayout{display:block}.line-editor{display:none;margin-top:8px}.line-editor:target,.line-editor.is-editing,.line-editor.has-conflict{display:block}.grid-toolbar{padding:7px 9px;background:#f3f6fa;border:1px solid #d6dfea;border-bottom:0}.guided-questions{display:flex;flex-wrap:wrap;gap:8px}.guided-choice{padding:9px 12px;border:1px solid #bdcbe0;border-radius:4px;text-decoration:none;color:#244c89;background:#f5f8fd}.grid-toolbar a{display:inline-block;background:#304a95;color:#fff;text-decoration:none;padding:7px 11px;border-radius:3px;font-weight:700}
 table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:5px 7px;border:1px solid #e1e5ec;text-align:left}th{font-size:11px;color:#334b66;background:#e8eef6;position:sticky;top:0;z-index:1}
 tbody tr:nth-child(even){background:#f5f9fc}tbody tr:hover{background:#d6f1ec}td:first-child{font-variant-numeric:tabular-nums;color:#62748b;background:#f0f3f8}
-td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:420px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
+td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:120px}.calc-inline-input{box-sizing:border-box;width:100%;min-width:65px;padding:5px;border:1px solid #b8c7d8;border-radius:2px;background:#fff}.calc-inline-description{min-width:190px}.calc-inline-row td{background:#edf5ff!important}.calc-inline-row button{white-space:nowrap}.calc-inline-row .calc-inline-factor{min-width:85px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
 form{background:#f4f6f9;padding:10px;border-radius:3px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
 .calc-fields label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:7px;border:1px solid #b6c3d4;border-radius:3px;background:#fff}
 button{background:#304a95;border:0;border-radius:3px;color:#fff;padding:8px 11px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:20px;text-align:center;color:#718198}
@@ -252,7 +252,7 @@ echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculat
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
-echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><a href="#calc-line-editor">+ Regel</a></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
@@ -263,7 +263,7 @@ foreach($lines as $line) {
     $unitCost=number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.');
     $rowTotal=number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.');
     $costCells=['labor','material','equipment','other','subcontract'];
-    echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td title="Norm niet beschikbaar">—</td><td title="Uren niet beschikbaar">—</td><td title="Tarief niet beschikbaar">—</td>';
+    echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td title="Norm niet beschikbaar">—</td><td title="Uren niet beschikbaar">—</td><td title="Tarief niet beschikbaar">—</td>';
     foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
     echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
@@ -276,9 +276,23 @@ $editQuantity=$edit===null?'':$h((string)($edit['net_quantity_decimal']??$edit['
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
 $editUnit=$edit===null?($guidedPreset===null?'st':$h($guidedPreset[3])):$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(string)$edit['cost_type'];
-if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Kies + Regel om de eerste post toe te voegen.</td></tr>';
+if($lines===[]) echo '<tr><td colspan="18" class="empty">Nog geen calculatieregels. Vul hieronder de eerste regel in.</td></tr>';
+if($edit===null){
+    $inlineForm='calc-inline-new';
+    echo '<tr class="calc-inline-row"><td>+</td><td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" placeholder="Omschrijving" required></td>';
+    echo '<td><select form="'.$inlineForm.'" class="calc-inline-input" name="cost_type" id="calc-inline-type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" type="number" name="quantity" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" value="1" required></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" name="unit" maxlength="32" value="st" required></td>';
+    echo '<td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" placeholder="0" title="Alleen voor materiaal" '.(!($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')?'disabled':'').'></td>';
+    echo '<td>—</td><td>—</td><td>—</td><td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
+}
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
-echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+if($edit===null){
+ echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+ if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
+ echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value=""></form>';
+}
+if($edit!==null||$guidedPreset!==null||$conflict!=='')echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
     echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Controleer de nettohoeveelheid en correctie voordat je opslaat.</p>';
 }
