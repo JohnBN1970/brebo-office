@@ -235,7 +235,7 @@ foreach($lines as $line) {
     foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
     echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
-$guidedOptions=['crane'=>['Kraan nodig?','Kraanhuur','equipment','dag'],'scaffold'=>['Steiger nodig?','Steigerhuur','equipment','week'],'toilet'=>['Bouwtoilet nodig?','Bouwtoilet','other','week'],'labor'=>['Extra arbeidsuren nodig?','Extra montageuren','labor','uur']];
+$guidedOptions=['crane'=>['Kraan nodig?','Kraanhuur','equipment','dag'],'scaffold'=>['Steiger nodig?','Steigerhuur','equipment','week'],'toilet'=>['Bouwtoilet nodig?','Bouwtoilet','other','week'],'labor'=>['Extra arbeidsuren nodig?','Extra montageuren','labor','uur'],'transport'=>['Extra transport nodig?','Extra transportkosten','other','rit'],'waste'=>['Materiaalverlies voorzien?','Extra materiaal wegens snijverlies','material','m2'],'protection'=>['Bescherming werkgebied nodig?','Beschermingsmateriaal werkgebied','material','m2']];
 $guidedKey=is_string($_GET['guided']??null)?(string)$_GET['guided']:'';
 $guidedPreset=$edit===null?($guidedOptions[$guidedKey]??null):null;
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
@@ -270,7 +270,7 @@ foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.numb
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
 echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">Kies een voorziening. Controleer de hoeveelheid en prijs voordat je de voorgestelde regel opslaat.</p><div class="guided-questions">';
 foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
-echo '</div><p class="muted">Geen automatische boeking. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
+echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wordt alleen een aanvullende materiaalpost voorgesteld; een procentuele berekening op de nettohoeveelheid uit Gebouwen is nog niet gekoppeld. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
