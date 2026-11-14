@@ -50,7 +50,11 @@ chmod($temp,fileperms($path)&0777);
 if (file_put_contents($temp,$updated)===false) { unlink($temp); { fwrite(STDERR,"TEMP_WRITE_FAILED\n"); exit(1); } }
 exec('php -l '.escapeshellarg($temp).' 2>&1',$lint,$status);
 if ($status!==0) { unlink($temp); { fwrite(STDERR,"LINT_FAILED_ORIGINAL_PRESERVED\n"); exit(1); } }
+echo "ON_SITE_TEMP_CONFIG_LOAD=START\n";
+if (!chdir(dirname($temp))) { unlink($temp); fwrite(STDERR,"TEMP_CONFIG_CWD_UNAVAILABLE\n"); exit(2); }
 $after=require $temp;
+if ($previousCwd!==false) chdir($previousCwd);
+echo "ON_SITE_TEMP_CONFIG_LOAD=COMPLETE\n";
 if (!is_array($after) || ($after[$key]??null)!=='enabled' || count($after)!==count($before)+1) {
     unlink($temp); { fwrite(STDERR,"VALUE_CHECK_FAILED_ORIGINAL_PRESERVED\n"); exit(1); }
 }
