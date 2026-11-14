@@ -31,7 +31,9 @@ if (array_key_exists($key,$before)) {
     { fwrite(STDERR,"EXISTING_FLAG_REQUIRES_MANUAL_REVIEW\n"); exit(1); }
 }
 if (!is_string($original)) { fwrite(STDERR,"CONFIG_READ_FAILED\n"); exit(1); }
+echo "ON_SITE_TOKENIZE=START\n";
 $tokens=token_get_all($original);
+echo "ON_SITE_TOKENIZE=COMPLETE\n";
 $returns=[]; $offset=0;
 foreach($tokens as $token) {
     $value=is_array($token)?$token[1]:$token;
