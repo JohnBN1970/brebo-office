@@ -503,6 +503,59 @@ $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Uitvoeringsvoortgang, kwaliteit en projectacties. Personeelsplanning en urencontrole staan onder Arbeid &amp; Inzet.</p>'
   . '</div>'
 ;
+// Read-only project-scoped roster. Never fetch shifts from another project or bypass membership checks.
+$projectWeekHtml = '<section class="project-panel"><h3>Weekplanning van dit project</h3>';
+if (!\Brebo\Office\Intake\OfficeMount::isTest()
+    || getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') !== 'enabled'
+    || getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') !== 'enabled') {
+  $projectWeekHtml .= '<p class="project-muted">Weekplanning is niet geactiveerd.</p>';
+} else {
+  try {
+    $localToday = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels'));
+    $isoYear = (int)$localToday->format('o');
+    $isoWeek = (int)$localToday->format('W');
+    $inputYear = filter_var($_GET['year'] ?? null, FILTER_VALIDATE_INT);
+    $inputWeek = filter_var($_GET['week'] ?? null, FILTER_VALIDATE_INT);
+    if (is_int($inputYear) && is_int($inputWeek) && $inputYear >= 2020 && $inputYear <= 2100 && $inputWeek >= 1 && $inputWeek <= 53) {
+      $candidate = $localToday->setISODate($inputYear, $inputWeek, 1);
+      if ((int)$candidate->format('o') === $inputYear && (int)$candidate->format('W') === $inputWeek) {
+        $isoYear = $inputYear;
+        $isoWeek = $inputWeek;
+      }
+    }
+    $monday = $localToday->setISODate($isoYear, $isoWeek, 1);
+    $prev = $monday->modify('-7 days');
+    $next = $monday->modify('+7 days');
+    $weekUrl = $projectUrl . '&tab=arbeid-inzet';
+    $projectWeekHtml .= '<p>Week ' . $isoWeek . ' · ' . $isoYear . '</p><nav aria-label="Projectweek">'
+      . '<a href="' . $escape($weekUrl . '&year=' . $prev->format('o') . '&week=' . $prev->format('W')) . '">Vorige week</a> · '
+      . '<a href="' . $escape($weekUrl) . '">Huidige week</a> · '
+      . '<a href="' . $escape($weekUrl . '&year=' . $next->format('o') . '&week=' . $next->format('W')) . '">Volgende week</a></nav>';
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekShiftReadRepository.php';
+    $weekShifts = (new \Brebo\Office\Inzet\OfficeInzetWeekShiftReadRepository($db))
+      ->listWeek((string)$operator->operatorId, [(int)$projectId], $isoYear, $isoWeek);
+    if ($weekShifts === []) {
+      $projectWeekHtml .= '<p class="project-muted">Geen geplande diensten in deze week.</p>';
+    } else {
+      $projectWeekHtml .= '<div style="overflow-x:auto"><table><thead><tr><th>Medewerker</th><th>Begin</th><th>Einde</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
+      $tz = new \DateTimeZone('Europe/Brussels');
+      foreach ($weekShifts as $shift) {
+        $begin = (new \DateTimeImmutable((string)$shift['starts_at'], new \DateTimeZone('UTC')))->setTimezone($tz);
+        $end = (new \DateTimeImmutable((string)$shift['ends_at'], new \DateTimeZone('UTC')))->setTimezone($tz);
+        $duration = max(0, $end->getTimestamp() - $begin->getTimestamp()) / 3600;
+        $name = trim((string)($shift['person_name'] ?? ''));
+        $projectWeekHtml .= '<tr><td>' . $escape($name !== '' ? $name : 'Niet toegewezen') . '</td><td>'
+          . $escape($begin->format('d-m H:i')) . '</td><td>' . $escape($end->format('d-m H:i'))
+          . '</td><td>' . number_format($duration, 2, ',', '.') . '</td><td>'
+          . $escape((string)$shift['status']) . '</td></tr>';
+      }
+      $projectWeekHtml .= '</tbody></table></div>';
+    }
+  } catch (\Throwable $weekError) {
+    $projectWeekHtml .= '<p class="project-muted">Weekplanning tijdelijk niet beschikbaar.</p>';
+  }
+}
+$projectWeekHtml .= '</section>';
 // One project-level entry point; existing Inzet and OnSite services remain the source of truth.
 $arbeidInzetHtml = '<div id="project-arbeid-inzet"><h2>Arbeid &amp; Inzet</h2>'
   . '<p>Plan medewerkers, controleer OnSite-registraties en keur uren goed vanuit het bestaande Inzet-proces. De Werkbegroting bewaakt de kosten.</p>'
@@ -513,7 +566,7 @@ $arbeidInzetHtml = '<div id="project-arbeid-inzet"><h2>Arbeid &amp; Inzet</h2>'
       ? '<a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/onsite/aanwezigheid?id=' . (int) $projectId) . '">Aanwezigheid controleren</a>'
       : 'Aanwezigheidscontrole alleen beschikbaar in Office-test.')
   . '</p></div>'
-  . '</div>' . $inzetHtml . '</div>';
+  . '</div>' . $projectWeekHtml . $inzetHtml . '</div>';
 $financialSectionHtml = '<section id="project-financieel" aria-label="Contract en financiële afspraken">'
   . '<h3>Contract en financiële afspraken</h3>'
   . '<p>Contract, termijnen, meer- en minderwerk en projectfacturen.</p>';
