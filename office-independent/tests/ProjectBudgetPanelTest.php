@@ -49,4 +49,17 @@ try {
     ]);
     throw new RuntimeException('Mismatched locked budget total incorrectly accepted.');
 } catch (InvalidArgumentException $expected) {}
+$aggregateHtml = ProjectBudgetPanel::render([
+    'project_id'=>42,
+    'kpis'=>['baseline_cents'=>120000,'awarded_cents'=>45000,
+        'actual_cents'=>25000,'forecast_cents'=>null],
+    'source_status'=>['baseline'=>'locked'],
+    'cost_lines'=>[['code'=>'L1','cost_type'=>'labor','activity_ref'=>'A',
+        'baseline_cents'=>120000]],
+]);
+if (!str_contains($aggregateHtml,'€ 450,00')
+    || !str_contains($aggregateHtml,'€ 250,00')
+    || !str_contains($aggregateHtml,'<th scope="row">Totaal</th>')) {
+    throw new RuntimeException('Verified aggregate costs missing from budget total row.');
+}
 echo "PROJECT_BUDGET_PANEL_TEST=PASS\\n";
