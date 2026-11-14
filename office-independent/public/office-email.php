@@ -64,36 +64,6 @@ try {
     }
     exit;
   }
-  // Read-only Sent view; outbound delivery remains disabled until end-to-end acceptance.
-  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['folder'] ?? '') === 'sent') {
-    require_once dirname(__DIR__) . '/src/Mail/OfficeMailOutboundDeliveryRepository.php';
-    require_once dirname(__DIR__) . '/src/Mail/OfficeMailSentRepository.php';
-    $ledger = new \Brebo\Office\Mail\OfficeMailOutboundDeliveryRepository($db);
-    if (!$ledger->schemaReady()) {
-      http_response_code(503);
-      exit('Verzonden is nog niet beschikbaar.');
-    }
-    $operatorId = (string)$operator->operatorId;
-    $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1,'max_range'=>100000]]);
-    $page = is_int($page) ? $page : 1;
-    $rows = (new \Brebo\Office\Mail\OfficeMailSentRepository($db))->accepted($operatorId, 50, ($page-1)*50);
-    header('Content-Type: text/html; charset=UTF-8');
-    $esc = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
-    echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verzonden - BREBO Office</title>';
-    echo '<style>body{font:15px system-ui,sans-serif;margin:0;background:#f5f7fa;color:#17324d}header{background:#fff;border-bottom:1px solid #dce3eb;padding:18px 28px;font-weight:700}.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;max-width:1400px;margin:24px auto;padding:0 20px}nav,main{background:#fff;border:1px solid #dce3eb;border-radius:9px;padding:20px}nav{align-self:start;display:flex;flex-direction:column;gap:8px}nav a{padding:10px;border-radius:6px;text-decoration:none;color:#17324d}nav a[aria-current]{background:#e8f1f9;font-weight:700}table{border-collapse:collapse;width:100%}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce3eb;overflow-wrap:anywhere}a{color:#175a91}small{color:#586c80}@media(max-width:700px){.layout{grid-template-columns:1fr}}</style></head><body><header>BREBO Office · E-mail</header><div class="layout"><nav aria-label="Postvakken"><strong>Mappen</strong><a href="/office-test/email?folder=inbox">Postvak IN</a><a href="/office-test/email?folder=unread">Ongelezen</a><a href="/office-test/email?folder=drafts">Concepten</a><a href="/office-test/email?folder=sent" aria-current="page">Verzonden</a><a href="/office-test/email?folder=archive">Archief</a><a href="/office-test/email?folder=spam">Ongewenst</a><a href="/office-test/email?folder=trash">Prullenbak</a></nav><main>';
-    echo '<p><a href="/office-test/email">Terug naar e-mail</a></p><h1>Verzonden</h1>';
-    echo '<p><small>Postfix geaccepteerd; aflevering bij de ontvanger is niet bevestigd.</small></p>';
-    echo '<table><thead><tr><th>Datum</th><th>Van</th><th>Aan</th><th>Onderwerp</th></tr></thead><tbody>';
-    foreach ($rows as $row) {
-      echo '<tr><td>'.$esc($row['updated_at']).'</td><td>'.$esc($row['sender_address']).'</td><td>'.$esc($row['recipient']).'</td><td>'.$esc($row['subject']).'</td></tr>';
-    }
-    if ($rows === []) echo '<tr><td colspan="4">Geen verzonden berichten gevonden.</td></tr>';
-    echo '</tbody></table>';
-    if ($page > 1) echo '<a href="/office-test/email?folder=sent&amp;page='.($page-1).'">Vorige</a> ';
-    if (count($rows) === 50) echo '<a href="/office-test/email?folder=sent&amp;page='.($page+1).'">Volgende</a>';
-    echo '</main></div></body></html>';
-    exit;
-  }
   $mailboxes = [];
   $messages = [];
   $proposals = [];
@@ -112,7 +82,7 @@ try {
   $attachmentDuplicateCounts = [];
   $savedDrafts = [];
   $mailStatesEnabled = getenv('OFFICE_MAIL_STATES_SCHEMA_VERIFIED') === 'enabled';
-  $mailFolder = in_array(($_GET['folder'] ?? 'inbox'), ['inbox','unread','archive','trash','spam','drafts'], true) ? $_GET['folder'] : 'inbox';
+  $mailFolder = in_array(($_GET['folder'] ?? 'inbox'), ['inbox','unread','archive','trash','spam','drafts','sent'], true) ? $_GET['folder'] : 'inbox';
   $mailStates = [];
   $folderDrafts = [];
   $mailView = (($_GET['view'] ?? '') === 'board') ? 'board' : 'inbox';
@@ -465,7 +435,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"><?= htmlspecialchars((string)$mailbox['label'], ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <a href="/office-test/email">Postvak IN</a> <a href="/office-test/email?view=board">Werkverdeling</a>
-<a href="/office-test/email?folder=sent">Verzonden</a> <span class="muted">Persoonlijke push: nog niet aangesloten</span>
+<span class="muted">Persoonlijke push: nog niet aangesloten</span>
 </div>
 <?php if ($mailSchemaReady): ?>
 <section id="mailbord"><h2><?= $mailView === "board" ? "Werkverdeling per module" : "Postvak IN" ?></h2><p class="muted">Persoonlijke berichten blijven privé. Office-labels zijn werkverdeling, geen afzonderlijke mailboxen.</p>
@@ -614,7 +584,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <?php if ($mailView === 'inbox'): ?>
 <?php
 $folderCounts=$allFolderCounts;
-$folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten','archive'=>'Archief','spam'=>'Ongewenst','trash'=>'Prullenbak'];
+$folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten','sent'=>'Verzonden','archive'=>'Archief','spam'=>'Ongewenst','trash'=>'Prullenbak'];
 ?>
 <div class="mail-folder-layout">
 <nav class="mail-folder-nav" aria-label="Postvakken">
@@ -628,9 +598,31 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <a href="/office-test/email?folder=<?= $mailFolder ?>&amp;mailbox=<?= (int)$mailbox['id'] ?>"<?= $selectedMailbox === (int)$mailbox['id'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars((string)$mailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></a>
 <?php endforeach; ?>
 <hr>
-<a href="/office-test/email?folder=sent">Verzonden</a><small class="muted">Mappen zijn persoonlijke Office-weergaven.</small>
+<small class="muted">Mappen zijn persoonlijke Office-weergaven.</small>
 </nav>
 <div class="mail-inbox-panel">
+<?php if ($mailFolder === 'sent'): ?>
+<?php
+  require_once dirname(__DIR__) . '/src/Mail/OfficeMailOutboundDeliveryRepository.php';
+  require_once dirname(__DIR__) . '/src/Mail/OfficeMailSentRepository.php';
+  $sentLedger = new \Brebo\Office\Mail\OfficeMailOutboundDeliveryRepository($db);
+  $sentRows = $sentLedger->schemaReady()
+    ? (new \Brebo\Office\Mail\OfficeMailSentRepository($db))->accepted($operatorId, 50, max(0, $mailPage - 1) * 50)
+    : [];
+?>
+<div class="mail-inbox-heading"><div><strong>Verzonden</strong><small>Door transport geaccepteerde berichten; aflevering niet bevestigd</small></div></div>
+<?php if (!$sentLedger->schemaReady()): ?><p class="mail-feature-note">Verzendregistratie is nog niet beschikbaar.</p><?php endif; ?>
+<div class="mail-inbox-list" aria-label="Verzonden berichten">
+<?php foreach ($sentRows as $sent): ?>
+<div class="mail-inbox-item"><strong><?= htmlspecialchars((string)$sent['subject'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></strong><span><?= htmlspecialchars((string)$sent['recipient'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></span><small><?= htmlspecialchars((string)$sent['updated_at'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></small></div>
+<?php endforeach; ?>
+<?php if ($sentRows === []): ?><p class="mail-feature-note">Geen verzonden berichten gevonden.</p><?php endif; ?>
+</div>
+<nav class="mail-pagination" aria-label="Bladeren door verzonden berichten">
+<?php if ($mailPage > 1): ?><a href="/office-test/email?folder=sent&amp;page=<?= $mailPage - 1 ?>">Vorige</a><?php endif; ?>
+<?php if (count($sentRows) === 50): ?><a href="/office-test/email?folder=sent&amp;page=<?= $mailPage + 1 ?>">Volgende</a><?php endif; ?>
+</nav>
+<?php else: ?>
 <?php if (!$mailStatesEnabled): ?><p class="mail-feature-note">Mapacties en gelezenstatus zijn nog niet geactiveerd. De berichten blijven beschikbaar in Postvak IN.</p><?php endif; ?>
 <div class="mail-inbox-heading"><div><strong><?= htmlspecialchars($folderLabels[$mailFolder],ENT_QUOTES,'UTF-8') ?></strong><small><?= $selectedMailbox === null ? 'Alle toegankelijke accounts' : 'Geselecteerd account' ?></small></div><div class="mail-inbox-filters"><label for="mail-list-filter">Filter</label><select id="mail-list-filter"><option value="all">Alle berichten</option><option value="unread">Ongelezen</option><option value="read">Gelezen</option></select><label for="mail-list-sort">Sorteren</label><select id="mail-list-sort"><option value="newest">Nieuwste eerst</option><option value="oldest">Oudste eerst</option><option value="sender">Afzender A-Z</option><option value="subject">Onderwerp A-Z</option></select></div></div>
 <?php if ($mailFolder !== 'drafts'): ?>
@@ -661,6 +653,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <?php endif; ?>
 <p class="mail-inbox-empty" hidden>Geen berichten voor dit filter.</p>
 </div>
+<?php endif; ?>
 </div>
 </div>
 <?php else: ?>
