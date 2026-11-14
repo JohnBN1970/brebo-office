@@ -1,0 +1,290 @@
+name: CRM completion acceptance
+on:
+  push:
+    branches: ['integration/crm-completion-20261108', 'integration/crm-completion-develop-ready-20261110']
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/public/office-crm-opportunit*.php'
+      - 'office-independent/public/office-crm-calculation-context.php'
+      - 'office-independent/tests/OfficeCrmCompletion*'
+      - 'office-independent/tests/OfficeCrmWorkspaceMountTest.php'
+      - 'office-independent/deployment/hostinger/OfficeCrmWorkspaceMount.php'
+      - 'office-independent/deployment/hostinger/install-office-crm-workspace-test.php'
+      - '.github/workflows/office-crm-completion-acceptance.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/public/office-crm-opportunit*.php'
+      - 'office-independent/public/office-crm-calculation-context.php'
+      - 'office-independent/tests/OfficeCrm*'
+      - '.github/workflows/office-crm-completion-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-only
+          MYSQL_DATABASE: crm_completion_ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pfixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, mbstring
+          coverage: none
+      - name: Lint CRM and enforce native context
+        shell: bash
+        run: |
+          set -euo pipefail
+          find office-independent/src/Crm -name '*.php' -print0 | xargs -0 -n1 php -l
+          for file in office-independent/public/office-crm-opportunit*.php office-independent/public/office-crm-calculation-context.php; do php -l "$file"; done
+          if grep -En 'Drupal\\|node_field_data|project_nid' office-independent/src/Crm/OfficeCrmOpportunity*.php office-independent/src/Crm/OfficeCrmCalculationContext.php; then exit 1; fi
+      - name: SQLite full commercial chain
+        run: php office-independent/tests/OfficeCrmCompletionIntegrationTest.php
+      - name: Authenticated HTTP chain
+        run: python3 office-independent/tests/OfficeCrmCompletionHttpTest.py
+      - name: MySQL full commercial chain
+        env:
+          CRM_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=crm_completion_ci;charset=utf8mb4'
+          CRM_TEST_USER: root
+          CRM_TEST_PASSWORD: fixture-only
+        run: php office-independent/tests/OfficeCrmCompletionIntegrationTest.php
+      - name: Existing CRM contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in office-independent/tests/OfficeCrm*Test.php; do
+            case "$test" in *CompletionIntegrationTest.php) continue;; esac
+            php "$test"
+          done
+          php office-independent/tests/OfficeNavigationV2Test.php
+      - name: Verify narrow shared-file mount
+        run: |
+          php -l office-independent/deployment/hostinger/install-office-crm-workspace-test.php
+          php office-independent/tests/OfficeCrmWorkspaceMountTest.php
+  install-test:
+    name: Install validated CRM on isolated Office-test
+    needs: native
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/integration/crm-completion-20261108' || github.ref == 'refs/heads/integration/crm-completion-develop-ready-20261110')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: office-test-native-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Build code package and compare baselines
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess,tarfile,tempfile
+          from pathlib import Path
+          files=[
+              'src/Crm/OfficeCrmFunnel.php','src/Crm/OfficeCrmFunnelViews.php',
+              'src/Crm/OfficeCrmOpportunityPolicy.php','src/Crm/OfficeCrmOpportunityRepository.php',
+              'src/Crm/OfficeCrmOpportunitySchema.php','src/Crm/OfficeCrmCalculationContext.php',
+              'public/office-crm-opportunities.php','public/office-crm-opportunity-bootstrap.php',
+              'public/office-crm-opportunity-create.php','public/office-crm-opportunity-detail.php',
+              'public/office-crm-opportunity-transition.php','public/office-crm-calculation-context.php',
+          ]
+          meta={}
+          for f in files:
+              p='office-independent/'+f
+              prior=subprocess.run(['git','show','53f19b52e5e29078adce798b23cb9ac29e84e218:'+p],capture_output=True)
+              meta[f]={'sha256':hashlib.sha256(Path(p).read_bytes()).hexdigest(),'prior_sha256':hashlib.sha256(prior.stdout).hexdigest() if prior.returncode==0 else None}
+          with tempfile.TemporaryDirectory() as tmp:
+              manifest=Path(tmp)/'manifest.json'
+              manifest.write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'files':meta}))
+              with tarfile.open('/tmp/crm-workspace.tgz','w:gz') as tar:
+                  tar.add(manifest,arcname='manifest.json')
+                  for p in [*( 'office-independent/'+f for f in files),
+                      'office-independent/deployment/hostinger/OfficeCrmWorkspaceMount.php',
+                      'office-independent/deployment/hostinger/install-office-crm-workspace-test.php',
+                      'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php',
+                      'office-independent/deployment/hostinger/backup-office-governance-test.php']:
+                      tar.add(p,arcname=p)
+          PY
+      - name: Back up and install only native CRM in isolated test
+        env:
+          CRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          CRM_DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          CRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          CRM_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for key in CRM_DEPLOY_HOST CRM_DEPLOY_PORT CRM_DEPLOY_USER CRM_DEPLOY_KEY; do test -n "${!key}"; done
+          [[ "$CRM_DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_SHA" =~ ^[a-f0-9]{40}$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CRM_DEPLOY_KEY" > ~/.ssh/crm_install
+          chmod 600 ~/.ssh/crm_install
+          trap 'rm -f ~/.ssh/crm_install /tmp/crm-workspace.tgz' EXIT
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" 'install -d -m 700 "$HOME/domains/brebobv.nl/office_calc_test/.crm-completion-stage"'
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -P "$CRM_DEPLOY_PORT" /tmp/crm-workspace.tgz "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST:/home/u213420663/domains/brebobv.nl/office_calc_test/.crm-completion-stage/$GITHUB_SHA.tgz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_install -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "CRM_INSTALL_SHA=$GITHUB_SHA bash -se" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$base/.crm-completion-stage/$CRM_INSTALL_SHA"
+          test ! -e "$stage"
+          install -d -m 700 "$stage"
+          tar -xzf "$base/.crm-completion-stage/$CRM_INSTALL_SHA.tgz" -C "$stage"
+          rm "$base/.crm-completion-stage/$CRM_INSTALL_SHA.tgz"
+          phpbin=/opt/alt/php83/usr/bin/php
+          test -x "$phpbin"
+          export OFFICE_BASE_PATH=/office-test
+          export OFFICE_GOVERNANCE_BACKUP=explicit
+          backup_output="$($phpbin "$stage/office-independent/deployment/hostinger/backup-office-governance-test.php")"
+          printf '%s\n' "$backup_output"
+          printf '%s\n' "$backup_output" | grep -Fxq OFFICE_GOVERNANCE_BACKUP_COMPLETE
+          export CRM_BACKUP_SHA="$(printf '%s\n' "$backup_output" | sed -n 's/^BACKUP_SHA256=//p')"
+          export OFFICE_CRM_COMPLETION_DEPLOY=explicit-test-only
+          "$phpbin" "$stage/office-independent/deployment/hostinger/install-office-crm-workspace-test.php" "$stage"
+          REMOTE
+      - name: Verify published test routes reach Office login
+        run: |
+          set -euo pipefail
+          for route in crm/verkoopkansen crm/verkoopkansen/nieuw crm/verkoopkansen/detail marketing/leads marketing/leads/nieuw; do
+            headers=$(mktemp)
+            code=$(curl --silent --show-error --max-time 20 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' --max-redirs 0 "https://brebobv.nl/office-test/$route")
+            test "$code" = 302
+            grep -Eiq '^location: (/office-test/inloggen|https://brebobv.nl/office-test/inloggen)' "$headers"
+            rm "$headers"
+            echo "CRM_TEST_ROUTE_VERIFIED=$route"
+          done
+
+  diagnose-active-source:
+    name: Read-only Office-test CRM source comparison
+    needs: native
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration/crm-completion-develop-ready-20261110'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compare active CRM source hashes without writing to host
+        env:
+          CRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          CRM_DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          CRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          CRM_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CRM_DEPLOY_HOST CRM_DEPLOY_PORT CRM_DEPLOY_USER CRM_DEPLOY_KEY; do test -n "${!key}"; done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CRM_DEPLOY_KEY" > ~/.ssh/crm_readonly
+          chmod 600 ~/.ssh/crm_readonly
+          trap 'rm -f ~/.ssh/crm_readonly' EXIT
+          python3 - <<'PY' > /tmp/crm-source-hashes.txt
+          import hashlib,subprocess
+          from pathlib import Path
+          paths=[
+              'src/Crm/OfficeCrmFunnel.php','src/Crm/OfficeCrmFunnelViews.php',
+              'src/Crm/OfficeCrmOpportunityPolicy.php','src/Crm/OfficeCrmOpportunityRepository.php',
+              'src/Crm/OfficeCrmOpportunitySchema.php','src/Crm/OfficeCrmCalculationContext.php',
+              'public/office-crm-opportunities.php','public/office-crm-opportunity-bootstrap.php',
+              'public/office-crm-opportunity-create.php','public/office-crm-opportunity-detail.php',
+              'public/office-crm-opportunity-transition.php','public/office-crm-calculation-context.php',
+          ]
+          for relative in paths:
+              source='office-independent/'+relative
+              current=hashlib.sha256(Path(source).read_bytes()).hexdigest()
+              previous=subprocess.run(['git','show','10c42f85954932f3993e8b3eb973f48e9e5f7406:'+source],capture_output=True)
+              old=hashlib.sha256(previous.stdout).hexdigest() if previous.returncode==0 else '-'
+              print(relative,current,old)
+          PY
+          remote_script=$(cat <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          active=$(/opt/alt/php83/usr/bin/php -r '$c=require $argv[1]; $p=realpath($c["OFFICE_PRIVATE_ROOT"]??""); if(!$p || !str_starts_with($p,$argv[2]."/release-") || !str_ends_with($p,"/private"))exit(2); echo $p;' "$config" "$base")
+          while read -r path expected previous; do
+            case "$path" in src/Crm/OfficeCrm*.php|public/office-crm-*.php) ;; *) exit 3;; esac
+            target="$active/$path"
+            if [ ! -f "$target" ] || [ -L "$target" ]; then echo "SOURCE_STATUS=$path MISSING_OR_SYMLINK"; continue; fi
+            actual=$(sha256sum "$target" | cut -d' ' -f1)
+            if [ "$actual" = "$expected" ]; then state=CURRENT
+            elif [ "$actual" = "$previous" ]; then state=BASELINE
+            else state=UNKNOWN; fi
+            echo "SOURCE_STATUS=$path $state SHA256=$actual"
+          done
+          REMOTE
+          )
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "bash -c $(printf '%q' "$remote_script")" < /tmp/crm-source-hashes.txt | tee /tmp/crm-source-status.txt
+          python3 - <<'PY'
+          import hashlib,subprocess
+          from pathlib import Path
+          for line in Path('/tmp/crm-source-status.txt').read_text().splitlines():
+              if ' UNKNOWN SHA256=' not in line or not line.startswith('SOURCE_STATUS='): continue
+              path=line.split()[0].split('=',1)[1]
+              actual=line.split('SHA256=',1)[1].strip()
+              source='office-independent/'+path
+              history=subprocess.check_output(['git','log','--all','--format=%H','--',source],text=True).splitlines()
+              matched=[]
+              for commit in history:
+                  candidate=subprocess.run(['git','show',commit+':'+source],capture_output=True)
+                  if candidate.returncode==0 and hashlib.sha256(candidate.stdout).hexdigest()==actual:
+                      matched.append(commit[:12])
+              print('HISTORY_MATCH='+path+' '+(','.join(matched[:8]) if matched else 'NONE'))
+          PY
+          rm -f /tmp/crm-source-hashes.txt /tmp/crm-source-status.txt
+          # Read-only: inspect only the single non-historical file before considering any allowlist update.
+          remote_views_script=$(cat <<'REMOTE_VIEWS'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config"
+          active=$(/opt/alt/php83/usr/bin/php -r '$c=require $argv[1]; $p=realpath($c["OFFICE_PRIVATE_ROOT"]??""); if(!$p || !str_starts_with($p,$argv[2]."/release-") || !str_ends_with($p,"/private"))exit(2); echo $p;' "$config" "$base")
+          target="$active/src/Crm/OfficeCrmFunnelViews.php"
+          test -f "$target" && test ! -L "$target"
+          cat "$target"
+          REMOTE_VIEWS
+          )
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_readonly -p "$CRM_DEPLOY_PORT" "$CRM_DEPLOY_USER@$CRM_DEPLOY_HOST" "bash -c $(printf '%q' "$remote_views_script")" > /tmp/crm-active-funnelviews.php
+          python3 - <<'PY'
+          from pathlib import Path
+          import difflib,hashlib,re,subprocess
+          active=Path('/tmp/crm-active-funnelviews.php').read_bytes()
+          candidate=Path('office-independent/src/Crm/OfficeCrmFunnelViews.php').read_bytes()
+          print('VIEWS_ACTIVE_SHA256='+hashlib.sha256(active).hexdigest())
+          print('VIEWS_CANDIDATE_SHA256='+hashlib.sha256(candidate).hexdigest())
+          if not active.startswith(b'<?php') or len(active)>100000:
+              raise RuntimeError('unexpected active source format')
+          lhs=active.decode('utf-8').splitlines()
+          rhs=candidate.decode('utf-8').splitlines()
+          matcher=difflib.SequenceMatcher(None,lhs,rhs,autojunk=False)
+          opcodes=[(tag,i1+1,i2,j1+1,j2) for tag,i1,i2,j1,j2 in matcher.get_opcodes() if tag!='equal']
+          print('VIEWS_CHANGE_BLOCKS='+str(len(opcodes)))
+          for tag,i1,i2,j1,j2 in opcodes[:45]:
+              print('VIEWS_CHANGE_BLOCK=%s active=%s-%s candidate=%s-%s'%(tag,i1,i2,j1,j2))
+          forbidden=re.compile(r'(password|private.key|secret|authorization|api.?token|dsn|credential|BEGIN [A-Z ]+ KEY)',re.I)
+          shown=0
+          for line in difflib.unified_diff(lhs,rhs,fromfile='active-views',tofile='candidate-views',n=2,lineterm=''):
+              if shown>=180:
+                  print('VIEWS_DIFF_TRUNCATED_AFTER=180')
+                  break
+              if line.startswith(('---','+++')): continue
+              if forbidden.search(line):
+                  print('VIEWS_DIFF_REDACTED')
+              else:
+                  print('VIEWS_DIFF '+line[:300])
+              shown+=1
+          PY
+          rm -f /tmp/crm-active-funnelviews.php

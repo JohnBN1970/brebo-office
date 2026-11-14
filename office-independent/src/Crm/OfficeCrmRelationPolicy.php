@@ -10,7 +10,7 @@ final class OfficeCrmRelationPolicy {
 
     public static function validate(string $kind, string $name, array $roles): array {
         $name = trim($name);
-        if (!in_array($kind, self::KINDS, true) || $name === '' || strlen($name) > 255) {
+        if (!in_array($kind, self::KINDS, true) || $name === '' || !mb_check_encoding($name, 'UTF-8') || mb_strlen($name, 'UTF-8') > 255) {
             throw new InvalidArgumentException('Invalid CRM relation');
         }
         if (!$roles || count($roles) !== count(array_unique($roles))) {

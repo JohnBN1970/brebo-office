@@ -20,11 +20,11 @@ final class OfficeCrmFunnel {
     public const NEXT = [
         'lead' => ['prospect', 'lost'],
         'prospect' => ['opportunity', 'lost'],
-        'opportunity' => ['proposal', 'lost'],
+        'opportunity' => ['proposal', 'won', 'lost'],
         'proposal' => ['negotiation', 'won', 'lost'],
         'negotiation' => ['proposal', 'won', 'lost'],
         'won' => [],
-        'lost' => ['prospect'],
+        'lost' => ['prospect', 'lead'],
     ];
     public static function canTransition(string $from, string $to): bool {
         return in_array($to, self::NEXT[$from] ?? [], true);
