@@ -20,6 +20,8 @@ on:
       - 'office-independent/tests/test_project_kickstart_v3_integration.php'
       - 'office-independent/tests/test_project_kickstart_form_view.php'
       - 'office-independent/tests/test_project_kickstart_readmodel.php'
+      - 'office-independent/deployment/hostinger/mount-project-detail-v3.py'
+      - 'office-independent/tests/test_project_kickstart_mount.py'
       - '.github/workflows/office-project-kickstart-contract.yml'
   push:
     branches: [develop]
@@ -64,3 +66,4 @@ jobs:
           php -l office-independent/tests/test_project_kickstart_readmodel.php
           php office-independent/tests/test_project_kickstart_readmodel.php
           php office-independent/tests/test_project_kickstart_policy.php
+          python3 office-independent/tests/test_project_kickstart_mount.py
