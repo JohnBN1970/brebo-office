@@ -33,6 +33,18 @@ jobs:
         run: |
           php -l office-independent/deployment/hostinger/inspect-calc-labor-schema.php
           php -l office-independent/deployment/hostinger/apply-calc-labor-schema.php
+      - name: Diagnose active Office-test labor wiring (read-only)
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_labor_diag
+          chmod 600 ~/.ssh/id_calc_labor_diag
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_labor_diag -p "$PORT" "$USER@$HOST" 'php -r '\''$base=getenv("HOME")."/domains/brebobv.nl/office_calc_test";$cfg=require $base."/config/config.php";$root=realpath($cfg["OFFICE_PRIVATE_ROOT"]??"");$page=$root."/public/office-calc-crm-workbench.php";$repo=$root."/src/Calculation/OfficeCalcCrmDraftLineRepository.php";echo "LABOR_FLAG=".(($cfg["OFFICE_CALC_LABOR_SCHEMA_VERIFIED"]??"") === "enabled"?"ENABLED":"DISABLED")."\\n";echo "PAGE_PRESENT=".(is_file($page)?"YES":"NO")."\\n";echo "PAGE_HAS_LABOR_FIELDS=".(is_file($page)&&str_contains(file_get_contents($page),"name=\\\"labor_norm\\\"")?"YES":"NO")."\\n";echo "REPOSITORY_HAS_LABOR=".(is_file($repo)&&str_contains(file_get_contents($repo),"calc_labor_norm")?"YES":"NO")."\\n";'\'''
       - name: Inspect Office-test schema and optionally migrate
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
