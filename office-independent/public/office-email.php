@@ -438,7 +438,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <span class="muted">Persoonlijke push: nog niet aangesloten</span>
 </div>
 <?php if ($mailSchemaReady): ?>
-<section id="mailbord"><h2><?= $mailView === "board" ? "Werkverdeling per module" : "Postvak IN" ?></h2><p class="muted">Persoonlijke berichten blijven privé. Office-labels zijn werkverdeling, geen afzonderlijke mailboxen.</p>
+<section id="mailbord"><h2><?= $mailView === "board" ? "Werkverdeling per module" : ($mailFolder === "sent" ? "Verzonden" : "Postvak IN") ?></h2><p class="muted">Persoonlijke berichten blijven privé. Office-labels zijn werkverdeling, geen afzonderlijke mailboxen.</p>
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
 <?php else: ?>
 <div class="mail-workspace<?= $openedMessage !== null ? ' is-open' : '' ?><?= $mailView === 'inbox' ? ' is-inbox' : '' ?>">
@@ -590,7 +590,7 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <nav class="mail-folder-nav" aria-label="Postvakken">
 <strong>Mappen</strong>
 <?php foreach ($folderLabels as $folderKey=>$folderLabel): ?>
-<a href="/office-test/email?folder=<?= $folderKey ?><?= $selectedMailbox !== null ? '&amp;mailbox='.(int)$selectedMailbox : '' ?>"<?= $mailFolder === $folderKey ? ' aria-current="page"' : '' ?>><span><?= $folderLabel ?></span><?php if ($folderKey !== 'drafts' && ($mailStatesEnabled || $folderKey === 'inbox')): ?><small><?= (int)($folderCounts[$folderKey] ?? 0) ?></small><?php endif; ?></a>
+<a href="/office-test/email?folder=<?= $folderKey ?><?= $selectedMailbox !== null ? '&amp;mailbox='.(int)$selectedMailbox : '' ?>"<?= $mailFolder === $folderKey ? ' aria-current="page"' : '' ?>><span><?= $folderLabel ?></span><?php if ($folderKey !== 'drafts' && $folderKey !== 'sent' && ($mailStatesEnabled || $folderKey === 'inbox')): ?><small><?= (int)($folderCounts[$folderKey] ?? 0) ?></small><?php endif; ?></a>
 <?php endforeach; ?>
 <hr><strong>Accounts</strong>
 <a href="/office-test/email?folder=<?= $mailFolder ?>"<?= $selectedMailbox === null ? ' aria-current="page"' : '' ?>>Alle toegankelijke accounts</a>
