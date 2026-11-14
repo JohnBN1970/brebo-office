@@ -45,7 +45,7 @@ jobs:
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
           ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-activation-stage"'
-          scp $opts -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-activate-guarded.php "$USER@$HOST:office_calc_test/.onsite-activation-stage/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "$HOME/.ssh/id_onsite_acceptance" -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-activate-guarded.php "$USER@$HOST:office_calc_test/.onsite-activation-stage/"
           ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
@@ -63,7 +63,7 @@ jobs:
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
           ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-acceptance-stage"'
-          scp $opts -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$USER@$HOST:office_calc_test/.onsite-acceptance-stage/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "$HOME/.ssh/id_onsite_acceptance" -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$USER@$HOST:office_calc_test/.onsite-acceptance-stage/"
           ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"
