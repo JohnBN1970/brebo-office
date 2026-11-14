@@ -18,7 +18,7 @@ final class OfficeProjectKickstartReadModel
         if ($projectId < 1 || $scopeId < 0 || !in_array($scopeType, ['project','building','zone','phase'], true)) {
             throw new DomainException('Invalid project scope');
         }
-        $q = $this->db->prepare('SELECT id, project_id, scope_type, scope_id, revision, status, items_json, critical_open_points, created_at, updated_at FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? LIMIT 1');
+        $q = $this->db->prepare('SELECT id, project_id, scope_type, scope_id, revision, project_leader_user_id, status, items_json, critical_open_points, created_at, updated_at FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? LIMIT 1');
         $q->execute([$projectId,$scopeType,$scopeId]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!$row) return null;
@@ -59,6 +59,7 @@ final class OfficeProjectKickstartReadModel
             'scope_type'=>(string)$row['scope_type'],
             'scope_id'=>(int)$row['scope_id'],
             'revision'=>(int)$row['revision'],
+            'project_leader_user_id'=>(int)$row['project_leader_user_id'],
             'status'=>(string)$row['status'],
             'items'=>$items,
             'critical_open_points'=>(int)$row['critical_open_points'],
