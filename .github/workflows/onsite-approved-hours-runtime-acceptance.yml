@@ -53,8 +53,17 @@ jobs:
           set -euo pipefail
           config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
           script="$HOME/office_calc_test/.onsite-activation-stage/onsite-approved-hours-activate-guarded.php"
-          test -f "$config" && test ! -L "$config" && test -f "$script" && test ! -L "$script"
+          if test ! -f "$config" || test -L "$config"; then
+            echo "ON_SITE_CONFIG_PATH=INVALID"
+            exit 24
+          fi
+          if test ! -f "$script" || test -L "$script"; then
+            echo "ON_SITE_ACTIVATION_SCRIPT_PATH=INVALID"
+            exit 24
+          fi
+          echo "ON_SITE_REMOTE_SCRIPT=START"
           OFFICE_TEST_CONFIG_PATH="$config" php "$script"
+          echo "ON_SITE_REMOTE_SCRIPT=COMPLETE"
           REMOTE
       - name: Inspect active Office-test without writes
         env:

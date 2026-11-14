@@ -1,5 +1,8 @@
 <?php
+if (PHP_SAPI !== 'cli') { fwrite(STDERR, "ON_SITE_ACTIVATION_SCOPE=REJECTED\n"); exit(2); }
 $path=getenv('OFFICE_TEST_CONFIG_PATH');
+if (!is_string($path) || !is_file($path) || is_link($path)) { fwrite(STDERR,"ON_SITE_CONFIG_PATH=INVALID\n"); exit(2); }
+echo "ON_SITE_PHP_ACTIVATION=START\n";
 $original=file_get_contents($path);
 $before=require $path;
 $key='OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED';
