@@ -46,11 +46,14 @@ jobs:
           php -l office-independent/public/office-calc-crm-workbench.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php -l office-independent/src/Calculation/OfficeCalcLaborNorm.php
+          php -l office-independent/tests/OfficeCalcLaborNormTest.php
           php -l office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
           php -l office-independent/tests/OfficeCalcGridLayoutContractTest.php
       - name: Pure calculation and layout regressions
         run: |
           set -euo pipefail
           php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcLaborNormTest.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
