@@ -6,6 +6,7 @@ on:
       - 'office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php'
       - 'office-independent/tests/OfficeCalcGridLayoutContractTest.php'
       - '.github/workflows/native-calc-grid.yml'
+      - 'office-independent/deployment/hostinger/install-calc-grid-only.php'
   workflow_dispatch:
 jobs:
   lint-and-regression:
@@ -14,6 +15,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax
         run: php -l office-independent/public/office-calc-crm-workbench.php
+      - name: Guarded installer syntax
+        run: php -l office-independent/deployment/hostinger/install-calc-grid-only.php
       - name: Native grid layout contract
         run: php office-independent/tests/OfficeCalcGridLayoutContractTest.php
       - name: Native workbench route contract
