@@ -1,11 +1,6 @@
 name: Deploy native Calc grid to Office-test
 on:
   workflow_dispatch:
-    inputs:
-      expected_live_sha256:
-        description: 'SHA256 of currently deployed office-calc-crm-workbench.php (read-only host inspection)'
-        required: true
-        type: string
 permissions:
   contents: read
 concurrency:
@@ -36,12 +31,10 @@ jobs:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
           USER: ${{ secrets.DEPLOY_USER }}
-          EXPECTED: ${{ inputs.expected_live_sha256 }}
           REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
           test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
-          [[ "$EXPECTED" =~ ^[a-f0-9]{64}$ ]]
           [[ "$REVISION" =~ ^[a-f0-9]{40}$ ]]
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_grid
@@ -51,6 +44,8 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "mkdir -p '$base' && chmod 700 '$base'"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$base/workbench.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/deployment/hostinger/install-calc-grid-only.php "$remote:$base/install.php"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$EXPECTED'"
+          expected="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -r ' \$base=realpath(getenv(\"HOME\").\"/domains/brebobv.nl/office_calc_test\"); \$cfg=require \$base.\"/config/config.php\"; \$root=realpath((string)(\$cfg[\"OFFICE_PRIVATE_ROOT\"]??\"\")); if((\$cfg[\"OFFICE_BASE_PATH\"]??\"\")!==\"/office-test\"||!\$root||!str_starts_with(\$root,\$base.\"/release-\")||!str_ends_with(\$root,\"/private\"))exit(3); \$file=\$root.\"/public/office-calc-crm-workbench.php\"; if(!is_file(\$file)||is_link(\$file))exit(4); echo hash_file(\"sha256\",\$file);'")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$expected'"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -l '$base/workbench.php'"
           curl --fail --silent --show-error --max-time 20 --output /dev/null --write-out 'OFFICE_TEST_ANONYMOUS_HTTP=%{http_code}\\n' 'https://brebobv.nl/office-test/calculatie/samenwerken'
