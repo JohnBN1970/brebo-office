@@ -93,7 +93,8 @@ final class OfficeOnSiteApprovalService
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
         // Aggregate rollout requires a separately identified reviewer.
         // Guard both first-time approvals and idempotent retries before any write.
-        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled') {
+        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled'
+            || getenv('OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED') === 'enabled') {
             (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
         }
         $this->db->beginTransaction();
