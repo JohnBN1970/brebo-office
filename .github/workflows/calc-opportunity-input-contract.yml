@@ -1,0 +1,29 @@
+name: Office Calc opportunity input contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - '.github/workflows/calc-opportunity-input-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - '.github/workflows/calc-opportunity-input-contract.yml'
+permissions:
+  contents: read
+jobs:
+  opportunity-input:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint and test CRM-first opportunity input
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php
+          php -l office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
