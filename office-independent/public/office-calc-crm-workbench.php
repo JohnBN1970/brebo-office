@@ -146,7 +146,7 @@ try {
         if($collaborationEnabled)$exactUnitCost=$price;
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         // Optional adjustments are calculated only on new lines. Source quantities in Gebouwen are never written.
-        $adjustmentReason='';
+        $adjustmentReason='';$adjustmentMetadata=null;
         if($collaborationEnabled){
             if(trim((string)($_POST['line_id']??''))!==''&&(
                 trim((string)($_POST['material_loss_percent']??''))!==''||
@@ -164,17 +164,19 @@ try {
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
                     $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
                     $exactQuantity=$calc['gross_quantity'];
+                    $adjustmentMetadata=['net_quantity'=>$calc['net_quantity'],'material_loss_percent'=>$loss,'extra_labor_hours'=>null];
                 }else{
                     if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
                     if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
                     $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
                     $exactQuantity=$calc['total_hours'];
+                    $adjustmentMetadata=['net_quantity'=>$calc['base_hours'],'material_loss_percent'=>null,'extra_labor_hours'=>$extra];
                 }
             }
         }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
