@@ -27,6 +27,7 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
           php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
           php -l office-independent/deployment/hostinger/calc-adjustment-manifest.php
+          php -l office-independent/deployment/hostinger/verify-calc-adjustment-install.php
           php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
@@ -55,6 +56,8 @@ jobs:
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/calc-adjustment-manifest.php "$remote:$stage/manifest.php"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/manifest.php' \"\$HOME/$stage\""
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/install.php' \"\$HOME/$stage\" \"\$HOME/$stage/expected.json\""
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/verify-calc-adjustment-install.php "$remote:$stage/verify.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/verify.php' \"\$HOME/$stage\""
       - name: Verify anonymous Office-test response
         run: |
           set -euo pipefail
