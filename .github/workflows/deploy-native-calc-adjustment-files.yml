@@ -42,8 +42,11 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_adjustments
           chmod 600 ~/.ssh/id_calc_adjustments
+          test "$(git branch --show-current)" = 'feature/calc-wpcalc-grid-20261114'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/calc-wpcalc-grid-20261114)"
           remote="$USER@$HOST"
-          stage="domains/brebobv.nl/office_calc_test/.calc-grid-stage-${GITHUB_SHA}"
+          revision="$(git rev-parse HEAD)"
+          stage="domains/brebobv.nl/office_calc_test/.calc-grid-stage-$revision"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$stage/workbench.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php "$remote:$stage/OfficeCalcCrmDraftLineRepository.php"
