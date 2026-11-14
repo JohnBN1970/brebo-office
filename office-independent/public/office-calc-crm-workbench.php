@@ -246,7 +246,7 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 </style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
-echo '<div class="workbench"><aside class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><ul>';
+echo '<div class="workbench"><aside class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
 echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
@@ -351,4 +351,26 @@ echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wor
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
-echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div></main></body></html>';
+echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div><script>
+(function(){
+  "use strict";
+  const search=document.getElementById("calc-element-search");
+  const list=document.getElementById("calc-element-list");
+  const status=document.getElementById("calc-element-search-status");
+  if(!search||!list||!status)return;
+  const items=Array.from(list.querySelectorAll("li"));
+  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const filter=()=>{
+    const query=normalize(search.value);
+    let visible=0;
+    for(const item of items){
+      const match=normalize(item.textContent||"").includes(query);
+      item.hidden=!match;
+      if(match)visible++;
+    }
+    status.textContent=query?(visible+" van "+items.length+" elementen gevonden"):"";
+  };
+  search.addEventListener("input",filter);
+  search.addEventListener("keydown",event=>{if(event.key==="Escape"){search.value="";filter();}});
+})();
+</script></main></body></html>';
