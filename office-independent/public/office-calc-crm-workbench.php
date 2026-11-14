@@ -147,6 +147,11 @@ try {
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         // Optional adjustments are calculated only on new lines. Source quantities in Gebouwen are never written.
         $adjustmentReason='';
+        if($collaborationEnabled){
+            if(trim((string)($_POST['line_id']??''))!==''&&(
+                trim((string)($_POST['material_loss_percent']??''))!==''||
+                trim((string)($_POST['extra_labor_hours']??''))!==''))$deny(400,'ADJUSTMENT_EDIT_UNSUPPORTED');
+        }
         if($collaborationEnabled&&trim((string)($_POST['line_id']??''))===''){
             $loss=trim(str_replace(',','.',(string)($_POST['material_loss_percent']??'')));
             $extra=trim(str_replace(',','.',(string)($_POST['extra_labor_hours']??'')));
@@ -155,11 +160,13 @@ try {
                 if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
                 if($loss!==''){
                     if((string)($_POST['cost_type']??'')!=='material')$deny(400,'ADJUSTMENT_TYPE');
+                    if(!preg_match('/^[0-9]{1,3}(?:\\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
                     $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
                     $exactQuantity=$calc['gross_quantity'];
                 }else{
                     if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
+                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
                     $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
                     $exactQuantity=$calc['total_hours'];
