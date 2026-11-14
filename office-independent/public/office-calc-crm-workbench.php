@@ -11,12 +11,12 @@ $deny=static function(int $status,string $reason='UNKNOWN'): never {
     http_response_code($status);
     exit('Calculatie niet beschikbaar (code '.$reason.').');
 };
+$collaborationEnabled=getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'&&getenv('OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED')==='enabled';
+$workbenchUrl=$collaborationEnabled?'/office-test/calculatie/samenwerken':'/office-test/calculatie';
 if (getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled'
     || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
-    || getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled'
-    || getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')!=='enabled') $deny(404);
-$collaborationEnabled=getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled';
+    || (!$collaborationEnabled&&(getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled'||getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')!=='enabled'))) $deny(404);
 $conflict='';$actionError='';
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) $deny(405);
@@ -43,7 +43,8 @@ if ($method==='POST') {
     if ((int)($_SERVER['CONTENT_LENGTH']??0)>4096) $deny(413,'BODY_SIZE');
 }
 $draft=filter_var(($method==='POST'?($_POST['draft_id']??null):($_GET['draft_id']??null)),FILTER_VALIDATE_INT);
-if (!is_int($draft)||$draft<1) $deny(400);
+$showList=$collaborationEnabled&&$method==='GET'&&!array_key_exists('draft_id',$_GET);
+if (!$showList&&(!is_int($draft)||$draft<1)) $deny(400);
 try {
     require_once dirname(__DIR__).'/src/Intake/OfficeMount.php';
     require_once dirname(__DIR__).'/src/Intake/WebsiteCrmOperatorContext.php';
@@ -56,6 +57,15 @@ try {
     $operator=(new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db))->findActive($session,time());
     if ($operator===null||!$operator->canEditCrm||!ctype_digit($operator->operatorId)) $deny(403,'SESSION_RIGHTS');
     $actor=(int)$operator->operatorId;
+    if($showList){
+        $q=$db->prepare("SELECT d.id,d.opportunity_id,d.created_at,a.username FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id JOIN office_operator_accounts a ON a.id=d.created_by WHERE d.project_id IS NULL AND d.crm_revision=o.revision AND o.status='open' AND o.stage IN ('prospect','opportunity','proposal','negotiation') AND (d.created_by=? OR EXISTS(SELECT 1 FROM office_calc_crm_draft_collaborators c WHERE c.draft_id=d.id AND c.operator_id=?)) ORDER BY d.id DESC LIMIT 200");$q->execute([$actor,$actor]);$drafts=$q->fetchAll(PDO::FETCH_ASSOC);
+        $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+        header('Content-Type: text/html; charset=utf-8');header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+        echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
+        foreach($drafts as$item)echo '<tr><td><a href="'.$workbenchUrl.'?draft_id='.(int)$item['id'].'">Calculatie #'.(int)$item['id'].'</a></td><td>#'.(int)$item['opportunity_id'].'</td><td>'.$escape($item['username']).'</td></tr>';
+        if($drafts===[])echo '<tr><td colspan="3">Geen toegankelijke conceptcalculaties. Een calculatie start vanuit de verkoopkans in CRM.</td></tr>';
+        echo '</tbody></table></main></body></html>';exit;
+    }
     // Temporary least-privilege policy: only the draft creator may edit.
     $rights=static function(PDO $db,int $actor,int $opportunity):bool {
         $q=$db->prepare('SELECT 1 FROM office_calc_crm_drafts WHERE opportunity_id=? AND created_by=?');
@@ -90,7 +100,7 @@ try {
                 if(!is_int($target))throw new DomainException('Kies een geldige Office-gebruiker.');
                 $collaboration->grant($draft,$actor,$target,$action==='remove',$expected,$rights);
             }
-            header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
+            header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
         }
         if($action!=='save_line')throw new DomainException('Onbekende calculatieactie.');
         $lineId=(string)($_POST['line_id']??'');
@@ -112,7 +122,7 @@ try {
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd'),$exactQuantity,$exactUnitCost,$unit);
-        header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
+        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
 } catch (\Brebo\Office\Calculation\OfficeCalcDraftConflict $error) {http_response_code(409);$conflict=$error->getMessage();}
@@ -148,12 +158,13 @@ $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'U
 header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 $typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
-$categoryTotals=array_fill_keys(array_keys($typeLabels),0);
-$lineAmount=static function(array $line)use($collaborationEnabled):int{
+$categoryTotals=array_fill_keys(array_keys($typeLabels),$collaborationEnabled?'0':0);
+$lineAmount=static function(array $line)use($collaborationEnabled):string|int{
     if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
-    return (int)bcmul(bcadd(bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8),'0.005',2),'100',0);
+    return bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8);
 };
-foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]+=$lineAmount($line);}
+foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]=$collaborationEnabled?bcadd((string)$categoryTotals[$kind],(string)$lineAmount($line),8):$categoryTotals[$kind]+$lineAmount($line);}
+$canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#f3f5fa;color:#192f47;margin:0}
 main{max-width:1350px;margin:28px auto;padding:0 24px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #dce3ee;border-radius:12px;padding:24px;margin-bottom:18px}
@@ -171,14 +182,14 @@ dl{display:grid;grid-template-columns:1fr auto;gap:12px;margin:0}dd{margin:0;fon
 @media(max-width:900px){.gridlayout{display:block}main{margin:14px auto;padding:0 12px}header{display:block}.calc-fields{grid-template-columns:1fr}}
 </style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
 echo '<div class="metrics">';
-echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format(array_sum($categoryTotals)/100,2,',','.').'</strong></div>';
+echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Aantal regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></div>';
 echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Actie</th></tr>';
 $total=0;
 foreach($lines as $line) {
-    $subtotal=$lineAmount($line);$total+=$subtotal;
-    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($subtotal/100,2,',','.').'</td><td><a href="/office-test/calculatie?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $subtotal=$lineAmount($line);if(!$collaborationEnabled)$total+=$subtotal;
+    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.').'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?'':$h((string)$edit['description']);
@@ -187,10 +198,10 @@ $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string
 $editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
 if($lines===[]) echo '<tr><td colspan="6" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
-echo '</table></div><p class="amount">Totaal: € '.number_format($total/100,2,',','.').'</p></section>';
+echo '</table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
-echo '<form method="post" action="/office-test/calculatie">';
+echo '<form method="post" action="'.$workbenchUrl.'">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
 echo '<input type="hidden" name="csrf" value="'.$h($csrf).'">';
 if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><label>Wijzigingsreden <input name="reason" maxlength="1000" required value="'.($conflict!==''?$h((string)($_POST['reason']??'Calculatieregel gewijzigd')):'Calculatieregel gewijzigd').'"></label>';
@@ -206,9 +217,9 @@ echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':
 if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
 echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
-if($edit!==null) echo ' <a href="/office-test/calculatie?draft_id='.$draft.'">Annuleren</a>';
+if($edit!==null) echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
-foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($categoryTotals[$key]/100,2,',','.').'</dd>';
+foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '</main></body></html>';

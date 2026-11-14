@@ -15,17 +15,17 @@ foreach([
  'CREATE TABLE office_operator_accounts(id VARCHAR(128) PRIMARY KEY,username VARCHAR(190),active TINYINT,can_edit_crm TINYINT)',
  'CREATE TABLE office_operator_sessions(token_hash CHAR(64) PRIMARY KEY,operator_id VARCHAR(128),expires_at DATETIME,revoked_at DATETIME NULL)',
  'CREATE TABLE office_crm_opportunities(id BIGINT PRIMARY KEY,revision INT,stage VARCHAR(40),status VARCHAR(32))',
- 'CREATE TABLE office_calc_crm_drafts(id BIGINT PRIMARY KEY,opportunity_id BIGINT,crm_revision INT,project_id BIGINT NULL,created_by BIGINT)',
+ 'CREATE TABLE office_calc_crm_drafts(id BIGINT PRIMARY KEY,opportunity_id BIGINT,crm_revision INT,project_id BIGINT NULL,created_by BIGINT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP)',
  'CREATE TABLE calculations(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,office_project_id BIGINT NULL,office_calculation_id BIGINT UNIQUE,code VARCHAR(64) UNIQUE,title VARCHAR(255),status VARCHAR(32) DEFAULT \'draft\')',
  'CREATE TABLE calculation_versions(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,calculation_id BIGINT,version_no INT,status VARCHAR(32) DEFAULT \'draft\',direct_cost DECIMAL(19,4) DEFAULT 0)',
  'CREATE TABLE calculation_lines(id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,version_id BIGINT,parent_id BIGINT NULL,sort_order INT,line_type VARCHAR(32),code VARCHAR(64),description VARCHAR(500),unit VARCHAR(32),quantity DECIMAL(19,4),labour_unit_cost DECIMAL(19,4) DEFAULT 0,material_unit_cost DECIMAL(19,4) DEFAULT 0,equipment_unit_cost DECIMAL(19,4) DEFAULT 0,subcontracting_unit_cost DECIMAL(19,4) DEFAULT 0,other_unit_cost DECIMAL(19,4) DEFAULT 0)'
 ]as$sql)$db->exec($sql);
 $db->exec(file_get_contents(__DIR__.'/../deployment/hostinger/sql/office-calc-draft-collaboration.sql'));
-$db->exec("INSERT INTO office_operator_accounts VALUES('7','Owner Fixture',1,1),('8','Editor Fixture',1,1),('9','Other Fixture',1,1); INSERT INTO office_crm_opportunities VALUES(11,4,'proposal','open'); INSERT INTO office_calc_crm_drafts VALUES(1,11,4,NULL,7)");
+$db->exec("INSERT INTO office_operator_accounts VALUES('7','Owner Fixture',1,1),('8','Editor Fixture',1,1),('9','Other Fixture',1,1); INSERT INTO office_crm_opportunities VALUES(11,4,'proposal','open'); INSERT INTO office_calc_crm_drafts(id,opportunity_id,crm_revision,project_id,created_by) VALUES(1,11,4,NULL,7)");
 $tokens=['owner'=>str_repeat('a',64),'editor'=>str_repeat('b',64),'other'=>str_repeat('c',64)];$q=$db->prepare('INSERT INTO office_operator_sessions VALUES(?,?,?,NULL)');foreach(['owner'=>'7','editor'=>'8','other'=>'9']as$label=>$id)$q->execute([hash('sha256',$tokens[$label]),$id,gmdate('Y-m-d H:i:s',time()+3600)]);
 $root=sys_get_temp_dir().'/office-calc-collab-http-'.bin2hex(random_bytes(6));mkdir($root,0700);mkdir($root.'/public',0700);
 $page=realpath(__DIR__.'/../public/office-calc-crm-workbench.php');file_put_contents($root.'/public/router.php',"<?php \$_SERVER['HTTPS']='on'; require ".var_export($page,true).";");
-$env=getenv();foreach(['OFFICE_BASE_PATH'=>'/office-test','OFFICE_TEST_CRM_ENABLED'=>'enabled','OFFICE_CRM_AUTH_MODE'=>'session_only','OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED'=>'enabled','OFFICE_CALC_CRM_SCHEMA_VERIFIED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_ENABLED'=>'enabled','OFFICE_PUBLIC_HOST'=>'office-calc-collab.test','OFFICE_INTAKE_PDO_DSN'=>$dsn,'OFFICE_INTAKE_DB_USER'=>'root','OFFICE_INTAKE_DB_PASSWORD'=>$password]as$key=>$value)$env[$key]=$value;
+$env=getenv();foreach(['OFFICE_BASE_PATH'=>'/office-test','OFFICE_TEST_CRM_ENABLED'=>'enabled','OFFICE_CRM_AUTH_MODE'=>'session_only','OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED'=>'enabled','OFFICE_CALC_CRM_SCHEMA_VERIFIED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_ENABLED'=>'enabled','OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED'=>'enabled','OFFICE_PUBLIC_HOST'=>'office-calc-collab.test','OFFICE_INTAKE_PDO_DSN'=>$dsn,'OFFICE_INTAKE_DB_USER'=>'root','OFFICE_INTAKE_DB_PASSWORD'=>$password]as$key=>$value)$env[$key]=$value;
 $port=random_int(18000,23000);$pipes=[];$server=proc_open([PHP_BINARY,'-S','127.0.0.1:'.$port,'-t',$root.'/public',$root.'/public/router.php'],[['pipe','r'],['file',$root.'/server.log','a'],['file',$root.'/server.log','a']],$pipes,null,$env);if(!is_resource($server))throw new RuntimeException('HTTP fixture server failed');
 $csrfCookies=[];
 $request=static function(?string $actor,array $post=[],string $query='draft_id=1')use($port,$tokens,&$csrfCookies):array{
@@ -36,7 +36,7 @@ $request=static function(?string $actor,array $post=[],string $query='draft_id=1
 $expect=static function(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);};$hidden=static function(string $body,string $name):string{if(!preg_match('/name="'.preg_quote($name,'/').'" value="([^"]*)"/',$body,$m))throw new RuntimeException('Missing form field '.$name);return html_entity_decode($m[1],ENT_QUOTES,'UTF-8');};
 try{
  for($i=0;$i<100;$i++){if($request(null)['status']>0)break;usleep(100000);}
- $expect($request(null)['status']===403,'Anonymous denied');$first=$request('owner');$expect($first['status']===200,'Owner workspace');$csrf=$hidden($first['body'],'csrf');$revision=$hidden($first['body'],'expected_revision');
+ $expect($request(null)['status']===403,'Anonymous denied');$first=$request('owner');$expect($first['status']===200,'Owner workspace');$expect($request('owner',[],'')['status']===200,'Accessible calculation overview');$csrf=$hidden($first['body'],'csrf');$revision=$hidden($first['body'],'expected_revision');
  $expect($request('editor')['status']===403,'No implicit editor rights');
  $expect($request('owner',['draft_id'=>1,'csrf'=>'wrong','action'=>'grant','operator_id'=>8,'expected_revision'=>$revision])['status']===403,'CSRF denied');
  $expect($request('owner',['draft_id'=>1,'csrf'=>$csrf,'action'=>'grant','operator_id'=>8,'expected_revision'=>$revision])['status']===303,'Owner grants editor');

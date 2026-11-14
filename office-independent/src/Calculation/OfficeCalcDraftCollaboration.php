@@ -58,7 +58,7 @@ final class OfficeCalcDraftCollaboration
     }
     public function read(int $draft,int $actor,callable $rights,OfficeCalcCrmDraftLineRepository $repo):array
     {
-        return $this->locked($draft,$actor,$rights,function()use($draft,$actor,$rights,$repo):array{$lines=$repo->list($draft,$actor,$rights);$state=$this->state($draft);return ['lines'=>$lines,'token'=>$this->token($state),'version_no'=>(int)($state['version']['version_no']??1)];});
+        return $this->locked($draft,$actor,$rights,function()use($draft,$actor,$rights,$repo):array{$lines=$repo->list($draft,$actor,$rights);$state=$this->state($draft);return ['lines'=>$lines,'token'=>$this->token($state),'version_no'=>(int)($state['version']['version_no']??1),'direct_cost'=>(string)($state['version']['direct_cost']??'0')];});
     }
     public function grant(int $draft,int $actor,int $target,bool $remove,string $expected,callable $rights):void
     {
