@@ -7,12 +7,18 @@ on:
       - 'office-independent/tests/OfficeCalcGridLayoutContractTest.php'
       - '.github/workflows/native-calc-grid.yml'
       - 'office-independent/deployment/hostinger/install-calc-grid-only.php'
+      - '.github/workflows/deploy-native-calc-grid.yml'
+      - '.github/workflows/inspect-native-calc-grid-host.yml'
   workflow_dispatch:
 jobs:
   lint-and-regression:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate deployment workflow syntax
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color .github/workflows/deploy-native-calc-grid.yml .github/workflows/inspect-native-calc-grid-host.yml
       - name: PHP syntax
         run: php -l office-independent/public/office-calc-crm-workbench.php
       - name: Guarded installer syntax
