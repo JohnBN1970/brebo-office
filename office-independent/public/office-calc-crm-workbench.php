@@ -153,6 +153,10 @@ try {
         if($collaborationEnabled){
             $loss=trim(str_replace(',','.',(string)($_POST['material_loss_percent']??'')));
             $extra=trim(str_replace(',','.',(string)($_POST['extra_labor_hours']??'')));
+            if($loss===''&&$extra===''&&trim((string)($_POST['line_id']??''))!==''&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'){
+                $adjustmentMetadata=['net_quantity'=>$exactQuantity,'material_loss_percent'=>null,'extra_labor_hours'=>null];
+                $adjustmentReason='Nettohoeveelheid opnieuw vastgesteld zonder correctie';
+            }
             if($loss!==''||$extra!==''){
                 require_once dirname(__DIR__).'/src/Calculation/OfficeCalcQuantityAdjustments.php';
                 if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
