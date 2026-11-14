@@ -1,0 +1,19 @@
+/* BREBO Office design tokens. Opt-in only until page-level visual checks pass. */
+:root {
+  --office-color-text: #17283a;
+  --office-color-link: #155c87;
+  --office-color-surface: #ffffff;
+  --office-color-canvas: #f3f6fa;
+  --office-color-border: #dce4ed;
+  --office-color-sidebar: #14263b;
+  --office-color-focus: #e9a72c;
+  --office-radius-sm: 7px;
+  --office-radius-md: 8px;
+  --office-radius-lg: 12px;
+  --office-space-1: 4px;
+  --office-space-2: 8px;
+  --office-space-3: 12px;
+  --office-space-4: 16px;
+  --office-space-6: 24px;
+  --office-space-8: 32px;
+}
