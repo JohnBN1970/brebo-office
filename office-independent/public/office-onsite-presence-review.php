@@ -71,7 +71,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'<title>Aanwezigheidscontrole · BREBO Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:1100px;padding:1rem;color:#243244}'
  .'table{width:100%;border-collapse:collapse;margin-bottom:2rem}th,td{padding:.7rem;border-bottom:1px solid #ccd5df;text-align:left}'
  .'section{padding:1rem}a{color:#245b8a}</style></head><body><main>'
- .'<p><a href="/office-test/projecten/detail?id='.$id.'">← Project '.$escape($id).'</a></p>'
+ .'<p><a href="/office-test/projecten/detail?id='.$id.'&amp;tab=arbeid-inzet">← Arbeid &amp; Inzet · project '.$escape($id).'</a></p>'
  .'<h1>Inzet · project '.$escape($id).'</h1>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
  .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
