@@ -20,6 +20,7 @@ final class OfficeProjectPageStructure
             'gebouwen' => 'Gebouwen',
             'werkvoorbereiding' => 'Werkvoorbereiding',
             'uitvoering' => 'Uitvoering',
+            'arbeid-inzet' => 'Arbeid & Inzet',
             'financieel' => 'Werkbegroting',
         ];
     }
