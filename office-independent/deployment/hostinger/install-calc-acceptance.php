@@ -12,7 +12,7 @@ $connect=static fn():PDO=>new PDO((string)$config['OFFICE_INTAKE_PDO_DSN'],(stri
 $createdFiles=[];$phase='preflight';
 try{
     foreach(['bcadd','bcmul','bccomp']as$f)if(!function_exists($f))throw new RuntimeException('bcmath_missing');
-    $lint=static function(string$file):void{$out=[];$code=0;exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($file).' 2>&1',$out,$code);if($code!==0)throw new RuntimeException('syntax_check_failed');};
+    $lint=static function(string$file):void{$pipes=[];$process=proc_open([PHP_BINARY,'-l',$file],[['pipe','r'],['pipe','w'],['pipe','w']],$pipes);if(!is_resource($process))throw new RuntimeException('syntax_process_failed');fclose($pipes[0]);stream_get_contents($pipes[1]);stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);if(proc_close($process)!==0)throw new RuntimeException('syntax_check_failed');};
     foreach($files as$name){$path='/src/Calculation/'.$name.'.php';$lint($stage.$path);if(is_file($root.$path)&&!hash_equals((string)hash_file('sha256',$root.$path),(string)hash_file('sha256',$stage.$path)))throw new RuntimeException('unrecognized_deployed_service');}
     $lint($stage.'/probe.php');
     $db=$connect();if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')throw new RuntimeException('isolated_test_database_required');
@@ -37,4 +37,4 @@ try{
     $manifest=json_encode(['installed_at'=>gmdate('c'),'file_hashes'=>$hashes,'schema'=>'decimal_24_4_quantity_decimal_22_2_cents','probe'=>'session_local_pass','runtime_route'=>'not_added'],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR);
     if(file_put_contents($backup.'/installed.json',$manifest,LOCK_EX)!==strlen($manifest))throw new RuntimeException('manifest_write_failed');chmod($backup.'/installed.json',0600);
     echo "CALC_ACCEPTANCE_INSTALL=OFFICE_TEST_SERVICES_AND_SCHEMA_READY\nCALC_ACCEPTANCE_BUSINESS_ROWS=UNCHANGED_ZERO\nCALC_ACCEPTANCE_CONFIG=UNCHANGED\nCALC_ACCEPTANCE_RUNTIME_ROUTE=NOT_ADDED\n";
-}catch(Throwable$e){foreach($createdFiles as$file=>$hash)if(is_file($file)&&hash_equals($hash,(string)hash_file('sha256',$file)))unlink($file);$reason=preg_match('/^[a-z_]+$/D',$e->getMessage())?$e->getMessage():get_class($e);echo 'CALC_ACCEPTANCE_INSTALL=FAILED_AT_'.$phase.'_'.$reason."\n";echo "CALC_ACCEPTANCE_SCHEMA_POLICY=ADDITIVE_DDL_RETAINED_FOR_SAFE_RETRY\n";exit(10);}finally{flock($lock,LOCK_UN);fclose($lock);}
+}catch(Throwable$e){foreach($createdFiles as$file=>$hash)if(is_file($file)&&hash_equals($hash,(string)hash_file('sha256',$file)))unlink($file);$reason=preg_match('/^[a-z_]+$/D',$e->getMessage())?$e->getMessage():get_class($e);if($e instanceof Error&&preg_match('/undefined function ([A-Za-z0-9_]+)\(/',$e->getMessage(),$missing))$reason='missing_function_'.$missing[1];echo 'CALC_ACCEPTANCE_INSTALL=FAILED_AT_'.$phase.'_'.$reason."\n";echo "CALC_ACCEPTANCE_SCHEMA_POLICY=ADDITIVE_DDL_RETAINED_FOR_SAFE_RETRY\n";exit(10);}finally{flock($lock,LOCK_UN);fclose($lock);}
