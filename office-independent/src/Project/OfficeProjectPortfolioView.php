@@ -14,46 +14,18 @@ final class OfficeProjectPortfolioView
     {
         $escape = static fn(mixed $v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $summary = OfficeProjectPageStructure::portfolioSummary($projects);
-        $html = '<section class="office-project-portfolio" aria-label="Projectendashboard">'
-            . '<h1>Projectendashboard</h1>'
-            . '<p>Overzicht van toegankelijke projecten en hun actuele projectgegevens.</p>'
+        $html = '<section class="office-project-portfolio" aria-label="Projectenoverzicht">'
+            . '<div class="office-portfolio-header"><h2>Alle projecten</h2><p>Zoek een project en open het projectdossier voor planning, uren, financiën en documenten.</p></div>'
             . '<div class="office-portfolio-kpis">';
-        // Financial and labour totals are deliberately unavailable until sourced
-        // from authorized, reconciled Office aggregates (never inferred from counts).
         foreach ([
-            'Totale opdrachtwaarde' => isset($totals['contract_value_cents']) && is_int($totals['contract_value_cents']) ? '€ ' . number_format($totals['contract_value_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
-            'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
-            'Werkelijke kosten' => 'Niet beschikbaar',
-            'Geplande uren (geselecteerde week)' => isset($totals['planned_week_seconds']) && is_int($totals['planned_week_seconds']) && $totals['planned_week_seconds'] >= 0 ? number_format($totals['planned_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
-            'Goedgekeurde uren (geselecteerde week)' => isset($totals['approved_week_seconds']) && is_int($totals['approved_week_seconds']) && $totals['approved_week_seconds'] >= 0 ? number_format($totals['approved_week_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
-            'Gefactureerd' => 'Niet beschikbaar',
+            'Projecten' => (int)$summary['projects'],
+            'In uitvoering' => (int)$summary['active'],
+            'In voorbereiding' => (int)$summary['preparation'],
         ] as $label => $value) {
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
-                . '</small><strong>' . $escape($value) . '</strong></article>';
+                . '</small><strong>' . $value . '</strong></article>';
         }
-        $coverage = isset($totals['procurement_covered'], $totals['procurement_total'])
-            ? ' Vastgestelde inkoopbegrotingen: ' . max(0, (int)$totals['procurement_covered'])
-                . ' van ' . max(0, (int)$totals['procurement_total']) . ' toegankelijke projecten.'
-            : ' Dekking van de inkoopbegrotingen is niet beschikbaar.';
-        $contractCoverage = isset($totals['contract_covered'], $totals['contract_total'])
-            ? ' Geaccepteerde contracten: ' . max(0, (int)$totals['contract_covered']) . ' van ' . max(0, (int)$totals['contract_total']) . ' projecten.'
-            : ' Dekking van contractwaarden is niet beschikbaar.';
-        $html .= '</div><p class="office-portfolio-total-scope">Geplande uren gelden voor de geselecteerde ISO-week (' . $escape($totals['planned_week_label'] ?? 'onbekend') . '), uitsluitend geplande en bevestigde diensten; geannuleerde diensten uitgesloten. Goedgekeurde uren komen uitsluitend uit het afzonderlijke goedkeuringsregister; ontbrekende registraties zijn niet nul. Financiële totalen worden uitsluitend getoond bij volledige bron- en rechtencontrole. Ontbrekende gegevens tellen niet als nul. Inkoopbegroting is exclusief arbeid en btw.'
-            . $escape($coverage . $contractCoverage) . '</p>';
-        if (isset($totals['planned_week_label']) && preg_match('/^(\\d{4})-W(\\d{2})$/D', (string)$totals['planned_week_label'], $weekMatch)) {
-            $weekDate = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels')))
-                ->setISODate((int)$weekMatch[1], (int)$weekMatch[2], 1);
-            $weekLink = static fn(\DateTimeImmutable $date): string =>
-                rtrim($basePath, '/') . '/projecten?week=' . $date->format('o-\\WW');
-            $html .= '<nav aria-label="Planning weekselectie" class="office-portfolio-week-navigation">'
-                . '<a href="' . $escape($weekLink($weekDate->modify('-7 days'))) . '">Vorige week</a> '
-                . '<strong>' . $escape($totals['planned_week_label']) . '</strong> '
-                . '<a href="' . $escape($weekLink($weekDate->modify('+7 days'))) . '">Volgende week</a>'
-                . '<form method="get" action="' . $escape(rtrim($basePath, '/') . '/projecten') . '">'
-                . '<label for="portfolio-week">Kies week</label> '
-                . '<input id="portfolio-week" type="week" name="week" required value="' . $escape($totals['planned_week_label']) . '"> '
-                . '<button type="submit">Tonen</button></form></nav>';
-        }
+        $html .= '</div>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
         $closed = 0;
         $withPlanning = 0;
@@ -105,15 +77,17 @@ final class OfficeProjectPortfolioView
                 . ' toegankelijke projecten. Financiële totalen gebruiken alle toegankelijke projecten.</p>';
         }
         $html .= '</section>';
-        $html .= '<p class="office-portfolio-kpi-explanation">Projectaantallen: ' . (int) $summary['projects'] . ' projecten, ' . (int) $summary['active'] . ' in uitvoering, ' . (int) $summary['preparation'] . ' in voorbereiding en ' . (int) $summary['buildings'] . ' gebouwkoppelingen. Overige bedrag- en urentotalen volgen na broncontrole.</p><h2>Projectenlijst</h2>'
+        $html .= '<div class="office-portfolio-list-header"><h2>Projectenlijst</h2>'
+            . '<label class="office-portfolio-search-label" for="office-project-search">Zoek project</label>'
+            . '<input id="office-project-search" type="search" placeholder="Zoek op projectcode, naam of status" autocomplete="off" oninput="document.querySelectorAll(\'.office-portfolio-table-wrap tbody tr[data-project-row]\').forEach(function(row){row.hidden=!row.textContent.toLowerCase().includes(this.value.toLowerCase())}.bind(this))"></div>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
-            . '<th>Projectcode</th><th>Project</th><th>Status</th><th>Planning / aandacht</th><th>Gebouwen</th>'
+            . '<th>Projectcode</th><th>Project</th><th>Fase</th><th>Planning / aandacht</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
         foreach ($projects as $project) {
             $id = (int) ($project['id'] ?? 0);
             if ($id < 1) continue;
             $url = rtrim($basePath, '/') . '/projecten/detail?id=' . $id;
-            $html .= '<tr><td>' . $escape($project['code'] ?? '') . '</td>'
+            $html .= '<tr data-project-row><td>' . $escape($project['code'] ?? '') . '</td>'
                 . '<td><a href="' . $escape($url) . '">' . $escape($project['title'] ?? '') . '</a></td>'
                 . '<td>' . $escape(OfficeProjectPageStructure::statusLabel((string) ($project['status'] ?? ''))) . '</td>'
                 . '<td>' . OfficeProjectTrafficLight::render($project) . '</td>'
@@ -125,12 +99,18 @@ final class OfficeProjectPortfolioView
 
     public static function styles(): string
     {
-        return '.office-portfolio-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}'
-            . '.office-portfolio-kpi{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:20px}'
-            . '.office-portfolio-total-scope{grid-column:1/-1;color:#526278;font-size:13px;margin:0}.office-portfolio-kpi small{display:block;color:#63748a}'
-            . '.office-portfolio-kpi strong{display:block;font-size:28px;margin-top:10px}'
-            . '.office-portfolio-kpi-explanation{font-size:13px;color:#526278;max-width:850px;margin:-6px 0 24px}.office-portfolio-attention{margin:18px 0;padding:18px;border:1px solid #dbe1e8;border-radius:12px;background:#fff}.office-portfolio-attention h2{margin:0 0 8px;font-size:19px}.office-portfolio-attention p{color:#526278;font-size:13px}.office-portfolio-attention-counts{display:flex;flex-wrap:wrap;gap:12px}.office-portfolio-attention-counts span{padding:8px 12px;background:#f3f6fa;border-radius:8px}.office-portfolio-attention-list{padding-left:20px}.office-portfolio-attention-list li{margin:10px 0}.office-portfolio-attention-list li span{display:block;color:#526278;font-size:13px}.office-portfolio-table-wrap{overflow-x:auto}'
-            . '@media(max-width:900px){.office-portfolio-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}'
-            . '@media(max-width:500px){.office-portfolio-kpis{grid-template-columns:1fr}}';
+        return '.office-project-portfolio{padding:0 4px 20px}.office-portfolio-header h2{font-size:21px;margin:4px 0 6px}.office-portfolio-header p{color:#526278;margin:0 0 16px}'
+            . '.office-portfolio-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 20px}'
+            . '.office-portfolio-kpi{background:#f6f8fb;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px}'
+            . '.office-portfolio-kpi small{display:block;color:#63748a}.office-portfolio-kpi strong{display:block;font-size:24px;margin-top:4px}'
+            . '.office-portfolio-attention{margin:12px 0 20px;padding:16px;border-left:4px solid #d5a14d;background:#fafbfc;border-radius:8px}'
+            . '.office-portfolio-attention h2{font-size:17px;margin:0 0 6px}.office-portfolio-attention p{color:#526278;font-size:13px}'
+            . '.office-portfolio-attention-counts{display:flex;flex-wrap:wrap;gap:8px}.office-portfolio-attention-counts span{font-size:12px;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px}'
+            . '.office-portfolio-attention-list{padding-left:18px}.office-portfolio-attention-list li{margin:8px 0}.office-portfolio-attention-list li span{display:block;color:#526278;font-size:12px}'
+            . '.office-portfolio-list-header{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0 12px}.office-portfolio-list-header h2{margin:0 auto 0 0;font-size:20px}'
+            . '.office-portfolio-search-label{font-size:13px;color:#526278}.office-portfolio-list-header input{border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;min-width:250px}'
+            . '.office-portfolio-table-wrap{overflow-x:auto}.office-portfolio-table-wrap table{width:100%;border-collapse:collapse}.office-portfolio-table-wrap th,.office-portfolio-table-wrap td{text-align:left;padding:13px 12px;border-bottom:1px solid #e2e8f0}.office-portfolio-table-wrap thead{background:#f5f7fa}'
+            . '.office-portfolio-table-wrap tbody tr:hover{background:#f6f9fc}.office-portfolio-table-wrap tr[hidden]{display:none}'
+            . '@media(max-width:700px){.office-portfolio-kpis{grid-template-columns:1fr 1fr}.office-portfolio-list-header input{width:100%}}';
     }
 }
