@@ -51,10 +51,14 @@ try {
     require_once dirname(__DIR__).'/src/Intake/WebsiteOfficeCrmSessionRepository.php';
     require_once dirname(__DIR__).'/src/Calculation/OfficeCalcCrmDraftLineRepository.php';
     $session=$_COOKIE[\Brebo\Office\Intake\OfficeMount::cookieName('session')]??null;
-    if (!is_string($session)) $deny(403,'SESSION_COOKIE');
+    if (!is_string($session)){
+        if($collaborationEnabled&&$method==='GET'){header('X-Brebo-Calc-Diagnostic: SESSION_COOKIE');header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'),true,302);exit;}
+        $deny(403,'SESSION_COOKIE');
+    }
     $db=new PDO(getenv('OFFICE_INTAKE_PDO_DSN')?:'',getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
         [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
     $operator=(new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db))->findActive($session,time());
+    if($operator===null&&$collaborationEnabled&&$method==='GET'){header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'),true,302);exit;}
     if ($operator===null||!$operator->canEditCrm||!ctype_digit($operator->operatorId)) $deny(403,'SESSION_RIGHTS');
     $actor=(int)$operator->operatorId;
     if($showList){

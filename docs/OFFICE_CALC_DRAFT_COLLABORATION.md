@@ -23,3 +23,5 @@ De native werkbank kan met afzonderlijk `materials/read`-recht zoeken in de al a
 Een volgende prijslijstimport wijzigt bestaande calculatieregels niet. Alleen de hoeveelheid aanpassen behoudt de oorspronkelijke prijsreferentie. Handmatig een andere prijs, eenheid of kostensoort invoeren maakt de prijsbron expliciet handmatig; de oorspronkelijke bron blijft in de audit terug te vinden. Een nieuwe prijs tijdens de selectie geeft een conflict en vraagt opnieuw kiezen. Uitval van de prijslijst blokkeert alleen de materiaalkeuze, niet het bewerken van bestaande calculatieregels.
 
 Deze wijziging activeert geen acceptatie naar werkbegroting en rondt geen vier-decimale eenheidsprijzen of fractiehoeveelheden stilzwijgend af om een oudere overdrachtsinterface passend te maken.
+
+Niet-ingelogde browserbezoekers gaan naar het bestaande Office-aanmeldscherm. Anonieme POST-verzoeken blijven geweigerd; aanmelden geeft op zichzelf geen calculatie- of materialenrecht.

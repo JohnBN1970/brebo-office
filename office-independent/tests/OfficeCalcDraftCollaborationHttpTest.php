@@ -48,7 +48,7 @@ $request=static function(?string $actor,array $post=[],string $query='draft_id=1
 $expect=static function(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);};$hidden=static function(string $body,string $name):string{if(!preg_match('/name="'.preg_quote($name,'/').'" value="([^"]*)"/',$body,$m))throw new RuntimeException('Missing form field '.$name);return html_entity_decode($m[1],ENT_QUOTES,'UTF-8');};
 try{
  for($i=0;$i<100;$i++){if($request(null)['status']>0)break;usleep(100000);}
- $expect($request(null)['status']===403,'Anonymous denied');$first=$request('owner');$expect($first['status']===200,'Owner workspace');$expect($request('owner',[],'')['status']===200,'Accessible calculation overview');$csrf=$hidden($first['body'],'csrf');$revision=$hidden($first['body'],'expected_revision');
+ $expect($request(null)['status']===302,'Anonymous browser sent to Office login');$expect($request(null,['draft_id'=>1,'csrf'=>'fake','action'=>'save_line'])['status']===403,'Anonymous POST never redirects or writes');$first=$request('owner');$expect($first['status']===200,'Owner workspace');$expect($request('owner',[],'')['status']===200,'Accessible calculation overview');$csrf=$hidden($first['body'],'csrf');$revision=$hidden($first['body'],'expected_revision');
  $expect($request('editor')['status']===403,'No implicit editor rights');
  $expect($request('owner',['draft_id'=>1,'csrf'=>'wrong','action'=>'grant','operator_id'=>8,'expected_revision'=>$revision])['status']===403,'CSRF denied');
  $expect($request('owner',['draft_id'=>1,'csrf'=>$csrf,'action'=>'grant','operator_id'=>8,'expected_revision'=>$revision])['status']===303,'Owner grants editor');
