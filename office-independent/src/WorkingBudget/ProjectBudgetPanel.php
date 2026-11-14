@@ -95,12 +95,26 @@ final class ProjectBudgetPanel
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
                     . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
             }
-            $html .= '</tbody></table><h3>Kostenverdeling</h3><dl>';
+            $html .= '</tbody></table><h3>Kostenbewaking per kostensoort</h3>'
+                . '<p>Begroot is afkomstig uit de vergrendelde werkbegroting. Verplicht, werkelijk en prognose worden pas per kostensoort getoond na gecontroleerde bronkoppeling.</p>'
+                . '<div class="office-work-budget__cost-table"><table><thead><tr>'
+                . '<th scope="col">Kostensoort</th><th scope="col">Begroot</th>'
+                . '<th scope="col">Verplicht</th><th scope="col">Werkelijk</th><th scope="col">Prognose</th>'
+                . '</tr></thead><tbody>';
+            $totalBudget = 0;
             foreach ($types as $type=>$label) {
-                $html .= '<dt>'.self::e($label).'</dt><dd>€ '
-                    .number_format($totals[$type] / 100, 2, ',', '.').'</dd>';
+                if ($totals[$type] > PHP_INT_MAX - $totalBudget) {
+                    throw new InvalidArgumentException('Budget total overflow.');
+                }
+                $totalBudget += $totals[$type];
+                $html .= '<tr><th scope="row">'.self::e($label).'</th><td>€ '
+                    .number_format($totals[$type] / 100, 2, ',', '.')
+                    .'</td><td>—</td><td>—</td><td>—</td></tr>';
             }
-            $html .= '</dl>';
+            $html .= '<tr><th scope="row">Totaal</th><td>€ '
+                .number_format($totalBudget / 100, 2, ',', '.')
+                .'</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>';
+
         }
         $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
         return $html;
