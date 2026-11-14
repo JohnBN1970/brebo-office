@@ -4,7 +4,14 @@ $path=getenv('OFFICE_TEST_CONFIG_PATH');
 if (!is_string($path) || !is_file($path) || is_link($path)) { fwrite(STDERR,"ON_SITE_CONFIG_PATH=INVALID\n"); exit(2); }
 echo "ON_SITE_PHP_ACTIVATION=START\n";
 $original=file_get_contents($path);
+// Config may use relative paths and load chained PHP includes. Execute in its
+// own directory so the original loader resolves relative paths as intended.
+$previousCwd=getcwd();
+if (!chdir(dirname($path))) { fwrite(STDERR,"CONFIG_CWD_UNAVAILABLE\n"); exit(2); }
+echo "ON_SITE_CONFIG_LOAD=START\n";
 $before=require $path;
+echo "ON_SITE_CONFIG_LOAD=COMPLETE\n";
+if ($previousCwd!==false) chdir($previousCwd);
 $key='OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED';
 if (!is_array($before) || ($before['OFFICE_BASE_PATH']??'')!=='/office-test') { fwrite(STDERR,"SCOPE_REJECTED\n"); exit(1); }
 if (array_key_exists($key,$before)) {
