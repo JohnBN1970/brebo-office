@@ -3,9 +3,14 @@ declare(strict_types=1);
 // Read-only CLI schema inspection. Credentials must come from the existing Office
 // runtime environment. No configuration files or secrets are printed.
 if(PHP_SAPI!=='cli')exit(2);
-$dsn=(string)getenv('OFFICE_INTAKE_PDO_DSN');
-$user=(string)getenv('OFFICE_INTAKE_DB_USER');
-$pass=(string)getenv('OFFICE_INTAKE_DB_PASSWORD');
+$base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');
+$config=$base&&is_file($base.'/config/config.php')?require $base.'/config/config.php':null;
+if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test'){
+ fwrite(STDERR,"SCHEMA_CHECK=OFFICE_TEST_CONFIG_REQUIRED\\n");exit(2);
+}
+$dsn=(string)($config['OFFICE_INTAKE_PDO_DSN']??getenv('OFFICE_INTAKE_PDO_DSN'));
+$user=(string)($config['OFFICE_INTAKE_DB_USER']??getenv('OFFICE_INTAKE_DB_USER'));
+$pass=(string)($config['OFFICE_INTAKE_DB_PASSWORD']??getenv('OFFICE_INTAKE_DB_PASSWORD'));
 if($dsn===''||$user===''){fwrite(STDERR,"SCHEMA_CHECK=ENV_NOT_LOADED\n");exit(2);}
 try{
  $db=new PDO($dsn,$user,$pass,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
