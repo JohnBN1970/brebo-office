@@ -292,7 +292,7 @@ if($edit===null){
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value=""></form>';
 }
-if($edit!==null||$guidedPreset!==null||$conflict!=='')echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+if($edit!==null||$guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
     echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Controleer de nettohoeveelheid en correctie voordat je opslaat.</p>';
 }
@@ -315,7 +315,8 @@ echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" patt
 if($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')echo '<fieldset><legend>Optionele calculatiecorrectie</legend><p class="muted">Materiaalverlies alleen bij type Materiaal; extra uren alleen bij type Arbeid. De ingevoerde hoeveelheid is de netto-/basishoeveelheid. Correcties worden bij opslaan doorgerekend en in de revisiereden vastgelegd.</p><label>Materiaalverlies (%) <input type="text" inputmode="decimal" name="material_loss_percent" value="'.$h((string)($edit['material_loss_percent']??'')).'" placeholder="bijv. 8"></label> <label>Extra arbeidsuren <input type="text" inputmode="decimal" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'" placeholder="bijv. 12"></label></fieldset>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
 echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
-echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
+echo '</form></section>';}
+echo '</div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
 echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">Kies een voorziening. Controleer de hoeveelheid en prijs voordat je de voorgestelde regel opslaat.</p><div class="guided-questions">';
