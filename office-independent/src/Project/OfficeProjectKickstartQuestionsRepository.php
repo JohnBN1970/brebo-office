@@ -48,7 +48,9 @@ final class OfficeProjectKickstartQuestionsRepository
             $insert = $this->db->prepare('INSERT INTO office_project_start_questions (dossier_id, created_revision, actor_user_id, question, answer, decision_text, owner_user_id, due_date, is_critical) VALUES (?,?,?,?,?,?,?,?,?)');
             $insert->execute([$dossierId,$next,$actorId,$question,$answer,$decision,$ownerUserId,$dueDate,(int)$critical]);
             $questionId = (int)$this->db->lastInsertId();
-            $newCritical = (int)$row['critical_open_points'] + (($critical && $answer === '') ? 1 : 0);
+            // The manual critical counter tracks separate checklist issues.
+            // Critical Q&A is evaluated directly from persisted decisions by the gate.
+            $newCritical = (int)$row['critical_open_points'];
             $update = $this->db->prepare("UPDATE office_project_start_dossiers SET revision = ?, status = 'draft', critical_open_points = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND revision = ?");
             $update->execute([$next,$newCritical,$dossierId,$expectedRevision]);
             if ($update->rowCount() !== 1) throw new DomainException('Concurrent dossier update');
