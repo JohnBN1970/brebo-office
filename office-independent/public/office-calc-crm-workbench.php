@@ -177,8 +177,20 @@ try {
                 }
             }
         }
+        $labor=null;
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)($_POST['cost_type']??'')==='labor'&&trim((string)($_POST['labor_hourly_rate']??''))!==''){
+            if(!$collaborationEnabled||$adjustmentMetadata!==null)$deny(400,'LABOR_NOT_AVAILABLE');
+            require_once dirname(__DIR__).'/src/Calculation/OfficeCalcLaborNorm.php';
+            $driver=(string)($_POST['labor_driver']??'norm');
+            $input=str_replace(',','.',trim((string)($_POST[$driver==='hours'?'labor_hours':'labor_norm']??'')));
+            $rate=str_replace(',','.',trim((string)($_POST['labor_hourly_rate']??'')));
+            $labor=\Brebo\Office\Calculation\OfficeCalcLaborNorm::calculate($exactQuantity,$driver,$input,$rate);
+            $exactUnitCost=$labor['labor_unit_cost'];
+            $cost=(int)bcdiv(bcmul($exactUnitCost,'100',4),'1',0);
+            $adjustmentReason='Arbeid '.$labor['hours'].' uur, norm '.$labor['norm'].', tarief '.$labor['hourly_rate'].' (leidend '.$driver.')';
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -277,13 +289,17 @@ foreach($lines as $line) {
         echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" name="quantity" min="0.0001" step="0.0001" value="'.$h($net).'" required></td>';
         echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit" maxlength="32" value="'.$h((string)($line['unit']??'st')).'" required></td>';
         echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" value="'.$h($lossValue).'" placeholder="0"></td>';
-        echo '<td>—</td><td>—</td><td>—</td>';
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)$line['cost_type']==='labor'){
+            echo '<td><input form="'.$formId.'" name="labor_norm" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_norm']??'')).'" placeholder="Norm"></td>';
+            echo '<td><input form="'.$formId.'" name="labor_hours" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hours']??'')).'" placeholder="Uren"></td>';
+            echo '<td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';
+        }else echo '<td>—</td><td>—</td><td>—</td>';
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
         echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
         echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
     }else{
-        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td title="Norm niet beschikbaar">—</td><td title="Uren niet beschikbaar">—</td><td title="Tarief niet beschikbaar">—</td>';
+        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
         echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
     }
@@ -305,7 +321,10 @@ if($edit===null){
     echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" type="number" name="quantity" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" value="1" required></td>';
     echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" name="unit" maxlength="32" value="st" required></td>';
     echo '<td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-factor" type="number" name="material_loss_percent" min="0" max="100" step="0.01" placeholder="0" title="Alleen voor materiaal" '.(!($collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled')?'disabled':'').'></td>';
-    echo '<td>—</td><td>—</td><td>—</td><td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
+    if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
+        echo '<td><input form="'.$inlineForm.'" name="labor_norm" type="number" min="0" step="0.0001" placeholder="Norm"></td><td><input form="'.$inlineForm.'" name="labor_hours" type="number" min="0" step="0.0001" placeholder="Uren"></td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
+    }else echo '<td>—</td><td>—</td><td>—</td>';
+    echo '<td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
 }
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 if($edit!==null){
