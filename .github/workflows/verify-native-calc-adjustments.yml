@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/deployment/hostinger/install-calc-adjustment-files.php'
       - 'office-independent/src/Calculation/**'
       - 'office-independent/tests/OfficeCalc*'
       - '.github/workflows/verify-native-calc-adjustments.yml'
@@ -26,6 +27,7 @@ jobs:
       - name: Syntax checks
         run: |
           set -euo pipefail
+          php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
           php -l office-independent/public/office-calc-crm-workbench.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
