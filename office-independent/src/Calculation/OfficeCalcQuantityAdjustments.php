@@ -43,6 +43,33 @@ final class OfficeCalcQuantityAdjustments
         ];
     }
 
+    /**
+     * Reconstruct an editable adjustment from a canonical line snapshot.
+     * Legacy rows without metadata remain unadjusted.
+     */
+    public static function snapshot(string $effectiveQuantity, ?string $netQuantity, ?string $lossPercent, ?string $extraHours, string $costType): array
+    {
+        self::decimal($effectiveQuantity, 6, 4);
+        if($netQuantity===null){
+            if($lossPercent!==null||$extraHours!==null)throw new DomainException('Correctie zonder nettohoeveelheid.');
+            return ['net_quantity'=>$effectiveQuantity,'effective_quantity'=>$effectiveQuantity,'material_loss_percent'=>null,'extra_labor_hours'=>null];
+        }
+        self::decimal($netQuantity, 6, 4);
+        if($lossPercent!==null&&$extraHours!==null)throw new DomainException('Conflicterende correcties.');
+        if($lossPercent!==null){
+            if($costType!=='material')throw new DomainException('Materiaalverlies alleen voor materiaal.');
+            $calculated=self::material($netQuantity,$lossPercent,'0');
+            if(bccomp($calculated['gross_quantity'],$effectiveQuantity,4)!==0)throw new DomainException('Afwijkende materiaalhoeveelheid.');
+        }elseif($extraHours!==null){
+            if($costType!=='labor')throw new DomainException('Extra uren alleen voor arbeid.');
+            $calculated=self::labor($netQuantity,$extraHours,'0');
+            if(bccomp($calculated['total_hours'],$effectiveQuantity,4)!==0)throw new DomainException('Afwijkende arbeidsuren.');
+        }elseif(bccomp($netQuantity,$effectiveQuantity,4)!==0){
+            throw new DomainException('Afwijkende nettohoeveelheid.');
+        }
+        return ['net_quantity'=>$netQuantity,'effective_quantity'=>$effectiveQuantity,'material_loss_percent'=>$lossPercent,'extra_labor_hours'=>$extraHours];
+    }
+
     private static function decimal(string $value, int $integerDigits, int $fractionDigits): void
     {
         if (!preg_match('/^[0-9]{1,'.$integerDigits.'}(?:\\.[0-9]{1,'.$fractionDigits.'})?$/D', $value)) {
