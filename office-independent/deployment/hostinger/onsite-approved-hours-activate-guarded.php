@@ -9,6 +9,8 @@ register_shutdown_function(static function (): void {
     $error=error_get_last();
     if (is_array($error) && in_array($error['type'], [E_ERROR,E_PARSE,E_CORE_ERROR,E_COMPILE_ERROR], true)) {
         echo "ON_SITE_PHP_FATAL_TYPE=".$error['type']."\n";
+        echo "ON_SITE_PHP_FATAL_LINE=".(int)($error['line']??0)."\n";
+        echo "ON_SITE_PHP_FATAL_IN_ACTIVATION_SCRIPT=".(isset($error['file']) && realpath((string)$error['file'])===realpath(__FILE__)?'YES':'NO')."\n";
     }
 });
 
