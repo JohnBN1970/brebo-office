@@ -111,7 +111,7 @@ try {
             if(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
             $quantity=1;$unit=trim((string)($_POST['unit']??''));
         }else $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
-        // Friendly euro input, canonical persistence remains in integer cents.
+        // Legacy callers use cents; reviewed native inputs preserve four decimal places.
         $price=$_POST['unit_price_eur']??null;
         if (!is_string($price)) $deny(400,'INVALID_PRICE');
         $price=trim(str_replace(',', '.', $price));
@@ -152,7 +152,7 @@ if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
     }
 }
 if($conflict!==''&&($_POST['action']??'save_line')==='save_line'){
-    $edit=['line_id'=>$lineId??(string)($_POST['line_id']??''),'description'=>(string)($_POST['description']??''),'cost_type'=>(string)($_POST['cost_type']??'material'),'quantity'=>$quantity??1,'unit_cost_cents'=>$cost??0,'quantity_decimal'=>(string)($_POST['quantity']??'1'),'unit_cost_decimal'=>(string)($_POST['unit_price_eur']??'0'),'unit'=>(string)($_POST['unit']??'')];
+    $edit=['line_id'=>$lineId??(string)($_POST['line_id']??''),'description'=>(string)($_POST['description']??''),'cost_type'=>(string)($_POST['cost_type']??'material'),'quantity'=>$quantity??1,'unit_cost_cents'=>$cost??0,'quantity_decimal'=>$exactQuantity??'1','unit_cost_decimal'=>(string)($_POST['unit_price_eur']??'0'),'unit'=>(string)($_POST['unit']??'')];
 }
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');

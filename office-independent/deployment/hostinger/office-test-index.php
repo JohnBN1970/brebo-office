@@ -71,6 +71,7 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
 }
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $routes = [
+  '/office-test/calculatie/samenwerken' => 'office-calc-crm-workbench.php',
   '/office-test' => 'office-home.php',
   '/office-test/' => 'office-home.php',
   '/office-test/inloggen' => 'office-login.php',
