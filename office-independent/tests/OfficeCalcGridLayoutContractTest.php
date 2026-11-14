@@ -25,6 +25,9 @@ foreach([
  'Steiger nodig?',
  'Bouwtoilet nodig?',
  'Extra arbeidsuren nodig?',
+ 'Extra transport nodig?',
+ 'Materiaalverlies voorzien?',
+ 'Bescherming werkgebied nodig?',
  'Geen automatische boeking'
 ] as $contract){
  if(!str_contains($source,$contract))throw new RuntimeException('Calc grid regression: '.$contract);
