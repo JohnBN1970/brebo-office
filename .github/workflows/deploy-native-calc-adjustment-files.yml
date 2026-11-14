@@ -5,6 +5,7 @@ on:
       - feature/calc-wpcalc-grid-20261114
     paths:
       - '.github/workflows/deploy-native-calc-adjustment-files.yml'
+      - 'office-independent/public/office-calc-crm-workbench.php'
   workflow_dispatch:
 permissions:
   contents: read
