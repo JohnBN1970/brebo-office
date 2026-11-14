@@ -1,0 +1,29 @@
+name: Office quotation accepted budget handoff
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-quotation-handoff.yml'
+      - 'office-independent/deployment/hostinger/*quotation-handoff*'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-quotation-budget-handoff-20261114'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect quotation acceptance and native project schema
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_ACTOR: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$DEPLOY_ACTOR"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_acceptance
+          chmod 600 ~/.ssh/id_calc_acceptance
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -p "$PORT" "$DEPLOY_ACTOR@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-quotation-handoff.php
