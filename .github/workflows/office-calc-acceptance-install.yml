@@ -1,0 +1,106 @@
+name: Office Calc acceptance Office-test rollout
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-calc-acceptance-install.yml'
+      - 'office-independent/deployment/hostinger/*calc-acceptance*'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-decimal-install-20261114'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect Office-test acceptance runtime and schema
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_ACTOR: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$DEPLOY_ACTOR"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_acceptance
+          chmod 600 ~/.ssh/id_calc_acceptance
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -p "$PORT" "$DEPLOY_ACTOR@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-calc-acceptance.php
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: decimal-test-only
+          MYSQL_DATABASE: office_calc_decimal_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pdecimal-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, bcmath
+      - name: Validate installer and acceptance regressions
+        run: |
+          set -eu
+          for file in office-independent/deployment/hostinger/*calc-acceptance.php office-independent/src/Calculation/*.php; do php -l "$file"; done
+          for test in WorkBudgetHandoff PersistedAcceptanceVerifier AcceptanceSnapshotWriter AcceptanceToBudgetIntegration CrmTransferAtomicSqlite CrmTransferServiceContract DecimalAcceptance; do php "office-independent/tests/OfficeCalc${test}Test.php"; done
+      - name: Verify exact MySQL round trip and session-local host probe
+        run: php office-independent/tests/OfficeCalcDecimalAcceptanceTest.php
+        env:
+          CALC_DECIMAL_MYSQL: '1'
+  install:
+    needs: [inspect, verify]
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-decimal-install-20261114'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: office-calc-collaboration-install
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Package bounded acceptance installation
+        run: |
+          set -euo pipefail
+          mkdir -p acceptance-package/src/Calculation
+          for name in OfficeCalcAcceptedLineAmounts OfficeCalcWorkBudgetHandoff OfficeCalcAcceptanceIdentity OfficeCalcPersistedAcceptanceVerifier OfficeCalcAcceptanceSnapshotWriter OfficeCalcCrmTransferService; do cp "office-independent/src/Calculation/$name.php" acceptance-package/src/Calculation/; done
+          cp office-independent/deployment/hostinger/install-calc-acceptance.php acceptance-package/install.php
+          cp office-independent/deployment/hostinger/probe-calc-acceptance.php acceptance-package/probe.php
+          cp office-independent/deployment/hostinger/sql/office-crm-calc-acceptance-proposed.sql acceptance-package/acceptance-schema.sql
+          tar -czf calc-acceptance.tar.gz -C acceptance-package .
+      - name: Install and verify exact Office-test acceptance services
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_ACTOR: ${{ secrets.DEPLOY_USER }}
+          REVISION: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$DEPLOY_ACTOR"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_acceptance
+          chmod 600 ~/.ssh/id_calc_acceptance
+          case "$REVISION" in *[!a-f0-9]*|'') exit 1;; esac
+          remote="$DEPLOY_ACTOR@$HOST"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -P "$PORT" calc-acceptance.tar.gz "$remote:domains/brebobv.nl/office_calc_test/.calc-acceptance-stage-$REVISION.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -p "$PORT" "$remote" "bash -se -- '$REVISION'" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$base/.calc-acceptance-stage-$1"
+          mkdir -p "$stage"
+          chmod 700 "$stage"
+          tar -xzf "$stage.tar.gz" --no-same-owner -C "$stage"
+          php -l "$stage/install.php"
+          php "$stage/install.php" "$stage"
+          rm -f "$stage.tar.gz"
+          REMOTE
