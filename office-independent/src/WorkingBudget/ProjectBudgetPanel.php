@@ -111,6 +111,10 @@ final class ProjectBudgetPanel
                     .number_format($totals[$type] / 100, 2, ',', '.')
                     .'</td><td>—</td><td>—</td><td>—</td></tr>';
             }
+            $lockedTotal = $kpis['baseline_cents'] ?? null;
+            if ($lockedTotal !== null && (!is_int($lockedTotal) || $lockedTotal !== $totalBudget)) {
+                throw new InvalidArgumentException('Locked budget total differs from cost lines.');
+            }
             $html .= '<tr><th scope="row">Totaal</th><td>€ '
                 .number_format($totalBudget / 100, 2, ',', '.')
                 .'</td><td>—</td><td>—</td><td>—</td></tr></tbody></table></div>';
