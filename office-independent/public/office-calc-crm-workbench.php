@@ -188,6 +188,7 @@ try {
             $input=str_replace(',','.',trim((string)($_POST[$driver==='hours'?'labor_hours':'labor_norm']??'')));
             $rate=str_replace(',','.',trim((string)($_POST['labor_hourly_rate']??'')));
             $labor=\Brebo\Office\Calculation\OfficeCalcLaborNorm::calculate($exactQuantity,$driver,$input,$rate);
+            $labor['input']=$input;
             $exactUnitCost=$labor['labor_unit_cost'];
             $cost=(int)bcdiv(bcmul($exactUnitCost,'100',4),'1',0);
             $adjustmentReason='Arbeid '.$labor['hours'].' uur, norm '.$labor['norm'].', tarief '.$labor['hourly_rate'].' (leidend '.$driver.')';
