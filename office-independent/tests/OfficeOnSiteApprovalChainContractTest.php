@@ -19,12 +19,15 @@ $require(str_contains($service,'$this->db->beginTransaction()') && str_contains(
     'Approval and ledger booking must use a transaction');
 $require(str_contains($service,'FOR UPDATE') && str_contains($service,'Previously approved OnSite booking missing or changed'),
     'Duplicate approval must verify immutable existing booking');
+$require(str_contains($service, "OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED")
+    && str_contains($service, 'OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId)'),
+    'Independent reviewer must be enforced when the four-eyes flag is enabled');
 $require(str_contains($controller,"OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED") && str_contains($controller,'hash_equals('),
     'OnSite feature flag and CSRF protection required');
 $require(str_contains($weekly,'office_inzet_approved_hours') && str_contains($weekly,"m.permission IN ('read','manage')"),
     'Approved weekly hours must come from the ACL-scoped ledger');
-$require(str_contains($portfolio,'Approved labour hours are an operational project KPI'),
+$require(str_contains($portfolio,'Portfolio labour KPI is cumulative; week-specific hours belong in Inzet.'),
     'Approved weekly hours must not require Finance permission');
-$require(str_contains($portfolio,"$"."portfolioTotals['approved_week_seconds']"),
-    'Approved week total must reach the portfolio view');
+$require(str_contains($portfolio,"$"."portfolioTotals['approved_cumulative_seconds']"),
+    'Approved cumulative total must reach the portfolio view');
 echo "ONSITE_APPROVAL_CHAIN_CONTRACT_OK\n";
