@@ -25,10 +25,13 @@ jobs:
           php -l office-independent/public/office-calc-crm-workbench.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php -l office-independent/src/Calculation/OfficeCalcLaborNorm.php
+          php -l office-independent/deployment/hostinger/apply-calc-labor-schema.php
           php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
           php -l office-independent/deployment/hostinger/calc-adjustment-manifest.php
           php -l office-independent/deployment/hostinger/verify-calc-adjustment-install.php
           php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcLaborNormTest.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
       - name: Stage and install complete file set
@@ -52,6 +55,7 @@ jobs:
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$stage/workbench.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php "$remote:$stage/OfficeCalcCrmDraftLineRepository.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php "$remote:$stage/OfficeCalcQuantityAdjustments.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcLaborNorm.php "$remote:$stage/OfficeCalcLaborNorm.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/install-calc-adjustment-files.php "$remote:$stage/install.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/deployment/hostinger/calc-adjustment-manifest.php "$remote:$stage/manifest.php"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "php '$stage/manifest.php' \"\$HOME/$stage\""
