@@ -43,16 +43,11 @@ final class OfficeCalcPersistedAcceptanceVerifier
         if (count($storedLines) !== count($lines) || $storedLines === []) {
             return false;
         }
-        $requested = [];
-        foreach ($lines as $line) {
-            if (!is_array($line)) return false;
-            $requested[] = [
-                'source_line_id' => $line['line_id'] ?? null,
-                'cost_type' => $line['cost_type'] ?? null,
-                'quantity' => $line['quantity'] ?? null,
-                'unit_cost_cents' => $line['unit_cost_cents'] ?? null,
-                'activity_ref' => $line['activity_ref'] ?? null,
-            ];
+        require_once __DIR__.'/OfficeCalcWorkBudgetHandoff.php';
+        try {
+            $requested = OfficeCalcWorkBudgetHandoff::prepare($acceptance, $lines)['items'];
+        } catch (\InvalidArgumentException $error) {
+            return false;
         }
         usort($requested, static fn(array $a, array $b): int =>
             strcmp((string)$a['source_line_id'], (string)$b['source_line_id']));
@@ -60,8 +55,8 @@ final class OfficeCalcPersistedAcceptanceVerifier
             $line = $requested[$index];
             if ($storedLine['source_line_id'] !== $line['source_line_id']
                 || $storedLine['cost_type'] !== $line['cost_type']
-                || !is_int($line['quantity']) || (int)$storedLine['quantity'] !== $line['quantity']
-                || !is_int($line['unit_cost_cents']) || (int)$storedLine['unit_cost_cents'] !== $line['unit_cost_cents']
+                || !OfficeCalcAcceptedLineAmounts::equal($storedLine['quantity'], $line['quantity'], 4)
+                || !OfficeCalcAcceptedLineAmounts::equal($storedLine['unit_cost_cents'], $line['unit_cost_cents'], 2)
                 || $storedLine['activity_ref'] !== $line['activity_ref']) {
                 return false;
             }

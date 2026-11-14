@@ -1,0 +1,39 @@
+name: Office Calc decimal acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/tests/OfficeCalc*'
+      - 'office-independent/deployment/hostinger/sql/office-calc-acceptance-decimals.sql'
+      - '.github/workflows/office-calc-decimal-handoff.yml'
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: decimal-test-only
+          MYSQL_DATABASE: office_calc_decimal_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pdecimal-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, bcmath
+      - name: Validate acceptance and transfer contracts
+        run: |
+          set -eu
+          for file in office-independent/src/Calculation/*.php; do php -l "$file"; done
+          for test in WorkBudgetHandoff PersistedAcceptanceVerifier AcceptanceSnapshotWriter AcceptanceToBudgetIntegration CrmTransferAtomicSqlite CrmTransferServiceContract DecimalAcceptance; do php "office-independent/tests/OfficeCalc${test}Test.php"; done
+      - name: Verify actual MySQL migration and exact round trip
+        run: php office-independent/tests/OfficeCalcDecimalAcceptanceTest.php
+        env:
+          CALC_DECIMAL_MYSQL: '1' 

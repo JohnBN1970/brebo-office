@@ -135,9 +135,9 @@ final class OfficeCalcCrmTransferService
                 if (!is_array($actual)
                     || (string)$actual['source_line_id'] !== $expected['source_line_id']
                     || (string)$actual['cost_type'] !== $expected['cost_type']
-                    || (int)$actual['quantity'] !== $expected['quantity']
-                    || (int)$actual['unit_cost_cents'] !== $expected['unit_cost_cents']
-                    || (int)$actual['budget_cents'] !== $expected['budget_cents']
+                    || !OfficeCalcAcceptedLineAmounts::equal($actual['quantity'], $expected['quantity'], 4)
+                    || !OfficeCalcAcceptedLineAmounts::equal($actual['unit_cost_cents'], $expected['unit_cost_cents'], 2)
+                    || !OfficeCalcAcceptedLineAmounts::equal($actual['budget_cents'], $expected['budget_cents'], 0)
                     || $actual['activity_ref'] !== $expected['activity_ref']) {
                     throw new DomainException('Persisted work budget line differs from accepted source');
                 }
