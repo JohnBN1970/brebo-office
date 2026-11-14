@@ -1,0 +1,39 @@
+name: Office-test Calc activation preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-test-calc-activation-preflight.yml'
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Validate read-only release gate
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/check-calc-adjustment-activation.php
+      - name: Inspect Office-test release gate without writes
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_preflight
+          chmod 600 ~/.ssh/id_calc_preflight
+          remote="$USER@$HOST"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_preflight -p "$PORT" "$remote" 'php -r '\''$base=realpath((string)getenv("HOME")."/domains/brebobv.nl/office_calc_test");$config=$base&&is_file($base."/config/config.php")?require $base."/config/config.php":null;$root=is_array($config)?realpath((string)($config["OFFICE_PRIVATE_ROOT"]??"")):false;if(!is_array($config)||($config["OFFICE_BASE_PATH"]??"")!=="/office-test"||!$root)exit(2);$files=["public/office-calc-crm-workbench.php","src/Calculation/OfficeCalcCrmDraftLineRepository.php","src/Calculation/OfficeCalcQuantityAdjustments.php"];foreach($files as $file)if(!is_file($root."/".$file))exit(3);$dsn=(string)($config["OFFICE_INTAKE_PDO_DSN"]??getenv("OFFICE_INTAKE_PDO_DSN"));$user=(string)($config["OFFICE_INTAKE_DB_USER"]??getenv("OFFICE_INTAKE_DB_USER"));$pass=(string)($config["OFFICE_INTAKE_DB_PASSWORD"]??getenv("OFFICE_INTAKE_DB_PASSWORD"));$db=new PDO($dsn,$user,$pass);$q=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=\x27calculation_lines\x27");$columns=$q->fetchAll(PDO::FETCH_COLUMN);foreach(["calc_net_quantity","calc_material_loss_percent","calc_extra_labor_hours","calc_quantity_source","calc_quantity_source_ref"] as $col)if(!in_array($col,$columns,true))exit(4);echo "ACTIVATION_PREFLIGHT=PASS\\n";echo "SCHEMA_COLUMNS=5\\n";echo "FLAG_STATE=".((getenv("OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED")==="enabled")?"ENABLED":"NOT_ENABLED")."\\n";'\'''
