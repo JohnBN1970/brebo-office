@@ -34,8 +34,9 @@ foreach([
  'OfficeCalcQuantityAdjustments',
  'INVALID_MATERIAL_LOSS',
  'INVALID_EXTRA_HOURS',
- 'ADJUSTMENT_EDIT_UNSUPPORTED',
- 'ADJUSTMENT_CONFLICT'
+ 'ADJUSTMENT_CONFLICT',
+ 'ADJUSTMENT_SCHEMA_UNVERIFIED',
+ 'OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED'
 ] as $contract){
  if(!str_contains($source,$contract))throw new RuntimeException('Calc grid regression: '.$contract);
 }
