@@ -42,5 +42,6 @@ foreach([
 }
 if(!str_contains($source,'grid-template-columns:minmax(0,1fr) 300px') && !str_contains($source,'.gridlayout{display:block}'))throw new RuntimeException('Grid layout missing');
 if(substr_count($source,"echo '<!doctype")!==2)throw new RuntimeException('List and draft views must both exist');
-if(!str_contains($source,'colspan="17"'))throw new RuntimeException('Empty grid column count mismatch');
+if(!str_contains($source,'colspan="18"'))throw new RuntimeException('Empty grid column count mismatch');
+foreach(['calc-inline-new','calc-inline-row','Verliesfactor %','name="material_loss_percent"'] as $inline)if(!str_contains($source,$inline))throw new RuntimeException('Inline entry missing: '.$inline);
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\n";
