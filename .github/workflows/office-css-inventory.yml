@@ -6,6 +6,7 @@ on:
     paths:
       - 'office-independent/**'
       - 'tools/audit_office_css.py'
+      - 'tools/check_office_home_css_parity.py'
       - '.github/workflows/office-css-inventory.yml'
 
 permissions:
@@ -16,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify staged Office home CSS parity
+        run: python3 tools/check_office_home_css_parity.py
       - name: Generate CSS inventory
         run: |
           python3 tools/audit_office_css.py --root office-independent --json office-css-inventory.json --markdown office-css-inventory.md
