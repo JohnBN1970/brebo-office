@@ -187,6 +187,36 @@ try {
         header('Location: /office-test/email?folder='.$returnFolder.'#mailbord',true,303);
         exit;
       }
+      // Authenticated send preflight only. Never invokes a transport or changes delivery state.
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'check_send') {
+        $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+        $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        if (($origin !== '' && !hash_equals('https://' . $allowedHost, $origin))
+          || ($origin === '' && !str_starts_with($referer, 'https://' . $allowedHost . '/'))
+          || !is_string($_POST['csrf'] ?? null)
+          || !hash_equals($csrfToken, $_POST['csrf'])) {
+          http_response_code(403); exit('Ongeldige aanvraag.');
+        }
+        $mailboxId = filter_var($_POST['mailbox_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $recipient = $_POST['recipient'] ?? null;
+        $subject = $_POST['subject'] ?? null;
+        $bodyText = $_POST['body_text'] ?? null;
+        if (!is_int($mailboxId) || !is_string($recipient) || !is_string($subject) || !is_string($bodyText)) {
+          http_response_code(422); exit('Ongeldige verzendcontrole.');
+        }
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailOutgoingPolicy.php';
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailSendPreflight.php';
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('X-Robots-Tag: noindex, nofollow');
+        try {
+          \Brebo\Office\Mail\OfficeMailSendPreflight::check($db, $operatorId, $mailboxId, $recipient, $subject, $bodyText);
+          echo "SEND_PREFLIGHT=READY\nMAIL_SENDING=NOT_ATTEMPTED\n";
+        } catch (Throwable $sendCheckError) {
+          http_response_code(422);
+          echo "SEND_PREFLIGHT=BLOCKED\nMAIL_SENDING=NOT_ATTEMPTED\n";
+        }
+        exit;
+      }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'save_draft') {
         if (!$draftsEnabled) { http_response_code(503); exit('Conceptopslag niet geactiveerd.'); }
         $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
