@@ -45,4 +45,32 @@ final class OfficeApprovedHoursWeekRepository
         }
         return (int)$value;
     }
+    /**
+     * Cumulative approved hours across all projects visible to this operator.
+     * Returns null if the ledger is absent; zero if it exists but has no rows.
+     * EXISTS avoids duplicate sums for repeated membership rows.
+     */
+    public function forOperatorAllTime(string $operatorId): ?int
+    {
+        if ($operatorId === '' || strlen($operatorId) > 128) {
+            throw new \InvalidArgumentException('Invalid operator');
+        }
+        $check = $this->db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_inzet_approved_hours'");
+        if ((int)$check->fetchColumn() !== 1) return null;
+        $stmt = $this->db->prepare("SELECT COALESCE(SUM(h.approved_seconds), 0) AS total_seconds
+            FROM office_inzet_approved_hours h
+            WHERE EXISTS (
+                SELECT 1 FROM office_project_memberships m
+                INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+                WHERE m.project_id = h.project_id AND m.operator_id = :operator
+                  AND m.permission IN ('read','manage') AND a.active = 1
+            )");
+        $stmt->execute([':operator' => $operatorId]);
+        $value = $stmt->fetchColumn();
+        if (!is_numeric($value) || (float)$value > PHP_INT_MAX || (float)$value < 0) {
+            throw new \RuntimeException('Invalid cumulative approved hours');
+        }
+        return (int)$value;
+    }
+
 }
