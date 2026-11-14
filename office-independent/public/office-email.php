@@ -187,6 +187,68 @@ try {
         header('Location: /office-test/email?folder='.$returnFolder.'#mailbord',true,303);
         exit;
       }
+      // Outbound action: explicit server flags, authenticated sender, persistent idempotency.
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'send_mail') {
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('X-Robots-Tag: noindex, nofollow');
+        if (getenv('OFFICE_MAIL_OUTBOUND_ENABLED') !== 'enabled'
+          || getenv('OFFICE_MAIL_TRANSPORT_ENABLED') !== 'enabled') {
+          http_response_code(503); exit("MAIL_SEND=DISABLED\n");
+        }
+        $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+        $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        $fetchSite = (string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '');
+        if (($origin !== '' && !hash_equals('https://' . $allowedHost, $origin))
+          || ($referer !== '' && (parse_url($referer, PHP_URL_HOST) !== $allowedHost || parse_url($referer, PHP_URL_SCHEME) !== 'https'))
+          || ($fetchSite !== '' && !in_array($fetchSite, ['same-origin','none'], true))
+          || !is_string($_POST['csrf'] ?? null)
+          || !hash_equals($csrfToken, $_POST['csrf'])) {
+          http_response_code(403); exit("MAIL_SEND=FORBIDDEN\n");
+        }
+        $mailboxId = filter_var($_POST['mailbox_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $recipient = $_POST['recipient'] ?? null;
+        $subject = $_POST['subject'] ?? null;
+        $bodyText = $_POST['body_text'] ?? null;
+        $nonce = $_POST['send_nonce'] ?? null;
+        if (!is_int($mailboxId) || !is_string($recipient) || !is_string($subject)
+          || !is_string($bodyText) || !is_string($nonce) || !preg_match('/^[a-f0-9]{32}$/D', $nonce)) {
+          http_response_code(422); exit("MAIL_SEND=INVALID_REQUEST\n");
+        }
+        $root = dirname(__DIR__);
+        $gateway = $root . '/packages/brebo-mail-gateway/src/';
+        foreach ([
+          $root . '/src/Mail/OfficeMailOutgoingPolicy.php',
+          $root . '/src/Mail/OfficeMailSendPreflight.php',
+          $root . '/src/Mail/OfficeMailOutboundDeliveryRepository.php',
+          $root . '/src/Mail/OfficeMailOutboundDispatchService.php',
+          $root . '/src/Mail/OfficeMailPostfixTransportAdapter.php',
+          $gateway . 'Contract/SmtpTransportInterface.php',
+          $gateway . 'Contract/StdinCommandRunnerInterface.php',
+          $gateway . 'Infrastructure/NativeStdinCommandRunner.php',
+          $gateway . 'Infrastructure/PostfixSendmailTransport.php',
+        ] as $dependency) {
+          if (!is_file($dependency)) { http_response_code(503); exit("MAIL_SEND=TRANSPORT_NOT_INSTALLED\n"); }
+          require_once $dependency;
+        }
+        try {
+          $ledger = new \Brebo\Office\Mail\OfficeMailOutboundDeliveryRepository($db);
+          if (!$ledger->schemaReady()) throw new RuntimeException('Outbound ledger unavailable');
+          $command = '/usr/sbin/sendmail';
+          if (!is_executable($command)) throw new RuntimeException('Mail transport unavailable');
+          $runner = new \Brebo\MailGateway\Infrastructure\NativeStdinCommandRunner([$command]);
+          $transport = new \Brebo\MailGateway\Infrastructure\PostfixSendmailTransport($runner, true, $command);
+          $adapter = new \Brebo\Office\Mail\OfficeMailPostfixTransportAdapter($transport);
+          $dispatcher = new \Brebo\Office\Mail\OfficeMailOutboundDispatchService($db, $ledger);
+          $key = hash_hmac('sha256', $operatorId . '|' . $nonce, $csrfSecret);
+          $result = $dispatcher->dispatch($operatorId, $mailboxId, $recipient, $subject, $bodyText, $key, [$adapter, 'send']);
+          echo "MAIL_SEND=ACCEPTED\nDELIVERY_ID=" . (int)$result['delivery_id'] . "\n";
+        } catch (Throwable $sendError) {
+          error_log('office_mail_send_failed: ' . $sendError::class);
+          http_response_code(422);
+          echo "MAIL_SEND=BLOCKED_OR_UNKNOWN\nCHECK_OUTBOUND_LEDGER=YES\n";
+        }
+        exit;
+      }
       // Authenticated send preflight only. Never invokes a transport or changes delivery state.
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'check_send') {
         $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -554,6 +616,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>">
 <input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
 <input type="hidden" id="mail-compose-type" name="draft_type" value="reply">
+<input type="hidden" name="send_nonce" value="<?= bin2hex(random_bytes(16)) ?>">
 <h3 id="mail-compose-heading">Concept</h3>
 <label for="mail-compose-mailbox">Afzenderaccount</label>
 <select id="mail-compose-mailbox" name="mailbox_id">
@@ -562,7 +625,7 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <option value="<?= (int)$composeMailbox['id'] ?>"<?= $selectedMailbox === (int)$composeMailbox['id'] ? ' selected' : '' ?>><?= htmlspecialchars((string)$composeMailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></option>
 <?php endforeach; ?>
 </select>
-<p class="muted">Concept voorbereiden; rechtstreeks verzenden vanuit Office is nog niet geactiveerd.</p>
+<p class="muted">Verzenden wordt pas beschikbaar na activering van de mailgateway.</p>
 <label for="mail-compose-to">Aan</label>
 <input id="mail-compose-to" name="recipient" type="text" autocomplete="off" placeholder="E-mailadres">
 <label for="mail-compose-subject">Onderwerp</label>
@@ -572,6 +635,9 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <div class="mail-reply-actions">
 <?php if ($draftsEnabled): ?><button type="submit" name="action" value="save_draft">Concept opslaan in Office</button><?php endif; ?>
 <button type="submit" name="action" value="check_send">Verzending controleren (niet verzenden)</button>
+<?php if (getenv('OFFICE_MAIL_OUTBOUND_ENABLED') === 'enabled' && getenv('OFFICE_MAIL_TRANSPORT_ENABLED') === 'enabled'): ?>
+<button type="submit" name="action" value="send_mail" onclick="return confirm('Dit bericht daadwerkelijk verzenden?')">Verzenden</button>
+<?php endif; ?>
 <button type="button" id="mail-compose-copy">Kopieer concept</button>
 <button type="button" id="mail-compose-close">Sluiten</button>
 </div>
