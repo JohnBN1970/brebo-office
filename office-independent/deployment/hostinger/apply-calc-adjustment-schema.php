@@ -3,9 +3,14 @@ declare(strict_types=1);
 // Explicit CLI-only, Office-test-only schema migration. No feature flags changed.
 // Usage: OFFICE_INTAKE_PDO_DSN=... OFFICE_INTAKE_DB_USER=... OFFICE_INTAKE_DB_PASSWORD=... php apply-calc-adjustment-schema.php --apply
 if(PHP_SAPI!=='cli'||($argv[1]??'')!=='--apply'){fwrite(STDERR,"MIGRATION=EXPLICIT_APPLY_REQUIRED\n");exit(2);}
-$dsn=(string)getenv('OFFICE_INTAKE_PDO_DSN');
-$user=(string)getenv('OFFICE_INTAKE_DB_USER');
-$pass=(string)getenv('OFFICE_INTAKE_DB_PASSWORD');
+$base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');
+$config=$base&&is_file($base.'/config/config.php')?require $base.'/config/config.php':null;
+if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test'){
+ fwrite(STDERR,"MIGRATION=OFFICE_TEST_CONFIG_REQUIRED\\n");exit(2);
+}
+$dsn=(string)($config['OFFICE_INTAKE_PDO_DSN']??getenv('OFFICE_INTAKE_PDO_DSN'));
+$user=(string)($config['OFFICE_INTAKE_DB_USER']??getenv('OFFICE_INTAKE_DB_USER'));
+$pass=(string)($config['OFFICE_INTAKE_DB_PASSWORD']??getenv('OFFICE_INTAKE_DB_PASSWORD'));
 if($dsn===''||$user===''){fwrite(STDERR,"MIGRATION=ENV_NOT_LOADED\n");exit(2);}
 $columns=[
  'calc_net_quantity'=>'DECIMAL(10,4) NULL',
