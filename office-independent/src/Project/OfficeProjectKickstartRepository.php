@@ -97,7 +97,7 @@ final class OfficeProjectKickstartRepository
                 throw new DomainException('Invalid submission state');
             }
             $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
-            if (!is_array($items) || OfficeProjectKickstartPolicy::missingItems($items) !== [] || (int)$row['critical_open_points'] !== 0) {
+            if (!is_array($items) || OfficeProjectKickstartPolicy::missingItems($items) !== [] || (int)$row['critical_open_points'] !== 0 || $this->hasUnresolvedCriticalQuestions($dossierId)) {
                 throw new DomainException('Incomplete start dossier');
             }
             $this->setStatus($dossierId, 'awaiting_first_approval', $expectedRevision);
@@ -143,7 +143,7 @@ final class OfficeProjectKickstartRepository
                 $this->db->commit();
                 return ['status'=>'changes_requested','revision'=>$revision];
             }
-            if (OfficeProjectKickstartPolicy::missingItems($items) !== [] || (int)$row['critical_open_points'] !== 0) {
+            if (OfficeProjectKickstartPolicy::missingItems($items) !== [] || (int)$row['critical_open_points'] !== 0 || $this->hasUnresolvedCriticalQuestions($dossierId)) {
                 throw new DomainException('Start dossier incomplete');
             }
             if ($status === 'awaiting_first_approval') {
@@ -190,7 +190,7 @@ final class OfficeProjectKickstartRepository
         $q = $this->db->prepare("SELECT id, revision, project_leader_user_id, items_json, critical_open_points FROM office_project_start_dossiers WHERE project_id = ? AND scope_type = ? AND scope_id = ? AND status = 'released' LIMIT 1");
         $q->execute([$projectId,$scopeType,$scopeId]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
-        if (!$row || (int)$row['critical_open_points'] !== 0) {
+        if (!$row || (int)$row['critical_open_points'] !== 0 || $this->hasUnresolvedCriticalQuestions((int)$row['id'])) {
             throw new DomainException('Execution blocked: start approval missing');
         }
         $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
@@ -208,6 +208,14 @@ final class OfficeProjectKickstartRepository
         if (!$first || !$second || $first === $second || $first !== (int)$row['project_leader_user_id']) {
             throw new DomainException('Execution blocked: independent approvals missing');
         }
+    }
+
+    /** Unresolved critical kickstart decisions cannot be bypassed by a manual counter. */
+    private function hasUnresolvedCriticalQuestions(int $dossierId): bool
+    {
+        $q = $this->db->prepare("SELECT COUNT(*) FROM office_project_start_questions WHERE dossier_id = ? AND is_critical = 1 AND TRIM(decision_text) = ''");
+        $q->execute([$dossierId]);
+        return (int)$q->fetchColumn() > 0;
     }
 
     private function record(int $id, int $revision, int $actor, string $decision, ?string $note): void
