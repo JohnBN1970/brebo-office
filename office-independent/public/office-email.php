@@ -80,7 +80,7 @@ try {
     header('Content-Type: text/html; charset=UTF-8');
     $esc = static fn($value): string => htmlspecialchars((string)$value, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
     echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verzonden - BREBO Office</title>';
-    echo '<style>body{font:15px system-ui,sans-serif;max-width:1100px;margin:30px auto;padding:0 16px;color:#17324d}table{border-collapse:collapse;width:100%}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce3eb}a{color:#175a91}small{color:#586c80}</style></head><body>';
+    echo '<style>body{font:15px system-ui,sans-serif;margin:0;background:#f5f7fa;color:#17324d}header{background:#fff;border-bottom:1px solid #dce3eb;padding:18px 28px;font-weight:700}.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;max-width:1400px;margin:24px auto;padding:0 20px}nav,main{background:#fff;border:1px solid #dce3eb;border-radius:9px;padding:20px}nav{align-self:start;display:flex;flex-direction:column;gap:8px}nav a{padding:10px;border-radius:6px;text-decoration:none;color:#17324d}nav a[aria-current]{background:#e8f1f9;font-weight:700}table{border-collapse:collapse;width:100%}td,th{padding:12px;text-align:left;border-bottom:1px solid #dce3eb;overflow-wrap:anywhere}a{color:#175a91}small{color:#586c80}@media(max-width:700px){.layout{grid-template-columns:1fr}}</style></head><body><header>BREBO Office · E-mail</header><div class="layout"><nav aria-label="Postvakken"><strong>Mappen</strong><a href="/office-test/email?folder=inbox">Postvak IN</a><a href="/office-test/email?folder=unread">Ongelezen</a><a href="/office-test/email?folder=drafts">Concepten</a><a href="/office-test/email?folder=sent" aria-current="page">Verzonden</a><a href="/office-test/email?folder=archive">Archief</a><a href="/office-test/email?folder=spam">Ongewenst</a><a href="/office-test/email?folder=trash">Prullenbak</a></nav><main>';
     echo '<p><a href="/office-test/email">Terug naar e-mail</a></p><h1>Verzonden</h1>';
     echo '<p><small>Postfix geaccepteerd; aflevering bij de ontvanger is niet bevestigd.</small></p>';
     echo '<table><thead><tr><th>Datum</th><th>Van</th><th>Aan</th><th>Onderwerp</th></tr></thead><tbody>';
@@ -91,7 +91,7 @@ try {
     echo '</tbody></table>';
     if ($page > 1) echo '<a href="/office-test/email?folder=sent&amp;page='.($page-1).'">Vorige</a> ';
     if (count($rows) === 50) echo '<a href="/office-test/email?folder=sent&amp;page='.($page+1).'">Volgende</a>';
-    echo '</body></html>';
+    echo '</main></div></body></html>';
     exit;
   }
   $mailboxes = [];
