@@ -76,6 +76,17 @@ def operations(a, b):
 # Read-only inspect job of run 43519973701 confirmed this exact active review file.
 # Preserve it without altering any live-only approval or authorization behavior.
 VERIFIED_LIVE_REVIEW_SHA = "6f45df0546574965931b05f61a1c11b186da15a25917631fb56f54eb852d184b"
+# Live module digests from successful read-only inspect, run 43521372342.
+# Existing implementations are preserved only when all critical runtime markers exist.
+VERIFIED_LIVE_MODULE_SHA = {
+    "src/Inzet/OfficeOnSiteApprovalService.php": "150dbbb8794d0fd3184eef06ba57cf1665b62da99788d44a0c54c0ec2dae9324",
+    "src/Inzet/OfficeApprovedHoursWeekRepository.php": "c72e6e7e95c7303fe718bf0576306acd848f4076039ad076e4faf662a19c6cb5",
+}
+VERIFIED_LIVE_MODULE_MARKERS = {
+    "src/Inzet/OfficeOnSiteApprovalService.php": ("OfficeOnSiteApprovalService", "approve", "PDO"),
+    "src/Inzet/OfficeApprovedHoursWeekRepository.php": ("OfficeApprovedHoursWeekRepository", "forOperatorWeek", "PDO"),
+}
+
 
 def merge_page(rel, live_bytes, stage_bytes):
     if rel == "public/office-onsite-presence-review.php" and digest(live_bytes) == VERIFIED_LIVE_REVIEW_SHA:
@@ -152,7 +163,13 @@ def main():
             print("SAFE_MERGE_PREPARED:" + rel)
         elif target.exists():
             existing = safe_file(target)
-            if rel in SERVICES or rel == "src/Project/OfficeProjectPortfolioView.php":
+            if rel in VERIFIED_LIVE_MODULE_SHA and digest(existing) == VERIFIED_LIVE_MODULE_SHA[rel]:
+                for marker in VERIFIED_LIVE_MODULE_MARKERS[rel]:
+                    ensure(marker.encode("utf-8") in existing,
+                           "VERIFIED_LIVE_MODULE_MARKER_MISSING:" + rel)
+                staged[rel] = existing
+                print("VERIFIED_LIVE_MODULE_PRESERVED:" + rel)
+            elif rel in SERVICES or rel == "src/Project/OfficeProjectPortfolioView.php":
                 ensure(existing == staged[rel], "EXISTING_MODULE_DIFFERS:" + rel)
             else:
                 # Keep independently deployed modules; do not overwrite local changes.
