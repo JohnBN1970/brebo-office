@@ -507,7 +507,8 @@ $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
     ) . '">Personeelszones en projectkaart openen</a></p>'
   . $inzetHtml . '</div>'
 ;
-$financialSectionHtml = '<div id="project-financieel"><h2>Financieel</h2>'
+$financialSectionHtml = '<section id="project-financieel" aria-label="Contract en financiële afspraken">'
+  . '<h3>Contract en financiële afspraken</h3>'
   . '<p>Contract, termijnen, meer- en minderwerk en projectfacturen.</p>';
 
 
@@ -714,7 +715,7 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
     }
 }
  $workBudgetTabHtml .= '</div>';
-$financialSectionHtml .= $financeHtml;
+$financialSectionHtml .= $financeHtml . '</section>';
 
 // The overview only uses verified project and building data. CRM, planning and finance
 // are explicitly marked as pending until an authorized canonical reader is connected.
