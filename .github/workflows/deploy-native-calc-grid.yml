@@ -51,4 +51,4 @@ jobs:
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "mkdir -p '$base' && chmod 700 '$base'"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$base/workbench.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/deployment/hostinger/install-calc-grid-only.php "$remote:$base/install.php"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '\$HOME/$base/workbench.php' '$EXPECTED'"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$EXPECTED'"
