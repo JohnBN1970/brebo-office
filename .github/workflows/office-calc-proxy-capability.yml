@@ -1,0 +1,36 @@
+name: Office-test Calc proxy capability
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-calc-proxy-capability.yml'
+      - 'office-independent/deployment/hostinger/probe-office-calc-proxy.php'
+permissions:
+  contents: read
+concurrency:
+  group: office-calc-proxy-capability
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-material-import-20261113'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - run: php -l office-independent/deployment/hostinger/probe-office-calc-proxy.php
+      - name: Test health-only proxy and restore routing
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_proxy_probe
+          chmod 600 ~/.ssh/id_calc_proxy_probe
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_proxy_probe -p "$PORT" "$USER@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/probe-office-calc-proxy.php
