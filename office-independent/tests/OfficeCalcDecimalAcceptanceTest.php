@@ -93,4 +93,8 @@ foreach ([['quantity_decimal'=>'2.50001'],['unit_cost_decimal'=>'1e2'],['quantit
 }
 $missing=$line; unset($missing['unit_cost_decimal']);
 rejected(fn()=>OfficeCalcWorkBudgetHandoff::prepare($acceptance,[$missing]));
+if ($mysql) {
+    require_once dirname(__DIR__).'/deployment/hostinger/probe-calc-acceptance.php';
+    probeCalcAcceptance($db, dirname(__DIR__));
+}
 echo 'CRM_CALC_DECIMAL_ACCEPTANCE_'.($mysql?'MYSQL':'SQLITE')."=PASS\n";
