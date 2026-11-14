@@ -1,5 +1,10 @@
 name: Deploy native Calc adjustment files to Office-test
 on:
+  push:
+    branches:
+      - feature/calc-wpcalc-grid-20261114
+    paths:
+      - '.github/workflows/deploy-native-calc-adjustment-files.yml'
   workflow_dispatch:
 permissions:
   contents: read
