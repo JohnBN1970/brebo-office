@@ -62,7 +62,7 @@ $updated=substr($original,0,$returns[0]).'return array_replace(('.$expression.")
 $dir=dirname($path);
 $temp=tempnam($dir,'.onsite-');
 if ($temp===false) { fwrite(STDERR,"TEMP_FAILED\n"); exit(1); }
-chmod($temp,fileperms($path)&0777);
+if (!chmod($temp,fileperms($path)&0777)) { unlink($temp); fwrite(STDERR,"TEMP_PERMISSIONS_FAILED\n"); exit(1); }
 if (file_put_contents($temp,$updated)===false) { unlink($temp); { fwrite(STDERR,"TEMP_WRITE_FAILED\n"); exit(1); } }
 // Hostinger may disable process execution: validate PHP syntax in process.
 try {
