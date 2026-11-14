@@ -22,7 +22,9 @@ final class OfficeQuotationCalcDraftFactory
         int $operatorId,
         string $title,
         array $verifiedSnapshot,
-        string $type = 'project'
+        string $type = 'project',
+        ?int $opportunityId = null,
+        ?callable $bindBudget = null
     ): int {
         require_once __DIR__ . '/OfficeQuotationComposer.php';
         require_once __DIR__ . '/OfficeQuotationCalculationImport.php';
@@ -45,12 +47,12 @@ final class OfficeQuotationCalcDraftFactory
             if ($relation->fetchColumn() === false) throw new DomainException('CRM relation not active');
             $insert = $this->db->prepare(
                 "INSERT INTO office_quotations
-                 (relation_id, calculation_id, calculation_version, quotation_type, title,
+                 (relation_id, opportunity_id, calculation_id, calculation_version, quotation_type, title,
                   status, version, amount_ex_vat_cents, created_by)
-                 VALUES (?, ?, ?, ?, ?, 'draft', 1, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?, ?, 'draft', 1, ?, ?)"
             );
             $insert->execute([
-                $relationId, $source['calculation_id'], $source['calculation_version'],
+                $relationId, $opportunityId, $source['calculation_id'], $source['calculation_version'],
                 $type, trim($title), $source['total_ex_vat_cents'], $operatorId,
             ]);
             $id = (int)$this->db->lastInsertId();
@@ -96,6 +98,7 @@ final class OfficeQuotationCalcDraftFactory
                  VALUES (?, 1, ?, ?, ?)'
             );
             $version->execute([$id, $json, hash('sha256', $json), $operatorId]);
+            if ($bindBudget !== null) $bindBudget($this->db,$id,$source);
             $this->db->commit();
             return $id;
         } catch (Throwable $error) {

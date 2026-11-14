@@ -64,8 +64,15 @@ final class OfficeQuotationCalcGenerationService
         }
         $type = $authorized['quotation_type'] ?? 'project';
         if (!is_string($type)) throw new DomainException('Invalid quotation template');
+        $bind = null;
+        if (getenv('OFFICE_QUOTATION_COST_BINDING_ENABLED') === 'enabled') {
+            require_once __DIR__.'/OfficeQuotationBudgetBinding.php';
+            $bind = static function(PDO $db,int $id,array $prepared) use($operatorId,$request,$opportunityId,$resolveAuthorizedCalculation):void {
+                (new OfficeQuotationBudgetBinding($db))->bind($id,$request['calculation_id'],$operatorId,$opportunityId,$prepared,$resolveAuthorizedCalculation);
+            };
+        }
         return (new OfficeQuotationCalcDraftFactory($this->db))->create(
-            $relationId, $operatorId, $title, $snapshot, $type
+            $relationId, $operatorId, $title, $snapshot, $type, $opportunityId, $bind
         );
     }
 

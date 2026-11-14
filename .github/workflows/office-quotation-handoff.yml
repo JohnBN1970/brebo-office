@@ -4,6 +4,11 @@ on:
     paths:
       - '.github/workflows/office-quotation-handoff.yml'
       - 'office-independent/deployment/hostinger/*quotation-handoff*'
+      - 'office-independent/src/Quotation/**'
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/public/office-quotation-handoff.php'
+      - 'office-independent/tests/OfficeQuotation*'
+      - 'office-independent/tests/fixtures/quotation-handoff-http.php'
 permissions:
   contents: read
 jobs:
@@ -27,3 +32,33 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_acceptance
           chmod 600 ~/.ssh/id_calc_acceptance
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -p "$PORT" "$DEPLOY_ACTOR@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-quotation-handoff.php
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: handoff-test-only
+          MYSQL_DATABASE: office_quotation_handoff_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -phandoff-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, bcmath, mbstring, curl
+      - name: Verify quotation and exact acceptance contracts
+        run: |
+          set -eu
+          for file in office-independent/src/Quotation/*.php office-independent/src/Calculation/*.php office-independent/public/office-quotation-handoff.php; do php -l "$file"; done
+          for file in office-independent/tests/OfficeQuotation*Test.php; do php "$file"; done
+      - name: Authenticated HTTP MySQL acceptance to locked budget
+        run: php office-independent/tests/OfficeQuotationBudgetHandoffTest.php --http
+        env:
+          QUOTE_HANDOFF_MYSQL: '1'
