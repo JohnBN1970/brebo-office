@@ -4,6 +4,7 @@ on:
     paths:
       - 'office-independent/public/office-calc-crm-workbench.php'
       - 'office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php'
+      - 'office-independent/tests/OfficeCalcGridLayoutContractTest.php'
       - '.github/workflows/native-calc-grid.yml'
   workflow_dispatch:
 jobs:
@@ -13,5 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax
         run: php -l office-independent/public/office-calc-crm-workbench.php
+      - name: Native grid layout contract
+        run: php office-independent/tests/OfficeCalcGridLayoutContractTest.php
       - name: Native workbench route contract
         run: php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
