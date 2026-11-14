@@ -61,6 +61,21 @@ final class OfficeMailOutboundDeliveryRepository {
     return (int)$this->db->lastInsertId();
   }
 
+  /**
+   * Unknown is deliberately not retryable: the transport may have accepted
+   * the message before its acknowledgement was lost.
+   */
+  public function markUnknown(int $id): void {
+    if ($id <= 0) throw new RuntimeException('Ongeldige verzendregistratie.');
+    $stmt = $this->db->prepare(
+      "UPDATE office_mail_outbound_deliveries
+       SET status='unknown',updated_at=UTC_TIMESTAMP()
+       WHERE id=:id AND status='reserved'"
+    );
+    $stmt->execute([':id'=>$id]);
+    if ($stmt->rowCount() !== 1) throw new RuntimeException('Onzekere verzendstatus kon niet worden vastgelegd.');
+  }
+
   public function markAccepted(int $id, string $reference): void {
     if ($id <= 0 || $reference === '' || strlen($reference) > 255) {
       throw new RuntimeException('Ongeldige transportbevestiging.');
