@@ -43,6 +43,13 @@ final class OfficeFunctionalMailIngest {
     if (getenv('OFFICE_MAIL_BOARD_SCHEMA_VERIFIED') === 'enabled') {
       require_once __DIR__ . '/OfficeMailRoutingSuggestions.php';
       $suggestion = OfficeMailRoutingSuggestions::suggest($subject, is_string($body) ? $body : '');
+      $folderSuggestion = $message['suggested_module'] ?? null;
+      if ($folderSuggestion !== null) {
+        if (!in_array($folderSuggestion, ['crm', 'finance'], true)) {
+          throw new RuntimeException('Ongeldige maproutering.');
+        }
+        $suggestion = ['module' => $folderSuggestion, 'reason' => 'Voorstel op basis van gecontroleerde Zoho-map'];
+      }
       // Never overwrite a manual move or a previously recorded suggestion.
       $route = $this->db->prepare("INSERT IGNORE INTO office_mail_board_routes
         (message_id,module_key,suggested_module,suggestion_reason,updated_at)

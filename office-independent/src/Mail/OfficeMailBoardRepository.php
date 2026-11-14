@@ -10,9 +10,12 @@ final class OfficeMailBoardRepository {
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
-  public function cards(int $operatorId): array {
-    if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
-    $sql = "SELECT m.id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
+  public function cards(string $operatorId, int $page = 1, string $search = ''): array {
+    $page = max(1, min(100000, $page));
+    $offset = ($page - 1) * 200;
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-gebruiker ontbreekt.');
+    $search = substr(trim($search), 0, 120);
+    $sql = "SELECT m.id,m.mailbox_id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
       CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
       r.suggested_module,r.suggestion_reason
       FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
@@ -21,14 +24,75 @@ final class OfficeMailBoardRepository {
         (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id
          AND a.operator_id=:operator AND a.can_read=1))
         OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))
-      ORDER BY m.received_at DESC,m.id DESC LIMIT 200";
+      " . ($search !== '' ? " AND (m.subject LIKE :search_subject OR m.sender LIKE :search_sender) " : "") . "
+      ORDER BY m.received_at DESC,m.id DESC LIMIT 200 OFFSET " . $offset;
     $stmt=$this->db->prepare($sql);
-    $stmt->execute([':operator'=>$operatorId,':owner'=>$operatorId]);
+    $params=[':operator'=>$operatorId,':owner'=>$operatorId];
+    if ($search !== '') { $params[':search_subject']='%'.$search.'%'; $params[':search_sender']='%'.$search.'%'; }
+    $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
   }
 
-  public function move(int $messageId,int $operatorId,string $module): bool {
-    if ($messageId<=0 || $operatorId<=0 || !in_array($module,self::MODULES,true)) {
+
+  /** ACL-scoped counts across all messages, not just the current page. */
+  public function folderCounts(string $operatorId, ?int $mailboxId, bool $statesEnabled): array {
+    $join = $statesEnabled ? " LEFT JOIN office_mail_message_states st ON st.message_id=m.id AND st.operator_id=:state_operator " : "";
+    $folder = $statesEnabled ? "COALESCE(st.folder,'inbox')" : "'inbox'";
+    $read = $statesEnabled ? "COALESCE(st.is_read,0)" : "0";
+    $sql = "SELECT ".$folder." AS folder, ".$read." AS is_read, COUNT(*) AS total
+      FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id ".$join."
+      WHERE b.active=1 AND ((b.mailbox_type='functional' AND EXISTS
+        (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:operator AND a.can_read=1))
+        OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))"
+      . ($mailboxId !== null ? " AND m.mailbox_id=:mailbox" : "")
+      . " GROUP BY ".$folder.", ".$read;
+    $params=[':operator'=>$operatorId,':owner'=>$operatorId];
+    if ($statesEnabled) $params[':state_operator']=$operatorId;
+    if ($mailboxId !== null) $params[':mailbox']=$mailboxId;
+    $stmt=$this->db->prepare($sql);
+    $stmt->execute($params);
+    $counts=['inbox'=>0,'unread'=>0,'archive'=>0,'spam'=>0,'trash'=>0];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+      $folderName=(string)$row['folder'];
+      if (isset($counts[$folderName])) $counts[$folderName]+=(int)$row['total'];
+      if ($folderName==='inbox' && (int)$row['is_read']===0) $counts['unread']+=(int)$row['total'];
+    }
+    return $counts;
+  }
+
+  /** Filter before LIMIT to avoid empty pages for selected folders/accounts. */
+  public function inboxCards(string $operatorId, int $page, string $search, string $folder, ?int $mailboxId, bool $statesEnabled): array {
+    $page=max(1,min(100000,$page));
+    $search=substr(trim($search),0,120);
+    $join=$statesEnabled ? " LEFT JOIN office_mail_message_states st ON st.message_id=m.id AND st.operator_id=:state_operator " : "";
+    $folderExpr=$statesEnabled ? "COALESCE(st.folder,'inbox')" : "'inbox'";
+    $readExpr=$statesEnabled ? "COALESCE(st.is_read,0)" : "0";
+    $sql="SELECT m.id,m.mailbox_id,m.subject,m.sender,m.received_at,b.label AS mailbox_label,
+      CASE WHEN r.module_key='gebouwen' THEN 'nieuw' ELSE COALESCE(r.module_key,CASE WHEN b.mailbox_type='personal' THEN 'prive' ELSE 'nieuw' END) END AS module_key,
+      r.suggested_module,r.suggestion_reason
+      FROM office_mail_messages m JOIN office_mail_mailboxes b ON b.id=m.mailbox_id
+      LEFT JOIN office_mail_board_routes r ON r.message_id=m.id ".$join."
+      WHERE b.active=1 AND ((b.mailbox_type='functional' AND EXISTS
+        (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:operator AND a.can_read=1))
+        OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))";
+    $params=[':operator'=>$operatorId,':owner'=>$operatorId];
+    if ($statesEnabled) $params[':state_operator']=$operatorId;
+    if ($mailboxId !== null) { $sql.=" AND m.mailbox_id=:mailbox"; $params[':mailbox']=$mailboxId; }
+    if ($folder==='unread') $sql.=" AND ".$folderExpr."='inbox' AND ".$readExpr."=0";
+    else { $sql.=" AND ".$folderExpr."=:folder"; $params[':folder']=$folder; }
+    if ($search!=='') {
+      $sql.=" AND (m.subject LIKE :subject_search OR m.sender LIKE :sender_search)";
+      $params[':subject_search']='%'.$search.'%';
+      $params[':sender_search']='%'.$search.'%';
+    }
+    $sql.=" ORDER BY m.received_at DESC,m.id DESC LIMIT 200 OFFSET ".(($page-1)*200);
+    $stmt=$this->db->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  }
+
+  public function move(int $messageId,string $operatorId,string $module): bool {
+    if ($messageId <= 0 || $operatorId === '' || strlen($operatorId) > 128 || !in_array($module,self::MODULES,true)) {
       throw new RuntimeException('Ongeldige verplaatsing.');
     }
     $this->db->beginTransaction();

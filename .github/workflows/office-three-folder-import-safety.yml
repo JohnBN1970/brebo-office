@@ -1,0 +1,46 @@
+name: Office three-folder importer safety
+on:
+  push:
+    branches:
+      - feature/office-mail-three-folder-30day-import
+    paths:
+      - 'office-independent/bin/office-three-folder-mail-import.php'
+      - 'office-independent/sql/office_mail_folder_cursors.sql'
+      - 'office-independent/src/Mail/OfficeFunctionalMailIngest.php'
+      - '.github/workflows/office-three-folder-import-safety.yml'
+  pull_request:
+    paths:
+      - 'office-independent/bin/office-three-folder-mail-import.php'
+      - 'office-independent/sql/office_mail_folder_cursors.sql'
+      - 'office-independent/src/Mail/OfficeFunctionalMailIngest.php'
+      - '.github/workflows/office-three-folder-import-safety.yml'
+  workflow_dispatch:
+jobs:
+  importer-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_mysql
+          coverage: none
+      - name: PHP syntax
+        run: |
+          php -l office-independent/bin/office-three-folder-mail-import.php
+          php -l office-independent/src/Mail/OfficeFunctionalMailIngest.php
+      - name: Static import guard checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('office-independent/bin/office-three-folder-mail-import.php').read_text()
+          assert "in_array('--import', $argv, true)" in p
+          assert "OFFICE_THREE_FOLDER_IMPORT_ENABLED" in p
+          assert "OFFICE_THREE_FOLDER_IMPORT_CONFIRMED" in p
+          assert "OP_READONLY" in p
+          assert "2026-10-13 00:00:00" in p
+          for folder in ('BREBO-Office-Info', 'Facturen', 'Offerteaanvraag'):
+              assert "'" + folder + "'" in p
+          assert "$root . 'INBOX'" not in p
+          print('Importer safety assertions passed')
+          PY
