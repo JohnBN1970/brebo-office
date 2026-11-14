@@ -44,3 +44,27 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_collab
           chmod 600 ~/.ssh/id_calc_collab
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_collab -p "$PORT" "$USER@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-calc-collaboration.php
+
+  http-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: calc-collaboration-test-only
+          MYSQL_DATABASE: office_calc_collaboration_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pcalc-collaboration-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, bcmath, mbstring, curl
+      - run: php office-independent/tests/OfficeCalcDraftCollaborationHttpTest.php
+        env:
+          CALC_COLLAB_TEST_DATABASE: office_calc_collaboration_test
+          CALC_COLLAB_TEST_PASSWORD: calc-collaboration-test-only
