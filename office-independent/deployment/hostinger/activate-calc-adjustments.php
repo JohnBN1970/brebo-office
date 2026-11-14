@@ -20,13 +20,31 @@ try{
  $original=file_get_contents($file);
  if(!is_string($original)||!str_starts_with(ltrim($original),'<?php'))throw new RuntimeException('CONFIG');
  if(($config['OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED']??'')==='enabled'){echo "ACTIVATE=ALREADY_ENABLED\n";exit(0);}
- if(array_key_exists('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED',$config))throw new RuntimeException('EXISTING_FLAG_REQUIRES_MANUAL_REVIEW');
- // Preserve original config including secrets and comments; append a single return-array modifier.
- // Only support a simple terminal return array; refuse other layouts rather than risk overwriting.
- if(!preg_match('/return\\s+(\\[.*\\]);\\s*$/s',$original))throw new RuntimeException('CONFIG_LAYOUT_UNSUPPORTED');
- // Do not reserialize the entire config: this preserves dynamic expressions and comments.
- $modified=preg_replace('/(return\\s+\\[)(.*)(\\];\\s*)$/s',"$1$2\n    'OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED' => 'enabled',\n$3",$original,1,$count);
- if($count!==1||!is_string($modified))throw new RuntimeException('CONFIG_PATCH');
+ if(array_key_exists('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED',$config)&&$config['OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED']!=='disabled')throw new RuntimeException('EXISTING_FLAG_REQUIRES_MANUAL_REVIEW');
+ // Safely wrap the terminal top-level PHP return expression, regardless of
+ // whether config.php uses return $config, return [...], or another expression.
+ // Preserve every original byte outside that return statement.
+ $tokens=token_get_all($original);
+ $offset=0;$depth=0;$returnStart=null;$returnEnd=null;$returnCount=0;
+ foreach($tokens as $token){
+  $piece=is_array($token)?$token[1]:$token;
+  if(is_array($token)&&$token[0]===T_RETURN&&$depth===0){
+   $returnCount++;
+   if($returnCount>1)throw new RuntimeException('MULTIPLE_TOP_LEVEL_RETURNS');
+   $returnStart=$offset;
+  }elseif($piece==='{'){$depth++;}
+  elseif($piece==='}'){$depth--;}
+  if($returnStart!==null&&$returnEnd===null&&$piece===';'&&$depth===0)$returnEnd=$offset+1;
+  $offset+=strlen($piece);
+ }
+ if($returnCount!==1||$returnStart===null||$returnEnd===null||$depth!==0)throw new RuntimeException('CONFIG_RETURN_UNSUPPORTED');
+ $tail=substr($original,$returnEnd);
+ if(!preg_match('/^\\s*(?:\\?>\\s*)?$/D',$tail))throw new RuntimeException('CONFIG_HAS_TRAILING_CODE');
+ $expr=trim(substr($original,$returnStart+6,$returnEnd-$returnStart-7));
+ if($expr==='')throw new RuntimeException('CONFIG_EMPTY_RETURN');
+ $modified=substr($original,0,$returnStart)
+  ."return array_replace((". $expr ."), ['OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED'=>'enabled']);"
+  .substr($original,$returnEnd);
  $backup=$file.'.calc-adjustments-'.gmdate('YmdHis').'.bak';
  if(!copy($file,$backup)||!chmod($backup,0600))throw new RuntimeException('BACKUP');
  $temp=tempnam(dirname($file),'.calc-config-');
@@ -39,6 +57,7 @@ try{
  if(proc_close($lint)!==0){@unlink($temp);throw new RuntimeException('LINT');}
  $test=require $temp;
  if(!is_array($test)||($test['OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED']??'')!=='enabled'){@unlink($temp);throw new RuntimeException('VERIFY');}
+ foreach($config as $key=>$value)if(($test[$key]??null)!==$value&&$key!=='OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED'){@unlink($temp);throw new RuntimeException('CONFIG_VALUE_CHANGED');}
  if(!rename($temp,$file)){@unlink($temp);throw new RuntimeException('REPLACE');}
  echo "ACTIVATE=PASS\nFLAG_CONFIGURED=YES\nBACKUP=CREATED\n";
 }catch(Throwable $e){echo "ACTIVATE=BLOCKED\nREASON=".$e->getMessage()."\n";exit(2);}
