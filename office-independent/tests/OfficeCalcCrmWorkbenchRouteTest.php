@@ -10,8 +10,9 @@ $preflight=file_get_contents($root.'/deployment/hostinger/audit-office-calc-crm-
 $router=file_get_contents($root.'/deployment/hostinger/office-test-index.php');
 if (!is_string($router) || !str_contains($router,"'/office-test/calc/crm/werkbank'") || !str_contains($router,"'/office-test/calc/crm/launch'")) throw new RuntimeException('Office-test CRM Calc routes not mounted');
 if (!str_contains($router,"'/office-test/calculatie'")
-    || !str_contains($workbench,'action="/office-test/calculatie"')
-    || !str_contains($workbench,"Location: /office-test/calculatie?draft_id=")) {
+    || !str_contains($workbench,"action=\"'.\$workbenchUrl.'\"")
+    || !str_contains($workbench,"header('Location: '.\$workbenchUrl.'?draft_id='")
+    || !str_contains($workbench,"?'/office-test/calculatie/samenwerken':'/office-test/calculatie'")) {
     throw new RuntimeException('Unified Office-test calculation path not mounted');
 }
 if (!str_contains($router,"'/public/office-calc-crm-workbench.php'") || !str_contains($router,"'/public/office-calc-crm-draft-launch.php'")) throw new RuntimeException('CRM Calc route handlers not mounted');

@@ -1,0 +1,125 @@
+name: Office Calc draft collaboration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/src/Materials/**'
+      - 'office-independent/tests/OfficeCalcDraftMaterialSourceTest.php'
+      - 'office-independent/public/office-calc-crm*'
+      - 'office-independent/tests/OfficeCalcDraftCollaboration*'
+      - 'office-independent/deployment/hostinger/*calc*collab*'
+      - '.github/workflows/office-calc-collaboration.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, bcmath, mbstring
+      - name: Validate collaboration and existing CRM Calc contracts
+        run: |
+          set -euo pipefail
+          for file in office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcDraftMaterialSource.php office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php office-independent/src/Materials/*.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php office-independent/tests/OfficeCalcDraftCollaborationTest.php office-independent/deployment/hostinger/install-calc-collaboration.php; do php -l "$file"; done
+          php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
+          for file in office-independent/tests/OfficeCalcCrm*Test.php; do php "$file"; done
+  inspect-host:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-collaboration-20261114'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect active Calc file references without changing files or data
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_collab
+          chmod 600 ~/.ssh/id_calc_collab
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_collab -p "$PORT" "$USER@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-calc-collaboration.php
+
+  http-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: calc-collaboration-test-only
+          MYSQL_DATABASE: office_calc_collaboration_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pcalc-collaboration-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, bcmath, mbstring, curl
+      - run: php office-independent/tests/OfficeCalcDraftCollaborationHttpTest.php
+        env:
+          CALC_COLLAB_TEST_DATABASE: office_calc_collaboration_test
+          CALC_COLLAB_TEST_PASSWORD: calc-collaboration-test-only
+
+  install-office-test:
+    needs: [verify, http-mysql, inspect-host]
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-collaboration-20261114'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: office-calc-collaboration-install
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Package the bounded native update
+        run: |
+          set -euo pipefail
+          mkdir -p collab-package/src/Calculation collab-package/src/Materials collab-package/public collab-package/baselines
+          cp office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php collab-package/src/Calculation/
+          cp office-independent/src/Calculation/OfficeCalcDraftMaterialSource.php office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php collab-package/src/Calculation/
+          cp office-independent/src/Materials/*.php collab-package/src/Materials/
+          cp office-independent/public/office-calc-crm-material-panel.php collab-package/public/
+          cp office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php collab-package/public/
+          cp office-independent/deployment/hostinger/calc-collaboration-baselines/*.php collab-package/baselines/
+          cp office-independent/deployment/hostinger/sql/office-calc-draft-collaboration.sql collab-package/schema.sql
+          cp office-independent/deployment/hostinger/install-calc-collaboration.php collab-package/install.php
+          tar -czf calc-collaboration.tar.gz -C collab-package .
+      - name: Install and verify Office-test collaboration
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          REVISION: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_collab_install
+          chmod 600 ~/.ssh/id_calc_collab_install
+          case "$REVISION" in *[!a-f0-9]*|'') exit 1;; esac
+          remote="$USER@$HOST"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_collab_install -P "$PORT" calc-collaboration.tar.gz "$remote:domains/brebobv.nl/office_calc_test/.calc-collab-stage-$REVISION.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_collab_install -p "$PORT" "$remote" "bash -se -- '$REVISION'" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$base/.calc-collab-stage-$1"
+          mkdir -p "$stage"
+          chmod 700 "$stage"
+          tar -xzf "$stage.tar.gz" --no-same-owner -C "$stage"
+          php -l "$stage/install.php"
+          php "$stage/install.php" "$stage"
+          rm -f "$stage.tar.gz"
+          REMOTE
