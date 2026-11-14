@@ -15,4 +15,12 @@ foreach ([['100','101','25'],['-1','5','25'],['100','5','-1']] as $invalid) {
     catch (DomainException) { continue; }
     throw new RuntimeException('Ongeldige invoer werd geaccepteerd');
 }
+$snapshot=Adjustments::snapshot('108.0000','100','8',null,'material');
+if($snapshot['net_quantity']!=='100'||$snapshot['material_loss_percent']!=='8')throw new RuntimeException('Materiaalcorrectie snapshot onjuist');
+$hours=Adjustments::snapshot('52.0000','40',null,'12','labor');
+if($hours['extra_labor_hours']!=='12')throw new RuntimeException('Arbeidscorrectie snapshot onjuist');
+$legacy=Adjustments::snapshot('15.0000',null,null,null,'material');
+if($legacy['net_quantity']!=='15.0000')throw new RuntimeException('Legacy hoeveelheden onjuist');
+try {Adjustments::snapshot('109.0000','100','8',null,'material');throw new RuntimeException('Mismatch accepted');}
+catch (DomainException) {}
 echo "CALC_QUANTITY_ADJUSTMENTS=PASS\n";
