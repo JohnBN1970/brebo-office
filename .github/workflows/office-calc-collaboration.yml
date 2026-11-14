@@ -1,0 +1,46 @@
+name: Office Calc draft collaboration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/public/office-calc-crm*'
+      - 'office-independent/tests/OfficeCalcDraftCollaboration*'
+      - 'office-independent/deployment/hostinger/*calc*collab*'
+      - '.github/workflows/office-calc-collaboration.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, bcmath, mbstring
+      - name: Validate collaboration and existing CRM Calc contracts
+        run: |
+          set -euo pipefail
+          for file in office-independent/src/Calculation/OfficeCalcDraftCollaboration.php office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php office-independent/public/office-calc-crm-workbench.php office-independent/public/office-calc-crm-collaboration-panels.php office-independent/tests/OfficeCalcDraftCollaborationTest.php; do php -l "$file"; done
+          php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          for file in office-independent/tests/OfficeCalcCrm*Test.php; do php "$file"; done
+  inspect-host:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-collaboration-20261114'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect active Calc file references without changing files or data
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_collab
+          chmod 600 ~/.ssh/id_calc_collab
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_collab -p "$PORT" "$USER@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-calc-collaboration.php

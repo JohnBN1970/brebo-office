@@ -54,7 +54,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -62,6 +62,9 @@ final class OfficeCalcCrmDraftLineRepository
             || $activityRef!==null || $this->db->inTransaction()) {
             throw new DomainException('Invalid canonical Calc line');
         }
+        if($exactQuantity!==null&&(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0))throw new DomainException('Ongeldige hoeveelheid.');
+        if($exactUnitCost!==null&&!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$exactUnitCost))throw new DomainException('Ongeldige eenheidsprijs.');
+        if($unit!==null&&(trim($unit)===''||mb_strlen($unit)>32))throw new DomainException('Ongeldige eenheid.');
         $this->db->beginTransaction();
         try {
             require_once __DIR__.'/OfficeCalcCrmDraftAccess.php';
@@ -75,19 +78,26 @@ final class OfficeCalcCrmDraftLineRepository
                 || !(new OfficeCalcCrmDraftAccess($this->db))->canManage($actorId,$draftId,$canManageOpportunity)) {
                 throw new DomainException('CRM Calc access denied');
             }
+            $collaboration=null;$before=null;
+            if(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'){
+                require_once __DIR__.'/OfficeCalcDraftCollaboration.php';
+                $collaboration=new OfficeCalcDraftCollaboration($this->db);
+                $before=$collaboration->state($draftId);$collaboration->expect($expectedRevision,$before);
+            }
             $version=$this->version($draftId,true);
             $codes=array_map(static fn(string $prefix):string=>$prefix.':'.$lineId,array_values(self::TYPES));
             $holders=implode(',',array_fill(0,count($codes),'?'));
             $q=$this->db->prepare('SELECT id FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
             $q->execute(array_merge([$version],$codes));
             $existing=$q->fetchColumn();
-            $value=number_format($unitCostCents/100,4,'.','');
+            $value=$exactUnitCost??number_format($unitCostCents/100,4,'.','');
+            $storedQuantity=$exactQuantity??$quantity;
             $costs=array_fill_keys(array_values(self::COST_COLUMNS),'0.0000');
             $costs[self::COST_COLUMNS[$costType]]=$value;
             $code=self::TYPES[$costType].':'.$lineId;
             if ($existing!==false) {
-                $q=$this->db->prepare('UPDATE calculation_lines SET code=?,description=?,quantity=?,labour_unit_cost=?,material_unit_cost=?,equipment_unit_cost=?,subcontracting_unit_cost=?,other_unit_cost=? WHERE id=? AND version_id=?');
-                $q->execute([$code,trim($description),$quantity,
+                $q=$this->db->prepare('UPDATE calculation_lines SET code=?,description=?,quantity=?,unit=COALESCE(?,unit),labour_unit_cost=?,material_unit_cost=?,equipment_unit_cost=?,subcontracting_unit_cost=?,other_unit_cost=? WHERE id=? AND version_id=?');
+                $q->execute([$code,trim($description),$storedQuantity,$unit,
                     $costs['labour_unit_cost'],$costs['material_unit_cost'],
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost'],(int)$existing,$version]);
@@ -95,8 +105,8 @@ final class OfficeCalcCrmDraftLineRepository
                 $q=$this->db->prepare('SELECT COALESCE(MAX(sort_order),0)+1 FROM calculation_lines WHERE version_id=?');
                 $q->execute([$version]);
                 $sort=(int)$q->fetchColumn();
-                $q=$this->db->prepare('INSERT INTO calculation_lines(version_id,parent_id,sort_order,line_type,code,description,unit,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost) VALUES(?,NULL,?,?,?,?,NULL,?,?,?,?,?,?)');
-                $q->execute([$version,$sort,'item',$code,trim($description),$quantity,
+                $q=$this->db->prepare('INSERT INTO calculation_lines(version_id,parent_id,sort_order,line_type,code,description,unit,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost) VALUES(?,NULL,?,?,?,?,?,?,?,?,?,?,?)');
+                $q->execute([$version,$sort,'item',$code,trim($description),$unit,$storedQuantity,
                     $costs['labour_unit_cost'],$costs['material_unit_cost'],
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
@@ -106,6 +116,7 @@ final class OfficeCalcCrmDraftLineRepository
             $total=$q->fetchColumn();
             $q=$this->db->prepare('UPDATE calculation_versions SET direct_cost=? WHERE id=? AND status=?');
             $q->execute([(string)$total,$version,'draft']);
+            if($collaboration!==null)$collaboration->record($draftId,$actorId,'line_saved',$reason,$before,$collaboration->state($draftId));
             $this->db->commit();
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -119,7 +130,7 @@ final class OfficeCalcCrmDraftLineRepository
         (new OfficeCalcCrmDraftAccess($this->db))->assertCanManage($actorId,$draftId,$canManageOpportunity);
         $version=$this->version($draftId,false);
         if ($version===null) return [];
-        $q=$this->db->prepare('SELECT code,description,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost FROM calculation_lines WHERE version_id=? AND line_type=? ORDER BY sort_order,id');
+        $q=$this->db->prepare('SELECT code,description,unit,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost FROM calculation_lines WHERE version_id=? AND line_type=? ORDER BY sort_order,id');
         $q->execute([$version,'item']);
         $results=[];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
@@ -132,6 +143,9 @@ final class OfficeCalcCrmDraftLineRepository
                 'cost_type'=>$type,
                 'description'=>$row['description'],
                 'quantity'=>(int)$row['quantity'],
+                'quantity_decimal'=>(string)$row['quantity'],
+                'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
+                'unit'=>(string)($row['unit']??''),
                 'unit_cost_cents'=>(int)round((float)$row[self::COST_COLUMNS[$type]]*100),
                 'activity_ref'=>null,
             ];

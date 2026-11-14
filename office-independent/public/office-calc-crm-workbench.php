@@ -16,6 +16,8 @@ if (getenv('OFFICE_BASE_PATH')!=='/office-test'
     || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
     || getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')!=='enabled'
     || getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')!=='enabled') $deny(404);
+$collaborationEnabled=getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled';
+$conflict='';$actionError='';
 $method=$_SERVER['REQUEST_METHOD']??'';
 if (!in_array($method,['GET','POST'],true)) $deny(405);
 $host=$_SERVER['HTTP_HOST']??'';
@@ -60,6 +62,15 @@ try {
         $q->execute([$opportunity,$actor]);
         return $q->fetchColumn()!==false;
     };
+    $collaboration=null;
+    if($collaborationEnabled){
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDraftCollaboration.php';
+        $collaboration=new \Brebo\Office\Calculation\OfficeCalcDraftCollaboration($db);
+        $rights=static function(PDO $connection,int $user,int $opportunity)use($draft,$collaboration):bool{
+            $q=$connection->prepare('SELECT 1 FROM office_calc_crm_drafts WHERE id=? AND opportunity_id=?');$q->execute([$draft,$opportunity]);
+            return $q->fetchColumn()!==false&&$collaboration->canEdit($user,$draft);
+        };
+    }
     $repo=new \Brebo\Office\Calculation\OfficeCalcCrmDraftLineRepository($db);
     $csrf=$_COOKIE['office_project_csrf']??null;
     if (!is_string($csrf)||!preg_match('/^[a-f0-9]{64}$/D',$csrf)) {
@@ -70,25 +81,56 @@ try {
     if ($method==='POST') {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
+        $action=(string)($_POST['action']??'save_line');
+        if($collaboration!==null&&in_array($action,['grant','remove','checkpoint'],true)){
+            $expected=(string)($_POST['expected_revision']??'');
+            if($action==='checkpoint')$collaboration->checkpoint($draft,$actor,(string)($_POST['reason']??''),$expected,$rights);
+            else{
+                $target=filter_var($_POST['operator_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if(!is_int($target))throw new DomainException('Kies een geldige Office-gebruiker.');
+                $collaboration->grant($draft,$actor,$target,$action==='remove',$expected,$rights);
+            }
+            header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
+        }
+        if($action!=='save_line')throw new DomainException('Onbekende calculatieactie.');
         $lineId=(string)($_POST['line_id']??'');
         if ($lineId==='') $lineId=bin2hex(random_bytes(12));
-        $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
+        $exactQuantity=null;$exactUnitCost=null;$unit=null;
+        if($collaborationEnabled){
+            $exactQuantity=str_replace(',','.',trim((string)($_POST['quantity']??'')));
+            if(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
+            $quantity=1;$unit=trim((string)($_POST['unit']??''));
+        }else $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
         // Friendly euro input, canonical persistence remains in integer cents.
         $price=$_POST['unit_price_eur']??null;
         if (!is_string($price)) $deny(400,'INVALID_PRICE');
         $price=trim(str_replace(',', '.', $price));
-        if (!preg_match('/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
+        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
         [$whole,$fraction]=array_pad(explode('.',$price,2),2,'');
-        $cost=((int)$whole)*100+(int)str_pad($fraction,2,'0');
+        $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
+        if($collaborationEnabled)$exactUnitCost=$price;
         if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd'),$exactQuantity,$exactUnitCost,$unit);
         header('Location: /office-test/calculatie?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
-} catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
+} catch (\Brebo\Office\Calculation\OfficeCalcDraftConflict $error) {http_response_code(409);$conflict=$error->getMessage();}
+catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
 catch (PDOException) { $deny(503,'DATABASE'); }
 catch (Throwable) { $deny(503,'RUNTIME'); }
+$expectedRevision='';$history=[];$members=[];$eligible=[];$auditDetail=null;$canManageCollaborators=false;
+if($collaboration!==null){
+    try{
+        $workspace=$collaboration->read($draft,$actor,$rights,$repo);$lines=$workspace['lines'];$expectedRevision=$workspace['token'];
+        $history=$collaboration->history($draft,$actor,$rights);$members=$collaboration->members($draft);$canManageCollaborators=$collaboration->owns($actor,$draft);
+        if($canManageCollaborators)$eligible=$db->query('SELECT id,username FROM office_operator_accounts WHERE active=1 AND can_edit_crm=1 ORDER BY username,id LIMIT 500')->fetchAll(PDO::FETCH_ASSOC);
+        if(isset($_GET['change_id'])){
+            $changeId=filter_var($_GET['change_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!is_int($changeId))$deny(400,'INVALID_CHANGE');
+            $auditDetail=$collaboration->detail($draft,$actor,$changeId,$rights);if($auditDetail===null)$deny(404,'CHANGE_NOT_FOUND');
+        }
+    }catch(DomainException){$deny(403,'DRAFT_ACCESS');}catch(Throwable){$deny(503,'HISTORY_UNAVAILABLE');}
+}
 $editId=filter_input(INPUT_GET,'edit_line_id',FILTER_UNSAFE_RAW);
 $edit=null;
 if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
@@ -99,15 +141,19 @@ if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
         }
     }
 }
+if($conflict!==''&&($_POST['action']??'save_line')==='save_line'){
+    $edit=['line_id'=>$lineId??(string)($_POST['line_id']??''),'description'=>(string)($_POST['description']??''),'cost_type'=>(string)($_POST['cost_type']??'material'),'quantity'=>$quantity??1,'unit_cost_cents'=>$cost??0,'quantity_decimal'=>(string)($_POST['quantity']??'1'),'unit_cost_decimal'=>(string)($_POST['unit_price_eur']??'0'),'unit'=>(string)($_POST['unit']??'')];
+}
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 $typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
 $categoryTotals=array_fill_keys(array_keys($typeLabels),0);
-foreach($lines as $line) {
-    $kind=(string)$line['cost_type'];
-    if(isset($categoryTotals[$kind])) $categoryTotals[$kind]+=(int)$line['quantity']*(int)$line['unit_cost_cents'];
-}
+$lineAmount=static function(array $line)use($collaborationEnabled):int{
+    if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
+    return (int)bcmul(bcadd(bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8),'0.005',2),'100',0);
+};
+foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]+=$lineAmount($line);}
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#f3f5fa;color:#192f47;margin:0}
 main{max-width:1350px;margin:28px auto;padding:0 24px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #dce3ee;border-radius:12px;padding:24px;margin-bottom:18px}
@@ -131,20 +177,23 @@ echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></di
 echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Actie</th></tr>';
 $total=0;
 foreach($lines as $line) {
-    $subtotal=(int)$line['quantity']*(int)$line['unit_cost_cents'];$total+=$subtotal;
-    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.(int)$line['quantity'].'</td><td class="numeric">€ '.number_format((int)$line['unit_cost_cents']/100,2,',','.').'</td><td class="numeric">€ '.number_format($subtotal/100,2,',','.').'</td><td><a href="/office-test/calculatie?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $subtotal=$lineAmount($line);$total+=$subtotal;
+    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($subtotal/100,2,',','.').'</td><td><a href="/office-test/calculatie?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?'':$h((string)$edit['description']);
-$editQuantity=$edit===null?'':(string)(int)$edit['quantity'];
-$editPrice=$edit===null?'':number_format((int)$edit['unit_cost_cents']/100,2,',','');
+$editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quantity']));
+$editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
+$editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
 if($lines===[]) echo '<tr><td colspan="6" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
 echo '</table></div><p class="amount">Totaal: € '.number_format($total/100,2,',','.').'</p></section>';
 echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
+if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="/office-test/calculatie">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
 echo '<input type="hidden" name="csrf" value="'.$h($csrf).'">';
+if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><label>Wijzigingsreden <input name="reason" maxlength="1000" required value="'.($conflict!==''?$h((string)($_POST['reason']??'Calculatieregel gewijzigd')):'Calculatieregel gewijzigd').'"></label>';
 echo '<input type="hidden" name="line_id" value="'.$editIdValue.'">';
 echo '<div class="calc-fields">';
 echo '<label>Omschrijving <input name="description" maxlength="500" value="'.$editDescription.'" required></label>';
@@ -153,10 +202,13 @@ foreach(['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','sub
     echo '<option value="'.$key.'"'.($selectedCost===$key?' selected':'').'>'.$label.'</option>';
 }
 echo '</select></label>';
-echo '<label>Aantal <input type="number" min="1" name="quantity" value="'.$editQuantity.'" required></label>';
-echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,2})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
+echo '<label>Aantal <input type="number" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" name="quantity" value="'.$editQuantity.'" required></label>';
+if($collaborationEnabled)echo '<label>Eenheid <input name="unit" maxlength="32" value="'.$editUnit.'" required></label>';
+echo '<label>Prijs per eenheid (€) <input type="text" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" name="unit_price_eur" value="'.$editPrice.'" placeholder="45,00" required></label>';
 echo '</div><button type="submit">'.($edit===null?'Regel toevoegen':'Wijzigingen opslaan').'</button>';
 if($edit!==null) echo ' <a href="/office-test/calculatie?draft_id='.$draft.'">Annuleren</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($categoryTotals[$key]/100,2,',','.').'</dd>';
-echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section></main></body></html>';
+echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
+require __DIR__.'/office-calc-crm-collaboration-panels.php';
+echo '</main></body></html>';
