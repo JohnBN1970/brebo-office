@@ -62,10 +62,17 @@ $updated=substr($original,0,$returns[0]).'return array_replace(('.$expression.")
 $dir=dirname($path);
 $temp=tempnam($dir,'.onsite-');
 if ($temp===false) { fwrite(STDERR,"TEMP_FAILED\n"); exit(1); }
-chmod($temp,fileperms($path)&0777);
+if (!chmod($temp,fileperms($path)&0777)) { unlink($temp); fwrite(STDERR,"TEMP_PERMISSIONS_FAILED\n"); exit(1); }
 if (file_put_contents($temp,$updated)===false) { unlink($temp); { fwrite(STDERR,"TEMP_WRITE_FAILED\n"); exit(1); } }
-exec('php -l '.escapeshellarg($temp).' 2>&1',$lint,$status);
-if ($status!==0) { unlink($temp); { fwrite(STDERR,"LINT_FAILED_ORIGINAL_PRESERVED\n"); exit(1); } }
+// Hostinger may disable process execution: validate PHP syntax in process.
+try {
+    token_get_all($updated, TOKEN_PARSE);
+} catch (ParseError $e) {
+    unlink($temp);
+    fwrite(STDERR,"LINT_FAILED_ORIGINAL_PRESERVED\n");
+    exit(1);
+}
+echo "ON_SITE_SYNTAX_CHECK=PASSED\n";
 echo "ON_SITE_TEMP_CONFIG_LOAD=START\n";
 if (!chdir(dirname($temp))) { unlink($temp); fwrite(STDERR,"TEMP_CONFIG_CWD_UNAVAILABLE\n"); exit(2); }
 $after=require $temp;
