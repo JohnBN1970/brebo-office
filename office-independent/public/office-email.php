@@ -533,11 +533,18 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 </div>
 <section id="mail-compose" class="mail-compose" hidden aria-label="E-mailconcept">
 <form method="post" action="/office-test/email">
-<input type="hidden" name="action" value="save_draft">
+
 <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?>">
 <input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
 <input type="hidden" id="mail-compose-type" name="draft_type" value="reply">
 <h3 id="mail-compose-heading">Concept</h3>
+<label for="mail-compose-mailbox">Afzenderaccount</label>
+<select id="mail-compose-mailbox" name="mailbox_id">
+<option value="">Kies een account</option>
+<?php foreach ($mailboxes as $composeMailbox): ?>
+<option value="<?= (int)$composeMailbox['id'] ?>"<?= $selectedMailbox === (int)$composeMailbox['id'] ? ' selected' : '' ?>><?= htmlspecialchars((string)$composeMailbox['label'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8') ?></option>
+<?php endforeach; ?>
+</select>
 <p class="muted">Concept voorbereiden; rechtstreeks verzenden vanuit Office is nog niet geactiveerd.</p>
 <label for="mail-compose-to">Aan</label>
 <input id="mail-compose-to" name="recipient" type="text" autocomplete="off" placeholder="E-mailadres">
@@ -546,7 +553,8 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <label for="mail-compose-body">Bericht</label>
 <textarea id="mail-compose-body" name="body_text" rows="9" placeholder="Schrijf je bericht..."></textarea>
 <div class="mail-reply-actions">
-<?php if ($draftsEnabled): ?><button type="submit">Concept opslaan in Office</button><?php endif; ?>
+<?php if ($draftsEnabled): ?><button type="submit" name="action" value="save_draft">Concept opslaan in Office</button><?php endif; ?>
+<button type="submit" name="action" value="check_send">Verzending controleren (niet verzenden)</button>
 <button type="button" id="mail-compose-copy">Kopieer concept</button>
 <button type="button" id="mail-compose-close">Sluiten</button>
 </div>
