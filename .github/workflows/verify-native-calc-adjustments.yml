@@ -13,6 +13,7 @@ on:
       - 'office-independent/src/Calculation/**'
       - 'office-independent/tests/OfficeCalc*'
       - '.github/workflows/verify-native-calc-adjustments.yml'
+      - '.github/workflows/office-test-calc-schema-migration.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,7 +30,7 @@ jobs:
           extensions: bcmath, mbstring, pdo_sqlite
       - name: Validate deployment workflow syntax
         run: |
-          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/deploy-native-calc-adjustment-files.yml
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:latest -color .github/workflows/deploy-native-calc-adjustment-files.yml .github/workflows/office-test-calc-schema-migration.yml
       - name: Syntax checks
         run: |
           set -euo pipefail
