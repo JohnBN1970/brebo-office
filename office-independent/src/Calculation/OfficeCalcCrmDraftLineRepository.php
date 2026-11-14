@@ -109,6 +109,16 @@ final class OfficeCalcCrmDraftLineRepository
             $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
             $q->execute(array_merge([$version],$codes));
             $existingRow=$q->fetch(PDO::FETCH_ASSOC);$existing=$existingRow===false?false:$existingRow['id'];
+            // Do not silently invalidate a persisted adjustment when an existing line is edited.
+            // Until the correction editor is wired, edits of adjusted rows must be rejected.
+            if($adjustmentEnabled&&$existing!==false&&$quantityAdjustment===null){
+                $check=$this->db->prepare('SELECT calc_material_loss_percent,calc_extra_labor_hours FROM calculation_lines WHERE id=? AND version_id=?');
+                $check->execute([(int)$existing,$version]);
+                $adjusted=$check->fetch(PDO::FETCH_ASSOC);
+                if(is_array($adjusted)&&($adjusted['calc_material_loss_percent']!==null||$adjusted['calc_extra_labor_hours']!==null)){
+                    throw new DomainException('Bewerk eerst de correctie; bestaande gecorrigeerde regel is beveiligd.');
+                }
+            }
             $value=$exactUnitCost??number_format($unitCostCents/100,4,'.','');
             $storedQuantity=$exactQuantity??$quantity;
             $costs=array_fill_keys(array_values(self::COST_COLUMNS),'0.0000');
