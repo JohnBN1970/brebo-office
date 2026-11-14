@@ -41,6 +41,29 @@ try {
     header('Location: /office-test/inloggen', true, 302);
     exit;
   }
+  // Authenticated, read-only diagnostic using the existing Office PDO connection.
+  // No credentials, mailbox contents or user data are returned.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && ($_GET['mail_schema_check'] ?? '') === '1') {
+    header('Content-Type: text/plain; charset=UTF-8');
+    header('X-Robots-Tag: noindex, nofollow');
+    if (getenv('OFFICE_MAIL_SCHEMA_DIAGNOSTIC_ENABLED') !== 'enabled') {
+      http_response_code(404);
+      exit('MAIL_SCHEMA_DIAGNOSTIC=DISABLED');
+    }
+    require_once dirname(__DIR__) . '/src/Mail/OfficeMailOutgoingPolicy.php';
+    try {
+      $result=\Brebo\Office\Mail\OfficeMailOutgoingPolicy::schemaStatus($db);
+      echo 'OFFICE_DATABASE=EXISTING'.PHP_EOL;
+      echo 'MAIL_OUTBOUND_SCHEMA='.($result['ready'] ? 'READY' : 'INCOMPLETE').PHP_EOL;
+      foreach ($result['missing'] as $column) echo 'MISSING='. $column .PHP_EOL;
+      echo 'MAIL_SENDING=DISABLED'.PHP_EOL;
+    } catch (Throwable $diagnosticError) {
+      error_log('office_mail_schema_diagnostic_failed: '.$diagnosticError::class);
+      http_response_code(503);
+      echo 'MAIL_OUTBOUND_SCHEMA=CHECK_FAILED'.PHP_EOL;
+    }
+    exit;
+  }
   $mailboxes = [];
   $messages = [];
   $proposals = [];
