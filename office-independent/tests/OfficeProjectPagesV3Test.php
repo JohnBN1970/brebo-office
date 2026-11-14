@@ -11,7 +11,8 @@ $rows=[
 assert(S::statusLabel('preparation')==='Voorbereiding');
 assert(S::statusLabel('')==='Niet vastgelegd');
 assert(S::portfolioSummary($rows)===['projects'=>2,'buildings'=>3,'preparation'=>1,'active'=>1]);
-assert(count(S::detailTabs())===5);
+assert(count(S::detailTabs())===6);
+assert(S::detailTabs()['arbeid-inzet']==='Arbeid & Inzet');
 $html=V::render($rows,'/office-test');
 assert(str_contains($html,'Projectendashboard'));
 assert(str_contains($html,'Projectenlijst'));
