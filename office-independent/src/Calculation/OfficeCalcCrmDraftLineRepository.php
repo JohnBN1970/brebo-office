@@ -110,7 +110,7 @@ final class OfficeCalcCrmDraftLineRepository
             $q->execute(array_merge([$version],$codes));
             $existingRow=$q->fetch(PDO::FETCH_ASSOC);$existing=$existingRow===false?false:$existingRow['id'];
             // Do not silently invalidate a persisted adjustment when an existing line is edited.
-            // Until the correction editor is wired, edits of adjusted rows must be rejected.
+            // Require explicit correction metadata for edits of adjusted rows, so the stored snapshot cannot be invalidated.
             if($adjustmentEnabled&&$existing!==false&&$quantityAdjustment===null){
                 $check=$this->db->prepare('SELECT calc_material_loss_percent,calc_extra_labor_hours FROM calculation_lines WHERE id=? AND version_id=?');
                 $check->execute([(int)$existing,$version]);
