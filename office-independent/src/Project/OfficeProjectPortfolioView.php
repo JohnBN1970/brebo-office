@@ -77,15 +77,23 @@ final class OfficeProjectPortfolioView
                 . ' toegankelijke projecten. Financiële totalen gebruiken alle toegankelijke projecten.</p>';
         }
         $html .= '</section>';
+        $query = isset($_GET['q']) && is_string($_GET['q']) ? trim($_GET['q']) : '';
+        if (strlen($query) > 120) $query = substr($query, 0, 120);
         $html .= '<div class="office-portfolio-list-header"><h2>Projectenlijst</h2>'
+            . '<form method="get" action="' . $escape(rtrim($basePath, '/') . '/projecten') . '">'
             . '<label class="office-portfolio-search-label" for="office-project-search">Zoek project</label>'
-            . '<input id="office-project-search" type="search" placeholder="Zoek op projectcode, naam of status" autocomplete="off" oninput="document.querySelectorAll(\'.office-portfolio-table-wrap tbody tr[data-project-row]\').forEach(function(row){row.hidden=!row.textContent.toLowerCase().includes(this.value.toLowerCase())}.bind(this))"></div>'
+            . '<input id="office-project-search" name="q" type="search" placeholder="Code, naam of fase" value="' . $escape($query) . '">'
+            . '<button type="submit">Zoeken</button></form></div>'
             . '<div class="office-portfolio-table-wrap"><table><thead><tr>'
             . '<th>Projectcode</th><th>Project</th><th>Fase</th><th>Planning / aandacht</th><th>Gebouwen</th>'
             . '</tr></thead><tbody>';
+        $visibleRows = 0;
         foreach ($projects as $project) {
             $id = (int) ($project['id'] ?? 0);
             if ($id < 1) continue;
+            $searchable = (string)($project['code'] ?? '') . ' ' . (string)($project['title'] ?? '') . ' ' . OfficeProjectPageStructure::statusLabel((string)($project['status'] ?? ''));
+            if ($query !== '' && stripos($searchable, $query) === false) continue;
+            ++$visibleRows;
             $url = rtrim($basePath, '/') . '/projecten/detail?id=' . $id;
             $html .= '<tr data-project-row><td>' . $escape($project['code'] ?? '') . '</td>'
                 . '<td><a href="' . $escape($url) . '">' . $escape($project['title'] ?? '') . '</a></td>'
@@ -93,7 +101,7 @@ final class OfficeProjectPortfolioView
                 . '<td>' . OfficeProjectTrafficLight::render($project) . '</td>'
                 . '<td>' . max(0, (int) ($project['building_count'] ?? 0)) . '</td></tr>';
         }
-        if (!$projects) $html .= '<tr><td colspan="5">Geen toegankelijke projecten gevonden.</td></tr>';
+        if ($visibleRows === 0) $html .= '<tr><td colspan="5">Geen projecten gevonden voor deze selectie.</td></tr>';
         return $html . '</tbody></table></div></section>';
     }
 
@@ -108,7 +116,7 @@ final class OfficeProjectPortfolioView
             . '.office-portfolio-attention-counts{display:flex;flex-wrap:wrap;gap:8px}.office-portfolio-attention-counts span{font-size:12px;padding:6px 9px;background:#fff;border:1px solid #e2e8f0;border-radius:6px}'
             . '.office-portfolio-attention-list{padding-left:18px}.office-portfolio-attention-list li{margin:8px 0}.office-portfolio-attention-list li span{display:block;color:#526278;font-size:12px}'
             . '.office-portfolio-list-header{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0 12px}.office-portfolio-list-header h2{margin:0 auto 0 0;font-size:20px}'
-            . '.office-portfolio-search-label{font-size:13px;color:#526278}.office-portfolio-list-header input{border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;min-width:250px}'
+            . '.office-portfolio-search-label{font-size:13px;color:#526278}.office-portfolio-list-header form{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.office-portfolio-list-header button{background:#24567c;color:white;border:0;border-radius:8px;padding:9px 12px;cursor:pointer}.office-portfolio-list-header input{border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;min-width:250px}'
             . '.office-portfolio-table-wrap{overflow-x:auto}.office-portfolio-table-wrap table{width:100%;border-collapse:collapse}.office-portfolio-table-wrap th,.office-portfolio-table-wrap td{text-align:left;padding:13px 12px;border-bottom:1px solid #e2e8f0}.office-portfolio-table-wrap thead{background:#f5f7fa}'
             . '.office-portfolio-table-wrap tbody tr:hover{background:#f6f9fc}.office-portfolio-table-wrap tr[hidden]{display:none}'
             . '@media(max-width:700px){.office-portfolio-kpis{grid-template-columns:1fr 1fr}.office-portfolio-list-header input{width:100%}}';
