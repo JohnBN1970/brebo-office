@@ -18,12 +18,15 @@ final class OfficeProjectPortfolioView
             . '<div class="office-portfolio-header"><h2>Alle projecten</h2><p>Zoek een project en open het projectdossier voor planning, uren, financiën en documenten.</p></div>'
             . '<div class="office-portfolio-kpis">';
         foreach ([
-            'Projecten' => (int)$summary['projects'],
-            'In uitvoering' => (int)$summary['active'],
-            'In voorbereiding' => (int)$summary['preparation'],
+            'Projecten' => (string)(int)$summary['projects'],
+            'In uitvoering' => (string)(int)$summary['active'],
+            'In voorbereiding' => (string)(int)$summary['preparation'],
+            'Totale opdrachtwaarde' => isset($totals['contract_value_cents']) && is_int($totals['contract_value_cents']) ? '€ ' . number_format($totals['contract_value_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
+            'Vastgestelde inkoopbegroting' => isset($totals['procurement_budget_cents']) && is_int($totals['procurement_budget_cents']) ? '€ ' . number_format($totals['procurement_budget_cents'] / 100, 2, ',', '.') : 'Niet beschikbaar',
+            'Goedgekeurde uren · cumulatief' => isset($totals['approved_cumulative_seconds']) && is_int($totals['approved_cumulative_seconds']) && $totals['approved_cumulative_seconds'] >= 0 ? number_format($totals['approved_cumulative_seconds'] / 3600, 2, ',', '.') . ' uur' : 'Niet beschikbaar',
         ] as $label => $value) {
             $html .= '<article class="office-portfolio-kpi"><small>' . $escape($label)
-                . '</small><strong>' . $value . '</strong></article>';
+                . '</small><strong>' . $escape($value) . '</strong></article>';
         }
         $html .= '</div>';
         $assessed = ['red' => 0, 'orange' => 0, 'green' => 0, 'gray' => 0];
