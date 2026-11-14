@@ -55,7 +55,7 @@ def main():
           "| File | Style blocks | Block lines | Style attributes | CSS links |",
           "|---|---:|---:|---:|---:|"]
     for row in sorted(rows, key=lambda x: (-x["style_attributes"] - x["style_blocks"], x["path"])):
-        md.append(f'| \`{row["path"]}\` | {row["style_blocks"]} | {row["style_block_lines"]} | {row["style_attributes"]} | {row["stylesheet_links"]} |')
+        md.append(f'| `{row["path"]}` | {row["style_blocks"]} | {row["style_block_lines"]} | {row["style_attributes"]} | {row["stylesheet_links"]} |')
     md.extend(["", "## Totals", "", *[f"- {k}: {v}" for k, v in totals.items()], ""])
     if args.json_path:
         Path(args.json_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
