@@ -56,9 +56,63 @@ jobs:
       - name: Verify quotation and exact acceptance contracts
         run: |
           set -eu
-          for file in office-independent/src/Quotation/*.php office-independent/src/Calculation/*.php office-independent/public/office-quotation-handoff.php; do php -l "$file"; done
+          for file in office-independent/src/Quotation/*.php office-independent/src/Calculation/*.php office-independent/public/office-quotation-handoff.php office-independent/deployment/hostinger/*quotation-handoff.php; do php -l "$file"; done
           for file in office-independent/tests/OfficeQuotation*Test.php; do php "$file"; done
       - name: Authenticated HTTP MySQL acceptance to locked budget
         run: php office-independent/tests/OfficeQuotationBudgetHandoffTest.php --http
         env:
           QUOTE_HANDOFF_MYSQL: '1'
+  install:
+    needs: [inspect, verify]
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-quotation-budget-handoff-20261114'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: office-calc-collaboration-install
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Package verified quotation handoff
+        run: |
+          set -euo pipefail
+          python - <<'PYTHON'
+          import json, pathlib, shutil
+          root=pathlib.Path('office-independent')
+          files=['src/Quotation/'+x+'.php' for x in ['OfficeQuotationBudgetBinding','OfficeQuotationBudgetHandoff','OfficeQuotationCalcGenerationService','OfficeQuotationCalcDraftFactory','OfficeQuotationCalculationImport','OfficeQuotationRubricBuilder','OfficeQuotationCalcLaunchContract']]
+          files+=['src/Calculation/'+x+'.php' for x in ['OfficeCalcAcceptedLineAmounts','OfficeCalcWorkBudgetHandoff','OfficeCalcAcceptanceIdentity','OfficeCalcAcceptanceSnapshotWriter','OfficeCalcPersistedAcceptanceVerifier','OfficeCalcCrmTransferService']]
+          files+=['public/office-quotation-handoff.php']
+          package=pathlib.Path('quotation-handoff-package');package.mkdir()
+          for file in files:
+              target=package/file;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(root/file,target)
+          (package/'files.json').write_text(json.dumps(files))
+          for source,target in [('deployment/hostinger/install-quotation-handoff.php','install.php'),('deployment/hostinger/probe-quotation-handoff.php','probe.php'),('sql/office-quotation-budget-bindings.sql','bindings.sql'),('database/office-commercial-acceptance-schema.sql','commercial.sql')]:shutil.copyfile(root/source,package/target)
+          PYTHON
+          tar -czf quotation-handoff.tar.gz -C quotation-handoff-package .
+      - name: Install and probe Office-test handoff
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_ACTOR: ${{ secrets.DEPLOY_USER }}
+          REVISION: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$DEPLOY_ACTOR"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_quotation_handoff
+          chmod 600 ~/.ssh/id_quotation_handoff
+          case "$REVISION" in *[!a-f0-9]*|'') exit 1;; esac
+          remote="$DEPLOY_ACTOR@$HOST"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation_handoff -P "$PORT" quotation-handoff.tar.gz "$remote:domains/brebobv.nl/office_calc_test/.quotation-handoff-stage-$REVISION.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_quotation_handoff -p "$PORT" "$remote" "bash -se -- '$REVISION'" <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          stage="$base/.quotation-handoff-stage-$1"
+          mkdir -p "$stage"
+          chmod 700 "$stage"
+          tar -xzf "$stage.tar.gz" --no-same-owner -C "$stage"
+          php -l "$stage/install.php"
+          php "$stage/install.php" "$stage"
+          rm -f "$stage.tar.gz"
+          REMOTE
