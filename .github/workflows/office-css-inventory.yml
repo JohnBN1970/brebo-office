@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: PHP syntax check for Office home
+        run: php -l office-independent/public/office-home.php
       - name: Verify staged Office home CSS parity
         run: python3 tools/check_office_home_css_parity.py
       - name: Generate CSS inventory
