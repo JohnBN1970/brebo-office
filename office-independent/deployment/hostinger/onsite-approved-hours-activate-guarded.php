@@ -4,7 +4,14 @@ $path=getenv('OFFICE_TEST_CONFIG_PATH');
 if (!is_string($path) || !is_file($path) || is_link($path)) { fwrite(STDERR,"ON_SITE_CONFIG_PATH=INVALID\n"); exit(2); }
 echo "ON_SITE_PHP_ACTIVATION=START\n";
 $original=file_get_contents($path);
+// Config may use relative paths and load chained PHP includes. Execute in its
+// own directory so the original loader resolves relative paths as intended.
+$previousCwd=getcwd();
+if (!chdir(dirname($path))) { fwrite(STDERR,"CONFIG_CWD_UNAVAILABLE\n"); exit(2); }
+echo "ON_SITE_CONFIG_LOAD=START\n";
 $before=require $path;
+echo "ON_SITE_CONFIG_LOAD=COMPLETE\n";
+if ($previousCwd!==false) chdir($previousCwd);
 $key='OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED';
 if (!is_array($before) || ($before['OFFICE_BASE_PATH']??'')!=='/office-test') { fwrite(STDERR,"SCOPE_REJECTED\n"); exit(1); }
 if (array_key_exists($key,$before)) {
@@ -43,7 +50,11 @@ chmod($temp,fileperms($path)&0777);
 if (file_put_contents($temp,$updated)===false) { unlink($temp); { fwrite(STDERR,"TEMP_WRITE_FAILED\n"); exit(1); } }
 exec('php -l '.escapeshellarg($temp).' 2>&1',$lint,$status);
 if ($status!==0) { unlink($temp); { fwrite(STDERR,"LINT_FAILED_ORIGINAL_PRESERVED\n"); exit(1); } }
+echo "ON_SITE_TEMP_CONFIG_LOAD=START\n";
+if (!chdir(dirname($temp))) { unlink($temp); fwrite(STDERR,"TEMP_CONFIG_CWD_UNAVAILABLE\n"); exit(2); }
 $after=require $temp;
+if ($previousCwd!==false) chdir($previousCwd);
+echo "ON_SITE_TEMP_CONFIG_LOAD=COMPLETE\n";
 if (!is_array($after) || ($after[$key]??null)!=='enabled' || count($after)!==count($before)+1) {
     unlink($temp); { fwrite(STDERR,"VALUE_CHECK_FAILED_ORIGINAL_PRESERVED\n"); exit(1); }
 }
