@@ -54,7 +54,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -77,6 +77,13 @@ final class OfficeCalcCrmDraftLineRepository
                 $costType
             );
             if($checked['net_quantity']===null)throw new DomainException('Nettohoeveelheid ontbreekt.');
+        }
+        if($labor!==null){
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||$costType!=='labor'||$exactQuantity===null||$exactUnitCost===null)throw new DomainException('Arbeidsnormopslag niet beschikbaar.');
+            require_once __DIR__.'/OfficeCalcLaborNorm.php';
+            $computed=OfficeCalcLaborNorm::calculate($exactQuantity,(string)($labor['driver']??''),(string)($labor['input']??''),(string)($labor['hourly_rate']??''));
+            if(bccomp($computed['labor_unit_cost'],$exactUnitCost,4)!==0)throw new DomainException('Arbeidskosten komen niet overeen met de normberekening.');
+            $labor=$computed;
         }
         $priceSourcesEnabled=getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled';
         if($priceSource!==null){
@@ -140,6 +147,11 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
             }
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_norm=?,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver=? WHERE id=? AND version_id=?');
+                $q->execute([$labor['norm']??null,$labor['hours']??null,$labor['hourly_rate']??null,$labor['driver']??null,$lineRowId,$version]);
+            }
             if($quantityAdjustment!==null){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_net_quantity=?,calc_material_loss_percent=?,calc_extra_labor_hours=?,calc_quantity_source=?,calc_quantity_source_ref=? WHERE id=? AND version_id=?');
@@ -200,6 +212,10 @@ final class OfficeCalcCrmDraftLineRepository
                 'quantity_decimal'=>(string)$row['quantity'],
                 'net_quantity_decimal'=>(string)($row['calc_net_quantity']??$row['quantity']),
                 'material_loss_percent'=>isset($row['calc_material_loss_percent'])?(string)$row['calc_material_loss_percent']:null,
+                'labor_norm'=>isset($row['calc_labor_norm'])?(string)$row['calc_labor_norm']:null,
+                'labor_hours'=>isset($row['calc_labor_hours'])?(string)$row['calc_labor_hours']:null,
+                'labor_hourly_rate'=>isset($row['calc_labor_hourly_rate'])?(string)$row['calc_labor_hourly_rate']:null,
+                'labor_driver'=>isset($row['calc_labor_driver'])?(string)$row['calc_labor_driver']:null,
                 'extra_labor_hours'=>isset($row['calc_extra_labor_hours'])?(string)$row['calc_extra_labor_hours']:null,
                 'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
                 'unit'=>(string)($row['unit']??''),
