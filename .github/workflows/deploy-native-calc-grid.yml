@@ -14,6 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -36,6 +37,8 @@ jobs:
           set -euo pipefail
           test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           [[ "$REVISION" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git branch --show-current)" = 'feature/calc-wpcalc-grid-20261114'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/calc-wpcalc-grid-20261114)"
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_calc_grid
           chmod 600 ~/.ssh/id_calc_grid
@@ -48,4 +51,6 @@ jobs:
           [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$expected'"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -l '$base/workbench.php'"
-          curl --fail --silent --show-error --max-time 20 --output /dev/null --write-out 'OFFICE_TEST_ANONYMOUS_HTTP=%{http_code}\\n' 'https://brebobv.nl/office-test/calculatie/samenwerken'
+          status="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' 'https://brebobv.nl/office-test/calculatie/samenwerken')"
+          echo "OFFICE_TEST_ANONYMOUS_HTTP=$status"
+          [[ "$status" == '200' || "$status" == '302' || "$status" == '303' ]]
