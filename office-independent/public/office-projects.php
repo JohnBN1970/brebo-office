@@ -726,7 +726,7 @@ if ($kanbanView) {
   require_once dirname(__DIR__) . '/src/Project/OfficeProjectTrafficLight.php';
   echo '<table><thead><tr><th>Projectcode</th><th>Project</th><th>Status</th><th>Stoplicht / risico</th><th>Gebouwen</th></tr></thead><tbody>';
   foreach ($projects as $project) {
-    $url = $base . '/projecten/detail?id=' . (int) $project['id'] . ($inzetView ? '#inzet' : '');
+    $url = $base . '/projecten/detail?id=' . (int) $project['id'] . ($inzetView ? '&tab=arbeid-inzet' : '');
     echo '<tr><td>' . $escape($project['code']) . '</td><td><a href="' . $escape($url) . '">' . $escape($project['title']) . '</a></td><td>' . $escape($project['status']) . '</td><td>' . \Brebo\Office\Project\OfficeProjectTrafficLight::render($project) . '</td><td>' . (int) $project['building_count'] . '</td></tr>';
   }
   echo '</tbody></table>';
