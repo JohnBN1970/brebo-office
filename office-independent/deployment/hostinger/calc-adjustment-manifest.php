@@ -11,6 +11,7 @@ $paths=[
  'workbench.php'=>'public/office-calc-crm-workbench.php',
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
+ 'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
 ];
 $manifest=[];
 foreach($paths as $name=>$path){
