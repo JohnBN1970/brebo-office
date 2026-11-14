@@ -28,6 +28,26 @@ $projectV3Sections = [
   'uitvoering' => '<section><h2>Uitvoering</h2><p>Uitvoeringsgegevens worden vanuit de gekoppelde projectmodules ontsloten.</p></section>',
   'financieel' => (string) $financeHtml,
 ];
+// Optional read-only startdossier; only for already authenticated project scope.
+if ($projectV3Tab === 'werkvoorbereiding'
+    && \Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
+  try {
+    $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_questions')");
+    if ((int) $kickstartSchema->fetchColumn() !== 3) {
+      $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier nog niet geïnstalleerd.</p></section>';
+    } else {
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartReadModel.php';
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartView.php';
+      $kickstart = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope((int)$projectId, 'project', 0);
+      $projectV3Sections['kickstart'] = $kickstart === null
+        ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Voor dit project is nog geen startdossier aangemaakt.</p></section>'
+        : \Brebo\Office\Project\OfficeProjectKickstartView::render($kickstart, $kickstart['questions'], $kickstart['approvals']);
+    }
+  } catch (\Throwable $kickstartError) {
+    $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
+  }
+}
 $projectV3Body = \Brebo\Office\Project\OfficeProjectDetailV3View::render(
   \Brebo\Office\Intake\OfficeMount::basePath(),
   (int) $projectId,
