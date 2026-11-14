@@ -1,0 +1,29 @@
+name: Office Calc acceptance Office-test rollout
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/office-calc-acceptance-install.yml'
+      - 'office-independent/deployment/hostinger/*calc-acceptance*'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/office-calc-decimal-install-20261114'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect Office-test acceptance runtime and schema
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_acceptance
+          chmod 600 ~/.ssh/id_calc_acceptance
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_acceptance -p "$PORT" "$USER@$HOST" 'php /dev/stdin' < office-independent/deployment/hostinger/inspect-calc-acceptance.php
