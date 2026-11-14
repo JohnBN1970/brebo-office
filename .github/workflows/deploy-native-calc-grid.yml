@@ -26,6 +26,13 @@ jobs:
           php -l office-independent/deployment/hostinger/install-calc-grid-only.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
+      - name: Block partial deployment of adjustment-aware workbench
+        run: |
+          set -euo pipefail
+          if grep -q 'OfficeCalcQuantityAdjustments' office-independent/public/office-calc-crm-workbench.php; then
+            echo "::error::The grid-only installer does not deploy OfficeCalcQuantityAdjustments.php or OfficeCalcCrmDraftLineRepository.php. A synchronized multi-file installer and schema preflight are required."
+            exit 1
+          fi
       - name: Upload, install and verify guarded grid update
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
