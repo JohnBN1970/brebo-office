@@ -189,6 +189,12 @@ try {
             $cost=(int)bcdiv(bcmul($exactUnitCost,'100',4),'1',0);
             $adjustmentReason='Arbeid '.$labor['hours'].' uur, norm '.$labor['norm'].', tarief '.$labor['hourly_rate'].' (leidend '.$driver.')';
         }
+        if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&$collaborationEnabled&&$labor===null){
+            foreach($repo->list($draft,$actor,$rights) as $existingLabor){
+                if((string)$existingLabor['line_id']===$lineId&&($existingLabor['labor_driver']??null)!==null)
+                    throw new DomainException('Arbeidsregel vereist norm/uren en tarief; bestaande waarden worden niet gewist.');
+            }
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
