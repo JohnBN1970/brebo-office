@@ -1,0 +1,60 @@
+name: BREBO Run 1 CRM to Calc integration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/**'
+      - 'office-independent/src/Calculation/**'
+      - 'office-independent/public/office-crm-*'
+      - 'office-independent/public/office-calc-*'
+      - 'office-independent/tests/OfficeCrm*'
+      - 'office-independent/tests/OfficeCalc*'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - '.github/workflows/office-run1-crm-calc-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run1-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+      - name: PHP syntax, CRM and Calc contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php \
+            office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php \
+            office-independent/public/office-calc-launch.php \
+            office-independent/public/office-crm-opportunities.php \
+            office-independent/public/office-calc-crm-start.php \
+            office-independent/tests/OfficeCalcCrmStartRouteContractTest.php \
+            office-independent/src/Calculation/OfficeCalcCrmCanonicalDraftGate.php \
+            office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php \
+            office-independent/src/Calculation/OfficeCalcCrmCanonicalLookup.php \
+            office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php \
+            office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcCrmStartRouteContractTest.php
+          php office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php
+          php office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php
+          php office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php
+          php office-independent/tests/OfficeCalcLaunchCsrfTest.php
+          php office-independent/tests/OfficeCrmOpportunityContractTest.php
+          php office-independent/tests/OfficeCrmFunnelClosedStagesTest.php
+          php office-independent/tests/OfficeCalcCrmWorkBudgetSchemaTest.php
+      - name: Report release boundary
+        shell: bash
+        run: |
+          echo "RUN1_CONTRACTS=EXECUTED"
+          echo "OFFICE_TEST_E2E=NOT_EXECUTED"
+          echo "CRM_FIRST_RUNTIME_LAUNCH=NOT_VERIFIED"
+          echo "DATABASE_INSTALL=NOT_EXECUTED"
+          echo "DEPLOYMENT=NOT_EXECUTED"
