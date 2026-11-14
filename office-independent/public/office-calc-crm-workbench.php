@@ -202,7 +202,7 @@ header{display:flex;justify-content:space-between;gap:12px;align-items:center}he
 h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62748b;margin:3px 0}
 .metrics{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 8px;padding:5px 10px;background:#f8fafc;border:1px solid #d8e0ea}.metric{display:flex;align-items:center;gap:8px}
 .metric span{color:#64758b}.metric strong{font-size:14px}
-.gridlayout{display:block}.line-editor{display:none;margin-top:8px}.line-editor:target,.line-editor.is-editing,.line-editor.has-conflict{display:block}.grid-toolbar{padding:7px 9px;background:#f3f6fa;border:1px solid #d6dfea;border-bottom:0}.grid-toolbar a{display:inline-block;background:#304a95;color:#fff;text-decoration:none;padding:7px 11px;border-radius:3px;font-weight:700}
+.gridlayout{display:block}.line-editor{display:none;margin-top:8px}.line-editor:target,.line-editor.is-editing,.line-editor.has-conflict{display:block}.grid-toolbar{padding:7px 9px;background:#f3f6fa;border:1px solid #d6dfea;border-bottom:0}.guided-questions{display:flex;flex-wrap:wrap;gap:8px}.guided-choice{padding:9px 12px;border:1px solid #bdcbe0;border-radius:4px;text-decoration:none;color:#244c89;background:#f5f8fd}.grid-toolbar a{display:inline-block;background:#304a95;color:#fff;text-decoration:none;padding:7px 11px;border-radius:3px;font-weight:700}
 table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:5px 7px;border:1px solid #e1e5ec;text-align:left}th{font-size:11px;color:#334b66;background:#e8eef6;position:sticky;top:0;z-index:1}
 tbody tr:nth-child(even){background:#f5f9fc}tbody tr:hover{background:#d6f1ec}td:first-child{font-variant-numeric:tabular-nums;color:#62748b;background:#f0f3f8}
 td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:420px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
@@ -235,15 +235,18 @@ foreach($lines as $line) {
     foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
     echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
+$guidedOptions=['crane'=>['Kraan nodig?','Kraanhuur','equipment','dag'],'scaffold'=>['Steiger nodig?','Steigerhuur','equipment','week'],'toilet'=>['Bouwtoilet nodig?','Bouwtoilet','other','week'],'labor'=>['Extra arbeidsuren nodig?','Extra montageuren','labor','uur']];
+$guidedKey=is_string($_GET['guided']??null)?(string)$_GET['guided']:'';
+$guidedPreset=$edit===null?($guidedOptions[$guidedKey]??null):null;
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
-$editDescription=$edit===null?'':$h((string)$edit['description']);
+$editDescription=$edit===null?($guidedPreset===null?'':$h($guidedPreset[1])):$h((string)$edit['description']);
 $editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quantity']));
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
-$editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
-$selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
+$editUnit=$edit===null?($guidedPreset===null?'st':$h($guidedPreset[3])):$h((string)(($edit['unit']??'')?:'st'));
+$selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(string)$edit['cost_type'];
 if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Kies + Regel om de eerste post toe te voegen.</td></tr>';
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
-echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
@@ -265,6 +268,9 @@ echo ' <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Sluiten</a>';
 echo '</form></section></div><section class="panel"><h2>Kostenverdeling</h2><dl>';
 foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.number_format($collaborationEnabled?(float)$categoryTotals[$key]:$categoryTotals[$key]/100,2,',','.').'</dd>';
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section>';
+echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">Kies een voorziening. Controleer de hoeveelheid en prijs voordat je de voorgestelde regel opslaat.</p><div class="guided-questions">';
+foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
+echo '</div><p class="muted">Geen automatische boeking. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
