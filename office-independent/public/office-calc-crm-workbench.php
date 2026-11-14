@@ -177,6 +177,9 @@ try {
                 }
             }
         }
+        if(trim((string)($_POST['labor_norm']??''))!==''||trim((string)($_POST['labor_hours']??''))!==''){
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||(string)($_POST['cost_type']??'')!=='labor'||trim((string)($_POST['labor_hourly_rate']??''))==='')$deny(400,'LABOR_INPUT_INCOMPLETE');
+        }
         $labor=null;
         if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)($_POST['cost_type']??'')==='labor'&&trim((string)($_POST['labor_hourly_rate']??''))!==''){
             if(!$collaborationEnabled||$adjustmentMetadata!==null)$deny(400,'LABOR_NOT_AVAILABLE');
