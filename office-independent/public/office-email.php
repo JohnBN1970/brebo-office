@@ -191,8 +191,14 @@ try {
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'check_send') {
         $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
         $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
+        // Browsers and privacy extensions may omit Referer. The session-bound
+        // CSRF token remains mandatory; reject any explicit cross-site signal.
+        $fetchSite = (string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '');
+        $refererHost = $referer !== '' ? parse_url($referer, PHP_URL_HOST) : null;
+        $refererScheme = $referer !== '' ? parse_url($referer, PHP_URL_SCHEME) : null;
         if (($origin !== '' && !hash_equals('https://' . $allowedHost, $origin))
-          || ($origin === '' && !str_starts_with($referer, 'https://' . $allowedHost . '/'))
+          || ($referer !== '' && ($refererScheme !== 'https' || $refererHost !== $allowedHost))
+          || ($fetchSite !== '' && !in_array($fetchSite, ['same-origin','none'], true))
           || !is_string($_POST['csrf'] ?? null)
           || !hash_equals($csrfToken, $_POST['csrf'])) {
           http_response_code(403); exit('Ongeldige aanvraag.');
