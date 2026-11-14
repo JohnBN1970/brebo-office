@@ -26,6 +26,7 @@ final class OfficeCalcWorkBudgetHandoff
         if ($lines === []) {
             throw new InvalidArgumentException('Work budget requires accepted calculation lines');
         }
+        require_once __DIR__.'/OfficeCalcAcceptedLineAmounts.php';
         $items = [];
         $ids = [];
         foreach ($lines as $line) {
@@ -34,24 +35,18 @@ final class OfficeCalcWorkBudgetHandoff
             }
             $id = $line['line_id'] ?? null;
             $type = $line['cost_type'] ?? null;
-            $quantity = $line['quantity'] ?? null;
-            $unitCost = $line['unit_cost_cents'] ?? null;
+            $amounts = OfficeCalcAcceptedLineAmounts::fromLine($line);
             if (!is_string($id) || $id === '' || isset($ids[$id])
-                || !in_array($type, ['labor', 'material', 'equipment', 'subcontract', 'other'], true)
-                || !is_int($quantity) || $quantity < 0
-                || !is_int($unitCost) || $unitCost < 0) {
+                || !in_array($type, ['labor', 'material', 'equipment', 'subcontract', 'other'], true)) {
                 throw new InvalidArgumentException('Invalid or duplicate accepted calculation line');
-            }
-            if ($quantity > 0 && $unitCost > intdiv(PHP_INT_MAX, $quantity)) {
-                throw new InvalidArgumentException('Accepted calculation line budget overflows integer cents');
             }
             $ids[$id] = true;
             $items[] = [
                 'source_line_id' => $id,
                 'cost_type' => $type,
-                'quantity' => $quantity,
-                'unit_cost_cents' => $unitCost,
-                'budget_cents' => $quantity * $unitCost,
+                'quantity' => $amounts['quantity'],
+                'unit_cost_cents' => $amounts['unit_cost_cents'],
+                'budget_cents' => $amounts['budget_cents'],
                 'activity_ref' => $line['activity_ref'] ?? null,
             ];
         }
