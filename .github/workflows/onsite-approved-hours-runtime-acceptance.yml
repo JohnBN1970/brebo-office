@@ -6,6 +6,11 @@ on:
       - '.github/workflows/onsite-approved-hours-runtime-acceptance.yml'
       - 'office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php'
   workflow_dispatch:
+    inputs:
+      activation_confirmation:
+        description: 'Optional: type ENABLE-ONSITE-OFFICE-TEST to enable approvals before acceptance'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -26,6 +31,77 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_onsite_acceptance
           chmod 600 ~/.ssh/id_onsite_acceptance
+      - name: Guarded OnSite activation (explicit opt-in only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_confirmation == 'ENABLE-ONSITE-OFFICE-TEST' }}
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          OFFICE_TEST_CONFIG_PATH="$config" php <<'PHP'
+          <?php
+          $path=getenv('OFFICE_TEST_CONFIG_PATH');
+          $original=file_get_contents($path);
+          $before=require $path;
+          $key='OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED';
+          if (!is_array($before) || ($before['OFFICE_BASE_PATH']??'')!=='/office-test') exit("SCOPE_REJECTED\\n");
+          if (array_key_exists($key,$before)) {
+              if ($before[$key]==='enabled') { echo "ALREADY_ENABLED\\n"; exit(0); }
+              exit("EXISTING_FLAG_REQUIRES_MANUAL_REVIEW\\n");
+          }
+          if (!is_string($original)) exit("CONFIG_READ_FAILED\\n");
+          $tokens=token_get_all($original);
+          $returns=[]; $offset=0;
+          foreach($tokens as $token) {
+              $value=is_array($token)?$token[1]:$token;
+              if (is_array($token) && $token[0]===T_RETURN) $returns[]=$offset;
+              $offset+=strlen($value);
+          }
+          if (count($returns)!==1) exit("RETURN_NOT_UNIQUE\\n");
+          $start=$returns[0]+strlen('return');
+          $depth=0; $end=null; $offset=0;
+          foreach($tokens as $token) {
+              $value=is_array($token)?$token[1]:$token;
+              if ($offset>=$start && !is_array($token)) {
+                  if (in_array($value,['(','[','{'],true)) $depth++;
+                  elseif (in_array($value,[')',']','}'],true)) $depth--;
+                  elseif ($value===';' && $depth===0) { $end=$offset; break; }
+                  if ($depth<0) exit("EXPRESSION_UNBALANCED\\n");
+              }
+              $offset+=strlen($value);
+          }
+          if ($end===null) exit("RETURN_EXPRESSION_UNVERIFIED\\n");
+          $expression=trim(substr($original,$start,$end-$start));
+          if ($expression==='') exit("EMPTY_RETURN_EXPRESSION\\n");
+          $updated=substr($original,0,$returns[0]).'return array_replace(('.$expression."), ['".$key."' => 'enabled'])".substr($original,$end);
+          $dir=dirname($path);
+          $temp=tempnam($dir,'.onsite-');
+          if ($temp===false) exit("TEMP_FAILED\\n");
+          chmod($temp,fileperms($path)&0777);
+          if (file_put_contents($temp,$updated)===false) { unlink($temp); exit("TEMP_WRITE_FAILED\\n"); }
+          exec('php -l '.escapeshellarg($temp).' 2>&1',$lint,$status);
+          if ($status!==0) { unlink($temp); exit("LINT_FAILED_ORIGINAL_PRESERVED\\n"); }
+          $after=require $temp;
+          if (!is_array($after) || ($after[$key]??null)!=='enabled' || count($after)!==count($before)+1) {
+              unlink($temp); exit("VALUE_CHECK_FAILED_ORIGINAL_PRESERVED\\n");
+          }
+          foreach($before as $name=>$value) if (!array_key_exists($name,$after) || $after[$name]!==$value) {
+              unlink($temp); exit("EXISTING_VALUE_CHANGED_ORIGINAL_PRESERVED\\n");
+          }
+          clearstatcache(true,$path);
+          if (file_get_contents($path)!==$original) { unlink($temp); exit("CONCURRENT_CHANGE_ORIGINAL_PRESERVED\\n"); }
+          $backup=$path.'.bak-onsite-controlled-'.gmdate('YmdHis').'-'.bin2hex(random_bytes(4));
+          if (!copy($path,$backup)) { unlink($temp); exit("BACKUP_FAILED\\n"); }
+          if (!rename($temp,$path)) { unlink($temp); exit("INSTALL_FAILED_BACKUP_AVAILABLE\\n"); }
+          echo "ON_SITE_CONFIG=ENABLED\\nCONFIG_BACKUP=CREATED\\nPHP_SYNTAX=OK\\n";
+          PHP
+          REMOTE
       - name: Inspect active Office-test without writes
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
