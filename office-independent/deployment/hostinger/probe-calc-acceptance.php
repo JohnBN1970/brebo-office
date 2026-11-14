@@ -3,7 +3,17 @@ declare(strict_types=1);
 /** Session-local tables shadow real names. No business record is inserted. */
 function probeCalcAcceptance(PDO $db, string $root): void
 {
-    foreach(['office_crm_calc_acceptances','office_crm_calc_accepted_lines','office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines']as$table)$db->exec('CREATE TEMPORARY TABLE `'.$table.'` LIKE `'.$table.'`');
+    foreach(['office_crm_calc_acceptances','office_crm_calc_accepted_lines','office_calc_crm_acceptance_transfers','office_calc_work_budget_baselines','office_calc_work_budget_lines']as$table){
+        // MySQL disallows CREATE TEMPORARY TABLE x LIKE x. Clone the exact
+        // inspected definition, omitting FKs (not supported on temporary tables).
+        $definition=$db->query('SHOW CREATE TABLE `'.$table.'`')->fetch(PDO::FETCH_NUM)[1];
+        $parts=array_values(array_filter(explode("\n",$definition),static fn(string $line):bool=>!str_contains($line,'FOREIGN KEY')));
+        $definition=implode("\n",$parts);
+        $definition=preg_replace('/,\n\)/',"\n)",$definition);
+        $definition=preg_replace('/^CREATE TABLE /','CREATE TEMPORARY TABLE ',$definition,1,$count);
+        if($count!==1||!is_string($definition)||str_contains($definition,'FOREIGN KEY'))throw new RuntimeException('temporary_table_definition_failed');
+        $db->exec($definition);
+    }
     $db->exec('CREATE TEMPORARY TABLE office_crm_opportunities(id BIGINT PRIMARY KEY,stage VARCHAR(20),status VARCHAR(20))');
     $db->exec('CREATE TEMPORARY TABLE office_projects(id BIGINT PRIMARY KEY AUTO_INCREMENT,title VARCHAR(191))');
     $db->exec("INSERT INTO office_crm_opportunities VALUES(11,'won','closed')");
