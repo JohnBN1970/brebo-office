@@ -65,162 +65,45 @@ try {
         $q=$db->prepare("SELECT d.id,d.opportunity_id,d.created_at,a.username FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id JOIN office_operator_accounts a ON a.id=d.created_by WHERE d.project_id IS NULL AND d.crm_revision=o.revision AND o.status='open' AND o.stage IN ('prospect','opportunity','proposal','negotiation') AND (d.created_by=? OR EXISTS(SELECT 1 FROM office_calc_crm_draft_collaborators c WHERE c.draft_id=d.id AND c.operator_id=?)) ORDER BY d.id DESC LIMIT 200");$q->execute([$actor,$actor]);$drafts=$q->fetchAll(PDO::FETCH_ASSOC);
         $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
         header('Content-Type: text/html; charset=utf-8');header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-        echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
-        foreach($drafts as$item)echo '<tr><td><a href="'.$workbenchUrl.'?draft_id='.(int)$item['id'].'">Calculatie #'.(int)$item['id'].'</a></td><td>#'.(int)$item['opportunity_id'].'</td><td>'.$escape($item['username']).'</td></tr>';
-        if($drafts===[])echo '<tr><td colspan="3">Geen toegankelijke conceptcalculaties. Een calculatie start vanuit de verkoopkans in CRM.</td></tr>';
-        echo '</tbody></table></main></body></html>';exit;
-    }
-    // Temporary least-privilege policy: only the draft creator may edit.
-    $rights=static function(PDO $db,int $actor,int $opportunity):bool {
-        $q=$db->prepare('SELECT 1 FROM office_calc_crm_drafts WHERE opportunity_id=? AND created_by=?');
-        $q->execute([$opportunity,$actor]);
-        return $q->fetchColumn()!==false;
-    };
-    $collaboration=null;
-    if($collaborationEnabled){
-        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDraftCollaboration.php';
-        $collaboration=new \Brebo\Office\Calculation\OfficeCalcDraftCollaboration($db);
-        $rights=static function(PDO $connection,int $user,int $opportunity)use($draft,$collaboration):bool{
-            $q=$connection->prepare('SELECT 1 FROM office_calc_crm_drafts WHERE id=? AND opportunity_id=?');$q->execute([$draft,$opportunity]);
-            return $q->fetchColumn()!==false&&$collaboration->canEdit($user,$draft);
-        };
-    }
-    if($collaborationEnabled&&getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled'){
-        foreach(['MaterialCatalogConnection','MaterialCatalogReadModel','OfficeMaterialAccess']as$class)require_once dirname(__DIR__).'/src/Materials/'.$class.'.php';
-        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDraftMaterialSource.php';
-        $materialAccess=new \Brebo\Office\Materials\OfficeMaterialAccess($db);
-        if($materialAccess->allows($operator->operatorId,'read')){
-            try{
-                $catalog=new \Brebo\Office\Materials\MaterialCatalogReadModel(\Brebo\Office\Materials\MaterialCatalogConnection::fromEnvironment(),getenv('OFFICE_MATERIALS_CANONICAL_TABLE_PREFIX')?:'');
-                $materialSource=new \Brebo\Office\Calculation\OfficeCalcDraftMaterialSource($catalog,$materialAccess);
-            }catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
-        }
-    }
-    $repo=new \Brebo\Office\Calculation\OfficeCalcCrmDraftLineRepository($db);
-    $csrf=$_COOKIE['office_project_csrf']??null;
-    if (!is_string($csrf)||!preg_match('/^[a-f0-9]{64}$/D',$csrf)) {
-        if ($method==='POST') $deny(403,'CSRF_COOKIE');
-        $csrf=bin2hex(random_bytes(32));
-        if (!setcookie('office_project_csrf',$csrf,['path'=>'/office-test','secure'=>true,'httponly'=>true,'samesite'=>'Strict'])) $deny(503);
-    }
-    if ($method==='POST') {
-        $submitted=$_POST['csrf']??null;
-        if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
-        $action=(string)($_POST['action']??'save_line');
-        if($action==='add_material'){
-            if($materialWarning!=='')$deny(503,'PRICE_SOURCE_UNAVAILABLE');
-            if($collaboration===null||$materialSource===null)throw new DomainException('Geen materiaalrecht.');
-            $articleId=filter_var($_POST['supplier_article_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$priceId=filter_var($_POST['price_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-            $materialQuantity=str_replace(',','.',trim((string)($_POST['material_quantity']??'1')));
-            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
-            $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
-            $repo->save($draft,$actor,bin2hex(random_bytes(12)),'material',$source['description'],1,0,null,$rights,(string)($_POST['expected_revision']??''),'Materiaal uit prijslijst: '.$source['source_reference'],$materialQuantity,$source['unit_price'],$source['unit'],$source);
-            header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
-        }
-        if($collaboration!==null&&in_array($action,['grant','remove','checkpoint'],true)){
-            $expected=(string)($_POST['expected_revision']??'');
-            if($action==='checkpoint')$collaboration->checkpoint($draft,$actor,(string)($_POST['reason']??''),$expected,$rights);
-            else{
-                $target=filter_var($_POST['operator_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-                if(!is_int($target))throw new DomainException('Kies een geldige Office-gebruiker.');
-                $collaboration->grant($draft,$actor,$target,$action==='remove',$expected,$rights);
-            }
-            header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
-        }
-        if($action!=='save_line')throw new DomainException('Onbekende calculatieactie.');
-        $lineId=(string)($_POST['line_id']??'');
-        if ($lineId==='') $lineId=bin2hex(random_bytes(12));
-        $exactQuantity=null;$exactUnitCost=null;$unit=null;
-        if($collaborationEnabled){
-            $exactQuantity=str_replace(',','.',trim((string)($_POST['quantity']??'')));
-            if(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
-            $quantity=1;$unit=trim((string)($_POST['unit']??''));
-        }else $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
-        // Legacy callers use cents; reviewed native inputs preserve four decimal places.
-        $price=$_POST['unit_price_eur']??null;
-        if (!is_string($price)) $deny(400,'INVALID_PRICE');
-        $price=trim(str_replace(',', '.', $price));
-        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
-        [$whole,$fraction]=array_pad(explode('.',$price,2),2,'');
-        $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
-        if($collaborationEnabled)$exactUnitCost=$price;
-        if (!is_int($quantity)||$quantity<1) $deny(400,'INVALID_QUANTITY_OR_COST');
-        $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd'),$exactQuantity,$exactUnitCost,$unit);
-        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
-    }
-    $lines=$repo->list($draft,$actor,$rights);
-} catch (\Brebo\Office\Calculation\OfficeCalcDraftConflict $error) {http_response_code(409);$conflict=$error->getMessage();}
-catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
-catch (PDOException) { $deny(503,'DATABASE'); }
-catch (Throwable) { $deny(503,'RUNTIME'); }
-$expectedRevision='';$history=[];$members=[];$eligible=[];$auditDetail=null;$canManageCollaborators=false;
-if($collaboration!==null){
-    try{
-        $workspace=$collaboration->read($draft,$actor,$rights,$repo);$lines=$workspace['lines'];$expectedRevision=$workspace['token'];
-        $history=$collaboration->history($draft,$actor,$rights);$members=$collaboration->members($draft);$canManageCollaborators=$collaboration->owns($actor,$draft);
-        if($canManageCollaborators)$eligible=$db->query('SELECT id,username FROM office_operator_accounts WHERE active=1 AND can_edit_crm=1 ORDER BY username,id LIMIT 500')->fetchAll(PDO::FETCH_ASSOC);
-        if(isset($_GET['change_id'])){
-            $changeId=filter_var($_GET['change_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!is_int($changeId))$deny(400,'INVALID_CHANGE');
-            $auditDetail=$collaboration->detail($draft,$actor,$changeId,$rights);if($auditDetail===null)$deny(404,'CHANGE_NOT_FOUND');
-        }
-    }catch(DomainException){$deny(403,'DRAFT_ACCESS');}catch(Throwable){$deny(503,'HISTORY_UNAVAILABLE');}
-}
-if($materialSource!==null){
-    $query=$_GET['material_q']??$_POST['material_q']??'';$materialQuery=is_string($query)?mb_substr(trim($query),0,120):'';
-    try{if($materialQuery!=='')$materialRows=$catalog->search($materialQuery,null,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'),0,null,true);}catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
-    $materialRows=array_slice($materialRows,0,50);
-}
-$editId=filter_input(INPUT_GET,'edit_line_id',FILTER_UNSAFE_RAW);
-$edit=null;
-if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
-    foreach ($lines as $existingLine) {
-        if (hash_equals((string)$existingLine['line_id'],$editId)) {
-            $edit=$existingLine;
-            break;
-        }
-    }
-}
-if($conflict!==''&&($_POST['action']??'save_line')==='save_line'){
-    $edit=['line_id'=>$lineId??(string)($_POST['line_id']??''),'description'=>(string)($_POST['description']??''),'cost_type'=>(string)($_POST['cost_type']??'material'),'quantity'=>$quantity??1,'unit_cost_cents'=>$cost??0,'quantity_decimal'=>$exactQuantity??'1','unit_cost_decimal'=>(string)($_POST['unit_price_eur']??'0'),'unit'=>(string)($_POST['unit']??'')];
-}
-$h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-header('Content-Type: text/html; charset=utf-8');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
-$typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
-$categoryTotals=array_fill_keys(array_keys($typeLabels),$collaborationEnabled?'0':0);
-$lineAmount=static function(array $line)use($collaborationEnabled):string|int{
-    if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
-    return bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8);
-};
-foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]=$collaborationEnabled?bcadd((string)$categoryTotals[$kind],(string)$lineAmount($line),8):$categoryTotals[$kind]+$lineAmount($line);}
-$canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
-:root{color-scheme:light}*{box-sizing:border-box}body{font:15px system-ui,sans-serif;background:#f3f5fa;color:#192f47;margin:0}
-main{max-width:1350px;margin:28px auto;padding:0 24px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #dce3ee;border-radius:12px;padding:24px;margin-bottom:18px}
-header{display:flex;justify-content:space-between;gap:16px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
-h1{font-size:27px;margin:10px 0}h2{font-size:20px;margin:0 0 16px}.muted{color:#62748b;margin:5px 0}
-.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:18px 0}.metric{background:#fff;border:1px solid #dce3ee;border-radius:10px;padding:18px}
-.metric span{color:#64758b;display:block;margin-bottom:8px}.metric strong{font-size:22px}
-.gridlayout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
-table{width:100%;border-collapse:collapse}td,th{padding:12px;border-bottom:1px solid #e4e9f1;text-align:left}th{font-size:12px;color:#5a6d84}
-td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow-x:auto}.amount{font-size:24px;font-weight:700}
-form{background:#f4f6f9;padding:16px;border-radius:8px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.calc-fields label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:11px;border:1px solid #b6c3d4;border-radius:7px;background:#fff}
-button{background:#304a95;border:0;border-radius:7px;color:#fff;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:25px;text-align:center;color:#718198}
-dl{display:grid;grid-template-columns:1fr auto;gap:12px;margin:0}dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650}
-@media(max-width:900px){.gridlayout{display:block}main{margin:14px auto;padding:0 12px}header{display:block}.calc-fields{grid-template-columns:1fr}}
+        echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
+:root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
+main{max-width:none;margin:0;padding:8px}a{color:#205a98}header,.panel{background:#fff;border:1px solid #cbd4df;border-radius:3px;padding:10px;margin-bottom:7px}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center}header small{color:#53677f;letter-spacing:.03em}
+h1{font-size:18px;margin:3px 0}h2{font-size:14px;margin:0 0 8px}.muted{color:#62748b;margin:3px 0}
+.metrics{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 8px;padding:5px 10px;background:#f8fafc;border:1px solid #d8e0ea}.metric{display:flex;align-items:center;gap:8px}
+.metric span{color:#64758b}.metric strong{font-size:14px}
+.gridlayout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:8px;align-items:start}
+table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{padding:5px 7px;border:1px solid #e1e5ec;text-align:left}th{font-size:11px;color:#334b66;background:#e8eef6;position:sticky;top:0;z-index:1}
+tbody tr:nth-child(even){background:#f5f9fc}tbody tr:hover{background:#d6f1ec}td:first-child{font-variant-numeric:tabular-nums;color:#62748b;background:#f0f3f8}
+td.numeric,th.numeric{text-align:right;font-variant-numeric:tabular-nums}.table-scroll{overflow:auto;max-height:calc(100vh - 195px);min-height:420px}.amount{font-size:15px;font-weight:700;text-align:right;margin:8px}
+form{background:#f4f6f9;padding:10px;border-radius:3px}.calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.calc-fields label{display:flex;flex-direction:column;gap:4px;font-weight:600;font-size:12px}.calc-fields input,.calc-fields select{width:100%;font:inherit;padding:7px;border:1px solid #b6c3d4;border-radius:3px;background:#fff}
+button{background:#304a95;border:0;border-radius:3px;color:#fff;padding:8px 11px;font:inherit;font-weight:700;cursor:pointer}.empty{padding:20px;text-align:center;color:#718198}
+dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font-variant-numeric:tabular-nums;font-weight:650}
+.workbench{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px}.element-tree{background:#fff;border:1px solid #cbd4df;padding:8px;min-height:500px;max-height:calc(100vh - 115px);overflow:auto}.element-tree h2{border-bottom:1px solid #d8e0ea;padding-bottom:7px}.element-tree ul{list-style:none;margin:0;padding:0}.element-tree li{padding:5px 3px;border-bottom:1px solid #edf0f4;font-size:12px}.element-tree li:before{content:"▸ ";color:#8c9aad}.sheet-label{background:#d8e5f2;border:1px solid #bfcfe1;padding:6px 9px;font-weight:700}.sheet-tabs{padding:6px 8px;background:#f4f6fa;border-top:1px solid #cbd4df}.sheet-tabs span{padding:4px 12px;border:1px solid #cbd4df;background:white}.sheet-tabs span:first-child{border-bottom:2px solid #3665b3;color:#244c89}
+@media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 </style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
-echo '<div class="metrics">';
+echo '<div class="workbench"><aside class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><ul>';
+foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
+echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
-echo '<div class="metric"><span>Aantal regels</span><strong>'.count($lines).'</strong></div>';
-echo '<div class="metric"><span>Projectstatus</span><strong>Concept</strong></div>';
-echo '</div><div class="gridlayout"><section class="panel"><h2>Calculatieregels</h2><div class="table-scroll"><table><tr><th>Omschrijving</th><th>Type</th><th class="numeric">Aantal</th><th class="numeric">Eenheidsprijs</th><th class="numeric">Totaal</th><th>Prijsbron</th><th>Actie</th></tr>';
+echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
+echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
+echo '</div><div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Stelpost</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+
 $total=0;
+$rowNumber=0;
 foreach($lines as $line) {
+    ++$rowNumber;
     $subtotal=$lineAmount($line);if(!$collaborationEnabled)$total+=$subtotal;
     $sourceLabel=($line['price_source_type']??'manual')==='article'?($line['source_supplier'].' · '.$line['source_reference']):'Handmatig';
-    echo '<tr><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).' '.$h((string)($line['unit']??'')).'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.').'</td><td class="numeric">€ '.number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.').'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+    $unitCost=number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.');
+    $rowTotal=number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.');
+    $costCells=['labor','material','equipment','other','subcontract'];
+    echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td colspan="3" title="Norm, uren en tarief zijn nog niet beschikbaar in dit native regelmodel">—</td>';
+    foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+    echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
 }
 $editIdValue=$edit===null?'':$h((string)$edit['line_id']);
 $editDescription=$edit===null?'':$h((string)$edit['description']);
@@ -228,8 +111,8 @@ $editQuantity=$edit===null?'':$h((string)($edit['quantity_decimal']??$edit['quan
 $editPrice=$edit===null?'':($collaborationEnabled?$h(str_replace('.',',',(string)$edit['unit_cost_decimal'])):number_format((int)$edit['unit_cost_cents']/100,2,',',''));
 $editUnit=$edit===null?'st':$h((string)(($edit['unit']??'')?:'st'));
 $selectedCost=$edit===null?'labor':(string)$edit['cost_type'];
-if($lines===[]) echo '<tr><td colspan="7" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
-echo '</table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
+if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Voeg rechts de eerste post toe.</td></tr>';
+echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 echo '<section class="panel"><h2>'.($edit===null?'Calculatieregel toevoegen':'Calculatieregel wijzigen').'</h2>';
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
@@ -255,4 +138,4 @@ echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
-echo '</main></body></html>';
+echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div></main></body></html>';
