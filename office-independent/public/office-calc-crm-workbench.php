@@ -277,6 +277,9 @@ $selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(stri
 if($lines===[]) echo '<tr><td colspan="17" class="empty">Nog geen calculatieregels. Kies + Regel om de eerste post toe te voegen.</td></tr>';
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
+if($edit!==null&&(($edit['material_loss_percent']??null)!==null||($edit['extra_labor_hours']??null)!==null)){
+    echo '<p role="alert">Deze regel heeft een opgeslagen calculatiecorrectie. Nettohoeveelheid: '.$h((string)$edit['net_quantity_decimal']).'; materiaalverlies: '.$h((string)($edit['material_loss_percent']??'-')).'%; extra arbeidsuren: '.$h((string)($edit['extra_labor_hours']??'-')).'. Wijzigen is tijdelijk geblokkeerd totdat de correctie-editor beschikbaar is.</p>';
+}
 if($conflict!=='')echo '<p role="alert" style="padding:16px;background:#fff0bf">'.$h($conflict).'</p>';
 echo '<form method="post" action="'.$workbenchUrl.'">';
 echo '<input type="hidden" name="draft_id" value="'.$draft.'">';
