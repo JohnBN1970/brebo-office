@@ -47,6 +47,8 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
           php -l office-independent/src/Calculation/OfficeCalcLaborNorm.php
+          php -l office-independent/src/Calculation/OfficeCalcLaborRateCatalog.php
+          php -l office-independent/deployment/hostinger/apply-calc-labor-rates-schema.php
           php -l office-independent/tests/OfficeCalcLaborNormTest.php
           php -l office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
           php -l office-independent/tests/OfficeCalcGridLayoutContractTest.php
