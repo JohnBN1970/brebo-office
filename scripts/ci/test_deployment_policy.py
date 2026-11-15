@@ -27,6 +27,12 @@ class PolicyTest(unittest.TestCase):
             root=Path(tmp);self.fixture(root)
             (root/'.github/workflows/maintenance.yml').write_text("on: [workflow_dispatch]\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ssh remote 'cd public_html/sboffice && deploy'\n")
             with self.assertRaises(SystemExit):module.check(root)
+    def test_production_fixture_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.fixture(root)
+            p=root/'.github/workflows/sboffice-deploy-develop.yml'
+            p.write_text(p.read_text()+"\n# acceptance: fixture should never be in production\n")
+            with self.assertRaises(SystemExit):module.check(root)
     def test_feature_secrets_are_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);self.fixture(root)

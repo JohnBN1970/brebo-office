@@ -492,19 +492,10 @@ jobs:
               if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId); }
             }
             $database = \Drupal::database();
-            $transaction = $database->startTransaction();
-            try {
-              $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
-              $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
-              $input = ["source" => "upload", "source_record_id" => $sourceRecordId, "classification" => "runtime_acceptance_unknown", "payload" => ["acceptance" => TRUE], "attachments" => [], "actor_uid" => 1];
-              $first = $manager->intake($input);
-              if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) { throw new \RuntimeException("First intake did not persist review_required."); }
-              $second = $manager->intake($input);
-              if (($second["state"] ?? NULL) !== "duplicate") { throw new \RuntimeException("Second intake was not deduplicated."); }
-              if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) { throw new \RuntimeException("Duplicate did not reuse review record."); }
-              print "SOURCE_NEUTRAL_RUNTIME_OK=1\n";
+            foreach (["brebo_data_ingest_run", "brebo_data_record", "brebo_data_intake_decision"] as $table) {
+              if (!$database->schema()->tableExists($table)) { throw new \RuntimeException("Required intake table missing: " . $table); }
             }
-            finally { $transaction->rollBack(); }
+            print "SOURCE_NEUTRAL_READONLY_RUNTIME_OK=1\n";
           '
           REMOTE
 

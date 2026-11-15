@@ -38,7 +38,10 @@ def check(root=ROOT):
             condition = job.get('if', '')
             if "github.ref == 'refs/heads/develop'" not in condition or "github.event_name != 'pull_request'" not in condition or job.get('environment') != 'office-test':
                 errors.append(f'{CENTRAL}/{name}: remote access must require develop and isolated environment')
-    production = yaml.safe_load((root / '.github/workflows/sboffice-deploy-develop.yml').read_text())
+    production_source = (root / '.github/workflows/sboffice-deploy-develop.yml').read_text()
+    if any(marker in production_source for marker in ('acceptance:', 'production smoke', 'runtime_acceptance_unknown', 'office_test_seed.php')):
+        errors.append('Production release must not create fictitious acceptance records')
+    production = yaml.safe_load(production_source)
     events = production.get('on', production.get(True, {}))
     if set(events) != {'workflow_dispatch'}:
         errors.append('Production must only support workflow_dispatch')
