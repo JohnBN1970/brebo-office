@@ -38,7 +38,10 @@ jobs:
             office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php \
             office-independent/src/Calculation/OfficeCalcCrmCanonicalLookup.php \
             office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php \
-            office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php; do
+            office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftAccess.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php \
+            office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php; do
             php -l "$file"
           done
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
@@ -46,6 +49,7 @@ jobs:
           php office-independent/tests/OfficeCalcCrmCanonicalDraftGateTest.php
           php office-independent/tests/OfficeCalcCrmCanonicalLookupTest.php
           php office-independent/tests/OfficeCalcCrmFirstSchemaPreflightContractTest.php
+          php office-independent/tests/OfficeCalcCrmDraftLineRepositoryTest.php
           php office-independent/tests/OfficeCalcLaunchCsrfTest.php
           php office-independent/tests/OfficeCrmOpportunityContractTest.php
           php office-independent/tests/OfficeCrmFunnelClosedStagesTest.php
