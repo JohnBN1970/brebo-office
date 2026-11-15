@@ -237,7 +237,8 @@ try {
                 if(!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
                 $components[$kind]=$amount;
             }
-            if($labor!==null||$adjustmentMetadata!==null)$deny(400,'COMPONENT_MODE_CONFLICT');
+            if($labor!==null||trim((string)($_POST['material_loss_percent']??''))!==''||trim((string)($_POST['extra_labor_hours']??''))!=='')$deny(400,'COMPONENT_MODE_CONFLICT');
+            $adjustmentMetadata=null;
             $primary=(string)($_POST['cost_type']??'');
             if(!isset($components[$primary]))$deny(400,'INVALID_COMPONENT');
             $exactUnitCost=$components[$primary];
