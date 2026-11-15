@@ -38,6 +38,9 @@ final class OfficeProjectKickstartActionHandler
         $canSubmit = ($context['can_submit'] ?? false) === true;
         $canApprove = ($context['can_approve'] ?? false) === true;
         $action = (string)($post['kickstart_action'] ?? '');
+        if ($action === 'start_execution') {
+            return $this->dossiers->startExecution($dossierId,$revision,$actorId,$canEdit);
+        }
         if ($action === 'save_checklist') {
             $raw = $post['items'] ?? [];
             if (!is_array($raw)) throw new DomainException('Invalid checklist');

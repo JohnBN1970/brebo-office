@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   readiness:
+    environment: production
     name: Non-secret mail runtime readiness
     runs-on: ubuntu-latest
     timeout-minutes: 5

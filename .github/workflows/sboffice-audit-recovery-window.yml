@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   audit:
+    environment: production
     name: Read-only activity and file audit
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -91,6 +91,8 @@ final class OfficeProjectKickstartRepository
                 'previous_items'=>json_decode((string)$current['items_json'], true, 512, JSON_THROW_ON_ERROR),
                 'items'=>$items,'critical_open_points'=>$criticalOpenPoints,
             ], JSON_THROW_ON_ERROR)]);
+            $revoke = $this->db->prepare("UPDATE office_projects p INNER JOIN office_project_start_dossiers d ON d.project_id=p.id SET p.status='preparation',p.updated_at=CURRENT_TIMESTAMP WHERE d.id=? AND p.status IN ('active','execution','in_progress')");
+            $revoke->execute([$dossierId]);
             $this->db->commit();
             return ['status'=>'draft','revision'=>$nextRevision,'changed'=>true];
         } catch (\Throwable $error) {
@@ -201,6 +203,36 @@ final class OfficeProjectKickstartRepository
             }
             $this->db->commit();
             return ['status'=>$next,'revision'=>$revision];
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /** Start execution under the same row lock used by dossier revisions. */
+    public function startExecution(int $dossierId, int $expectedRevision, int $actorId, bool $authorized): array
+    {
+        if (!$authorized || $actorId < 1 || $dossierId < 1 || $expectedRevision < 1) throw new DomainException('Execution not authorized');
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare('SELECT * FROM office_project_start_dossiers WHERE id=? FOR UPDATE');
+            $q->execute([$dossierId]); $row = $q->fetch(PDO::FETCH_ASSOC);
+            if (!$row || (int)$row['revision'] !== $expectedRevision || $row['scope_type'] !== 'project' || (int)$row['scope_id'] !== 0) throw new DomainException('Invalid execution scope or revision');
+            $projectId = (int)$row['project_id'];
+            $access = $this->db->prepare("SELECT 1 FROM office_project_memberships m JOIN office_operator_accounts a ON a.id=m.operator_id WHERE m.project_id=? AND m.operator_id=? AND m.permission='manage' AND a.active=1");
+            $access->execute([$projectId,(string)$actorId]);
+            if (!$access->fetchColumn()) throw new DomainException('Execution not authorized');
+            $this->assertReleased($projectId,'project',0);
+            $q = $this->db->prepare('SELECT status FROM office_projects WHERE id=? FOR UPDATE');
+            $q->execute([$projectId]); $status=$q->fetchColumn();
+            if (!in_array($status,['concept','preparation','active'],true)) throw new DomainException('Project cannot start from this status');
+            $q = $this->db->prepare("UPDATE office_projects SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?"); $q->execute([$projectId]);
+            if ($status !== 'active') {
+                $event=$this->db->prepare('INSERT INTO office_project_start_events (dossier_id,dossier_revision,actor_user_id,event_type,payload_json) VALUES (?,?,?,?,?)');
+                $event->execute([$dossierId,$expectedRevision,$actorId,'execution_started','{}']);
+            }
+            $this->db->commit();
+            return ['status'=>'active','revision'=>$expectedRevision];
         } catch (\Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $error;

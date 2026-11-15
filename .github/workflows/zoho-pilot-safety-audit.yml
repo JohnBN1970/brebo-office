@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   audit:
+    environment: production
     name: Disable backfill and audit original newest-10 pilot range
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   verify:
+    environment: production
     name: Verify canonical context resolver and PDOK lookup
     runs-on: ubuntu-latest
     steps:

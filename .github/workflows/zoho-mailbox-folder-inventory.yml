@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   inventory:
+    environment: production
     name: Inventory Zoho folders read-only
     runs-on: ubuntu-latest
     steps:

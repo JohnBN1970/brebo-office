@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   diagnose:
+    environment: production
     name: Diagnose latest Communication nodes around Zoho pilot
     runs-on: ubuntu-latest
     timeout-minutes: 10

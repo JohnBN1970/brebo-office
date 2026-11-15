@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   diagnose:
+    environment: production
     name: Read-only PHP and Drupal diagnosis
     runs-on: ubuntu-latest
     timeout-minutes: 10

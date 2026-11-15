@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 jobs:
   acceptance:
+    environment: production
     name: Seed and verify synthetic technical exception
     runs-on: ubuntu-latest
     steps:

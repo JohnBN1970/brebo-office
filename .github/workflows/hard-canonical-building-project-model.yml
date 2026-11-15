@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   canonicalize:
+    environment: production
     name: Remove legacy project ownership from permanent building model
     runs-on: ubuntu-latest
     timeout-minutes: 10

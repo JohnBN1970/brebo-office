@@ -67,6 +67,11 @@ final class OfficeProjectKickstartFormView
                 .'<button type="submit" name="kickstart_action" value="approve">Goedkeuren</button>'
                 .'<button type="submit" name="kickstart_action" value="reject">Afwijzen</button></form>';
         }
+        if ($canEdit && $status === 'released') {
+            $form .= '<form method="post" action="'.$e($trustedActionUrl).'">'.$hidden
+                .'<input type="hidden" name="kickstart_action" value="start_execution">'
+                .'<button type="submit">Uitvoering starten</button></form>';
+        }
         return $form.'</section>';
     }
 }

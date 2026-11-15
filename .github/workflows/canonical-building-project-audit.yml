@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   audit:
+    environment: production
     name: Inspect live building/project model
     runs-on: ubuntu-latest
     timeout-minutes: 8

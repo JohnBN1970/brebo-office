@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   acceptance:
+    environment: production
     name: Verify facturen mailbox routing safely
     runs-on: ubuntu-24.04
     steps:

@@ -5,6 +5,7 @@ on:
 
 jobs:
   repair:
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Repair current pilot mailbox projections

@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   verify:
+    environment: production
     name: Enable and verify project scope building guard
     runs-on: ubuntu-latest
     steps:
