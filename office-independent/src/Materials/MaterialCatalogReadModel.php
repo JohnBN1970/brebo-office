@@ -11,6 +11,35 @@ final class MaterialCatalogReadModel
         if(!preg_match('/^[A-Za-z0-9_]{0,32}$/D',$prefix))throw new \InvalidArgumentException('Invalid catalogue prefix');
     }
     private function table(string $name):string{return '`'.$this->prefix.$name.'`';}
+    /** Current approved EUR price, including immutable price/import identifiers for Calc review. */
+    public function currentArticle(int $supplierArticleId, string $date): ?array
+    {
+        $parsed=\DateTimeImmutable::createFromFormat('!Y-m-d',$date);
+        if($supplierArticleId<1||!$parsed||$parsed->format('Y-m-d')!==$date)throw new \InvalidArgumentException('Invalid article or price date');
+        $sql='SELECT sa.id AS supplier_article_id,s.name AS supplier,sa.supplier_article_no AS article_code,
+                a.description,sa.use_unit AS unit,p.id AS price_id,p.catalog_import_id AS import_id,
+                p.net_price,p.valid_from
+            FROM '.$this->table('brebo_supplier_article').' sa
+            JOIN '.$this->table('brebo_supplier').' s ON s.id=sa.supplier_id
+            JOIN '.$this->table('brebo_article').' a ON a.id=sa.article_id
+            JOIN '.$this->table('brebo_article_price').' p ON p.supplier_article_id=sa.id
+            JOIN '.$this->table('brebo_catalog_import').' ci ON ci.id=p.catalog_import_id
+            WHERE sa.id=? AND s.active=1 AND sa.active=1 AND a.active=1 AND ci.status=\'actief\'
+              AND p.currency=\'EUR\' AND p.quantity_from<=1 AND p.valid_from<=?
+              AND (p.valid_until IS NULL OR p.valid_until=\'\' OR p.valid_until>=?)
+              AND NOT EXISTS(SELECT 1 FROM '.$this->table('brebo_article_price').' newer
+                JOIN '.$this->table('brebo_catalog_import').' ni ON ni.id=newer.catalog_import_id
+                WHERE newer.supplier_article_id=sa.id AND newer.currency=p.currency AND newer.quantity_from<=1
+                  AND ni.status=\'actief\' AND newer.valid_from<=?
+                  AND (newer.valid_until IS NULL OR newer.valid_until=\'\' OR newer.valid_until>=?)
+                  AND (newer.valid_from>p.valid_from OR (newer.valid_from=p.valid_from AND newer.id>p.id)))
+            ORDER BY p.id DESC LIMIT 1';
+        $q=$this->db->prepare($sql);
+        $q->execute([$supplierArticleId,$date,$date,$date,$date]);
+        $row=$q->fetch(PDO::FETCH_ASSOC);
+        return is_array($row)?$row:null;
+    }
+
     /** @return list<array<string,mixed>> One current EUR base price per supplier article. */
     public function search(string $search,?int $supplierId,string $date,int $page=0):array
     {
