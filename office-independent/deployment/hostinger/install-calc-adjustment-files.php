@@ -15,6 +15,7 @@ $root=is_array($config)?realpath((string)($config['OFFICE_PRIVATE_ROOT']??'')):f
 if(!is_array($config)||($config['OFFICE_BASE_PATH']??'')!=='/office-test'||$root===false||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private'))exit(3);
 $files=[
  'workbench.php'=>'public/office-calc-crm-workbench.php',
+ 'material-panel.php'=>'public/office-calc-crm-material-panel.php',
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
  'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
@@ -66,7 +67,7 @@ try{
   fclose($pipes[0]);$output=stream_get_contents($pipes[1]).stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
   if(proc_close($process)!==0)throw new RuntimeException('postlint_'.$name.':'.$output);
  }
- echo "CALC_FILES_INSTALL=SUCCESS\nCALC_FILES_COUNT=4\nCALC_DATABASE=UNCHANGED\nCALC_FLAGS=UNCHANGED\n";
+ echo "CALC_FILES_INSTALL=SUCCESS\nCALC_FILES_COUNT=6\nCALC_DATABASE=UNCHANGED\nCALC_FLAGS=UNCHANGED\n";
 }catch(Throwable $error){
  $rollbackOk=true;
  foreach(array_reverse($installed) as $dest){
