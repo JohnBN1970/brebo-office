@@ -37,6 +37,11 @@ function seedOfficeTest(PDO $db, string $release): array {
             if ($role!=='outsider') {
                 $q=$db->prepare('INSERT INTO office_project_memberships (project_id,operator_id,permission) VALUES (?,?,?) ON DUPLICATE KEY UPDATE permission=VALUES(permission)');$q->execute([$projectId,$id,$role==='reader'?'read':'manage']);
             }
+            // Only disposable test accounts receive additional module grants.
+            if (in_array($role,['leader','reviewer'],true)) {
+                $q=$db->prepare("INSERT IGNORE INTO office_module_permissions (operator_id,module,permission) VALUES (?,'finance','read')");
+                $q->execute([$id]);
+            }
             $users[$role]=['id'=>$id,'username'=>$username,'password'=>$password];
         }
         $db->commit();

@@ -19,13 +19,16 @@ foreach (['OFFICE_LOGIN_ENABLED','OFFICE_CRM_SESSION_MODE','OFFICE_NATIVE_PROJEC
     'OFFICE_ONSITE_SCHEMA_VERIFIED','OFFICE_TEST_PRESENCE_REVIEW_ENABLED',
     'OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED','OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED',
     'OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED',
-    'OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED','OFFICE_TEST_ACTUAL_LABOUR_COSTS_SCHEMA_VERIFIED'] as $flag) {
+    'OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED','OFFICE_TEST_ACTUAL_LABOUR_COSTS_SCHEMA_VERIFIED',
+    'OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED','OFFICE_TEST_GOVERNANCE_ENABLED','OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED'] as $flag) {
     echo $flag . '=' . (($config[$flag] ?? '') === 'enabled' ? 'enabled' : 'disabled') . "\n";
 }
 $db = new PDO($config['OFFICE_INTAKE_PDO_DSN'], $config['OFFICE_INTAKE_DB_USER'], $config['OFFICE_INTAKE_DB_PASSWORD'] ?? '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $tables = $db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
 sort($tables);
-foreach (['office_projects','office_operator_accounts','office_operator_sessions','office_project_memberships','office_user_roles','office_roles','office_module_permissions'] as $table) {
+foreach (['office_projects','office_operator_accounts','office_operator_sessions','office_project_memberships','office_user_roles','office_roles','office_module_permissions','office_crm_calc_acceptances','office_crm_calc_accepted_lines','office_calc_crm_drafts',
+    'office_buildings','office_inzet_people','office_operator_people','office_onsite_event_inbox',
+    'office_procurement_orders','office_calc_work_budget_baselines','office_calc_work_budget_lines'] as $table) {
     echo 'SCHEMA_' . $table . '=' . json_encode($db->query('DESCRIBE `' . $table . '`')->fetchAll(PDO::FETCH_ASSOC), JSON_THROW_ON_ERROR) . "\n";
 }
 
