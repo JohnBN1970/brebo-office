@@ -131,7 +131,13 @@ final class OfficeCalcCrmDraftLineRepository
             }
             $value=$exactUnitCost??number_format($unitCostCents/100,4,'.','');
             $storedQuantity=$exactQuantity??$quantity;
+            // Existing mixed-cost lines must retain their other canonical components on edit.
             $costs=array_fill_keys(array_values(self::COST_COLUMNS),'0.0000');
+            if(is_array($existingRow)){
+                foreach(self::COST_COLUMNS as $column){
+                    $costs[$column]=(string)$existingRow[$column];
+                }
+            }
             $costs[self::COST_COLUMNS[$costType]]=$value;
             $code=self::TYPES[$costType].':'.$lineId;
             if ($existing!==false) {
