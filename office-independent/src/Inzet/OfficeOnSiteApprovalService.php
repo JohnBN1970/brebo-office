@@ -186,6 +186,12 @@ final class OfficeOnSiteApprovalService
         $existing->execute([$inEventId,$outEventId]);
         $previous=$existing->fetch(PDO::FETCH_ASSOC);
         if (is_array($previous)) {
+            // Rejections are final and must never enter the approved-hours retry path.
+            $statusCheck=$this->db->prepare('SELECT status FROM office_onsite_hours_decisions WHERE decision_reference=? LIMIT 1');
+            $statusCheck->execute([(string)$previous['decision_reference']]);
+            if ($statusCheck->fetchColumn()!=='approved') {
+                throw new \DomainException('Rejected OnSite session cannot be approved');
+            }
             // Idempotent retry: validate the original recorded evidence, never insert a second decision.
             $originalReviewer=(string)$previous['reviewer_id'];
             if (!hash_equals($originalReviewer,$reviewer)) throw new \DomainException('OnSite session already reviewed');
