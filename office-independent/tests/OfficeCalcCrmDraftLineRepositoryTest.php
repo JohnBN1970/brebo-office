@@ -36,6 +36,31 @@ $amount=$db->query('SELECT direct_cost FROM calculation_versions')->fetchColumn(
 if (abs((float)$amount-138.00)>0.001) throw new RuntimeException('Direct cost incorrect');
 $count=$db->query('SELECT COUNT(*) FROM calculation_lines')->fetchColumn();
 if ((int)$count!==1) throw new RuntimeException('Parallel or duplicate line created');
+// Unauthorized user may neither read nor modify the canonical lines.
+try {
+    $repo->list(9,8,$rights);
+    throw new RuntimeException('Unauthorized actor read canonical Calc');
+} catch (DomainException $expected) {}
+try {
+    $repo->save(9,8,'line_2','material','Verkeerd',1,100,null,$rights);
+    throw new RuntimeException('Unauthorized actor wrote canonical Calc');
+} catch (DomainException $expected) {}
+// Locked versions and transferred CRM drafts are not editable.
+$db->exec("UPDATE calculation_versions SET status='approved'");
+try {
+    $repo->save(9,7,'line_2','material','Verkeerd',1,100,null,$rights);
+    throw new RuntimeException('Locked Calc version edited');
+} catch (DomainException $expected) {}
+$db->exec("UPDATE calculation_versions SET status='draft'");
+$db->exec("UPDATE office_calc_crm_drafts SET project_id=10 WHERE id=9");
+try {
+    $repo->save(9,7,'line_2','material','Verkeerd',1,100,null,$rights);
+    throw new RuntimeException('Transferred CRM draft edited');
+} catch (DomainException $expected) {}
+$db->exec("UPDATE office_calc_crm_drafts SET project_id=NULL WHERE id=9");
+if ((int)$db->query('SELECT COUNT(*) FROM calculation_lines')->fetchColumn()!==1) {
+    throw new RuntimeException('Forbidden write persisted');
+}
 $db->exec('UPDATE office_crm_opportunities SET revision=5 WHERE id=11');
 try {
     $repo->save(9,7,'line_2','material','Glas',1,2000,null,$rights);
