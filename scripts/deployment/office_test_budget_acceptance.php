@@ -28,13 +28,14 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
         budgetQuery($db,'INSERT IGNORE INTO office_onsite_event_inbox (event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc) VALUES (?,?,?,?,?,?)',[$event,$person,(string)$id,'BREBO-CI-WB-'.$id,$kind,$date.'T'.$time.'Z']);
     }
     $rates=budgetQuery($db,'SELECT hourly_rate_cents FROM office_inzet_actual_labour_rates WHERE project_id=? AND person_id=?',[$id,$person])->fetchAll(PDO::FETCH_COLUMN);
-    if ($rates===[]) budgetQuery($db,'INSERT INTO office_inzet_actual_labour_rates (project_id,person_id,valid_from,hourly_rate_cents,authorized_by) VALUES (?,?,?,?,?)',[$id,$person,$date,4250,$fixture['users']['reviewer']['id']]);
+    if ($rates===[]) budgetQuery($db,'INSERT INTO office_inzet_actual_labour_rates (project_id,person_id,valid_from,hourly_rate_cents,authorized_by,authorized_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())',[$id,$person,$date,4250,$fixture['users']['reviewer']['id']]);
     else ensureTest(count($rates)===1 && (int)$rates[0]===4250,'budget_fixture_rate_unchanged');
-    $url='https://brebobv.nl/office-test/inzet/onsite/aanwezigheid?id='.$id;
+    $url='https://brebobv.nl/office-test/inzet/onsite/uren-beoordelen?id='.$id;
     $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
     [$status]=requestTest($reader,$url);ensureTest($status===404,'budget_hours_reader_denied');
     if ($decision===false) {
         [$status,$html]=requestTest($leader,$url);
+        echo 'BUDGET_HOURS_FORM_HTTP_STATUS='.$status."\n";
         ensureTest($status===200 && preg_match('/name="csrf"\s+value="([a-f0-9]{64})"/',$html,$m)===1,'budget_hours_form');
         $post=['id'=>(string)$id,'csrf'=>$m[1],'in_event_id'=>$in,'out_event_id'=>$out,'review_action'=>'approve','approved_minutes'=>'360'];
         [$status]=requestTest($leader,$url,array_replace($post,['csrf'=>str_repeat('0',64)]));
@@ -59,6 +60,9 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
         try {$service->approve($id,$in,$out,$actor,28800);} catch (DomainException $e) {$blocked=true;}
         ensureTest($blocked,'budget_approved_hours_cannot_be_overwritten');
     } finally {foreach ($old as $key=>$value) putenv($value===false?$key:$key.'='.$value);}
+    [$status,$reviewHtml]=requestTest($leader,$url);
+    ensureTest($status===200 && str_contains($reviewHtml,'6:00') && str_contains($reviewHtml,'2:00')
+        && str_contains($reviewHtml,'niet goedgekeurd'),'budget_two_hours_not_approved_http');
     echo 'OFFICE_TEST_LABOUR_URL='.$url."\n";
 }
 function budgetSourceAcceptance(PDO $db,string $active,array $fixture,string $release): int {
