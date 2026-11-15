@@ -42,6 +42,12 @@ final class ProjectBudgetPanel
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
         $html .= '</dl>';
+        $actualLabor = $view['actual_labor_costs'] ?? null;
+        if ($actualLabor !== null && (!is_array($actualLabor) || !is_int($actualLabor['actual_cost_cents'] ?? null)
+            || $actualLabor['actual_cost_cents'] < 0 || !is_int($actualLabor['entries'] ?? null)
+            || $actualLabor['entries'] < 0)) {
+            throw new InvalidArgumentException('Invalid posted labor cost evidence.');
+        }
         $labor = $view['labor_evidence'] ?? null;
         if ($labor !== null) {
             if (!is_array($labor) || !in_array($labor['state'] ?? null,
@@ -95,12 +101,44 @@ final class ProjectBudgetPanel
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
                     . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
             }
-            $html .= '</tbody></table><h3>Kostenverdeling</h3><dl>';
+            $html .= '</tbody></table><h3>Kostenverdeling en bewaking per kostensoort</h3>'
+                . '<p>Begroot is afkomstig uit de vergrendelde werkbegroting. Verplicht, werkelijk en prognose worden pas per kostensoort getoond na gecontroleerde bronkoppeling.</p>'
+                . '<div class="office-work-budget__cost-table"><table><thead><tr>'
+                . '<th scope="col">Kostensoort</th><th scope="col">Begroot</th>'
+                . '<th scope="col">Verplicht</th><th scope="col">Werkelijk</th><th scope="col">Prognose</th>'
+                . '</tr></thead><tbody>';
+            $totalBudget = 0;
             foreach ($types as $type=>$label) {
-                $html .= '<dt>'.self::e($label).'</dt><dd>€ '
-                    .number_format($totals[$type] / 100, 2, ',', '.').'</dd>';
+                if ($totals[$type] > PHP_INT_MAX - $totalBudget) {
+                    throw new InvalidArgumentException('Budget total overflow.');
+                }
+                $totalBudget += $totals[$type];
+                $actualCell = '—';
+                if ($type === 'labor' && $actualLabor !== null && $actualLabor['entries'] > 0) {
+                    $actualCell = '€ '.number_format($actualLabor['actual_cost_cents'] / 100, 2, ',', '.');
+                }
+                $html .= '<tr><th scope="row">'.self::e($label).'</th><td>€ '
+                    .number_format($totals[$type] / 100, 2, ',', '.')
+                    .'</td><td>—</td><td>'.self::e($actualCell).'</td><td>—</td></tr>';
             }
-            $html .= '</dl>';
+            $lockedTotal = $kpis['baseline_cents'] ?? null;
+            if ($lockedTotal !== null && (!is_int($lockedTotal) || $lockedTotal !== $totalBudget)) {
+                throw new InvalidArgumentException('Locked budget total differs from cost lines.');
+            }
+            $aggregate = static function (mixed $cents): string {
+                if ($cents === null) return '—';
+                if (!is_int($cents) || $cents < 0) {
+                    throw new InvalidArgumentException('Invalid aggregate cost amount.');
+                }
+                return '€ '.number_format($cents / 100, 2, ',', '.');
+            };
+            $html .= '<tr><th scope="row">Totaal</th><td>€ '
+                .number_format($totalBudget / 100, 2, ',', '.')
+                .'</td><td>'.self::e($aggregate($kpis['awarded_cents'] ?? null))
+                .'</td><td>'.self::e($aggregate($kpis['actual_cents'] ?? null))
+                .'</td><td>'.self::e($aggregate($kpis['forecast_cents'] ?? null))
+                .'</td></tr></tbody></table></div>';
+
         }
         $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
         return $html;

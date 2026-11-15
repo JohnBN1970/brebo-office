@@ -10,7 +10,7 @@ namespace Brebo\Office\Project;
  */
 final class OfficeProjectPageStructure
 {
-    public const PORTFOLIO_TITLE = 'Projectendashboard';
+    public const PORTFOLIO_TITLE = 'Projectoverzicht';
     public const DETAIL_TITLE = 'Projectdetailpagina';
 
     public static function detailTabs(): array
@@ -20,7 +20,8 @@ final class OfficeProjectPageStructure
             'gebouwen' => 'Gebouwen',
             'werkvoorbereiding' => 'Werkvoorbereiding',
             'uitvoering' => 'Uitvoering',
-            'financieel' => 'Financieel',
+            'arbeid-inzet' => 'Arbeid & Inzet',
+            'financieel' => 'Werkbegroting',
         ];
     }
 

@@ -2,13 +2,34 @@ name: Inzet labour budget policy contract
 on:
   pull_request:
     paths:
+      - 'office-independent/deployment/hostinger/check-actual-labour-cost-readiness.php'
+      - 'office-independent/deployment/hostinger/install-actual-labour-cost-schema.php'
+      - 'office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourValuation.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
       - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php'
+      - 'office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php'
+      - 'office-independent/public/office-onsite-presence-review.php'
+      - 'office-independent/tests/OfficeOnSiteRejectionContractTest.php'
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeActualLabourCostProjectReaderContractTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPreviewTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourValuationTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourRatePolicyTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php'
@@ -20,13 +41,34 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/deployment/hostinger/check-actual-labour-cost-readiness.php'
+      - 'office-independent/deployment/hostinger/install-actual-labour-cost-schema.php'
+      - 'office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourValuation.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
       - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php'
+      - 'office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php'
+      - 'office-independent/public/office-onsite-presence-review.php'
+      - 'office-independent/tests/OfficeOnSiteRejectionContractTest.php'
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeActualLabourCostProjectReaderContractTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPreviewTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourValuationTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourRatePolicyTest.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php'
@@ -49,13 +91,34 @@ jobs:
       - name: Verify policy and planned shift contract
         run: |
           set -euo pipefail
+          php -l office-independent/deployment/hostinger/check-actual-labour-cost-readiness.php
+          php -l office-independent/deployment/hostinger/install-actual-labour-cost-schema.php
+          php -l office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourValuation.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php
           php -l office-independent/src/Inzet/OfficeOnSiteApprovalService.php
+          php -l office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php
+          php -l office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php
+          php -l office-independent/public/office-onsite-presence-review.php
           php -l office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php
           php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeOnSiteRejectionContractTest.php
+          php office-independent/tests/OfficeActualLabourCostProjectReaderContractTest.php
+          php office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php
+          php office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php
+          php office-independent/tests/OfficeApprovedLabourCostPreviewTest.php
+          php office-independent/tests/OfficeApprovedLabourValuationTest.php
+          php office-independent/tests/OfficeApprovedLabourRatePolicyTest.php
+          php office-independent/tests/OfficeApprovedLabourCostPolicyTest.php
           php office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php

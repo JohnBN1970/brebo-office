@@ -17,6 +17,10 @@ if (!str_contains($html,'€ 1.200,00')
     || !str_contains($html,'&lt;script&gt;')
     || !str_contains($html,'Begrotingsregels')
     || !str_contains($html,'Kostenverdeling')
+    || !str_contains($html,'Verplicht')
+    || !str_contains($html,'Werkelijk')
+    || !str_contains($html,'Prognose')
+    || !str_contains($html,'<th scope="row">Totaal</th>')
     || !str_contains($html,'1,50 uur')
     || !str_contains($html,'niet goedgekeurd')
     || !str_contains($html,'afwijkingen in de urenregistratie')
@@ -35,4 +39,27 @@ try {
     ]);
     throw new RuntimeException('Posted labor actuals incorrectly accepted.');
 } catch (InvalidArgumentException $expected) {}
+try {
+    ProjectBudgetPanel::render([
+        'project_id'=>42,
+        'kpis'=>['baseline_cents'=>120001],
+        'source_status'=>['baseline'=>'locked'],
+        'cost_lines'=>[['code'=>'L1','cost_type'=>'labor','activity_ref'=>'A',
+            'baseline_cents'=>120000]],
+    ]);
+    throw new RuntimeException('Mismatched locked budget total incorrectly accepted.');
+} catch (InvalidArgumentException $expected) {}
+$aggregateHtml = ProjectBudgetPanel::render([
+    'project_id'=>42,
+    'kpis'=>['baseline_cents'=>120000,'awarded_cents'=>45000,
+        'actual_cents'=>25000,'forecast_cents'=>null],
+    'source_status'=>['baseline'=>'locked'],
+    'cost_lines'=>[['code'=>'L1','cost_type'=>'labor','activity_ref'=>'A',
+        'baseline_cents'=>120000]],
+]);
+if (!str_contains($aggregateHtml,'€ 450,00')
+    || !str_contains($aggregateHtml,'€ 250,00')
+    || !str_contains($aggregateHtml,'<th scope="row">Totaal</th>')) {
+    throw new RuntimeException('Verified aggregate costs missing from budget total row.');
+}
 echo "PROJECT_BUDGET_PANEL_TEST=PASS\\n";
