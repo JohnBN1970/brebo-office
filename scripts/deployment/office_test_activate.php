@@ -6,6 +6,9 @@ $candidate=realpath($argv[1]??'');
 if (($argv[2]??'')!=='OFFICE-TEST' || !$candidate || !str_starts_with($candidate,$base.'/release-ci-') || !str_ends_with($candidate,'/private')) throw new RuntimeException('INVALID_TEST_ACTIVATION');
 $config['OFFICE_PRIVATE_ROOT']=$candidate;
 $config['OFFICE_TEST_PROJECT_KICKSTART_ENABLED']='enabled';
+// office_test_migrate.php verifies the isolated OnSite rejection table before activation.
+// This flag never affects production and does not enable unverified labour-cost posting.
+$config['OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED']='enabled';
 // Prevent configured external mail, banking and payment transports in test releases.
 foreach ($config as $key=>$value) {
     if (preg_match('/(?:SMTP|MONEYBIRD|ZOHO|PAYMENT|WEBHOOK|OUTBOUND|BANK_API)/i',$key)) {
