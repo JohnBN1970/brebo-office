@@ -17,6 +17,8 @@ $login='https://brebobv.nl/office-test/inloggen';
 $handles=[];$jars=[];
 function ensureTest(bool $ok,string $name): void { if (!$ok) throw new RuntimeException('ACCEPTANCE_FAILED='.$name); echo 'ACCEPTANCE_PASS='.$name."\n"; }
 function requestTest(CurlHandle $h,string $url,?array $post=null): array {
+    // Bound the acceptance burst on shared hosting; do not retry failed requests.
+    usleep(350000);
     curl_setopt_array($h,[CURLOPT_URL=>$url,CURLOPT_POST=>$post!==null,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
     if ($post!==null) curl_setopt_array($h,[CURLOPT_POSTFIELDS=>http_build_query($post),CURLOPT_HTTPHEADER=>['Origin: https://brebobv.nl','Content-Type: application/x-www-form-urlencoded']]);
     else curl_setopt($h,CURLOPT_HTTPHEADER,[]);
