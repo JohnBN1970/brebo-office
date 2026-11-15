@@ -130,11 +130,23 @@ try {
     postTest($leader,$url,$db,$id,'submit_for_approval');postTest($leader,$url,$db,$id,'approve');postTest($reviewer,$url,$db,$id,'approve');
     [$status,$html]=requestTest($leader,$url);ensureTest($status===200 && str_contains($html,'FICTIEF: deellevering afgestemd?') && str_contains($html,'Uitvoering starten'),'final_render_and_controls');
     echo 'OFFICE_TEST_ACCEPTANCE_PROJECT='.$id."\n";
+    require_once __DIR__.'/office_test_budget_acceptance.php';
+    $supplier=budgetSourceAcceptance($db,$active,$fixture,$match[1]);
+    budgetProcurementAcceptance($db,$active,$fixture,$supplier);
+    budgetLabourAcceptance($db,$active,$fixture,$leader,$reader);
     $budgetUrl='https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=werkbegroting';
     [$status,$budgetHtml]=requestTest($leader,$budgetUrl);
     ensureTest($status===200 && str_contains($budgetHtml,'class="office-work-budget"')
         && str_contains($budgetHtml,'Nog niet beschikbaar')
         && !str_contains($budgetHtml,'Werkbegroting tijdelijk niet beschikbaar'),'native_work_budget_http');
+    ensureTest(str_contains($budgetHtml,'Vergrendelde werkbegroting #') && str_contains($budgetHtml,'€ 494,32')
+        && str_contains($budgetHtml,'€ 120,00') && str_contains($budgetHtml,'€ 255,00')
+        && str_contains($budgetHtml,'€ 34,32'),'budget_complete_persisted_http_render');
+    ensureTest(str_contains($budgetHtml,'<strong>Geboekte kosten</strong><span>Nog niet beschikbaar</span>')
+        && str_contains($budgetHtml,'Een inkoopopdracht is geen betaling.'),'budget_missing_finance_is_unknown');
+    [$status,$controlHtml]=requestTest($leader,'https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=overzicht');
+    ensureTest($status===200 && str_contains($controlHtml,'Projectbewaking') && str_contains($controlHtml,'€ 494,32')
+        && str_contains($controlHtml,'€ 255,00'),'budget_project_control_same_sources');
     [$status,$deniedHtml]=requestTest($reader,$budgetUrl);
     ensureTest($status===200 && !str_contains($deniedHtml,'class="office-work-budget"')
         && str_contains($deniedHtml,'Finance-leesrechten'),'work_budget_finance_acl');

@@ -12,14 +12,19 @@ $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_calc_crm_acceptance_transfers (id INTEGER, office_project_id INTEGER)');
 $db->exec('CREATE TABLE office_calc_work_budget_baselines (id INTEGER, acceptance_transfer_id INTEGER, version_number INTEGER, locked_at TEXT)');
-$db->exec('CREATE TABLE office_calc_work_budget_lines (id INTEGER, baseline_id INTEGER, source_line_id TEXT, cost_type TEXT, quantity INTEGER, unit_cost_cents INTEGER, budget_cents INTEGER, activity_ref TEXT)');
+$db->exec('CREATE TABLE office_calc_work_budget_lines (id INTEGER, baseline_id INTEGER, source_line_id TEXT, cost_type TEXT, quantity TEXT, unit_cost_cents TEXT, budget_cents INTEGER, activity_ref TEXT)');
 $db->exec("INSERT INTO office_calc_crm_acceptance_transfers VALUES (1,42)");
 $db->exec("INSERT INTO office_calc_work_budget_baselines VALUES (10,1,1,'2026-11-11'),(11,1,2,'2026-11-12')");
-$db->exec("INSERT INTO office_calc_work_budget_lines VALUES (1,10,'old','labor',1,100,100,'A'),(2,11,'labor-1','labor',2,2500,5000,'A'),(3,11,'mat-1','material',3,1000,3000,'B')");
+$db->exec("INSERT INTO office_calc_work_budget_lines VALUES (1,10,'old','labor',1,100,100,'A'),(2,11,'labor-1','labor','2.0000','2500.00',5000,'A'),(3,11,'mat-1','material',3,1000,3000,'B')");
 $reader = new LockedBaselineLines($db);
 $result = $reader->forProject(42);
 if ($result === null || $result['baseline_id'] !== 11 || count($result['lines']) !== 2 || $result['lines'][0]['baseline_cents'] !== 5000 || $result['lines'][0]['quantity'] !== 2 || $result['lines'][0]['unit_cost_cents'] !== 2500) {
     throw new RuntimeException('Wrong locked baseline version or lines.');
+}
+$db->exec("UPDATE office_calc_work_budget_lines SET quantity='1.2500',unit_cost_cents='1234.56' WHERE id=2");
+$fractional=$reader->forProject(42);
+if ($fractional['lines'][0]['quantity']!=='1.2500' || $fractional['lines'][0]['unit_cost_cents']!=='1234.56') {
+    throw new RuntimeException('MySQL fractional baseline values truncated');
 }
 if ($reader->forProject(43) !== null) {
     throw new RuntimeException('Missing baseline must not become zero budget.');

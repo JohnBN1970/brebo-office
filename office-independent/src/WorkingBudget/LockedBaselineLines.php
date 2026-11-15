@@ -78,8 +78,8 @@ final class LockedBaselineLines
             }
             foreach (['quantity', 'unit_cost_cents'] as $numericField) {
                 $numericRaw = (string) $line[$numericField];
-                if (!preg_match('/^(0|[1-9][0-9]*)$/D', $numericRaw)
-                    || filter_var($numericRaw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) {
+                if (!preg_match('/^(0|[1-9][0-9]*)(?:\.[0-9]{1,4})?$/D', $numericRaw, $parts)
+                    || filter_var($parts[1], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) {
                     throw new RuntimeException('Invalid baseline quantity or unit price.');
                 }
             }
@@ -95,8 +95,10 @@ final class LockedBaselineLines
                 'cost_type' => $type,
                 'activity_ref' => $line['activity_ref'],
                 'baseline_cents' => $amount,
-                'quantity' => (int) $line['quantity'],
-                'unit_cost_cents' => (int) $line['unit_cost_cents'],
+                // PDO MySQL returns DECIMAL as strings. Preserve fractional values;
+                // integral legacy values keep the existing integer contract.
+                'quantity' => self::numericValue((string)$line['quantity']),
+                'unit_cost_cents' => self::numericValue((string)$line['unit_cost_cents']),
                 'quantity_decimal' => $available ? $line['quantity_decimal'] : null,
                 'unit_cost_decimal' => $available ? $line['unit_cost_decimal'] : null,
                 'budget_decimal' => $available ? $line['budget_decimal'] : null,
@@ -111,5 +113,11 @@ final class LockedBaselineLines
             'vat_basis' => 'excluding',
             'lines' => $lines,
         ];
+    }
+
+    private static function numericValue(string $value): int|string
+    {
+        return preg_match('/^(0|[1-9][0-9]*)(?:\.0+)?$/D', $value, $parts)
+            ? (int)$parts[1] : $value;
     }
 }
