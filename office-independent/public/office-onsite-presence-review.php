@@ -69,6 +69,21 @@ try {
  }
  $review=(new \Brebo\Office\Inzet\OnSitePresenceReviewRepository($db))
    ->forManager($operator->operatorId,(string)$id);
+ // Show persisted review state: previously handled intervals must not be offered again.
+ $reviewedPairs=[];
+ $decisions=$db->prepare('SELECT in_event_id,out_event_id,status,reviewed_seconds FROM office_onsite_hours_decisions WHERE project_id=?');
+ $decisions->execute([$id]);
+ foreach ($decisions->fetchAll(PDO::FETCH_ASSOC) as $decisionRow) {
+   $reviewedPairs[(string)$decisionRow['in_event_id'].'|'.(string)$decisionRow['out_event_id']]=$decisionRow;
+ }
+ $review['intervals']=array_map(static function(array $interval) use ($reviewedPairs):array {
+   $key=(string)($interval['arrival_event_id']??'').'|'.(string)($interval['departure_event_id']??'');
+   if (isset($reviewedPairs[$key])) {
+     $interval['review_status']=(string)$reviewedPairs[$key]['status'];
+     $interval['reviewed_seconds']=(int)$reviewedPairs[$key]['reviewed_seconds'];
+   }
+   return $interval;
+ },$review['intervals']??[]);
 } catch (Throwable $error) {
  http_response_code(503);exit('Aanwezigheidscontrole tijdelijk niet beschikbaar.');
 }
@@ -84,7 +99,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
  .(isset($_GET['approved'])?'<p role="status">Uren goedgekeurd en geboekt.</p>':'')
  .implode('',array_map(static function(array $interval) use ($escape,$id):string {
-   if (($interval['elapsed_seconds']??0)>86400 || ($interval['elapsed_seconds']??0)<1) return '';
+   if (isset($interval['review_status']) || ($interval['elapsed_seconds']??0)>86400 || ($interval['elapsed_seconds']??0)<1) return '';
    return '<form method="post" action=""><input type="hidden" name="id" value="'.$escape($id).'">'
      .'<input type="hidden" name="csrf" value="'.$escape($_SESSION['office_onsite_review_csrf']).'">'
      .'<input type="hidden" name="in_event_id" value="'.$escape($interval['arrival_event_id']).'">'
