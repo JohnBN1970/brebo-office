@@ -866,6 +866,9 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
             ->forAuthorizedProject((int)$projectId, $workBudgetProcurement, null, $laborEvidence);
         $workBudgetView['actual_labor_costs'] = $actualLabour;
+        $workBudgetView['source_status']['finance'] = 'not_reconciled';
+        $workBudgetView['source_status']['labor_costs'] = $actualLabour !== null && $actualLabour['entries'] > 0
+            ? 'posted_partial' : 'not_available';
         $workBudgetTabHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
         if ($actualLabour === null) {
             $workBudgetTabHtml .= '<p>Werkelijke arbeidskosten niet beschikbaar: kostenregister niet geverifieerd of niet leesbaar.</p>';
@@ -914,6 +917,10 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
         error_log('Office work budget panel unavailable: ' . get_class($workBudgetError));
         $workBudgetTabHtml .= '<p>Werkbegroting tijdelijk niet beschikbaar.</p>';
     }
+} else {
+    $workBudgetTabHtml .= is_array($financeContracts)
+        ? '<p>Werkbegroting is nog niet geactiveerd in deze testomgeving.</p>'
+        : '<p>Werkbegroting niet beschikbaar: Finance-leesrechten voor dit project vereist.</p>';
 }
  $workBudgetTabHtml .= '</div>';
 $financialSectionHtml .= $financeHtml . '</section>';

@@ -62,6 +62,12 @@ jobs:
           php office-independent/tests/OfficeCalcDraftCollaborationTest.php
           php -l office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php
           php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
+      - name: Validate native work budget and costs
+        run: |
+          set -euo pipefail
+          for test in LockedBaselineLinesTest LockedBaselineDecimalLinesTest ProjectBudgetReadModelTest ProjectBudgetPanelTest WorkingBudgetKpiProjectionTest OfficeProcurementBudgetAdapterTest OfficeWorkBudgetCommitmentComparisonTest OfficeCalcWorkBudgetHandoffTest OfficeApprovedLabourCostPolicyTest; do
+            php "office-independent/tests/$test.php"
+          done
       - name: Validate OnSite approval and weekly deductions
         run: php office-independent/tests/OfficeLabourAtomicApprovalContractTest.php
       - name: Validate existing core contracts

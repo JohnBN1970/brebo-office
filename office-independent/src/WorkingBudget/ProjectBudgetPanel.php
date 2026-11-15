@@ -29,7 +29,12 @@ final class ProjectBudgetPanel
             'variance_cents'=>'Begrotingsafwijking',
         ];
         $html = '<section class="office-work-budget" aria-label="Werkbegroting">';
-        $html .= '<h2>Werkbegroting</h2><div class="office-work-budget__kpis">';
+        $html .= '<h2>Werkbegroting</h2>';
+        if (is_int($view['baseline_id'] ?? null)) {
+            $html .= '<p>Vergrendelde werkbegroting #'.(int)$view['baseline_id']
+                .' · versie '.(int)($view['baseline_version'] ?? 0).'. Bron: geaccepteerde calculatie.</p>';
+        }
+        $html .= '<div class="office-work-budget__kpis">';
         foreach ($fields as $key=>$label) {
             $amount = $kpis[$key] ?? null;
             if ($amount !== null && !is_int($amount)) throw new InvalidArgumentException('Invalid KPI value.');
@@ -42,6 +47,9 @@ final class ProjectBudgetPanel
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
         $html .= '</dl>';
+        if (($status['finance'] ?? null) !== 'reconciled') $html .= '<p>FinanceCenter: facturen en inkoopopdrachten zijn nog niet gereconcilieerd. '
+            .'Totale werkelijke kosten en openstaande verplichtingen zijn daarom niet beschikbaar. '
+            .'Een inkoopopdracht is geen betaling.</p>';
         $actualLabor = $view['actual_labor_costs'] ?? null;
         if ($actualLabor !== null && (!is_array($actualLabor) || !is_int($actualLabor['actual_cost_cents'] ?? null)
             || $actualLabor['actual_cost_cents'] < 0 || !is_int($actualLabor['entries'] ?? null)

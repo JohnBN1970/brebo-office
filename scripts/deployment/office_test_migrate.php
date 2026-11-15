@@ -107,3 +107,9 @@ $labourRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (mi
 $labourRecord->execute([$labourMigrationId,$labourChecksum]);
 echo "OFFICE_TEST_ACTUAL_LABOUR_SCHEMA_PASS\n";
 echo "OFFICE_TEST_ADDITIVE_MIGRATIONS_PASS\n";
+
+// Read gate for the existing locked Calc baseline. No new or parallel budget tables.
+require_once $candidate.'/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.php';
+$budgetSchema=\Brebo\Office\Calculation\OfficeCalcWorkBudgetSchemaPreflight::verify($db);
+if (!$budgetSchema['verified']) throw new RuntimeException('WORK_BUDGET_SCHEMA_UNVERIFIED');
+echo "OFFICE_TEST_WORK_BUDGET_SCHEMA_PASS\n";

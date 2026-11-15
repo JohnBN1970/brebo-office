@@ -130,6 +130,17 @@ try {
     postTest($leader,$url,$db,$id,'submit_for_approval');postTest($leader,$url,$db,$id,'approve');postTest($reviewer,$url,$db,$id,'approve');
     [$status,$html]=requestTest($leader,$url);ensureTest($status===200 && str_contains($html,'FICTIEF: deellevering afgestemd?') && str_contains($html,'Uitvoering starten'),'final_render_and_controls');
     echo 'OFFICE_TEST_ACCEPTANCE_PROJECT='.$id."\n";
+    $budgetUrl='https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=werkbegroting';
+    [$status,$budgetHtml]=requestTest($leader,$budgetUrl);
+    ensureTest($status===200 && str_contains($budgetHtml,'class="office-work-budget"')
+        && str_contains($budgetHtml,'Nog niet beschikbaar')
+        && !str_contains($budgetHtml,'Werkbegroting tijdelijk niet beschikbaar'),'native_work_budget_http');
+    [$status,$deniedHtml]=requestTest($reader,$budgetUrl);
+    ensureTest($status===200 && !str_contains($deniedHtml,'class="office-work-budget"')
+        && str_contains($deniedHtml,'Finance-leesrechten'),'work_budget_finance_acl');
+    [$status]=requestTest($handles['outsider'],$budgetUrl);
+    ensureTest($status===404,'work_budget_project_acl');
+    echo 'OFFICE_TEST_WORK_BUDGET_URL='.$budgetUrl."\n";
     $accepted=true;
 } finally {
     foreach ($fixture['users'] as $user) {
