@@ -34,7 +34,7 @@ final class OfficeProjectKickstartRepository
             $event->execute([$id,1,$actorId,'dossier_created','{}']);
             $this->db->commit();
             return $id;
-        } catch (\\Throwable $error) {
+        } catch (\Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $error;
         }
