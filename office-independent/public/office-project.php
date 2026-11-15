@@ -105,13 +105,13 @@ try {
         exit('Ongeldige formulierbeveiliging.');
       }
       try {
-        (new \\Brebo\\Office\\Project\\OfficeProjectKickstartRepository($db))
+        (new \Brebo\Office\Project\OfficeProjectKickstartRepository($db))
           ->createForAuthorizedProject($projectId, (int)$operator->operatorId, (int)$operator->operatorId, $canManage);
-      } catch (\\Throwable $error) {
+      } catch (\Throwable $error) {
         http_response_code(409);
         exit('Startdossier kon niet worden aangemaakt.');
       }
-      header('Location: ' . \\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/projecten/detail?id=' . $projectId . '&tab=werkvoorbereiding', true, 303);
+      header('Location: ' . \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . $projectId . '&tab=werkvoorbereiding', true, 303);
       exit;
     }
     if ($dossier === null) {
