@@ -275,7 +275,15 @@ $lineAmount=static function(array $line)use($collaborationEnabled):string|int{
     if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
     return bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8);
 };
-foreach($lines as $line){$kind=(string)$line['cost_type'];if(isset($categoryTotals[$kind]))$categoryTotals[$kind]=$collaborationEnabled?bcadd((string)$categoryTotals[$kind],(string)$lineAmount($line),8):$categoryTotals[$kind]+$lineAmount($line);}
+foreach($lines as $line){
+    $quantityValue=$collaborationEnabled?(string)$line['quantity_decimal']:(string)$line['quantity'];
+    foreach($typeLabels as $kind=>$label){
+        $unitValue=(string)($line['cost_components'][$kind]??((string)$line['cost_type']===$kind?(string)$line['unit_cost_decimal']:'0'));
+        $categoryTotals[$kind]=$collaborationEnabled
+            ?bcadd((string)$categoryTotals[$kind],bcmul($quantityValue,$unitValue,8),8)
+            :$categoryTotals[$kind]+(int)round((float)$unitValue*100)*(int)$line['quantity'];
+    }
+}
 $canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
