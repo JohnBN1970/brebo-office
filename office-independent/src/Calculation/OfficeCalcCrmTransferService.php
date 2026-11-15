@@ -51,7 +51,17 @@ final class OfficeCalcCrmTransferService
             if (count(array_filter($lines, static fn($line): bool => is_array($line) && isset($line['quantity_decimal']))) !== count($lines)) {
                 throw new DomainException('Cannot mix legacy and decimal budget lines.');
             }
-            $columns = $this->db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_calc_work_budget_lines'")->fetchAll(PDO::FETCH_COLUMN);
+            if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+                $columns = array_column(
+                    $this->db->query('PRAGMA table_info(office_calc_work_budget_lines)')->fetchAll(PDO::FETCH_ASSOC),
+                    'name'
+                );
+            } else {
+                $columns = $this->db->query(
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS " .
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_calc_work_budget_lines'"
+                )->fetchAll(PDO::FETCH_COLUMN);
+            }
             foreach (['quantity_decimal', 'unit_cost_decimal', 'budget_decimal'] as $field) {
                 if (!in_array($field, $columns, true)) throw new DomainException('Decimal work-budget schema not installed: '.$field);
             }
