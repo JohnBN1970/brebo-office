@@ -247,8 +247,8 @@ final class OfficeCalcCrmTransferService
         if ((!is_string($actual) && !is_int($actual)) || (!is_string($expected) && !is_int($expected))) {
             return false;
         }
-        if (!preg_match('/^-?[0-9]+(?:\\.[0-9]+)?$/D', (string)$actual)
-            || !preg_match('/^-?[0-9]+(?:\\.[0-9]+)?$/D', (string)$expected)
+        if (!preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/D', (string)$actual)
+            || !preg_match('/^-?[0-9]+(?:\.[0-9]+)?$/D', (string)$expected)
             || !function_exists('bccomp')) {
             return false;
         }
