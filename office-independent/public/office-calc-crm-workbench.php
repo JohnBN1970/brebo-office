@@ -65,7 +65,8 @@ try {
         $q=$db->prepare("SELECT d.id,d.opportunity_id,d.created_at,a.username FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id JOIN office_operator_accounts a ON a.id=d.created_by WHERE d.project_id IS NULL AND d.crm_revision=o.revision AND o.status='open' AND o.stage IN ('prospect','opportunity','proposal','negotiation') AND (d.created_by=? OR EXISTS(SELECT 1 FROM office_calc_crm_draft_collaborators c WHERE c.draft_id=d.id AND c.operator_id=?)) ORDER BY d.id DESC LIMIT 200");$q->execute([$actor,$actor]);$drafts=$q->fetchAll(PDO::FETCH_ASSOC);
         $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
         header('Content-Type: text/html; charset=utf-8');header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-        echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
+        echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}.calc-inline-material-picker{background:#fff;border:1px solid #cbd4df;border-radius:4px;margin:7px 0;padding:8px 10px}.calc-inline-material-picker>summary{cursor:pointer;color:#205a98;font-weight:700}.calc-inline-material-picker>.panel{margin:9px 0 0}.calc-inline-material-picker form{background:#f4f6f9}
+</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
         foreach($drafts as$item)echo '<tr><td><a href="'.$workbenchUrl.'?draft_id='.(int)$item['id'].'">Calculatie #'.(int)$item['id'].'</a></td><td>#'.(int)$item['opportunity_id'].'</td><td>'.$escape($item['username']).'</td></tr>';
         if($drafts===[])echo '<tr><td colspan="3">Geen toegankelijke conceptcalculaties. Een calculatie start vanuit de verkoopkans in CRM.</td></tr>';
         echo '</tbody></table></main></body></html>';exit;
@@ -305,7 +306,13 @@ if($laborRateCatalog!==null){
     echo '</section>';
 }
 
-echo '</div><div id="panel-data" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-data"><div id="calc-data" class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '</div><div id="panel-data" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-data"><div id="calc-data" class="sheet-label">Data · Calculatieregels</div>';
+if($materialSource!==null){
+ echo '<details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>+ Materiaal uit prijslijst kiezen (leverancier, artikelcode of omschrijving)</summary>';
+ require __DIR__.'/office-calc-crm-material-panel.php';
+ echo '</details>';
+}
+echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
@@ -420,9 +427,7 @@ echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">K
 foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
 echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wordt alleen een aanvullende materiaalpost voorgesteld; een procentuele berekening op de nettohoeveelheid uit Gebouwen is nog niet gekoppeld. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
-echo '<details class="calc-support-panel"><summary>Materiaal zoeken in prijslijst (bestaande functie)</summary>';
-require __DIR__.'/office-calc-crm-material-panel.php';
-echo '</details><details class="calc-support-panel"><summary>Revisies, samenwerking en wijzigingen</summary>';
+echo '<details class="calc-support-panel"><summary>Revisies, samenwerking en wijzigingen</summary>';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '</details>';
 echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-tail" hidden><section id="calc-tail" class="panel"><h2>Staart · kostenoverzicht</h2><p>Directe kostprijs: <strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></p><p class="muted">Staartopslagen en MAMO-verdeling worden hier gekoppeld. Er worden nog geen opslagen berekend.</p></section></div></div></div><script>
