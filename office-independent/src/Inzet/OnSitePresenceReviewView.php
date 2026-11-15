@@ -26,10 +26,15 @@ final class OnSitePresenceReviewView {
       .'</tr></thead><tbody>';
     foreach (($review['intervals']??[]) as $item) {
       $duration=isset($item['elapsed_seconds'])?(int)$item['elapsed_seconds']:0;
+      $status=($item['review_status']??null)==='approved' ? 'Goedgekeurd' : (($item['review_status']??null)==='rejected' ? 'Afgekeurd' : 'Ter beoordeling');
+      if ($status==='Goedgekeurd') {
+        $approved=(int)($item['reviewed_seconds']??0);
+        $status.=' · '.sprintf('%d:%02d',intdiv($approved,3600),intdiv($approved%3600,60)).' uur';
+      }
       $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
         .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($item['entered_at']??'')
         .'</td><td>'.$escape($item['left_at']??'').'</td><td>'.$escape(sprintf('%d:%02d',intdiv(max(0,$duration),3600),intdiv(max(0,$duration)%3600,60)))
-        .'</td><td>Ter beoordeling</td></tr>';
+        .'</td><td>'.$escape($status).'</td></tr>';
     }
     $html.='</tbody></table><h3>Afwijkingen</h3><table><thead><tr><th>Type</th><th>Gebeurtenis</th></tr></thead><tbody>';
     $labels=['overlapping_arrival'=>'Dubbele aankomst','departure_without_arrival'=>'Vertrek zonder aankomst',
