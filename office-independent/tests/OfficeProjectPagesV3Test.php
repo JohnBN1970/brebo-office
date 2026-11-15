@@ -15,7 +15,7 @@ assert(S::portfolioSummary($rows)===['projects'=>2,'buildings'=>3,'preparation'=
 assert(count(S::detailTabs())===6);
 assert(S::detailTabs()['arbeid-inzet']==='Arbeid & Inzet');
 $html=V::render($rows,'/office-test');
-assert(str_contains($html,'Projectendashboard'));
+assert(str_contains($html,'Alle projecten'));
 assert(str_contains($html,'Projectenlijst'));
 assert(str_contains($html,'/office-test/projecten/detail?id=1'));
 assert(str_contains($html,'Voorbereiding'));
