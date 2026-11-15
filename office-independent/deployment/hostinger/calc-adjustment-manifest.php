@@ -12,6 +12,7 @@ $paths=[
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
  'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
+ 'OfficeCalcLaborRateCatalog.php'=>'src/Calculation/OfficeCalcLaborRateCatalog.php',
 ];
 $manifest=[];
 foreach($paths as $name=>$path){
