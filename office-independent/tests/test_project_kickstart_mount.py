@@ -41,4 +41,12 @@ for marker in (
 ):
     assert marker in source, f"Missing trusted POST contract: {marker}"
 assert source.index("isset($_POST['kickstart_action'])") < source.index("if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST')"), "Kickstart POST must precede housing guard"
+repository = (root / "src/Project/OfficeProjectKickstartRepository.php").read_text()
+assert "createForAuthorizedProject" in repository, "Audited dossier creation missing"
+assert "'dossier_created'" in repository, "Creation audit event missing"
+assert "beginTransaction()" in repository, "Dossier creation must be atomic"
+assert "project_leader_user_id" in repository, "Project leader binding missing"
+assert "INSERT INTO office_project_start_dossiers" in repository, "Dossier insert missing"
+assert "INSERT INTO office_project_start_events" in repository, "Creation audit insert missing"
+assert "createForAuthorizedProject" not in source, "Creation must remain disabled until trusted project leader resolution is wired"
 print("KICKSTART_MOUNT_CONTRACT_OK")
