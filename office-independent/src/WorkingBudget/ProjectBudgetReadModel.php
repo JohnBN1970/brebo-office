@@ -14,7 +14,7 @@ final class ProjectBudgetReadModel
 {
     public function __construct(private readonly PDO $db) {}
 
-    public function forAuthorizedProject(int $projectId, ?array $procurement = null, ?array $finance = null, ?array $labor = null, ?array $materialRequirements = null): array
+    public function forAuthorizedProject(int $projectId, ?array $procurement = null, ?array $finance = null, ?array $labor = null): array
     {
         if ($projectId < 1) throw new \InvalidArgumentException('Invalid project.');
         $baseline = (new LockedBaselineLines($this->db))->forProject($projectId);
@@ -23,12 +23,7 @@ final class ProjectBudgetReadModel
             || $labor['labor_actual_cents'] !== null)) {
             throw new \InvalidArgumentException('Only provisional labor evidence is accepted.');
         }
-        if ($materialRequirements !== null && (!isset($materialRequirements['groups'], $materialRequirements['unmatched'])
-            || !is_array($materialRequirements['groups']) || !is_array($materialRequirements['unmatched']))) {
-            throw new \\InvalidArgumentException('Invalid canonical material requirements.');
-        }
         return [
-            'material_requirements'=>$materialRequirements,
             'project_id'=>$projectId,
             'baseline_id'=>$baseline['baseline_id'] ?? null,
             'baseline_version'=>$baseline['version_number'] ?? null,
