@@ -1,11 +1,6 @@
 name: Canonical building/project model audit
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/canonical-building-project-audit.yml'
   workflow_dispatch:
 
 permissions:

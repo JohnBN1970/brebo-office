@@ -1,11 +1,6 @@
 name: BREBO Mail Intake web error diagnostic
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/mail-intake-web-error-diag.yml'
   workflow_dispatch:
 
 permissions:

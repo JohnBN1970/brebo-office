@@ -2,13 +2,6 @@ name: Deploy BREBO Integration API
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'integration-api/**'
-      - '.github/workflows/integration-api-deploy.yml'
-
 permissions:
   contents: read
 

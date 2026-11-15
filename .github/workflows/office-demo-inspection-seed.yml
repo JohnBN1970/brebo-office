@@ -1,10 +1,5 @@
 name: Office-test demo inspection seed
 on:
-  pull_request:
-    paths:
-      - 'office-independent/src/Demo/**'
-      - 'office-independent/deployment/hostinger/seed-office-demo-inspection.php'
-      - '.github/workflows/office-demo-inspection-seed.yml'
   workflow_dispatch:
     inputs:
       confirmation:

@@ -1,12 +1,6 @@
 name: BREBO Zoho mail inventory
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-mail-inventory.yml'
-      - 'web/modules/custom/brebo_mail_intake/**'
   workflow_dispatch:
 
 permissions:

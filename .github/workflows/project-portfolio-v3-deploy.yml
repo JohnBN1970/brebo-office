@@ -1,8 +1,5 @@
 name: Projectendashboard V3 Office-test deployment
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/project-portfolio-v3-deploy.yml'
   workflow_dispatch:
     inputs:
       confirm_test_only:

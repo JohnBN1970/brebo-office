@@ -1,9 +1,6 @@
 name: BREBO Finance Real Render Smoke
 
 on:
-  workflow_run:
-    workflows: ['Configure BREBO Document Extraction Runtime']
-    types: [completed]
   workflow_dispatch:
 
 permissions:

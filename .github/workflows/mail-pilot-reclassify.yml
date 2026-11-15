@@ -1,13 +1,7 @@
 name: BREBO Mail pilot reclassification
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_mail_intake/src/Service/MailClassifier.php'
-      - '.github/workflows/mail-pilot-reclassify.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

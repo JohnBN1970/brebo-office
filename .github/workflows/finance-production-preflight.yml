@@ -1,11 +1,6 @@
 name: BREBO Finance Operational Acceptance
 
 on:
-  workflow_run:
-    workflows:
-      - 'Deploy BREBO Office Production'
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:

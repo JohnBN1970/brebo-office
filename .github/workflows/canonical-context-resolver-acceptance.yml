@@ -1,16 +1,7 @@
 name: Canonical context resolver acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_mail_intake/src/Service/BagPdokClient.php'
-      - 'web/modules/custom/brebo_mail_intake/src/Service/CanonicalContextResolver.php'
-      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
-      - '.github/workflows/canonical-context-resolver-acceptance.yml'
-      - '.github/workflows/sboffice-deploy-develop.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

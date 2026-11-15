@@ -1,10 +1,5 @@
 name: Office demo quantity scope seed
 on:
-  pull_request:
-    paths:
-      - 'office-independent/src/Demo/OfficeDemoQuantitySeeder.php'
-      - 'office-independent/deployment/hostinger/seed-office-demo-quantities.php'
-      - '.github/workflows/office-demo-quantity-seed.yml'
   workflow_dispatch:
     inputs:
       confirmation:

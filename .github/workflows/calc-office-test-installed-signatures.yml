@@ -1,9 +1,5 @@
 name: Calc Office-test installed API signatures (read only)
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-office-test-installed-signatures.yml'
   workflow_dispatch:
     inputs:
       confirmation:

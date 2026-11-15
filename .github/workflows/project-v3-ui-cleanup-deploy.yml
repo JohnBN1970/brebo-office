@@ -5,9 +5,6 @@ on:
       confirm_test_only:
         description: Type OFFICE-TEST to update V3 UI classes
         required: true
-  pull_request:
-    paths:
-      - '.github/workflows/project-v3-ui-cleanup-deploy.yml'
 permissions:
   contents: read
 jobs:

@@ -1,9 +1,5 @@
 name: Office-test work budget tab layout
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/office-work-budget-tab-ui.yml'
-      - 'office-independent/deployment/hostinger/mount-work-budget-tab-ui.py'
   workflow_dispatch:
     inputs:
       confirmation:

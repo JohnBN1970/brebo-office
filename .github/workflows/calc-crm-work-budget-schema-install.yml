@@ -1,9 +1,5 @@
 name: Calc CRM work-budget three-table Office-test install
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-crm-work-budget-schema-install.yml'
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,11 +1,6 @@
 name: Diagnose BREBO Drupal Cache Rebuild
 
 on:
-  workflow_run:
-    workflows:
-      - 'Deploy BREBO Office Production'
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:

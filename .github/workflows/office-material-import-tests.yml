@@ -1,19 +1,6 @@
 name: Office material import
 on:
-  pull_request:
-    paths:
-      - 'office-independent/src/Materials/**'
-      - 'office-independent/src/Documents/OfficePrivateFileStorage.php'
-      - 'office-independent/deployment/hostinger/material-storage-baseline.php'
-      - 'office-independent/tests/Material*'
-      - 'office-independent/public/office-materials.php'
-      - 'web/modules/custom/brebo_article/src/**'
-      - 'office-independent/deployment/hostinger/install-office-materials-test.php'
-      - 'office-independent/deployment/hostinger/probe-material-document-contract.php'
-      - 'office-independent/deployment/hostinger/probe-material-extraction.php'
-      - 'office-independent/deployment/hostinger/probe-material-catalog.php'
-      - 'office-independent/deployment/hostinger/sql/material-import-review-ledger.sql'
-      - '.github/workflows/office-material-import-tests.yml'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

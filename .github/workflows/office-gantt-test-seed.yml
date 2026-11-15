@@ -1,9 +1,5 @@
 name: Office-test Gantt synthetic planning seed
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/seed-office-gantt-test.php'
-      - '.github/workflows/office-gantt-test-seed.yml'
   workflow_dispatch:
     inputs:
       confirmation:

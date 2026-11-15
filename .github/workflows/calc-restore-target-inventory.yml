@@ -1,9 +1,5 @@
 name: Calc isolated restore target inventory (read only)
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-restore-target-inventory.yml'
   workflow_dispatch:
 permissions:
   contents: read

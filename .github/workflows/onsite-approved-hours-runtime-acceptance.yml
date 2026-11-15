@@ -1,11 +1,5 @@
 name: OnSite approved hours read-only runtime acceptance
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/onsite-approved-hours-runtime-acceptance.yml'
-      - 'office-independent/deployment/hostinger/onsite-approved-hours-activate-guarded.php'
-      - 'office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php'
   workflow_dispatch:
     inputs:
       activation_confirmation:

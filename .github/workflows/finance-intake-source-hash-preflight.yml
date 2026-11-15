@@ -1,9 +1,6 @@
 name: Finance intake source-hash preflight
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
 
 permissions:
