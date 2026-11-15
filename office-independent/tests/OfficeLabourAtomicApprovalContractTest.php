@@ -9,7 +9,7 @@ foreach ([
     [str_contains($approval, '$this->db->rollBack()'), 'Approval rollback required'],
     [str_contains($approval, '?int $correctedSeconds = null'), 'Partial approval argument required'],
     [str_contains($approval, '$correctedSeconds > $seconds'), 'Partial approval may not exceed presence'],
-    [str_contains($approval, "$correctedSeconds !== (int)$verified[\'decision\'][\'reviewed_seconds\']"), "PDO string durations must compare numerically on idempotent retry"],
+    [str_contains($approval, '$correctedSeconds !== (int)$verified[\'decision\'][\'reviewed_seconds\']'), 'PDO string durations must compare numerically on idempotent retry'],
     [str_contains($approval, "Already approved OnSite duration cannot be changed by retry"), 'Immutable partial approval required'],
     [str_contains($approval, "Rejected OnSite session cannot be approved"), 'Rejected decisions must never be booked through retry'],
     [str_contains($posting, 'public function postInsideTransaction('), 'Transaction-aware debit required'],
