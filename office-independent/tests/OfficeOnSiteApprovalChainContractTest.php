@@ -17,6 +17,13 @@ $require=static function(bool $condition,string $error):void {
 $require(str_contains($service,'$seconds < 1 || $seconds > 86400'),'Zero-length OnSite interval must be rejected');
 $require(str_contains($service,'$this->db->beginTransaction()') && str_contains($service,'$this->db->rollBack()'),
     'Approval and ledger booking must use a transaction');
+$require(str_contains($service, 'Conflicting labour budget posting modes')
+    && str_contains($service, 'OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED')
+    && str_contains($service, 'OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED'),
+    'Legacy and aggregate budget posting must never run together');
+$require(str_contains($service, '$this->postBudgetInsideTransaction($bookingId)')
+    && str_contains($service, '$this->postBudgetInsideTransaction((int)$booking[\'id\'])'),
+    'Both first approval and idempotent retry must share guarded budget posting');
 $require(str_contains($service,'FOR UPDATE') && str_contains($service,'Previously approved OnSite booking missing or changed'),
     'Duplicate approval must verify immutable existing booking');
 $require(str_contains($service, "OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED")
