@@ -30,7 +30,6 @@ final class MaterialCatalogReadModel
               AND (p.valid_until IS NULL OR p.valid_until=\'\' OR p.valid_until>=?)
               AND NOT EXISTS(SELECT 1 FROM '.$this->table('brebo_article_price').' newer
                 JOIN '.$this->table('brebo_catalog_import').' ni ON ni.id=newer.catalog_import_id
-                JOIN '.$this->table('brebo_material_import_reviews').' nr ON nr.catalog_import_id=ni.id
                 WHERE newer.supplier_article_id=sa.id AND newer.currency=p.currency AND newer.quantity_from<=1
                   AND ni.status=\'actief\' AND newer.valid_from<=?
                   AND (newer.valid_until IS NULL OR newer.valid_until=\'\' OR newer.valid_until>=?)
