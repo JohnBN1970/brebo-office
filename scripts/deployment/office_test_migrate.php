@@ -74,7 +74,7 @@ foreach ($labourStatements as $i=>$statement) {
 }
 $parentType=$db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_inzet_approved_hours' AND COLUMN_NAME='id'")->fetchColumn();
-if (strtolower((string)$parentType)!=='bigint unsigned') throw new RuntimeException('ACTUAL_LABOUR_PARENT_SCHEMA_UNVERIFIED');
+if (!preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D',strtolower((string)$parentType))) throw new RuntimeException('ACTUAL_LABOUR_PARENT_SCHEMA_UNVERIFIED');
 $expectedLabourColumns=[
     'office_inzet_actual_labour_costs'=>['id','approved_hours_id','project_id','person_id','work_date','approved_seconds','hourly_rate_cents','amount_cents','source_sha256','recorded_at'],
     'office_inzet_actual_labour_rates'=>['id','project_id','person_id','valid_from','valid_until','hourly_rate_cents','authorized_by','authorized_at','revoked_at'],
