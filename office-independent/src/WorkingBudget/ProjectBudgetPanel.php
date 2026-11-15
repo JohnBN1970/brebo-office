@@ -102,49 +102,6 @@ final class ProjectBudgetPanel
             }
             $html .= '</dl>';
         }
-        $materials = $view['material_requirements'] ?? null;
-        if ($materials !== null) {
-            if (!is_array($materials) || !isset($materials['groups'], $materials['unmatched'])
-                || !is_array($materials['groups']) || !is_array($materials['unmatched'])) {
-                throw new InvalidArgumentException('Invalid material requirements.');
-            }
-            $html .= '<h3>Materiaalstaat</h3>';
-            if ($materials['groups'] === []) {
-                $html .= '<p>Geen gekoppelde materiaalartikelen beschikbaar.</p>';
-            } else {
-                $html .= '<table><thead><tr><th scope="col">Artikel</th><th scope="col">Specificatie</th>'
-                    . '<th scope="col">Begrote hoeveelheid</th><th scope="col">Eenheid</th>'
-                    . '<th scope="col">Bronregels</th></tr></thead><tbody>';
-                foreach ($materials['groups'] as $group) {
-                    if (!is_array($group) || !is_string($group['article_identity'] ?? null)
-                        || !is_string($group['specification'] ?? null) || !is_string($group['unit'] ?? null)
-                        || !is_int($group['budget_quantity'] ?? null) || $group['budget_quantity'] < 0
-                        || !is_int($group['quantity_scale'] ?? null) || $group['quantity_scale'] < 1
-                        || !is_array($group['allocations'] ?? null)) {
-                        throw new InvalidArgumentException('Invalid material group.');
-                    }
-                    $quantity = number_format($group['budget_quantity'] / $group['quantity_scale'], 3, ',', '.');
-                    $html .= '<tr><td>'.self::e($group['article_identity']).'</td><td>'
-                        .self::e($group['specification']).'</td><td>'.self::e($quantity)
-                        .'</td><td>'.self::e($group['unit']).'</td><td>';
-                    $sources = [];
-                    foreach ($group['allocations'] as $allocation) {
-                        if (!is_array($allocation) || (!is_string($allocation['source_line_id'] ?? null)
-                            && !is_int($allocation['source_line_id'] ?? null))) {
-                            throw new InvalidArgumentException('Invalid material allocation.');
-                        }
-                        $sources[] = self::e((string)$allocation['source_line_id']);
-                    }
-                    $html .= implode(', ', $sources).'</td></tr>';
-                }
-                $html .= '</tbody></table>';
-            }
-            if ($materials['unmatched'] !== []) {
-                $html .= '<p>'.count($materials['unmatched'])
-                    .' materiaalregels vragen handmatige artikelmatching.</p>';
-            }
-            $html .= '<p>Besteld, ontvangen en resterend worden pas weergegeven na aansluiting op gecontroleerde inkoopgegevens.</p>';
-        }
         $html .= '<p>Prognoses en afwijkingen worden pas getoond wanneer alle benodigde bronnen zijn gecontroleerd.</p></section>';
         return $html;
     }
