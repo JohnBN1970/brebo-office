@@ -82,7 +82,10 @@ try {
    ->forManager($operator->operatorId,(string)$id);
  // Show persisted review state: previously handled intervals must not be offered again.
  $reviewedPairs=[];
- $decisions=$db->prepare('SELECT in_event_id,out_event_id,status,reviewed_seconds FROM office_onsite_hours_decisions WHERE project_id=?');
+ $reasonsEnabled=getenv('OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED')==='enabled';
+ $decisions=$db->prepare($reasonsEnabled
+   ? 'SELECT d.in_event_id,d.out_event_id,d.status,d.reviewed_seconds,r.reason FROM office_onsite_hours_decisions d LEFT JOIN office_onsite_rejection_reasons r ON r.decision_reference=d.decision_reference WHERE d.project_id=?'
+   : 'SELECT in_event_id,out_event_id,status,reviewed_seconds FROM office_onsite_hours_decisions WHERE project_id=?');
  $decisions->execute([$id]);
  foreach ($decisions->fetchAll(PDO::FETCH_ASSOC) as $decisionRow) {
    $reviewedPairs[(string)$decisionRow['in_event_id'].'|'.(string)$decisionRow['out_event_id']]=$decisionRow;
@@ -92,6 +95,7 @@ try {
    if (isset($reviewedPairs[$key])) {
      $interval['review_status']=(string)$reviewedPairs[$key]['status'];
      $interval['reviewed_seconds']=(int)$reviewedPairs[$key]['reviewed_seconds'];
+     if (isset($reviewedPairs[$key]['reason'])) $interval['review_reason']=(string)$reviewedPairs[$key]['reason'];
    }
    return $interval;
  },$review['intervals']??[]);
