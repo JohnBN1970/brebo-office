@@ -32,7 +32,7 @@ final class OfficeProjectKickstartQuestionsRepository
         $question = trim($question);
         $answer = trim($answer);
         $decision = trim($decision);
-        if ($question === '' || mb_strlen($question) > 2000 || mb_strlen($answer) > 10000 || mb_strlen($decision) > 10000) {
+        if ($question === '' || OfficeProjectKickstartPolicy::textLength($question) > 2000 || OfficeProjectKickstartPolicy::textLength($answer) > 10000 || OfficeProjectKickstartPolicy::textLength($decision) > 10000) {
             throw new DomainException('Invalid question or answer');
         }
         if ($ownerUserId !== null && $ownerUserId < 1) throw new DomainException('Invalid owner');

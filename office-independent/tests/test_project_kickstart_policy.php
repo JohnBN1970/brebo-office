@@ -28,3 +28,7 @@ assertResult(P::evaluateSecondApproval($invalid, $first, 18, true)['allowed'], f
 assertResult(P::needsNewApproval('veiligheid'), true, 'safety changes');
 assertResult(P::needsNewApproval('opmerking'), false, 'minor comment');
 echo "KICKSTART_FOUR_EYES_POLICY_TESTS_OK\n";
+
+assertResult(P::textLength('é界🙂') === 3, true, 'Unicode length without mbstring');
+try { P::textLength("\xff"); throw new RuntimeException('Invalid UTF-8 accepted'); }
+catch (DomainException $expected) {}

@@ -28,6 +28,12 @@ def check(root=ROOT):
             errors.append(f'{path.name}: automatic remote route outside central Office-test pipeline')
         if 'schedule' in events and path.name not in SCHEDULED_OPERATIONS:
             errors.append(f'{path.name}: unreviewed scheduled remote operation')
+    central = yaml.safe_load((root / '.github/workflows' / CENTRAL).read_text())
+    for name, job in central['jobs'].items():
+        if 'secrets.DEPLOY_' in yaml.safe_dump(job):
+            condition = job.get('if', '')
+            if "github.ref == 'refs/heads/develop'" not in condition or "github.event_name != 'pull_request'" not in condition or job.get('environment') != 'office-test':
+                errors.append(f'{CENTRAL}/{name}: remote access must require develop and isolated environment')
     production = yaml.safe_load((root / '.github/workflows/sboffice-deploy-develop.yml').read_text())
     events = production.get('on', production.get(True, {}))
     if set(events) != {'workflow_dispatch'}:

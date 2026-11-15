@@ -25,6 +25,7 @@ jobs:
       - name: Enforce deployment boundaries
         run: python scripts/ci/check_deployment_policy.py
       - run: python scripts/ci/test_release_reconciliation.py
+      - run: python scripts/ci/test_deployment_policy.py
       - name: Validate all Office PHP sources
         shell: bash
         run: |

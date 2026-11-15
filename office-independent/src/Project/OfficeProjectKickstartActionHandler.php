@@ -62,7 +62,7 @@ final class OfficeProjectKickstartActionHandler
         }
         if ($action === 'approve' || $action === 'reject') {
             $note = trim((string)($post['note'] ?? ''));
-            if (mb_strlen($note) > 2000) throw new DomainException('Approval note too long');
+            if (OfficeProjectKickstartPolicy::textLength($note) > 2000) throw new DomainException('Approval note too long');
             return $this->dossiers->approve($dossierId,$revision,$actorId,$canApprove,$action,$note);
         }
         if ($action === 'add_question') {
