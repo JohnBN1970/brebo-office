@@ -83,7 +83,10 @@ final class OfficeCalcCrmDraftLineRepository
             require_once __DIR__.'/OfficeCalcLaborNorm.php';
             $computed=OfficeCalcLaborNorm::calculate($exactQuantity,(string)($labor['driver']??''),(string)($labor['input']??''),(string)($labor['hourly_rate']??''));
             if(bccomp($computed['labor_unit_cost'],$exactUnitCost,4)!==0)throw new DomainException('Arbeidskosten komen niet overeen met de normberekening.');
+            $code=(string)($labor['rate_code']??'');
+            if($code!==''&&(!preg_match('/^[A-Z][A-Z0-9_-]{0,15}$/D',$code)||getenv('OFFICE_CALC_LABOR_RATE_CODE_SCHEMA_VERIFIED')!=='enabled'))throw new DomainException('Disciplinecode-opslag niet beschikbaar.');
             $labor=$computed;
+            $labor['rate_code']=$code;
         }
         $priceSourcesEnabled=getenv('OFFICE_CALC_DRAFT_MATERIALS_ENABLED')==='enabled';
         if($priceSource!==null){
@@ -152,6 +155,11 @@ final class OfficeCalcCrmDraftLineRepository
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_norm=?,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver=? WHERE id=? AND version_id=?');
                 $q->execute([$labor['norm']??null,$labor['hours']??null,$labor['hourly_rate']??null,$labor['driver']??null,$lineRowId,$version]);
             }
+            if($labor!==null&&getenv('OFFICE_CALC_LABOR_RATE_CODE_SCHEMA_VERIFIED')==='enabled'){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_rate_code=? WHERE id=? AND version_id=?');
+                $q->execute([$labor['rate_code']!==''?$labor['rate_code']:null,$lineRowId,$version]);
+            }
             if($quantityAdjustment!==null){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_net_quantity=?,calc_material_loss_percent=?,calc_extra_labor_hours=?,calc_quantity_source=?,calc_quantity_source_ref=? WHERE id=? AND version_id=?');
@@ -216,6 +224,7 @@ final class OfficeCalcCrmDraftLineRepository
                 'labor_hours'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_hours'])?(string)$row['calc_labor_hours']:null,
                 'labor_hourly_rate'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_hourly_rate'])?(string)$row['calc_labor_hourly_rate']:null,
                 'labor_driver'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_driver'])?(string)$row['calc_labor_driver']:null,
+                'labor_rate_code'=>getenv('OFFICE_CALC_LABOR_RATE_CODE_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_rate_code'])?(string)$row['calc_labor_rate_code']:null,
                 'extra_labor_hours'=>isset($row['calc_extra_labor_hours'])?(string)$row['calc_extra_labor_hours']:null,
                 'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
                 'unit'=>(string)($row['unit']??''),
