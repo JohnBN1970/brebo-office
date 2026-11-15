@@ -15,7 +15,7 @@ final class MaterialProcurementPanel
         $html = '<section class="office-material-procurement" aria-label="Materiaal en inkoop">'
             . '<h3>Materiaal &amp; Inkoop</h3>';
         if ($rows === []) return $html.'<p>Geen gecontroleerde materiaal- en inkoopgegevens beschikbaar.</p></section>';
-        $html .= '<div style="overflow-x:auto"><table><thead><tr>'
+        $html .= '<div class="office-material-procurement__scroll"><table><thead><tr>'
             . '<th scope="col">Artikel</th><th scope="col">Specificatie</th><th scope="col">Eenheid</th>'
             . '<th scope="col">Begroot</th><th scope="col">Besteld</th><th scope="col">Ontvangen</th>'
             . '<th scope="col">Nog bestellen</th><th scope="col">Nog leveren</th><th scope="col">Overbesteld</th>'
@@ -32,7 +32,10 @@ final class MaterialProcurementPanel
                     throw new InvalidArgumentException('Invalid procurement quantity.');
                 }
             }
-            $html .= '<tr><th scope="row">'.self::e($row['article_code']).'</th><td>'
+            $hasOverorder = $row['overordered_milli'] > 0;
+            $html .= $hasOverorder
+                ? '<tr class="office-material-procurement__overordered"><th scope="row">'.self::e($row['article_code']).' <span>(overschrijding)</span></th><td>'
+                : '<tr><th scope="row">'.self::e($row['article_code']).'</th><td>';
                 .self::e($row['specification']).'</td><td>'.self::e($row['unit']).'</td>';
             foreach ($fields as $key) {
                 $html .= '<td>'.self::e(number_format($row[$key] / 1000, 3, ',', '.')).'</td>';
