@@ -37,10 +37,15 @@ final class LockedBaselineLines
         }
         // Optional additive v2 fields. Old installations remain readable until
         // the Office-test migration is explicitly applied.
-        $columns = $this->db->query(
-            "SELECT COLUMN_NAME FROM information_schema.COLUMNS " .
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_calc_work_budget_lines'"
-        )->fetchAll(PDO::FETCH_COLUMN);
+        if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $columns = $this->db->query('PRAGMA table_info(office_calc_work_budget_lines)')->fetchAll(PDO::FETCH_ASSOC);
+            $columns = array_column($columns, 'name');
+        } else {
+            $columns = $this->db->query(
+                "SELECT COLUMN_NAME FROM information_schema.COLUMNS " .
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_calc_work_budget_lines'"
+            )->fetchAll(PDO::FETCH_COLUMN);
+        }
         $decimalFields = ['quantity_decimal', 'unit_cost_decimal', 'budget_decimal'];
         $available = count(array_intersect($decimalFields, $columns)) === count($decimalFields);
         $selection = 'source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref';
