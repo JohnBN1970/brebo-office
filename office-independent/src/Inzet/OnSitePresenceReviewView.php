@@ -19,8 +19,9 @@ final class OnSitePresenceReviewView {
     $html.='<table><thead><tr><th>Medewerker</th><th>Project</th><th>Zone</th><th>Start (lokaal)</th><th>Lopende duur</th><th>Status</th></tr></thead><tbody>';
     foreach (($review['active']??[]) as $item) {
       $started = (string)($item['entered_at']??'');
-      $startSeconds = strtotime($started);
-      if ($startSeconds === false) continue;
+      // OnSite event timestamps are UTC even when the server timezone differs.
+      try { $startSeconds=(new \DateTimeImmutable($started,new \DateTimeZone('UTC')))->getTimestamp(); }
+      catch (\Throwable $error) { continue; }
       $duration = max(0,time()-$startSeconds);
       $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
         .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($local($started))
