@@ -53,7 +53,7 @@ final class OfficeCalcCostBreakdown
 
     private static function decimal(string $value, int $wholeDigits, int $fractionDigits): void
     {
-        if (!preg_match('/^(?:0|[1-9][0-9]{0,'.($wholeDigits - 1).'})(?:\\.[0-9]{1,'.$fractionDigits.'})?$/D', $value)) {
+        if (!preg_match('/^(?:0|[1-9][0-9]{0,'.($wholeDigits - 1).'})(?:\.[0-9]{1,'.$fractionDigits.'})?$/D', $value)) {
             throw new DomainException('Ongeldige decimale calculatiewaarde.');
         }
     }
