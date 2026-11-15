@@ -78,7 +78,7 @@ final class ProjectBudgetPanel
                 'subcontract'=>'Onderaanneming', 'other'=>'Overige kosten'];
             $totals = array_fill_keys(array_keys($types), 0);
             $html .= '<table><thead><tr><th scope="col">Regel</th><th scope="col">Kostensoort</th>'
-                . '<th scope="col">Activiteit</th><th scope="col">Begroot excl. btw</th></tr></thead><tbody>';
+                . '<th scope="col">Activiteit</th><th scope="col">Hoeveelheid</th><th scope="col">Eenheidsprijs excl. btw</th><th scope="col">Begroot excl. btw</th></tr></thead><tbody>';
             foreach ($lines as $line) {
                 if (!is_array($line) || !is_string($line['code'] ?? null)
                     || !isset($types[$line['cost_type'] ?? ''])
@@ -89,10 +89,17 @@ final class ProjectBudgetPanel
                     throw new InvalidArgumentException('Budget cost type total overflow.');
                 }
                 $totals[$line['cost_type']] += $line['baseline_cents'];
+                $quantity = $line['quantity'] ?? null;
+                $unitCost = $line['unit_cost_cents'] ?? null;
+                if (!is_int($quantity) || $quantity < 0 || !is_int($unitCost) || $unitCost < 0) {
+                    throw new InvalidArgumentException('Invalid baseline quantity or unit price.');
+                }
                 $activity = $line['activity_ref'] ?? '';
                 if (!is_string($activity)) throw new InvalidArgumentException('Invalid activity.');
                 $html .= '<tr><td>'.self::e($line['code']).'</td><td>'
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
+                    . '</td><td>'.self::e(number_format($quantity, 0, ',', '.'))
+                    . '</td><td>€ '.number_format($unitCost / 100, 2, ',', '.')
                     . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
             }
             $html .= '</tbody></table><h3>Kostenverdeling</h3><dl>';
