@@ -14,7 +14,7 @@ final class OfficeCalcBudgetLineBridge
     public static function map(string $sourceLineId, string $quantity, array $unitCosts, ?string $activityRef = null): array
     {
         require_once __DIR__.'/OfficeCalcCostBreakdown.php';
-        if ($sourceLineId === '' || strlen($sourceLineId) > 128) {
+        if ($sourceLineId === '' || strlen($sourceLineId) > 116) {
             throw new DomainException('Ongeldige bronregel.');
         }
         if (!preg_match('/^[1-9][0-9]{0,7}$/D', $quantity)) {
@@ -35,6 +35,9 @@ final class OfficeCalcBudgetLineBridge
             $cents = bcmul($unit, '100', 0);
             if (bccomp($cents, (string)PHP_INT_MAX, 0) > 0) {
                 throw new DomainException('Eenheidsprijs overschrijdt integerbereik.');
+            }
+            if (bccomp($cents, bcdiv((string)PHP_INT_MAX, $quantity, 0), 0) > 0) {
+                throw new DomainException('Regelbedrag overschrijdt integerbereik.');
             }
             $items[] = [
                 'line_id' => $sourceLineId.':'.$type,
