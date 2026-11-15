@@ -43,7 +43,7 @@ if ($projectV3Tab === 'werkvoorbereiding'
       $projectV3Sections['kickstart'] = $kickstart === null
         ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Nog geen startdossier. Een bevoegde projectbeheerder kan zichzelf voor dit testproject als projectleider aanwijzen en het dossier starten.</p>'
           . ($canManage && is_string($csrfToken ?? null) && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken)
-            ? '<form method="post" action="' . htmlspecialchars(\\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding', ENT_QUOTES, 'UTF-8') . '"><input type="hidden" name="kickstart_action" value="create_dossier"><input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '"><button type="submit">Als projectleider startdossier aanmaken</button></form>'
+            ? '<form method="post" action="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding', ENT_QUOTES, 'UTF-8') . '"><input type="hidden" name="kickstart_action" value="create_dossier"><input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '"><button type="submit">Als projectleider startdossier aanmaken</button></form>'
             : '')
         : \Brebo\Office\Project\OfficeProjectKickstartView::render($kickstart, $kickstart['questions'], $kickstart['approvals']);
       if ($kickstart !== null && $canManage && is_string($csrfToken ?? null)
