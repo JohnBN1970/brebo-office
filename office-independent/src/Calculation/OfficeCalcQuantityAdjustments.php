@@ -72,7 +72,7 @@ final class OfficeCalcQuantityAdjustments
 
     private static function decimal(string $value, int $integerDigits, int $fractionDigits): void
     {
-        if (!preg_match('/^[0-9]{1,'.$integerDigits.'}(?:\\.[0-9]{1,'.$fractionDigits.'})?$/D', $value)) {
+        if (!preg_match('/^[0-9]{1,'.$integerDigits.'}(?:\.[0-9]{1,'.$fractionDigits.'})?$/D', $value)) {
             throw new DomainException('Ongeldige calculatiewaarde.');
         }
     }
