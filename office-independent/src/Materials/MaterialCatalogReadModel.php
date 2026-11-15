@@ -24,11 +24,13 @@ final class MaterialCatalogReadModel
             JOIN '.$this->table('brebo_article').' a ON a.id=sa.article_id
             JOIN '.$this->table('brebo_article_price').' p ON p.supplier_article_id=sa.id
             JOIN '.$this->table('brebo_catalog_import').' ci ON ci.id=p.catalog_import_id
+            JOIN '.$this->table('brebo_material_import_reviews').' r ON r.catalog_import_id=ci.id
             WHERE sa.id=? AND s.active=1 AND sa.active=1 AND a.active=1 AND ci.status=\'actief\'
               AND p.currency=\'EUR\' AND p.quantity_from<=1 AND p.valid_from<=?
               AND (p.valid_until IS NULL OR p.valid_until=\'\' OR p.valid_until>=?)
               AND NOT EXISTS(SELECT 1 FROM '.$this->table('brebo_article_price').' newer
                 JOIN '.$this->table('brebo_catalog_import').' ni ON ni.id=newer.catalog_import_id
+                JOIN '.$this->table('brebo_material_import_reviews').' nr ON nr.catalog_import_id=ni.id
                 WHERE newer.supplier_article_id=sa.id AND newer.currency=p.currency AND newer.quantity_from<=1
                   AND ni.status=\'actief\' AND newer.valid_from<=?
                   AND (newer.valid_until IS NULL OR newer.valid_until=\'\' OR newer.valid_until>=?)
