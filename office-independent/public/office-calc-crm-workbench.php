@@ -67,6 +67,7 @@ try {
         header('Content-Type: text/html; charset=utf-8');header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
         echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}.calc-inline-material-picker{background:#fff;border:1px solid #cbd4df;border-radius:4px;margin:7px 0;padding:8px 10px}.calc-inline-material-picker>summary{cursor:pointer;color:#205a98;font-weight:700}.calc-inline-material-picker>.panel{margin:9px 0 0}.calc-inline-material-picker form{background:#f4f6f9}
 .calc-topbar{position:relative;top:auto}.calc-inline-material-picker{margin-bottom:7px}.calc-data-secondary{margin-top:7px}.calc-data-secondary>summary{cursor:pointer;padding:9px 12px;background:#f4f7fb;border:1px solid #cbd4df;font-weight:700}.calc-data-secondary>.panel{margin:0;border-top:0}.table-scroll th:nth-child(2),.table-scroll td:nth-child(2){position:sticky;left:30px;z-index:2;background:#fff;box-shadow:2px 0 3px #142a4314}.table-scroll th:first-child,.table-scroll td:first-child{position:sticky;left:0;z-index:3;background:#edf1f7;min-width:30px}.table-scroll thead th:nth-child(-n+2){z-index:5}.table-scroll .calc-inline-row td:nth-child(2){background:#edf5ff}.table-scroll{scrollbar-gutter:stable}
+.calc-material-row>td{padding:4px 7px;background:#edf5ff!important}.calc-material-row .calc-inline-material-picker{margin:0}.calc-material-row .panel{margin:6px 0}.calc-material-row table{width:100%}.calc-material-row table th,.calc-material-row table td{position:static!important;box-shadow:none!important}.calc-material-row form{white-space:normal}.calc-material-row summary{white-space:normal}
 </style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
         foreach($drafts as$item)echo '<tr><td><a href="'.$workbenchUrl.'?draft_id='.(int)$item['id'].'">Calculatie #'.(int)$item['id'].'</a></td><td>#'.(int)$item['opportunity_id'].'</td><td>'.$escape($item['username']).'</td></tr>';
         if($drafts===[])echo '<tr><td colspan="3">Geen toegankelijke conceptcalculaties. Een calculatie start vanuit de verkoopkans in CRM.</td></tr>';
@@ -308,11 +309,6 @@ if($laborRateCatalog!==null){
 }
 
 echo '</div><div id="panel-data" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-data"><div id="calc-data" class="sheet-label">Data · Calculatieregels</div>';
-if($materialSource!==null){
- echo '<details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>+ Materiaal uit prijslijst kiezen (leverancier, artikelcode of omschrijving)</summary>';
- require __DIR__.'/office-calc-crm-material-panel.php';
- echo '</details>';
-}
 echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
@@ -381,6 +377,11 @@ if($edit===null){
         }else echo '<td>—</td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
     }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
     echo '<td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
+}
+if($materialSource!==null){
+ echo '<tr class="calc-material-row"><td colspan="19"><details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>+ Materiaal zoeken en als calculatieregel opnemen</summary>';
+ require __DIR__.'/office-calc-crm-material-panel.php';
+ echo '</details></td></tr>';
 }
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 if($edit!==null){
