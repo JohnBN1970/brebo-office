@@ -46,4 +46,9 @@ if(!str_contains($source,'grid-template-columns:minmax(0,1fr) 300px') && !str_co
 if(substr_count($source,"echo '<!doctype")!==2)throw new RuntimeException('List and draft views must both exist');
 if(!str_contains($source,'colspan="19"'))throw new RuntimeException('Empty grid column count mismatch');
 foreach(['calc-inline-new','calc-inline-row','Verliesfactor %','name="material_loss_percent"'] as $inline)if(!str_contains($source,$inline))throw new RuntimeException('Inline entry missing: '.$inline);
+foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/uitloggen','calc-topbar-settings','calc-inline-material-picker'] as $uiContract){
+ if(!str_contains($source,$uiContract))throw new RuntimeException('Calculator UI regression: '.$uiContract);
+}
+if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==1)throw new RuntimeException('Material picker must render once in grid');
+if(strpos($source,'calc-inline-material-picker')>strpos($source,'Nieuwe regel direct onderaan de tabel invullen'))throw new RuntimeException('Material picker must precede calculation rows');
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\n";
