@@ -288,8 +288,17 @@ header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; 
 $typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
 $categoryTotals=array_fill_keys(array_keys($typeLabels),$collaborationEnabled?'0':0);
 $lineAmount=static function(array $line)use($collaborationEnabled):string|int{
-    if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
-    return bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8);
+    $components=$line['cost_components']??null;
+    if(!is_array($components)){
+        if(!$collaborationEnabled)return (int)$line['quantity']*(int)$line['unit_cost_cents'];
+        return bcmul((string)$line['quantity_decimal'],(string)$line['unit_cost_decimal'],8);
+    }
+    $sum='0';
+    foreach(['labor','material','equipment','subcontract','other'] as $kind){
+        $sum=bcadd($sum,(string)($components[$kind]??'0'),4);
+    }
+    if(!$collaborationEnabled)return (int)round((float)$sum*100)*(int)$line['quantity'];
+    return bcmul((string)$line['quantity_decimal'],$sum,8);
 };
 foreach($lines as $line){
     $quantityValue=$collaborationEnabled?(string)$line['quantity_decimal']:(string)$line['quantity'];
