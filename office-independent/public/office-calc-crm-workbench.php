@@ -130,7 +130,14 @@ try {
             $materialQuantity=str_replace(',','.',trim((string)($_POST['material_quantity']??'1')));
             if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
             $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
-            $repo->save($draft,$actor,bin2hex(random_bytes(12)),'material',$source['description'],1,0,null,$rights,(string)($_POST['expected_revision']??''),'Materiaal uit prijslijst: '.$source['source_reference'],$materialQuantity,$source['unit_price'],$source['unit'],$source);
+            $targetLine=trim((string)($_POST['material_line_id']??''));
+            if($targetLine!==''&&!preg_match('/^[a-f0-9]{24}$/D',$targetLine))$deny(400,'INVALID_LINE_ID');
+            if($targetLine!==''){
+                $existing=array_values(array_filter($repo->list($draft,$actor,$rights),static fn(array $line):bool=>(string)$line['line_id']===$targetLine));
+                if(count($existing)!==1)$deny(404,'LINE_NOT_FOUND');
+                if((string)$existing[0]['cost_type']!=='material')$deny(400,'NOT_MATERIAL_LINE');
+            }
+            $repo->save($draft,$actor,$targetLine!==''?$targetLine:bin2hex(random_bytes(12)),'material',$source['description'],1,0,null,$rights,(string)($_POST['expected_revision']??''),($targetLine!==''?'Materiaal in bestaande regel vervangen: ':'Materiaal in nieuwe regel gekozen: ').$source['source_reference'],$materialQuantity,$source['unit_price'],$source['unit'],$source);
             header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
         }
         if($collaboration!==null&&in_array($action,['grant','remove','checkpoint'],true)){
@@ -327,7 +334,13 @@ foreach($lines as $line) {
         $lossValue=(string)($line['material_loss_percent']??'');
         $extraValue=(string)($line['extra_labor_hours']??'');
         echo '<tr class="calc-inline-row"><td>'.$rowNumber.'</td>';
-        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" value="'.$h((string)$line['description']).'" required></td>';
+        echo '<td><input form="'.$formId.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" value="'.$h((string)$line['description']).'" required>';
+        if($materialSource!==null&&(string)$line['cost_type']==='material'){
+            $materialLineId=(string)$line['line_id'];
+            echo '<details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>Materiaal vervangen</summary>';
+            require __DIR__.'/office-calc-crm-material-panel.php';echo '</details>';
+        }
+        echo '</td>';
         echo '<td><select form="'.$formId.'" class="calc-inline-input" name="cost_type">';
         foreach($typeLabels as $kind=>$label)echo '<option value="'.$h($kind).'"'.((string)$line['cost_type']===$kind?' selected':'').'>'.$h($label).'</option>';
         echo '</select></td>';
@@ -363,7 +376,13 @@ $selectedCost=$edit===null?($guidedPreset===null?'labor':$guidedPreset[2]):(stri
 if($lines===[]) echo '<tr><td colspan="19" class="empty">Nog geen calculatieregels. Vul hieronder de eerste regel in.</td></tr>';
 if($edit===null){
     $inlineForm='calc-inline-new';
-    echo '<tr class="calc-inline-row"><td>+</td><td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" placeholder="Omschrijving" required></td>';
+    echo '<tr class="calc-inline-row"><td>+</td><td><input form="'.$inlineForm.'" class="calc-inline-input calc-inline-description" name="description" maxlength="500" placeholder="Omschrijving" required>';
+    if($materialSource!==null){
+        $materialLineId='';
+        echo '<details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>Materiaal kiezen</summary>';
+        require __DIR__.'/office-calc-crm-material-panel.php';echo '</details>';
+    }
+    echo '</td>';
     echo '<td><select form="'.$inlineForm.'" class="calc-inline-input" name="cost_type" id="calc-inline-type"><option value="labor">Arbeid</option><option value="material">Materiaal</option><option value="equipment">Materieel</option><option value="subcontract">Onderaanneming</option><option value="other">Overig</option></select></td>';
     echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" type="number" name="quantity" min="'.($collaborationEnabled?'0.0001':'1').'" step="'.($collaborationEnabled?'0.0001':'1').'" value="1" required></td>';
     echo '<td><input form="'.$inlineForm.'" class="calc-inline-input" name="unit" maxlength="32" value="st" required></td>';
@@ -377,11 +396,6 @@ if($edit===null){
         }else echo '<td>—</td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
     }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
     echo '<td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
-}
-if($materialSource!==null){
- echo '<tr class="calc-material-row"><td colspan="19"><details class="calc-inline-material-picker"'.($materialQuery!==''?' open':'').'><summary>+ Materiaal zoeken en als calculatieregel opnemen</summary>';
- require __DIR__.'/office-calc-crm-material-panel.php';
- echo '</details></td></tr>';
 }
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 if($edit!==null){
