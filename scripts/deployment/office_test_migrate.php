@@ -113,3 +113,25 @@ require_once $candidate.'/src/Calculation/OfficeCalcWorkBudgetSchemaPreflight.ph
 $budgetSchema=\Brebo\Office\Calculation\OfficeCalcWorkBudgetSchemaPreflight::verify($db);
 if (!$budgetSchema['verified']) throw new RuntimeException('WORK_BUDGET_SCHEMA_UNVERIFIED');
 echo "OFFICE_TEST_WORK_BUDGET_SCHEMA_PASS\n";
+
+// Existing, reviewed additive v2 storage: never rewrite locked baseline rows.
+$decimalFile=$candidate.'/deployment/hostinger/sql/office-calc-work-budget-decimal-quantity-v2.sql';
+$decimalHash=hash_file('sha256',$decimalFile);
+$decimalId='calc-work-budget-decimal-v2';
+$prior=budgetMigrationChecksum($db,$decimalId);
+if ($prior!==false && !hash_equals((string)$prior,$decimalHash)) throw new RuntimeException('DECIMAL_MIGRATION_CHECKSUM_CHANGED');
+$expectedDecimals=['quantity_decimal'=>'decimal(18,4)','unit_cost_decimal'=>'decimal(18,4)','budget_decimal'=>'decimal(22,4)'];
+$columns=$db->query("SELECT COLUMN_NAME,COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_work_budget_lines'")->fetchAll(PDO::FETCH_KEY_PAIR);
+$found=array_intersect_key($columns,$expectedDecimals);
+if ($found===[]) {
+    $decimalSql=preg_replace('/--[^\n]*/','',file_get_contents($decimalFile));
+    if (trim($decimalSql)!=="ALTER TABLE office_calc_work_budget_lines\n  ADD COLUMN quantity_decimal DECIMAL(18,4) NULL AFTER quantity,\n  ADD COLUMN unit_cost_decimal DECIMAL(18,4) NULL AFTER unit_cost_cents,\n  ADD COLUMN budget_decimal DECIMAL(22,4) NULL AFTER budget_cents;") throw new RuntimeException('UNREVIEWED_DECIMAL_MIGRATION');
+    $db->exec($decimalSql);
+}
+$columns=$db->query("SELECT COLUMN_NAME,COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_work_budget_lines'")->fetchAll(PDO::FETCH_KEY_PAIR);
+foreach ($expectedDecimals as $column=>$type) if (strtolower($columns[$column]??'')!==$type) throw new RuntimeException('DECIMAL_SCHEMA_UNVERIFIED='.$column);
+$q=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');$q->execute([$decimalId,$decimalHash]);
+echo "OFFICE_TEST_WORK_BUDGET_DECIMAL_SCHEMA_PASS\n";
+function budgetMigrationChecksum(PDO $db,string $id): mixed {
+    $q=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');$q->execute([$id]);return $q->fetchColumn();
+}

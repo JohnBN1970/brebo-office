@@ -954,6 +954,17 @@ $overviewMetrics = '<div class="project-metrics">'
   . $metric('Woningen ingedeeld', $allocatedDwellings === null ? '—' : (string) $allocatedDwellings, 'Toegewezen aan woningtypen')
   . $metric('Planning', '—', 'Nog geen geverifieerde bron')
   . '</div>';
+$workBudgetControlHtml = '';
+if (isset($workBudgetView) && is_array($workBudgetView) && is_array($financeContracts)) {
+  $budgetMoney = static fn(?int $cents): string => $cents === null ? 'Niet beschikbaar' : '€ '.number_format($cents/100,2,',','.');
+  $postedLabor = $workBudgetView['actual_labor_costs'] ?? null;
+  $workBudgetControlHtml = '<section aria-label="Projectbewaking"><h2>Projectbewaking</h2><div class="project-metrics">'
+    . $metric('Vastgestelde werkbegroting', $budgetMoney($workBudgetView['kpis']['baseline_cents']), 'Vergrendelde calculatiebasis')
+    . $metric('Verstrekte inkoopopdrachten', $budgetMoney($workBudgetView['kpis']['awarded_cents']), 'Verplichtingen; geen betalingen')
+    . $metric('Geboekte arbeidskosten', $budgetMoney(is_array($postedLabor) && $postedLabor['entries'] > 0 ? $postedLabor['actual_cost_cents'] : null), 'Alleen gewaardeerde goedgekeurde uren; dekking kan onvolledig zijn')
+    . $metric('Totale werkelijke kosten', $budgetMoney($workBudgetView['kpis']['actual_cents']), 'FinanceCenter nog niet gereconcilieerd')
+    . '</div><a href="'.$escape($projectUrl.'&tab=werkbegroting').'">Werkbegroting en broncontrole openen</a></section>';
+}
 $progressGraph = '';
 if ($dwellingTarget !== null && $dwellingTarget > 0 && $allocatedDwellings !== null) {
   $pct = min(100, max(0, 100 * $allocatedDwellings / $dwellingTarget));
@@ -1033,7 +1044,7 @@ if ($isDashboardDemo) {
     . $demoPlanHtml
     . '</div>';
 }
-$dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag</h2>' . $overviewMetrics
+$dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag</h2>' . $overviewMetrics . $workBudgetControlHtml
   . '<div class="project-dashboard-grid"><article class="project-panel"><h3>Woningverdeling</h3>' . $progressGraph
   . '<p class="project-muted">Bron: gekoppelde gebouwen en woningtypen.</p></article>'
   . '<article class="project-panel"><h3>Aandachtspunten</h3>' . $attentionHtml . '</article>'

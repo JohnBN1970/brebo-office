@@ -44,6 +44,14 @@ function seedOfficeTest(PDO $db, string $release): array {
             }
             $users[$role]=['id'=>$id,'username'=>$username,'password'=>$password];
         }
+        // Make fictitious acceptance data reviewable to existing project-1 managers
+        // who already hold Finance read. Never grant Finance or access to real data.
+        $q=$db->prepare("INSERT IGNORE INTO office_project_memberships (project_id,operator_id,permission)
+            SELECT ?,m.operator_id,'manage' FROM office_project_memberships m
+            JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+            JOIN office_module_permissions g ON g.operator_id=a.id AND g.module='finance' AND g.permission='read'
+            WHERE m.project_id=1 AND m.permission='manage' AND a.username NOT LIKE 'brebo-ci-%'");
+        $q->execute([$projectId]);
         $db->commit();
         return ['project_id'=>$projectId,'users'=>$users];
     } catch (Throwable $error) {
