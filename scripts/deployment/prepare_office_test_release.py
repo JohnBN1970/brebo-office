@@ -43,7 +43,7 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
                     # Narrowly scoped recovery: an active file whose exact Git blob
                     # exists in develop's ancestry is repository-managed, not an
                     # untracked server customization. Preserve a private backup.
-                    if relative == KNOWN_ANCESTOR_REPLACEMENT and git_blob_id(target.read_bytes()) in known_ancestor_blobs:
+                    if merge.returncode == 1 and relative == KNOWN_ANCESTOR_REPLACEMENT and git_blob_id(target.read_bytes()) in known_ancestor_blobs:
                         backup = candidate / '.development-runtime-backups' / relative
                         backup.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(target, backup)
