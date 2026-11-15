@@ -59,4 +59,8 @@ assert "OfficeProjectKickstartFormView" in mounted
 assert module.transform(mounted) == mounted, "Mount must remain idempotent"
 stale = mounted.replace("OfficeProjectKickstartFormView", "LegacyKickstartFormView")
 assert module.transform(stale) == mounted, "Stale renderer must be refreshed"
+# The authoritative develop project page is already native; patching it
+# would delete its tabs and POST handlers. This is the deployed path.
+assert all(marker in source for marker in module.NATIVE_MARKERS), "Native renderer markers missing"
+assert module.transform(source) == source, "Native repository page must be preserved unchanged"
 print("KICKSTART_MOUNT_CONTRACT_OK")
