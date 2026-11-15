@@ -41,7 +41,7 @@ if ($projectV3Tab === 'werkvoorbereiding'
       require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartView.php';
       $kickstart = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope((int)$projectId, 'project', 0);
       $projectV3Sections['kickstart'] = $kickstart === null
-        ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Voor dit project is nog geen startdossier aangemaakt.</p></section>'
+        ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Voor dit project is nog geen startdossier aangemaakt. Wijs eerst een projectleider toe via de bestaande projectorganisatie; zonder aantoonbare projectleiderkoppeling kan het dossier niet veilig worden gestart.</p></section>'
         : \Brebo\Office\Project\OfficeProjectKickstartView::render($kickstart, $kickstart['questions'], $kickstart['approvals']);
       if ($kickstart !== null && $canManage && is_string($csrfToken ?? null)
           && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken)) {
