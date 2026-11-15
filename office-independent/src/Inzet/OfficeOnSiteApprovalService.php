@@ -46,7 +46,7 @@ final class OfficeOnSiteApprovalService
         }
     }
 
-    public function approve(int $projectId, string $inEventId, string $outEventId, string $reviewer): int
+    public function approve(int $projectId, string $inEventId, string $outEventId, string $reviewer, ?int $correctedSeconds = null): int
     {
         if ($projectId < 1 || $reviewer === '' || strlen($reviewer) > 128
             || $inEventId === '' || strlen($inEventId) > 100
@@ -74,6 +74,9 @@ final class OfficeOnSiteApprovalService
         $out=new DateTimeImmutable($events[$outEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $seconds=$out->getTimestamp()-$in->getTimestamp();
         if ($seconds < 1 || $seconds > 86400) throw new \DomainException('Invalid OnSite session duration');
+        if ($correctedSeconds !== null && ($correctedSeconds < 1 || $correctedSeconds > $seconds)) {
+            throw new \DomainException('Approved duration must be positive and cannot exceed registered presence');
+        }
         // Reconstruct the complete OnSite sequence; arbitrary event pairs cannot be approved.
         $history=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
             FROM office_onsite_event_inbox WHERE project_id=? AND person_id=?
@@ -94,7 +97,7 @@ final class OfficeOnSiteApprovalService
         $decision=(new OnSiteHoursReview())->decide([
             'approval_status'=>'pending','in_event_id'=>$inEventId,'out_event_id'=>$outEventId,
             'duration_seconds'=>$seconds
-        ],'approve');
+        ],'approve',$correctedSeconds);
         $reference=hash('sha256',$inEventId.'|'.$outEventId);
         $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
