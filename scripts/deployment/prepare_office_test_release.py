@@ -42,10 +42,14 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
             elif old.is_file():
                 merge = subprocess.run(['git', 'merge-file', '-p', str(target), str(old), str(new)], capture_output=True)
                 if merge.returncode:
+                    # git merge-file exits with the NUMBER of conflict hunks
+                    # (capped at 127), not always one. 128+ is a tool error.
+                    # Allow replacement only on an exact, reviewed Git blob.
+                    print(f'RELEASE_MERGE_FILE_STATUS={relative} EXIT={merge.returncode}')
                     # Narrowly scoped recovery: an active file whose exact Git blob
                     # exists in develop's ancestry is repository-managed, not an
                     # untracked server customization. Preserve a private backup.
-                    if merge.returncode == 1 and relative == KNOWN_ANCESTOR_REPLACEMENT and git_blob_id(target.read_bytes()) in known_ancestor_blobs:
+                    if 1 <= merge.returncode <= 127 and relative == KNOWN_ANCESTOR_REPLACEMENT and git_blob_id(target.read_bytes()) in known_ancestor_blobs:
                         backup = candidate / '.development-runtime-backups' / relative
                         backup.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(target, backup)
@@ -55,7 +59,7 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
                         continue
                     # Only replace an exact repository-history Calc version for
                     # this same path. Preserve a private backup, never active.
-                    if merge.returncode == 1 and relative.parts[:2] == KNOWN_CALC_DIR and (str(relative), git_blob_id(target.read_bytes())) in known_calc_path_blobs:
+                    if 1 <= merge.returncode <= 127 and relative.parts[:2] == KNOWN_CALC_DIR and (str(relative), git_blob_id(target.read_bytes())) in known_calc_path_blobs:
                         backup = candidate / '.development-runtime-backups' / relative
                         backup.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(target, backup)
