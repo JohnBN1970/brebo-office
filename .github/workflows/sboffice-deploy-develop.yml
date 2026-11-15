@@ -1,11 +1,8 @@
 name: Deploy BREBO Office Production
 
 on:
-  push:
-    branches:
-      - develop
-    paths-ignore:
-      - 'config/sync/**'
+  # Production must never deploy automatically on a develop merge.
+  # Release is an explicit, separately approved manual action.
   workflow_dispatch:
 
 permissions:
