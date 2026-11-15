@@ -15,6 +15,7 @@ require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
 require_once __DIR__ . '/OfficeLabourBudgetDebitPostingService.php';
 require_once __DIR__ . '/OfficeLabourShiftAggregatePostingService.php';
 require_once __DIR__ . '/OfficeOnSiteFourEyesGuard.php';
+require_once __DIR__ . '/OfficeApprovedLabourCostPostingService.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
@@ -29,17 +30,95 @@ final class OfficeOnSiteApprovalService
     {
         $legacy=getenv('OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED') === 'enabled';
         $aggregate=getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled';
+        $actual=getenv('OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED') === 'enabled';
+        if ($actual && ($legacy || $aggregate)) {
+            throw new \DomainException('Actual labour cost posting conflicts with legacy budget debit modes');
+        }
         if ($legacy && $aggregate) {
             throw new \DomainException('Conflicting labour budget posting modes');
         }
-        if ($aggregate) {
+        if ($actual) {
+            (new OfficeApprovedLabourCostPostingService($this->db))->postInsideTransaction($bookingId);
+        } elseif ($aggregate) {
             (new OfficeLabourShiftAggregatePostingService($this->db))->postInsideTransaction($bookingId);
         } elseif ($legacy) {
             (new OfficeLabourBudgetDebitPostingService($this->db))->postInsideTransaction($bookingId);
         }
     }
 
-    public function approve(int $projectId, string $inEventId, string $outEventId, string $reviewer): int
+    /** Persist a rejected, verified interval and its mandatory reason; never book hours. */
+    public function reject(int $projectId, string $inEventId, string $outEventId, string $reviewer, string $reason): void
+    {
+        $reason=trim($reason);
+        if ($projectId<1 || $reviewer==='' || strlen($reviewer)>128
+            || $inEventId==='' || $outEventId==='' || $inEventId===$outEventId
+            || strlen($inEventId)>100 || strlen($outEventId)>100
+            || $reason==='' || mb_strlen($reason,'UTF-8')>1000) {
+            throw new \InvalidArgumentException('Invalid OnSite rejection request or missing reason');
+        }
+        if (getenv('OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED')!=='enabled') {
+            throw new \DomainException('OnSite rejection reason storage not verified');
+        }
+        if ($this->db->inTransaction()) throw new \LogicException('Review transaction already active');
+        $access=$this->db->prepare("SELECT 1 FROM office_project_memberships m
+            JOIN office_operator_accounts a ON a.id=m.operator_id
+            WHERE m.project_id=? AND m.operator_id=? AND m.permission='manage' AND a.active=1 LIMIT 1");
+        $access->execute([$projectId,$reviewer]);
+        if (!$access->fetchColumn()) throw new \DomainException('Not authorized');
+        $query=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
+            FROM office_onsite_event_inbox WHERE project_id=? AND event_id IN (?,?)");
+        $query->execute([$projectId,$inEventId,$outEventId]);
+        $events=[];
+        foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $event) $events[$event['event_id']]=$event;
+        if (count($events)!==2 || ($events[$inEventId]['event_kind']??null)!=='in'
+            || ($events[$outEventId]['event_kind']??null)!=='out'
+            || $events[$inEventId]['person_id']!==$events[$outEventId]['person_id']
+            || $events[$inEventId]['zone_id']!==$events[$outEventId]['zone_id']) {
+            throw new \DomainException('Invalid OnSite rejection interval');
+        }
+        $in=new DateTimeImmutable($events[$inEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
+        $out=new DateTimeImmutable($events[$outEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
+        $seconds=$out->getTimestamp()-$in->getTimestamp();
+        if ($seconds<1 || $seconds>86400) throw new \DomainException('Invalid OnSite session duration');
+        $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
+        $history=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
+            FROM office_onsite_event_inbox WHERE project_id=? AND person_id=?
+            ORDER BY occurred_at_utc DESC,event_id DESC LIMIT 501");
+        $history->execute([$projectId,$personId]);
+        $historyEvents=$history->fetchAll(PDO::FETCH_ASSOC);
+        if (count($historyEvents)>500) throw new \DomainException('OnSite history window incomplete');
+        $matched=false;
+        foreach ((new OnSitePresenceIntervalProjector())->project($historyEvents)['intervals'] as $interval) {
+            if ($interval['arrival_event_id']===$inEventId && $interval['departure_event_id']===$outEventId
+                && (int)$interval['elapsed_seconds']===$seconds) {$matched=true;break;}
+        }
+        if (!$matched) throw new \DomainException('OnSite event pair is not a verified interval');
+        if (getenv('OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED')==='enabled') {
+            (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
+        }
+        $reference=hash('sha256',$inEventId.'|'.$outEventId);
+        $this->db->beginTransaction();
+        try {
+            $existing=$this->db->prepare('SELECT id FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=? LIMIT 1 FOR UPDATE');
+            $existing->execute([$inEventId,$outEventId]);
+            if ($existing->fetchColumn()!==false) throw new \DomainException('OnSite session already reviewed');
+            $insert=$this->db->prepare("INSERT INTO office_onsite_hours_decisions
+                (decision_reference,in_event_id,out_event_id,project_id,person_id,work_date,status,
+                 reviewed_seconds,reviewer_id,decided_at)
+                VALUES (?,?,?,?,?,?,'rejected',0,?,UTC_TIMESTAMP())");
+            $insert->execute([$reference,$inEventId,$outEventId,$projectId,$personId,
+                $in->setTimezone(new DateTimeZone('Europe/Brussels'))->format('Y-m-d'),$reviewer]);
+            $record=$this->db->prepare('INSERT INTO office_onsite_rejection_reasons (decision_reference,reason) VALUES (?,?)');
+            $record->execute([$reference,$reason]);
+            $this->db->commit();
+        } catch (\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    public function approve(int $projectId, string $inEventId, string $outEventId, string $reviewer, ?int $correctedSeconds = null): int
     {
         if ($projectId < 1 || $reviewer === '' || strlen($reviewer) > 128
             || $inEventId === '' || strlen($inEventId) > 100
@@ -67,6 +146,9 @@ final class OfficeOnSiteApprovalService
         $out=new DateTimeImmutable($events[$outEventId]['occurred_at_utc'],new DateTimeZone('UTC'));
         $seconds=$out->getTimestamp()-$in->getTimestamp();
         if ($seconds < 1 || $seconds > 86400) throw new \DomainException('Invalid OnSite session duration');
+        if ($correctedSeconds !== null && ($correctedSeconds < 1 || $correctedSeconds > $seconds)) {
+            throw new \DomainException('Approved duration must be positive and cannot exceed registered presence');
+        }
         // Reconstruct the complete OnSite sequence; arbitrary event pairs cannot be approved.
         $history=$this->db->prepare("SELECT event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc
             FROM office_onsite_event_inbox WHERE project_id=? AND person_id=?
@@ -87,13 +169,15 @@ final class OfficeOnSiteApprovalService
         $decision=(new OnSiteHoursReview())->decide([
             'approval_status'=>'pending','in_event_id'=>$inEventId,'out_event_id'=>$outEventId,
             'duration_seconds'=>$seconds
-        ],'approve');
+        ],'approve',$correctedSeconds);
         $reference=hash('sha256',$inEventId.'|'.$outEventId);
         $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
         // Aggregate rollout requires a separately identified reviewer.
         // Guard both first-time approvals and idempotent retries before any write.
-        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled') {
+        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled'
+            || getenv('OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED') === 'enabled'
+            || getenv('OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED') === 'enabled') {
             (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
         }
         $this->db->beginTransaction();
@@ -102,10 +186,19 @@ final class OfficeOnSiteApprovalService
         $existing->execute([$inEventId,$outEventId]);
         $previous=$existing->fetch(PDO::FETCH_ASSOC);
         if (is_array($previous)) {
+            // Rejections are final and must never enter the approved-hours retry path.
+            $statusCheck=$this->db->prepare('SELECT status FROM office_onsite_hours_decisions WHERE decision_reference=? LIMIT 1');
+            $statusCheck->execute([(string)$previous['decision_reference']]);
+            if ($statusCheck->fetchColumn()!=='approved') {
+                throw new \DomainException('Rejected OnSite session cannot be approved');
+            }
             // Idempotent retry: validate the original recorded evidence, never insert a second decision.
             $originalReviewer=(string)$previous['reviewer_id'];
             if (!hash_equals($originalReviewer,$reviewer)) throw new \DomainException('OnSite session already reviewed');
             $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified((string)$previous['decision_reference'],$reviewer);
+            if ($correctedSeconds !== null && $correctedSeconds !== (int)$verified['decision']['reviewed_seconds']) {
+                throw new \DomainException('Already approved OnSite duration cannot be changed by retry');
+            }
             $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
             $existingBooking=$this->db->prepare('SELECT id,source_sha256 FROM office_inzet_approved_hours WHERE source_kind=? AND source_reference=? LIMIT 1 FOR UPDATE');
             $existingBooking->execute([$entry['source_kind'],$entry['source_reference']]);

@@ -25,6 +25,8 @@ final class FinanceCostAllocation
         $unmatched = 0;
         $total = 0;
         $unmatchedCount = 0;
+        $byCostType = array_fill_keys(['labor', 'material', 'equipment', 'subcontract', 'other'], 0);
+        $unclassified = 0;
         foreach ($postedLines as $line) {
             if (!is_array($line)
                 || ($line['source'] ?? null) !== 'office_financecenter'
@@ -41,6 +43,14 @@ final class FinanceCostAllocation
             }
             $seen[$id] = true;
             $total = self::add($total, $amount);
+            $costType = $line['cost_type'] ?? null;
+            if ($costType === null) {
+                $unclassified = self::add($unclassified, $amount);
+            } elseif (!is_string($costType) || !array_key_exists($costType, $byCostType)) {
+                throw new InvalidArgumentException('Unknown FinanceCenter cost type.');
+            } else {
+                $byCostType[$costType] = self::add($byCostType[$costType], $amount);
+            }
             $order = $line['order_id'] ?? null;
             if ($order === null) {
                 $unmatched = self::add($unmatched, $amount);
@@ -59,6 +69,8 @@ final class FinanceCostAllocation
             'matched_by_order_cents'=>$byOrder,
             'unmatched_actual_cents'=>$unmatched,
             'unmatched_line_count'=>$unmatchedCount,
+            'classified_actual_cents'=>$unclassified === 0 ? $byCostType : null,
+            'unclassified_actual_cents'=>$unclassified,
         ];
     }
 
