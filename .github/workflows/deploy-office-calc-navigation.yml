@@ -41,30 +41,45 @@ jobs:
           stage="domains/brebobv.nl/office_calc_test/.calc-nav-stage-$revision"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -P "$PORT" office-independent/src/Intake/OfficeNavigation.php "$remote:$stage/OfficeNavigation.php"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -p "$PORT" "$remote" "php -r '
-            \$base=realpath(getenv(\"HOME\").\"/domains/brebobv.nl/office_calc_test\");
-            \$stage=realpath(\$argv[1]);
-            if(!\$base||!\$stage||!str_starts_with(\$stage,\$base.\"/.calc-nav-stage-\"))exit(2);
-            \$config=require \$base.\"/config/config.php\";
-            \$root=realpath((string)(\$config[\"OFFICE_PRIVATE_ROOT\"]??\"\"));
-            if((\$config[\"OFFICE_BASE_PATH\"]??\"\")!==\"/office-test\"||!\$root||!str_starts_with(\$root,\$base.\"/release-\")||!str_ends_with(\$root,\"/private\"))exit(3);
-            \$src=\$stage.\"/OfficeNavigation.php\";
-            \$dest=\$root.\"/src/Intake/OfficeNavigation.php\";
-            if(!is_file(\$src)||is_link(\$src)||!is_file(\$dest)||is_link(\$dest))exit(4);
-            \$lock=fopen(\$base.\"/.calc-grid-install.lock\",\"c\");
-            if(!\$lock||!flock(\$lock,LOCK_EX|LOCK_NB))exit(5);
-            \$backup=\$stage.\"/OfficeNavigation.backup.php\";
-            if(!copy(\$dest,\$backup))exit(6);
-            \$tmp=tempnam(dirname(\$dest),\".calc-nav-\");
-            if(!\$tmp||!copy(\$src,\$tmp))exit(7);
-            chmod(\$tmp,fileperms(\$dest)&0777);
-            if(!rename(\$tmp,\$dest))exit(8);
-            \$check=hash_equals(hash_file(\"sha256\",\$src),hash_file(\"sha256\",\$dest));
-            \$lint=0;exec(escapeshellarg(PHP_BINARY).\" -l \".escapeshellarg(\$dest).\" 2>&1\",\$out,\$lint);
-            if(!\$check||\$lint!==0){copy(\$backup,\$dest);echo \"CALC_NAV_DEPLOY=ROLLED_BACK\\n\";exit(9);}
-            echo \"CALC_NAV_DEPLOY=SUCCESS\\nCALC_NAV_HASH=VERIFIED\\nCALC_DATABASE=UNCHANGED\\n\";
-            flock(\$lock,LOCK_UN);fclose(\$lock);
-          ' '$stage'"
+          # Pass a PHP script file rather than nested shell quotes. Keep remote paths in HOME.
+          cat > /tmp/calc-navigation-install.php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $base=realpath((string)getenv('HOME').'/domains/brebobv.nl/office_calc_test');
+          $stage=realpath($argv[1]??'');
+          if(!$base||!$stage||!str_starts_with($stage,$base.'/.calc-nav-stage-')){fwrite(STDERR,"PRECHECK_STAGE_FAILED\n");exit(2);}
+          $config=require $base.'/config/config.php';
+          $root=realpath((string)($config['OFFICE_PRIVATE_ROOT']??''));
+          if(($config['OFFICE_BASE_PATH']??'')!=='/office-test'||!$root||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private')){fwrite(STDERR,"PRECHECK_ROOT_FAILED\n");exit(3);}
+          $src=$stage.'/OfficeNavigation.php';
+          $dest=$root.'/src/Intake/OfficeNavigation.php';
+          if(!is_file($src)||is_link($src)||!is_file($dest)||is_link($dest)){fwrite(STDERR,"PRECHECK_FILE_FAILED\n");exit(4);}
+          $lock=fopen($base.'/.calc-grid-install.lock','c');
+          if(!$lock||!flock($lock,LOCK_EX|LOCK_NB)){fwrite(STDERR,"LOCK_FAILED\n");exit(5);}
+          try {
+            $backup=$stage.'/OfficeNavigation.backup.php';
+            if(!copy($dest,$backup))throw new RuntimeException('BACKUP_FAILED');
+            $tmp=tempnam(dirname($dest),'.calc-nav-');
+            if($tmp===false||!copy($src,$tmp))throw new RuntimeException('COPY_FAILED');
+            chmod($tmp,fileperms($dest)&0777);
+            if(!rename($tmp,$dest))throw new RuntimeException('RENAME_FAILED');
+            $check=hash_equals((string)hash_file('sha256',$src),(string)hash_file('sha256',$dest));
+            $output=[];$lint=0;exec(escapeshellarg(PHP_BINARY).' -l '.escapeshellarg($dest).' 2>&1',$output,$lint);
+            if(!$check||$lint!==0){
+              if(!copy($backup,$dest))throw new RuntimeException('ROLLBACK_FAILED');
+              throw new RuntimeException('POST_VERIFY_FAILED_ROLLED_BACK');
+            }
+            echo "CALC_NAV_DEPLOY=SUCCESS\nCALC_NAV_HASH=VERIFIED\nCALC_DATABASE=UNCHANGED\n";
+          }catch(Throwable $e){
+            fwrite(STDERR,'CALC_NAV_DEPLOY=FAILED_'.$e->getMessage()."\n");
+            exit(9);
+          }finally{
+            flock($lock,LOCK_UN);fclose($lock);
+          }
+          PHP
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -P "$PORT" /tmp/calc-navigation-install.php "$remote:$stage/install-navigation.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -p "$PORT" "$remote" "php '$stage/install-navigation.php' '$stage'"
+
       - name: Verify Office-test route is reachable
         run: |
           set -euo pipefail
