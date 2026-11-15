@@ -41,5 +41,5 @@ jobs:
           remote="$USER@$HOST"
           stage="domains/brebobv.nl/office_calc_test/.calc-labor-activation-stage-$(git rev-parse HEAD)"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
-          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -P "$PORT" office-independent/deployment/hostinger/activate-calc-adjustments.php "$remote:$stage/activate.php"
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -p "$PORT" "$remote" "php -l '$stage/activate.php' && php '$stage/activate.php' --enable"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -P "$PORT" office-independent/deployment/hostinger/activate-calc-labor.php "$remote:$stage/activate.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -p "$PORT" "$remote" "php -l '$stage/activate.php' && php '$stage/activate.php' --enable && php -r '\''\$c=require getenv("HOME")."/domains/brebobv.nl/office_calc_test/config/config.php";if((\$c["OFFICE_CALC_LABOR_SCHEMA_VERIFIED"]??null)!=="enabled"){fwrite(STDERR,"LABOR_FLAG_VERIFY=FAILED\\n");exit(2);}echo "LABOR_FLAG_VERIFY=PASS\\n";'\''"
