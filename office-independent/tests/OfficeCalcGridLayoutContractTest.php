@@ -49,7 +49,7 @@ foreach(['calc-inline-new','calc-inline-row','Verliesfactor %','name="material_l
 foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/uitloggen','calc-topbar-settings','calc-inline-material-picker'] as $uiContract){
  if(!str_contains($source,$uiContract))throw new RuntimeException('Calculator UI regression: '.$uiContract);
 }
-if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==1)throw new RuntimeException('Material picker must render once in grid');
-if(!str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Material picker must appear inside calculation table');
-if(strpos($source,'calc-material-row')<strpos($source,'Nieuwe regel direct onderaan de tabel invullen'))throw new RuntimeException('Material picker must follow row-entry toolbar');
-echo "NATIVE_CALC_GRID_CONTRACT=PASS\n";
+if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==2)throw new RuntimeException('Material picker must be available in new and edit rows');
+foreach(['$materialLineId=(string)$line[\'line_id\']','Materiaal vervangen','Materiaal kiezen','NOT_MATERIAL_LINE','material_line_id'] as $contract)if(!str_contains($source,$contract))throw new RuntimeException('Line-level material picker missing: '.$contract);
+if(str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Standalone material row must not return');
+echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
