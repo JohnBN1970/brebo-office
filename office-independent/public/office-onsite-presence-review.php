@@ -90,6 +90,15 @@ try {
  foreach ($decisions->fetchAll(PDO::FETCH_ASSOC) as $decisionRow) {
    $reviewedPairs[(string)$decisionRow['in_event_id'].'|'.(string)$decisionRow['out_event_id']]=$decisionRow;
  }
+ // Project-week review is computed from the same immutable presence intervals.
+ $weekRaw=$_GET['week']??date('o-\\WW');
+ if (!is_string($weekRaw) || !preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch)) {
+   $weekRaw=date('o-\\WW');
+   preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch);
+ }
+ $weekStart=(new DateTimeImmutable('now',new DateTimeZone('Europe/Brussels')))
+   ->setISODate((int)$weekMatch[1],(int)$weekMatch[2])->setTime(0,0);
+ $weekEnd=$weekStart->modify('+7 days');
  $review['intervals']=array_map(static function(array $interval) use ($reviewedPairs):array {
    $key=(string)($interval['arrival_event_id']??'').'|'.(string)($interval['departure_event_id']??'');
    if (isset($reviewedPairs[$key])) {
@@ -99,6 +108,24 @@ try {
    }
    return $interval;
  },$review['intervals']??[]);
+ $weekly=[];
+ foreach ($review['intervals'] as $interval) {
+   $start=$interval['entered_at']??null;
+   if (!is_string($start)) continue;
+   try {$local=(new DateTimeImmutable($start,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Europe/Brussels'));}
+   catch (Throwable $ignored) {continue;}
+   if ($local<$weekStart || $local>=$weekEnd) continue;
+   $person=(string)($interval['person_id']??'');
+   if ($person==='') continue;
+   if (!isset($weekly[$person])) $weekly[$person]=['registered'=>0,'approved'=>0,'rejected'=>0,'pending'=>0];
+   $duration=max(0,(int)($interval['elapsed_seconds']??0));
+   $weekly[$person]['registered']+=$duration;
+   $status=$interval['review_status']??'pending';
+   if ($status==='approved') $weekly[$person]['approved']+=(int)($interval['reviewed_seconds']??0);
+   elseif ($status==='rejected') $weekly[$person]['rejected']+=$duration;
+   else $weekly[$person]['pending']+=$duration;
+ }
+ ksort($weekly,SORT_NATURAL);
 } catch (Throwable $error) {
  http_response_code(503);exit('Aanwezigheidscontrole tijdelijk niet beschikbaar.');
 }
@@ -110,6 +137,15 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'section{padding:1rem}a{color:#245b8a}</style></head><body><main>'
  .'<p><a href="/office-test/projecten/detail?id='.$id.'&amp;tab=arbeid-inzet">← Arbeid &amp; Inzet · project '.$escape($id).'</a></p>'
  .'<h1>Inzet · project '.$escape($id).'</h1>'
+ .'<h2>Weekoverzicht</h2><form method="get"><input type="hidden" name="id" value="'.$escape($id).'">'
+ .'<label>Week <input type="week" name="week" value="'.$escape($weekRaw).'"></label> <button type="submit">Toon week</button></form>'
+ .'<p>Week vanaf '.$escape($weekStart->format('d-m-Y')).' · overzicht van de geladen aanwezigheidsintervallen</p>'
+ .'<table><thead><tr><th>Medewerker</th><th>Geregistreerd</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Te beoordelen</th></tr></thead><tbody>'
+ .implode('',array_map(static function(string $person,array $values) use ($escape):string {
+   $format=static fn(int $seconds):string=>sprintf('%d:%02d',intdiv($seconds,3600),intdiv($seconds%3600,60));
+   return '<tr><td>'.$escape($person).'</td><td>'.$format($values['registered']).'</td><td>'.$format($values['approved']).'</td><td>'.$format($values['rejected']).'</td><td>'.$format($values['pending']).'</td></tr>';
+ },array_keys($weekly),array_values($weekly)))
+ .'</tbody></table>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
  .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
  .(isset($_GET['approved'])?'<p role="status">Uren goedgekeurd en geboekt.</p>':'')
