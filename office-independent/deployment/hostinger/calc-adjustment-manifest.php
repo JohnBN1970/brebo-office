@@ -9,6 +9,7 @@ $root=realpath((string)($config['OFFICE_PRIVATE_ROOT']??''));
 if(($config['OFFICE_BASE_PATH']??'')!=='/office-test'||!$root||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private'))exit(3);
 $paths=[
  'workbench.php'=>'public/office-calc-crm-workbench.php',
+ 'material-panel.php'=>'public/office-calc-crm-material-panel.php',
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
  'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
