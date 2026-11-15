@@ -9,12 +9,13 @@ import subprocess
 AREAS = ('src', 'public', 'schema', 'deployment', 'tests')
 KNOWN_ANCESTOR_REPLACEMENT = Path('src/Inzet/OfficeOnSiteApprovalService.php')
 KNOWN_CALC_RUNTIME_FILE = Path('src/Calculation/OfficeCalcCrmDraftLineRepository.php')
+KNOWN_CALC_DIR = ('src', 'Calculation')
 
 def git_blob_id(data):
     return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
 
 
-def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset(), known_calc_blobs=frozenset()):
+def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset(), known_calc_blobs=frozenset(), known_calc_path_blobs=frozenset()):
     if candidate.exists():
         raise RuntimeError('Candidate already exists')
     shutil.copytree(active, candidate, symlinks=True)
@@ -52,7 +53,17 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
                         count['updated'] += 1
                         print(f'RELEASE_RECONCILED_KNOWN_GIT_ANCESTOR={relative}')
                         continue
-                    raise RuntimeError(f'RELEASE_MERGE_CONFLICT={relative}')
+                    # Only replace an exact repository-history Calc version for
+                    # this same path. Preserve a private backup, never active.
+                    if merge.returncode == 1 and relative.parts[:2] == KNOWN_CALC_DIR and (str(relative), git_blob_id(target.read_bytes())) in known_calc_path_blobs:
+                        backup = candidate / '.development-runtime-backups' / relative
+                        backup.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(target, backup)
+                        target.write_bytes(incoming_bytes)
+                        count['updated'] += 1
+                        print(f'RELEASE_RECONCILED_KNOWN_CALC_GIT_ANCESTOR={relative}')
+                        continue
+                    raise RuntimeError(f'RELEASE_MERGE_CONFLICT={relative} RUNTIME_GIT_BLOB={git_blob_id(target.read_bytes())}')
                 target.write_bytes(merge.stdout)
                 count['merged'] += 1
             else:
@@ -65,7 +76,15 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
                     count['updated'] += 1
                     print(f'RELEASE_ADOPTED_KNOWN_CALC_GIT_ANCESTOR={relative}')
                     continue
-                raise RuntimeError(f'UNTRACKED_RUNTIME_COLLISION={relative}')
+                if relative.parts[:2] == KNOWN_CALC_DIR and (str(relative), git_blob_id(target.read_bytes())) in known_calc_path_blobs:
+                    backup = candidate / '.development-runtime-backups' / relative
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(target, backup)
+                    target.write_bytes(incoming_bytes)
+                    count['updated'] += 1
+                    print(f'RELEASE_ADOPTED_KNOWN_CALC_PATH_ANCESTOR={relative}')
+                    continue
+                raise RuntimeError(f'UNTRACKED_RUNTIME_COLLISION={relative} RUNTIME_GIT_BLOB={git_blob_id(target.read_bytes())}')
     # Keep runtime-only dependencies; retire removed managed files only after explicit review.
     previous = candidate / '.development-source'
     if previous.exists():
@@ -82,7 +101,9 @@ if __name__ == '__main__':
         parser.add_argument('--'+key, type=Path, required=True)
     parser.add_argument('--known-ancestor-blobs', type=Path)
     parser.add_argument('--known-calc-blobs', type=Path)
+    parser.add_argument('--known-calc-path-blobs', type=Path)
     a = parser.parse_args()
     known = frozenset(a.known_ancestor_blobs.read_text().splitlines()) if a.known_ancestor_blobs else frozenset()
     calc = frozenset(a.known_calc_blobs.read_text().splitlines()) if a.known_calc_blobs else frozenset()
-    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known, calc)))
+    path_blobs = frozenset(tuple(line.split(' ', 1)) for line in a.known_calc_path_blobs.read_text().splitlines() if ' ' in line) if a.known_calc_path_blobs else frozenset()
+    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known, calc, path_blobs)))
