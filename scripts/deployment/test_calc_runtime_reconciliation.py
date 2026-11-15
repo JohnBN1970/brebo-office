@@ -99,4 +99,20 @@ def exercise_multi_hunk_calc_conflict() -> None:
 
 
 exercise_multi_hunk_calc_conflict()
+
+# The test-only override must NEVER be usable with an arbitrary or production path.
+with tempfile.TemporaryDirectory() as temp:
+    root = Path(temp)
+    active, incoming, baseline = (root / n for n in ("active", "incoming", "baseline"))
+    for path in (active, incoming, baseline):
+        (path / "src").mkdir(parents=True)
+    denied = subprocess.run([
+        sys.executable, str(RECONCILER),
+        "--active", str(active), "--candidate", str(root / "candidate"),
+        "--incoming", str(incoming), "--baseline", str(baseline),
+        "--office-test-authoritative",
+    ], capture_output=True, text=True, check=False)
+    assert denied.returncode != 0
+    assert "OFFICE_TEST_AUTHORITATIVE_PATH_REJECTED" in denied.stderr
+
 print("OFFICE_TEST_RUNTIME_CLI_RECONCILIATION=PASS")
