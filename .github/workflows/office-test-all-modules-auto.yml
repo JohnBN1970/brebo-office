@@ -34,6 +34,8 @@ jobs:
           set -euo pipefail
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeProjectDetailV3ViewTest.php
           python3 -m py_compile office-independent/deployment/hostinger/mount-project-detail-v3.py
+          for file in office-independent/tests/test_project_kickstart_*.php office-independent/tests/test_project_execution_start_gate.php; do php "$file"; done
+          python3 office-independent/tests/test_project_kickstart_mount.py
   inventory:
     needs: validate
     if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'

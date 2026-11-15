@@ -1,0 +1,69 @@
+name: Project kickstart four-eyes contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Project/OfficeProjectKickstartPolicy.php'
+      - 'office-independent/tests/test_project_kickstart_policy.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartRepository.php'
+      - 'office-independent/schema/office-project-kickstart.sql'
+      - 'office-independent/src/Project/OfficeProjectKickstartView.php'
+      - 'office-independent/tests/test_project_kickstart_view.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartReadModel.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartQuestionsRepository.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartFormView.php'
+      - 'office-independent/src/Project/OfficeProjectKickstartActionHandler.php'
+      - 'office-independent/tests/test_project_kickstart_action_handler.php'
+      - 'office-independent/tests/test_project_kickstart_execution_gate.php'
+      - 'office-independent/src/Project/OfficeProjectExecutionStartGate.php'
+      - 'office-independent/tests/test_project_execution_start_gate.php'
+      - 'office-independent/src/Project/OfficeProjectDetailV3View.php'
+      - 'office-independent/tests/test_project_kickstart_v3_integration.php'
+      - 'office-independent/tests/test_project_kickstart_form_view.php'
+      - 'office-independent/tests/test_project_kickstart_readmodel.php'
+      - 'office-independent/deployment/hostinger/mount-project-detail-v3.py'
+      - 'office-independent/tests/test_project_kickstart_mount.py'
+      - '.github/workflows/office-project-kickstart-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Project/OfficeProjectKickstartPolicy.php'
+      - 'office-independent/tests/test_project_kickstart_policy.php'
+      - '.github/workflows/office-project-kickstart-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SQLite PHP driver
+        run: sudo apt-get update && sudo apt-get install -y php-sqlite3
+      - name: PHP syntax and four-eyes regression tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Project/OfficeProjectKickstartPolicy.php
+          php -l office-independent/tests/test_project_kickstart_policy.php
+          php -l office-independent/src/Project/OfficeProjectKickstartRepository.php
+          php -l office-independent/src/Project/OfficeProjectKickstartView.php
+          php -l office-independent/tests/test_project_kickstart_view.php
+          php office-independent/tests/test_project_kickstart_view.php
+          php -l office-independent/src/Project/OfficeProjectDetailV3View.php
+          php -l office-independent/tests/test_project_kickstart_v3_integration.php
+          php office-independent/tests/test_project_kickstart_v3_integration.php
+          php -l office-independent/src/Project/OfficeProjectExecutionStartGate.php
+          php -l office-independent/tests/test_project_execution_start_gate.php
+          php office-independent/tests/test_project_execution_start_gate.php
+          php -l office-independent/tests/test_project_kickstart_execution_gate.php
+          php office-independent/tests/test_project_kickstart_execution_gate.php
+          php -l office-independent/src/Project/OfficeProjectKickstartActionHandler.php
+          php -l office-independent/tests/test_project_kickstart_action_handler.php
+          php office-independent/tests/test_project_kickstart_action_handler.php
+          php -l office-independent/src/Project/OfficeProjectKickstartFormView.php
+          php -l office-independent/tests/test_project_kickstart_form_view.php
+          php office-independent/tests/test_project_kickstart_form_view.php
+          php -l office-independent/src/Project/OfficeProjectKickstartQuestionsRepository.php
+          php -l office-independent/src/Project/OfficeProjectKickstartReadModel.php
+          php -l office-independent/tests/test_project_kickstart_readmodel.php
+          php office-independent/tests/test_project_kickstart_readmodel.php
+          php office-independent/tests/test_project_kickstart_policy.php
+          python3 office-independent/tests/test_project_kickstart_mount.py

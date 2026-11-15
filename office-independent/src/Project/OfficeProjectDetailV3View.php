@@ -77,6 +77,16 @@ final class OfficeProjectDetailV3View
         if (isset($sections[$tab]) && is_string($sections[$tab])) {
             // Trusted HTML only, supplied by existing authorized Office renderers.
             $html .= $sections[$tab];
+            // Startdossier is a subsection of Werkvoorbereiding, not another
+            // project tab or independent data source. The authorized controller
+            // must explicitly provide the rendered, project-scoped HTML.
+            if ($tab === 'werkvoorbereiding' && isset($sections['kickstart'])
+                && is_string($sections['kickstart'])) {
+                $html .= $sections['kickstart'];
+            }
+        } elseif ($tab === 'werkvoorbereiding' && isset($sections['kickstart'])
+            && is_string($sections['kickstart'])) {
+            $html .= $sections['kickstart'];
         } elseif ($tab !== 'overzicht') {
             $html .= '<section class="project-v3-placeholder"><h2>' . $e($tabs[$tab]) . '</h2>'
                 . '<p>De bestaande Office-functionaliteit wordt hier aangesloten.</p></section>';

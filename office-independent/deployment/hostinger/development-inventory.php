@@ -20,6 +20,10 @@ foreach (['OFFICE_LOGIN_ENABLED','OFFICE_CRM_SESSION_MODE','OFFICE_NATIVE_PROJEC
 $db = new PDO($config['OFFICE_INTAKE_PDO_DSN'], $config['OFFICE_INTAKE_DB_USER'], $config['OFFICE_INTAKE_DB_PASSWORD'] ?? '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $tables = $db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
 sort($tables);
+foreach (['office_projects','office_operator_accounts','office_operator_sessions','office_project_memberships','office_user_roles','office_roles','office_module_permissions'] as $table) {
+    echo 'SCHEMA_' . $table . '=' . json_encode($db->query('DESCRIBE `' . $table . '`')->fetchAll(PDO::FETCH_ASSOC), JSON_THROW_ON_ERROR) . "\n";
+}
+
 echo 'TABLES=' . json_encode($tables, JSON_THROW_ON_ERROR) . "\n";
 $manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
 $counts = ['same'=>0,'different'=>0,'missing'=>0];
