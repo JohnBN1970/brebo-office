@@ -14,6 +14,33 @@ final class OfficeProjectKickstartRepository
     public function __construct(private readonly PDO $db) {}
 
     /**
+     * Initialize a single project start dossier. The controller must resolve
+     * the project leader from a trusted Office assignment and verify ACL.
+     * Never accept project or leader identifiers from browser input.
+     */
+    public function createForAuthorizedProject(int $projectId, int $projectLeaderUserId, int $actorId, bool $canManage): int
+    {
+        if ($projectId < 1 || $projectLeaderUserId < 1 || $actorId < 1 || !$canManage) {
+            throw new DomainException('Unauthorized start dossier creation');
+        }
+        $items = array_fill_keys(OfficeProjectKickstartPolicy::REQUIRED_ITEMS, false);
+        $json = json_encode($items, JSON_THROW_ON_ERROR);
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare("INSERT INTO office_project_start_dossiers (project_id,scope_type,scope_id,project_leader_user_id,revision,status,items_json,critical_open_points) VALUES (?,'project',0,?,1,'draft',?,0)");
+            $q->execute([$projectId,$projectLeaderUserId,$json]);
+            $id = (int)$this->db->lastInsertId();
+            $event = $this->db->prepare('INSERT INTO office_project_start_events (dossier_id,dossier_revision,actor_user_id,event_type,payload_json) VALUES (?,?,?,?,?)');
+            $event->execute([$id,1,$actorId,'dossier_created','{}']);
+            $this->db->commit();
+            return $id;
+        } catch (\\Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /**
      * Save checklist as a new immutable revision marker. The authenticated
      * actor and project-edit ACL must be verified by the calling controller.
      * A stale editor cannot overwrite another person's changes.
