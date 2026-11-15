@@ -2,6 +2,8 @@
 """Regression: verified Calc runtime may be adopted; unknown changes must fail."""
 import importlib.util
 import tempfile
+import subprocess
+import sys
 from pathlib import Path
 
 module_path = Path(__file__).with_name("prepare_office_test_release.py")
@@ -23,6 +25,17 @@ with tempfile.TemporaryDirectory() as temp:
     assert result["updated"] == 1
     assert (root / "accepted" / relative).read_bytes() == b"new-version"
     assert (root / "accepted" / ".development-runtime-backups" / relative).read_bytes() == b"old-git-version"
+    allowlist = root / "calc-blobs.txt"
+    allowlist.write_text(verified + "\n")
+    cli = subprocess.run([
+        sys.executable, str(module_path),
+        "--active", str(active), "--candidate", str(root / "cli-accepted"),
+        "--incoming", str(incoming), "--baseline", str(baseline),
+        "--known-calc-blobs", str(allowlist),
+    ], capture_output=True, text=True)
+    assert cli.returncode == 0, cli.stderr
+    assert "RELEASE_ADOPTED_KNOWN_CALC_GIT_ANCESTOR=" in cli.stdout
+    assert (root / "cli-accepted" / relative).read_bytes() == b"new-version"
     try:
         module.reconcile(active, root / "blocked", incoming, baseline,
                          known_calc_blobs=frozenset({"0" * 40}))
