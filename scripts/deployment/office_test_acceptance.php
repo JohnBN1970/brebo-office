@@ -17,12 +17,18 @@ $login='https://brebobv.nl/office-test/inloggen';
 $handles=[];$jars=[];
 function ensureTest(bool $ok,string $name): void { if (!$ok) throw new RuntimeException('ACCEPTANCE_FAILED='.$name); echo 'ACCEPTANCE_PASS='.$name."\n"; }
 function requestTest(CurlHandle $h,string $url,?array $post=null): array {
+    // Bound the acceptance burst on shared hosting; do not retry failed requests.
+    usleep(350000);
     curl_setopt_array($h,[CURLOPT_URL=>$url,CURLOPT_POST=>$post!==null,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_RETURNTRANSFER=>true,CURLOPT_HEADER=>true,CURLOPT_TIMEOUT=>30,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
     if ($post!==null) curl_setopt_array($h,[CURLOPT_POSTFIELDS=>http_build_query($post),CURLOPT_HTTPHEADER=>['Origin: https://brebobv.nl','Content-Type: application/x-www-form-urlencoded']]);
     else curl_setopt($h,CURLOPT_HTTPHEADER,[]);
     $response=curl_exec($h);
     if ($response===false) throw new RuntimeException('ACCEPTANCE_HTTP_TRANSPORT_FAILED');
     $status=curl_getinfo($h,CURLINFO_RESPONSE_CODE);$headerSize=curl_getinfo($h,CURLINFO_HEADER_SIZE);
+    if ($status === 503 && preg_match('/^X-BREBO-CI-Diagnostic:\s*([^\r\n]+)/im',substr($response,0,$headerSize),$diagnostic)) {
+        echo 'FIXTURE_HTTP_DIAGNOSTIC='.base64_decode(trim($diagnostic[1]),true)."\n";
+    }
+
     return [$status,substr($response,$headerSize),substr($response,0,$headerSize)];
 }
 function csrfTest(string $html): string {
