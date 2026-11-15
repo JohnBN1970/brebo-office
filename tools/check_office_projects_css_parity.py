@@ -26,6 +26,6 @@ portfolio_source = (root / "office-independent/src/Project/OfficeProjectPortfoli
 styles_method = portfolio_source.split("function styles()", 1)[-1]
 parts = re.findall(r"'([^']*)'", styles_method)
 portfolio_css = (root / "office-independent/public/assets/css/office-project-portfolio.css").read_text(encoding="utf-8")
-if not parts or portfolio_css.split("\\n", 1)[1].strip() != "".join(parts).strip():
+if not parts or portfolio_css.splitlines(keepends=True)[1:][1].strip() != "".join(parts).strip():
     sys.exit("FAIL: dynamically composed portfolio CSS differs from staged stylesheet")
 print("PASS office-project-portfolio.css: dynamic PHP CSS exact parity")
