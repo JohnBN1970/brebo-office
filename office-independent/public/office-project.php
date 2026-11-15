@@ -291,11 +291,6 @@ try {
     $calculationScopes = $scopeQuery->fetchAll(PDO::FETCH_ASSOC);
   }
 } catch (Throwable $exception) {
-  // Temporary CI-only diagnostic: limited to the fictional acceptance project/account.
-  if (isset($project, $operator) && $project->title === 'FICTIEF - automatische acceptatie Startdossier'
-      && $operator->operatorId === '990000001' && \Brebo\Office\Intake\OfficeMount::isTest()) {
-    header('X-BREBO-CI-Diagnostic: ' . base64_encode(get_class($exception) . ': ' . substr($exception->getMessage(), 0, 1500)));
-  }
   http_response_code(503);
   exit('Projectgegevens tijdelijk niet beschikbaar.');
 }
