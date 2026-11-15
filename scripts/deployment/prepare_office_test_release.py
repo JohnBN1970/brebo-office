@@ -15,7 +15,7 @@ def git_blob_id(data):
     return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
 
 
-def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset(), known_calc_blobs=frozenset(), known_calc_path_blobs=frozenset()):
+def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset(), known_calc_blobs=frozenset(), known_calc_path_blobs=frozenset(), office_test_authoritative=False):
     if candidate.exists():
         raise RuntimeError('Candidate already exists')
     shutil.copytree(active, candidate, symlinks=True)
@@ -34,6 +34,16 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
             if not target.exists() or target.read_bytes() == incoming_bytes:
                 target.write_bytes(incoming_bytes)
                 count['updated'] += 1
+            elif office_test_authoritative:
+                # OFFICE-TEST ONLY: develop is the source of truth for managed code.
+                # Active files are NEVER changed: candidate holds a private backup
+                # and is only activated after lint, migrations and HTTP acceptance.
+                backup = candidate / '.development-runtime-backups' / relative
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(target, backup)
+                target.write_bytes(incoming_bytes)
+                count['updated'] += 1
+                print(f'RELEASE_TEST_SOURCE_REPLACED_WITH_BACKUP={relative}')
             elif old.is_file() and incoming_bytes == old.read_bytes():
                 count['preserved'] += 1
             elif old.is_file() and target.read_bytes() == old.read_bytes():
@@ -106,8 +116,24 @@ if __name__ == '__main__':
     parser.add_argument('--known-ancestor-blobs', type=Path)
     parser.add_argument('--known-calc-blobs', type=Path)
     parser.add_argument('--known-calc-path-blobs', type=Path)
+    parser.add_argument('--office-test-authoritative', action='store_true')
     a = parser.parse_args()
+    if a.office_test_authoritative:
+        # Defense in depth beyond officeTestEnvironment(): never permit this
+        # source-overwrite mode outside the fixed private Office-test tree.
+        base_path = Path.home() / 'domains/brebobv.nl/office_calc_test'
+        if not base_path.is_dir() or base_path.is_symlink():
+            raise RuntimeError('OFFICE_TEST_AUTHORITATIVE_PATH_REJECTED')
+        base = base_path.resolve(strict=True)
+        active_real = a.active.resolve(strict=True)
+        candidate_real = a.candidate.resolve(strict=False)
+        if (not active_real.is_relative_to(base)
+            or not candidate_real.is_relative_to(base)
+            or active_real == candidate_real
+            or a.candidate.name != 'private'
+            or not a.candidate.parent.name.startswith('release-ci-')):
+            raise RuntimeError('OFFICE_TEST_AUTHORITATIVE_PATH_REJECTED')
     known = frozenset(a.known_ancestor_blobs.read_text().splitlines()) if a.known_ancestor_blobs else frozenset()
     calc = frozenset(a.known_calc_blobs.read_text().splitlines()) if a.known_calc_blobs else frozenset()
     path_blobs = frozenset(tuple(line.split(' ', 1)) for line in a.known_calc_path_blobs.read_text().splitlines() if ' ' in line) if a.known_calc_path_blobs else frozenset()
-    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known, calc, path_blobs)))
+    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known, calc, path_blobs, a.office_test_authoritative)))
