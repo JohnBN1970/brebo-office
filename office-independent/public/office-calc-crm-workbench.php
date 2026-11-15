@@ -114,6 +114,12 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+    if($method==='POST'&&$action==='save_labor_rate'){
+        if($laborRateCatalog===null)$deny(503,'LABOR_RATE_CATALOG_DISABLED');
+        if($collaboration===null||!$collaboration->owns($actor,$draft))$deny(403,'LABOR_RATE_ADMIN_REQUIRED');
+        $laborRateCatalog->save((string)($_POST['rate_code']??''),(string)($_POST['rate_description']??''),str_replace(',','.',(string)($_POST['rate_hourly']??'')),isset($_POST['rate_active']));
+        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
+    }
         if($action==='add_material'){
             if($materialWarning!=='')$deny(503,'PRICE_SOURCE_UNAVAILABLE');
             if($collaboration===null||$materialSource===null)throw new DomainException('Geen materiaalrecht.');
@@ -212,12 +218,6 @@ try {
         }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor);
-        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
-    }
-    if($method==='POST'&&$action==='save_labor_rate'){
-        if($laborRateCatalog===null)$deny(503,'LABOR_RATE_CATALOG_DISABLED');
-        if($collaboration===null||!$collaboration->owns($actor,$draft))$deny(403,'LABOR_RATE_ADMIN_REQUIRED');
-        $laborRateCatalog->save((string)($_POST['rate_code']??''),(string)($_POST['rate_description']??''),str_replace(',','.',(string)($_POST['rate_hourly']??'')),isset($_POST['rate_active']));
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -359,6 +359,16 @@ if($edit===null){
         }else echo '<td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
     }else echo '<td>—</td><td>—</td><td>—</td>';
     echo '<td colspan="5"><input form="'.$inlineForm.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,'.($collaborationEnabled?'4':'2').'})?" placeholder="Kostprijs per eenheid (€)" required></td><td>—</td><td>—</td><td>Handmatig</td><td><button form="'.$inlineForm.'" type="submit">Opslaan</button></td></tr>';
+}
+if($laborRateCatalog!==null){
+    echo '<section><h3>Uurtarieven op code</h3><p>Gebruik een tariefcode bij arbeidsregels. Een wijziging in de prijslijst wijzigt bestaande calculatieregels niet.</p><table><thead><tr><th>Code</th><th>Functie</th><th>Uurtarief</th><th>Status</th></tr></thead><tbody>';
+    foreach($laborRates as $tariff)echo '<tr><td>'.$h((string)$tariff['code']).'</td><td>'.$h((string)$tariff['description']).'</td><td>€ '.$h((string)$tariff['hourly_rate']).'</td><td>'.((int)$tariff['active']===1?'Actief':'Inactief').'</td></tr>';
+    echo '</tbody></table>';
+    if($collaboration!==null&&$collaboration->owns($actor,$draft)){
+        echo '<form method="post" action="'.$workbenchUrl.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="action" value="save_labor_rate">';
+        echo '<label>Code <input name="rate_code" maxlength="16" required placeholder="GZ, A, B"></label><label>Functie <input name="rate_description" maxlength="160" required placeholder="Glaszetter"></label><label>€/uur <input type="number" name="rate_hourly" min="0" step="0.0001" required></label><label>Actief <input type="checkbox" name="rate_active" checked></label><button type="submit">Tarief opslaan</button></form>';
+    }
+    echo '</section>';
 }
 echo '</tbody></table></div><p class="amount">Totaal: € '.number_format($collaborationEnabled?(float)$canonicalTotal:$total/100,2,',','.').'</p></section>';
 if($edit!==null){
