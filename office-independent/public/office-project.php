@@ -563,6 +563,48 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
   . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
   . '</div>'
 ;
+// The native project controller owns the complete authenticated kickstart flow.
+// Render controls only after project ACL, schema and CSRF validation; no V2 mount.
+if ($activeTab === 'werkvoorbereiding'
+  && \Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
+  try {
+    $kickstartTables = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
+    if ((int)$kickstartTables->fetchColumn() !== 4) {
+      $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Startdossier nog niet geïnstalleerd.</p></section>';
+    } else {
+      require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartReadModel.php';
+      require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartView.php';
+      $kickstart = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope((int)$projectId, 'project', 0);
+      $kickstartAction = \Brebo\Office\Intake\OfficeMount::basePath().'/projecten/detail?id='.(int)$projectId.'&tab=werkvoorbereiding';
+      $kickstartCsrfValid = is_string($csrfToken) && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken);
+      if ($kickstart === null) {
+        $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Voor dit project is nog geen startdossier aangemaakt.</p>';
+        if ($canManage && $kickstartCsrfValid) {
+          $workbenchHtml .= '<form method="post" action="'.$escape($kickstartAction).'">'
+            .'<input type="hidden" name="csrf_token" value="'.$escape($csrfToken).'">'
+            .'<input type="hidden" name="kickstart_action" value="create_dossier">'
+            .'<button type="submit">Als projectleider startdossier aanmaken</button></form>';
+        }
+        $workbenchHtml .= '</section>';
+      } else {
+        $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartView::render(
+          $kickstart, $kickstart['questions'], $kickstart['approvals']
+        );
+        if ($canManage && $kickstartCsrfValid) {
+          require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartFormView.php';
+          $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
+            $kickstart, $kickstartAction, $csrfToken, true,
+            (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId, true
+          );
+        }
+      }
+    }
+  } catch (\Throwable $kickstartError) {
+    $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
+  }
+}
+
 $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Uitvoeringsvoortgang, kwaliteit en projectacties. Personeelsplanning en urencontrole staan onder Arbeid &amp; Inzet.</p>'
   . '</div>'
