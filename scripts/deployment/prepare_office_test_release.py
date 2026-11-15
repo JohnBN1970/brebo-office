@@ -84,4 +84,5 @@ if __name__ == '__main__':
     parser.add_argument('--known-calc-blobs', type=Path)
     a = parser.parse_args()
     known = frozenset(a.known_ancestor_blobs.read_text().splitlines()) if a.known_ancestor_blobs else frozenset()
-    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known)))
+    calc = frozenset(a.known_calc_blobs.read_text().splitlines()) if a.known_calc_blobs else frozenset()
+    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known, calc)))

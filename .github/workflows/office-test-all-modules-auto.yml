@@ -77,6 +77,7 @@ jobs:
       - name: Build exact source and reconciliation baseline
         run: |
           set -euo pipefail
+          python3 scripts/deployment/test_calc_runtime_reconciliation.py
           mkdir -p /tmp/office-development-package/baseline /tmp/office-development-package/metadata
           path=office-independent/src/Inzet/OfficeOnSiteApprovalService.php
           git log --format=%H HEAD -- "$path" | while IFS= read -r commit; do
