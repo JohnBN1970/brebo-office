@@ -45,6 +45,9 @@ if ($existingColumns!==[] && $existingColumns!==$expectedColumns) {
 }
 $rejectionMigrationId='onsite-rejection-reasons-v1';
 $rejectionChecksum=hash('sha256',implode(';',$rejectionStatements));
+// The earlier $q is a two-parameter INSERT, not the checksum SELECT.
+// Reprepare the single-parameter lookup before checking this migration.
+$q=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
 $q->execute([$rejectionMigrationId]);
 $previousChecksum=$q->fetchColumn();
 if ($previousChecksum!==false && !hash_equals((string)$previousChecksum,$rejectionChecksum)) {
