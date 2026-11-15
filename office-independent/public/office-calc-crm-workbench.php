@@ -190,12 +190,12 @@ try {
                 }
             }
         }
-        if(trim((string)($_POST['labor_norm']??''))!==''||trim((string)($_POST['labor_hours']??''))!==''){
-            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||(string)($_POST['cost_type']??'')!=='labor'||trim((string)($_POST['labor_hourly_rate']??''))==='')$deny(400,'LABOR_INPUT_INCOMPLETE');
-        }
         if($laborRateCatalog!==null&&trim((string)($_POST['labor_rate_code']??''))!==''){
             $selectedRate=$laborRateCatalog->resolve((string)$_POST['labor_rate_code']);
             $_POST['labor_hourly_rate']=(string)$selectedRate['hourly_rate'];
+        }
+        if(trim((string)($_POST['labor_norm']??''))!==''||trim((string)($_POST['labor_hours']??''))!==''){
+            if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')!=='enabled'||(string)($_POST['cost_type']??'')!=='labor'||trim((string)($_POST['labor_hourly_rate']??''))==='')$deny(400,'LABOR_INPUT_INCOMPLETE');
         }
         $labor=null;
         if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&(string)($_POST['cost_type']??'')==='labor'&&trim((string)($_POST['labor_hourly_rate']??''))!==''){
@@ -330,7 +330,7 @@ foreach($lines as $line) {
             echo '<td><input form="'.$formId.'" name="labor_norm" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_norm']??'')).'" placeholder="Norm"></td>';
             echo '<td><input form="'.$formId.'" name="labor_hours" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hours']??'')).'" placeholder="Uren"></td>';
             if($laborRateCatalog!==null){$rateOptions='<option value="">Handmatig tarief</option>';
-            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'">'.$h((string)$rate['code'].' · '.$rate['description'].' (€ '.$rate['hourly_rate'].'/uur)').'</option>';
+            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'" data-hourly-rate="'.$h((string)$rate['hourly_rate']).'">'.$h((string)$rate['code'].' · '.$rate['description']).'</option>';
             echo '<td><select form="'.$formId.'" name="labor_rate_code" class="calc-labor-discipline">'.$rateOptions.'</select></td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';}else echo '<td>—</td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';
         }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
@@ -426,6 +426,14 @@ echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</
     const form=document.getElementById(formId);
     if(!form)continue;
     const field=name=>document.querySelector('[form="'+formId+'"][name="'+name+'"]')||form.querySelector('[name="'+name+'"]');
+    const discipline=field("labor_rate_code"),hourly=field("labor_hourly_rate");
+    if(discipline&&hourly){
+      discipline.addEventListener("change",()=>{
+        const option=discipline.options[discipline.selectedIndex];
+        const rate=option?option.getAttribute("data-hourly-rate"):null;
+        if(rate!==null)hourly.value=rate;
+      });
+    }
     const norm=field("labor_norm"),hours=field("labor_hours"),qty=field("quantity"),driver=field("labor_driver");
     if(!norm||!hours||!qty||!driver)continue;
     const format=n=>Number.isFinite(n)?String(Math.round((n+Number.EPSILON)*10000)/10000):"";
