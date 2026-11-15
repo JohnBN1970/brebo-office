@@ -52,4 +52,7 @@ foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/
 if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==2)throw new RuntimeException('Material picker must be available in new and edit rows');
 foreach(['$materialLineId=(string)$line[\'line_id\']','Materiaal vervangen','Materiaal kiezen','NOT_MATERIAL_LINE','material_line_id'] as $contract)if(!str_contains($source,$contract))throw new RuntimeException('Line-level material picker missing: '.$contract);
 if(str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Standalone material row must not return');
+foreach(['calc-lines-expand','calc-lines-collapse','calc-collapsible-line','calc-line-toggle','aria-expanded','calc-line-collapsed'] as $contract){
+ if(!str_contains($source,$contract))throw new RuntimeException('Bulk line folding regression: '.$contract);
+}
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
