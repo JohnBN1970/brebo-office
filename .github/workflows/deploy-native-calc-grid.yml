@@ -1,0 +1,68 @@
+name: Deploy native Calc grid to Office-test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-native-calc-grid-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: bcmath, mbstring
+      - name: Validate candidate and installer
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/deployment/hostinger/install-calc-grid-only.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
+          php office-independent/tests/OfficeCalcCrmWorkbenchRouteTest.php
+      - name: Validate complete adjustment candidate
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/install-calc-adjustment-files.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
+          php office-independent/tests/OfficeCalcQuantityAdjustmentsTest.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
+      - name: Block obsolete grid-only deployment
+        run: |
+          echo "::error::The legacy workflow only installs the workbench. Use the guarded multi-file deployment after schema verification."
+          exit 1
+      - name: Upload, install and verify guarded grid update
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          [[ "$REVISION" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git branch --show-current)" = 'feature/calc-wpcalc-grid-20261114'
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/feature/calc-wpcalc-grid-20261114)"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_grid
+          chmod 600 ~/.ssh/id_calc_grid
+          remote="$USER@$HOST"
+          base="domains/brebobv.nl/office_calc_test/.calc-grid-stage-$REVISION"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "mkdir -p '$base' && chmod 700 '$base'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$base/workbench.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -P "$PORT" office-independent/deployment/hostinger/install-calc-grid-only.php "$remote:$base/install.php"
+          expected="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -r ' \$base=realpath(getenv(\"HOME\").\"/domains/brebobv.nl/office_calc_test\"); \$cfg=require \$base.\"/config/config.php\"; \$root=realpath((string)(\$cfg[\"OFFICE_PRIVATE_ROOT\"]??\"\")); if((\$cfg[\"OFFICE_BASE_PATH\"]??\"\")!==\"/office-test\"||!\$root||!str_starts_with(\$root,\$base.\"/release-\")||!str_ends_with(\$root,\"/private\"))exit(3); \$file=\$root.\"/public/office-calc-crm-workbench.php\"; if(!is_file(\$file)||is_link(\$file))exit(4); echo hash_file(\"sha256\",\$file);'")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php '$base/install.php' '$base/workbench.php' '$expected'"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid -p "$PORT" "$remote" "php -l '$base/workbench.php'"
+          status="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' 'https://brebobv.nl/office-test/calculatie/samenwerken')"
+          echo "OFFICE_TEST_ANONYMOUS_HTTP=$status"
+          [[ "$status" == '200' || "$status" == '302' || "$status" == '303' ]]

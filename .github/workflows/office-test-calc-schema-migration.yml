@@ -1,0 +1,50 @@
+name: Office-test Calc schema migration
+on:
+  workflow_dispatch:
+    inputs:
+      apply_schema:
+        description: 'Type APPLY to authorize additive Office-test schema migration'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-calc-schema-migration
+  cancel-in-progress: false
+jobs:
+  migrate:
+    if: ${{ inputs.apply_schema == 'APPLY' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Validate migration scripts
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php
+          php -l office-independent/deployment/hostinger/apply-calc-adjustment-schema.php
+      - name: Apply and verify guarded Office-test migration
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_schema
+          chmod 600 ~/.ssh/id_calc_schema
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.calc-schema-stage-$(git rev-parse HEAD)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -P "$PORT" office-independent/deployment/hostinger/inspect-calc-adjustment-schema.php "$remote:$stage/inspect.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -P "$PORT" office-independent/deployment/hostinger/apply-calc-adjustment-schema.php "$remote:$stage/apply.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$remote" "php -l '$stage/inspect.php' && php -l '$stage/apply.php'"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_schema -p "$PORT" "$remote" "php '$stage/apply.php' --apply && php '$stage/inspect.php'"

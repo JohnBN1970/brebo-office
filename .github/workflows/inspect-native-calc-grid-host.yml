@@ -1,0 +1,23 @@
+name: Inspect live native Calc grid (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - name: Read deployed workbench checksum without modification
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_grid_inspect
+          chmod 600 ~/.ssh/id_calc_grid_inspect
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_grid_inspect -p "$PORT" "$USER@$HOST" 'php -r '\''$base=realpath(getenv("HOME")."/domains/brebobv.nl/office_calc_test");if(!$base)exit(2);$cfg=require $base."/config/config.php";if(!is_array($cfg)||($cfg["OFFICE_BASE_PATH"]??"")!=="/office-test")exit(3);$root=realpath((string)($cfg["OFFICE_PRIVATE_ROOT"]??""));if(!$root||!str_starts_with($root,$base."/release-")||!str_ends_with($root,"/private"))exit(4);$file=$root."/public/office-calc-crm-workbench.php";if(!is_file($file)||is_link($file))exit(5);echo "LIVE_CALC_GRID_SHA256=".hash_file("sha256",$file)."\\n";'\'''

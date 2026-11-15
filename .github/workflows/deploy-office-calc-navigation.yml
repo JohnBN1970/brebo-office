@@ -1,0 +1,73 @@
+name: Deploy Calc navigation correction to Office-test
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-native-calc-grid-deploy
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/calc-wpcalc-grid-20261114
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Validate navigation exception
+        run: |
+          set -euo pipefail
+          file=office-independent/src/Intake/OfficeNavigation.php
+          php -l "$file"
+          php -r '$s=file_get_contents($argv[1]); foreach(["/office-test/calculatie","/office-test/calculatie/samenwerken","/office-test/calc/crm/werkbank"] as $route) {if(!str_contains($s,$route))exit(1);}' "$file"
+      - name: Install and verify navigation file (no database changes)
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_navigation
+          chmod 600 ~/.ssh/id_calc_navigation
+          remote="$USER@$HOST"
+          revision="$(git rev-parse HEAD)"
+          stage="domains/brebobv.nl/office_calc_test/.calc-nav-stage-$revision"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -P "$PORT" office-independent/src/Intake/OfficeNavigation.php "$remote:$stage/OfficeNavigation.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_navigation -p "$PORT" "$remote" "php -r '
+            \$base=realpath(getenv(\"HOME\").\"/domains/brebobv.nl/office_calc_test\");
+            \$stage=realpath(\$argv[1]);
+            if(!\$base||!\$stage||!str_starts_with(\$stage,\$base.\"/.calc-nav-stage-\"))exit(2);
+            \$config=require \$base.\"/config/config.php\";
+            \$root=realpath((string)(\$config[\"OFFICE_PRIVATE_ROOT\"]??\"\"));
+            if((\$config[\"OFFICE_BASE_PATH\"]??\"\")!==\"/office-test\"||!\$root||!str_starts_with(\$root,\$base.\"/release-\")||!str_ends_with(\$root,\"/private\"))exit(3);
+            \$src=\$stage.\"/OfficeNavigation.php\";
+            \$dest=\$root.\"/src/Intake/OfficeNavigation.php\";
+            if(!is_file(\$src)||is_link(\$src)||!is_file(\$dest)||is_link(\$dest))exit(4);
+            \$lock=fopen(\$base.\"/.calc-grid-install.lock\",\"c\");
+            if(!\$lock||!flock(\$lock,LOCK_EX|LOCK_NB))exit(5);
+            \$backup=\$stage.\"/OfficeNavigation.backup.php\";
+            if(!copy(\$dest,\$backup))exit(6);
+            \$tmp=tempnam(dirname(\$dest),\".calc-nav-\");
+            if(!\$tmp||!copy(\$src,\$tmp))exit(7);
+            chmod(\$tmp,fileperms(\$dest)&0777);
+            if(!rename(\$tmp,\$dest))exit(8);
+            \$check=hash_equals(hash_file(\"sha256\",\$src),hash_file(\"sha256\",\$dest));
+            \$lint=0;exec(escapeshellarg(PHP_BINARY).\" -l \".escapeshellarg(\$dest).\" 2>&1\",\$out,\$lint);
+            if(!\$check||\$lint!==0){copy(\$backup,\$dest);echo \"CALC_NAV_DEPLOY=ROLLED_BACK\\n\";exit(9);}
+            echo \"CALC_NAV_DEPLOY=SUCCESS\\nCALC_NAV_HASH=VERIFIED\\nCALC_DATABASE=UNCHANGED\\n\";
+            flock(\$lock,LOCK_UN);fclose(\$lock);
+          ' '$stage'"
+      - name: Verify Office-test route is reachable
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' 'https://brebobv.nl/office-test/calculatie')"
+          echo "CALC_HTTP_STATUS=$status"
+          [[ "$status" == '200' || "$status" == '302' || "$status" == '303' ]]

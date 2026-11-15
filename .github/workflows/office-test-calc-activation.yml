@@ -1,0 +1,45 @@
+name: Office-test Calc activate adjustments
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type ENABLE to activate Office-test Calc quantity adjustments'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-calc-activation
+  cancel-in-progress: false
+jobs:
+  activate:
+    if: ${{ inputs.confirmation == 'ENABLE' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Lint activation script
+        run: php -l office-independent/deployment/hostinger/activate-calc-adjustments.php
+      - name: Enable Office-test flag after schema checks and backup
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_activate
+          chmod 600 ~/.ssh/id_calc_activate
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.calc-activation-stage-$(git rev-parse HEAD)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -P "$PORT" office-independent/deployment/hostinger/activate-calc-adjustments.php "$remote:$stage/activate.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_activate -p "$PORT" "$remote" "php -l '$stage/activate.php' && php '$stage/activate.php' --enable"

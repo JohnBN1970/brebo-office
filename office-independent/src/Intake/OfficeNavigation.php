@@ -163,6 +163,9 @@ final class OfficeNavigation {
   }
   public static function decorate(string $html,string $path,array $query,int $status,string $type):string {
     if($status!==200||!str_starts_with(strtolower($type),'text/html')||!str_starts_with($path,'/office-test')||in_array($path,['/office-test/inloggen','/office-test/uitloggen'],true)||str_contains($path,'/api/')||!preg_match('/<html\b/i',$html))return $html;
+    // The calculation workbench is a focused Office workspace with its own return link.
+    // Do not wrap it in the global sidebar; retain the normal session, router and rights.
+    if(in_array($path,['/office-test/calculatie','/office-test/calculatie/samenwerken','/office-test/calc/crm/werkbank'],true))return $html;
     $current=self::current($path);$nav=getenv('OFFICE_TEST_NAV_V2_ENABLED')==='enabled'?self::mainV2($path):self::main($current);
     $count=0;$html=preg_replace_callback('~<nav\b[^>]*\baria-label="Hoofdnavigatie"[^>]*>.*?</nav>~si',static fn()=>$nav,$html,1,$count)??$html;
     if($count===0)$html=self::wrapStandalonePage($html,$nav);
