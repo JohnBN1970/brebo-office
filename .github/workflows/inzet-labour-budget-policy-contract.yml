@@ -2,6 +2,7 @@ name: Inzet labour budget policy contract
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
@@ -10,6 +11,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourRatePolicyTest.php'
       - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
@@ -22,6 +24,7 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
@@ -30,6 +33,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourRatePolicyTest.php'
       - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
@@ -53,6 +57,7 @@ jobs:
       - name: Verify policy and planned shift contract
         run: |
           set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeApprovedLabourRatePolicy.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php
@@ -61,6 +66,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php
           php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeApprovedLabourRatePolicyTest.php
           php office-independent/tests/OfficeApprovedLabourCostPolicyTest.php
           php office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php
