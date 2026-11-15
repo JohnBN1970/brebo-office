@@ -40,5 +40,5 @@ foreach ($expected as $table=>$columns) {
 }
 if ($mode==='--preflight') {echo "LABOUR_COST_PREFLIGHT_NO_CHANGES\n";exit(0);}
 require_once dirname(__DIR__,2).'/src/Inzet/OfficeApprovedLabourCostSchema.php';
-foreach (\\Brebo\\Office\\Inzet\\OfficeApprovedLabourCostSchema::statements() as $sql) $db->exec($sql);
+foreach (\Brebo\Office\Inzet\OfficeApprovedLabourCostSchema::statements() as $sql) $db->exec($sql);
 echo "LABOUR_COST_SCHEMA_APPLIED_NO_DATA_INSERTED\n";
