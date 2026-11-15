@@ -37,7 +37,23 @@ function postTest(CurlHandle $h,string $url,PDO $db,int $project,string $action,
     [$get,$html]=requestTest($h,$url);ensureTest($get===200,'form_'.$action);
     $row=dossierTest($db,$project);
     $post=array_merge(['csrf_token'=>($expected===[403]?str_repeat('a',64):csrfTest($html)),'dossier_id'=>$row['id'],'expected_revision'=>$row['revision'],'kickstart_action'=>$action],$extra);
-    [$status]=requestTest($h,$url,$post);ensureTest(in_array($status,$expected,true),$action.'_http_'.$status);
+    [$status]=requestTest($h,$url,$post);
+    if ($status === 503) {
+        // Diagnose only the bounded fictitious fixture through the same domain adapter.
+        global $fixture, $handles, $active;
+        $role=array_search($h,$handles,true);
+        if ($role==='leader' && $project===$fixture['project_id']) {
+            foreach (['Policy','Repository','QuestionsRepository','ActionHandler'] as $class) require_once $active.'/src/Project/OfficeProjectKickstart'.$class.'.php';
+            try {
+                (new \Brebo\Office\Project\OfficeProjectKickstartActionHandler(new \Brebo\Office\Project\OfficeProjectKickstartRepository($db),new \Brebo\Office\Project\OfficeProjectKickstartQuestionsRepository($db)))
+                    ->handle($post,['actor_user_id'=>(int)$fixture['users']['leader']['id'],'authorized_dossier_id'=>(int)$row['id'],'csrf_token'=>$post['csrf_token'],'can_edit'=>true,'can_submit'=>true,'can_approve'=>true]);
+                echo "FIXTURE_DIAGNOSTIC=CLI_PASS_HTTP_FAILED\n";
+            } catch (\Throwable $error) {
+                echo 'FIXTURE_DIAGNOSTIC='.get_class($error).': '.$error->getMessage()."\n";
+            }
+        }
+    }
+    ensureTest(in_array($status,$expected,true),$action.'_http_'.$status);
 }
 try {
     $anonymous=curl_init();[$status,$body,$headers]=requestTest($anonymous,$url);ensureTest($status===302 && str_contains($headers,'/office-test/inloggen'),'anonymous_redirect');
@@ -59,11 +75,14 @@ try {
     $items=array_fill_keys(['bouwplaatsdocumenten','werkinstructie','projectteam','logistiek_deelleveringen','kickstart_verslag','open_punten_beoordeeld'],'1');
     postTest($leader,$url,$db,$id,'save_checklist',['items'=>$items,'critical_open_points'=>'0']);
     $saved=dossierTest($db,$id);ensureTest(json_decode($saved['items_json'],true)['projectteam']===true,'database_save_and_read');
+    postTest($leader,$url,$db,$id,'save_checklist',['items'=>$items,'critical_open_points'=>'0']);
+    ensureTest((int)dossierTest($db,$id)['revision']===(int)$saved['revision'],'unchanged_save_preserves_revision');
     postTest($leader,$url,$db,$id,'save_checklist',['items'=>$items,'critical_open_points'=>'0','expected_revision'=>'1'],[409]);
     postTest($leader,$url,$db,$id,'add_question',['question'=>'FICTIEF: deellevering afgestemd?','answer'=>'Ja, fictief levervenster','decision'=>'Akkoord','owner_user_id'=>$fixture['users']['reviewer']['id'],'due_date'=>'2026-12-01']);
     postTest($leader,$url,$db,$id,'submit_for_approval');
     postTest($leader,$url,$db,$id,'approve');
     postTest($leader,$url,$db,$id,'approve',[],[409]);
+    postTest($reviewer,$url,$db,$id,'reject',['note'=>''],[409]);
     postTest($reviewer,$url,$db,$id,'reject',['note'=>'FICTIEVE afwijzing voor acceptatie']);
     ensureTest(dossierTest($db,$id)['status']==='changes_requested','rejection_persisted');
     postTest($leader,$url,$db,$id,'submit_for_approval');postTest($leader,$url,$db,$id,'approve');postTest($reviewer,$url,$db,$id,'approve');

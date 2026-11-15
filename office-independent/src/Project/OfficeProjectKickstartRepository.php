@@ -77,7 +77,7 @@ final class OfficeProjectKickstartRepository
             if (!in_array($previous, ['draft','changes_requested','awaiting_first_approval','awaiting_second_approval','released'], true)) {
                 throw new DomainException('Invalid dossier status');
             }
-            if ((string)$current['items_json'] === $json && (int)$current['critical_open_points'] === $criticalOpenPoints) {
+            if (json_decode((string)$current['items_json'], true, 512, JSON_THROW_ON_ERROR) == $items && (int)$current['critical_open_points'] === $criticalOpenPoints) {
                 $this->db->commit();
                 return ['status'=>$previous,'revision'=>$expectedRevision,'changed'=>false];
             }
@@ -157,6 +157,7 @@ final class OfficeProjectKickstartRepository
             $items = json_decode((string)$row['items_json'], true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($items)) throw new DomainException('Invalid checklist');
             if ($decision === 'reject') {
+                if (trim($note ?? '') === '') throw new DomainException('Rejection reason required');
                 if (!in_array($status, ['awaiting_first_approval','awaiting_second_approval'], true)) throw new DomainException('Invalid status');
                 if ($status === 'awaiting_first_approval' && (int)$row['project_leader_user_id'] !== $actorId) {
                     throw new DomainException('Project leader required for first review');
