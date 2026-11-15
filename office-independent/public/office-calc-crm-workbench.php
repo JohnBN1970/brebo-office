@@ -492,6 +492,7 @@ foreach($typeLabels as $key=>$label) echo '<dt>'.$h($label).'</dt><dd>€ '.numb
 echo '</dl><p class="muted">Opslagen, verkoopprijs, hoofdstukken en versiebeheer volgen in de volgende fase. De huidige bedragen zijn directe kosten.</p></section></details>';
 echo '<details class="calc-data-secondary"><summary>Vraaggestuurd calculeren · voorstellen tonen</summary><section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">Kies een voorziening. Controleer de hoeveelheid en prijs voordat je de voorgestelde regel opslaat.</p><div class="guided-questions">';
 foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
+if($laborRateCatalog!==null)echo '<p><a href="#calc-hours" id="calc-check-hourly-rate">Is het uurtarief nog actueel? Controleer de actieve tarieven in het tabblad Uren voordat je arbeidsregels goedkeurt.</a></p>';
 echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wordt alleen een aanvullende materiaalpost voorgesteld; een procentuele berekening op de nettohoeveelheid uit Gebouwen is nog niet gekoppeld. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section></details>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 echo '<details class="calc-support-panel"><summary>Revisies, samenwerking en wijzigingen</summary>';
@@ -505,6 +506,7 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   const tabs=Array.from(document.querySelectorAll("[data-calc-tab]"));
   const selectTab=name=>{for(const tab of tabs){const active=tab.dataset.calcTab===name;tab.setAttribute("aria-selected",String(active));const target=document.getElementById("panel-"+tab.dataset.calcTab);if(target)target.hidden=!active;}try{sessionStorage.setItem("brebo_calc_active_tab",name);}catch(e){}};
   tabs.forEach(tab=>tab.addEventListener("click",()=>selectTab(tab.dataset.calcTab)));
+  document.getElementById("calc-check-hourly-rate")?.addEventListener("click",()=>selectTab("hours"));
   let initial="data";try{initial=sessionStorage.getItem("brebo_calc_active_tab")||"data";}catch(e){}selectTab(tabs.some(t=>t.dataset.calcTab===initial)?initial:"data");
   const safeRead=(key)=>{try{return localStorage.getItem(key);}catch(e){return null;}};
   const safeWrite=(key,value)=>{try{localStorage.setItem(key,value);}catch(e){/* Storage may be blocked; controls remain usable. */}};
