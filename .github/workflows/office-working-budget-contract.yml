@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/WorkingBudget/**'
       - 'office-independent/tests/*Budget*Test.php'
       - 'office-independent/tests/LockedBaselineLinesTest.php'
+      - 'office-independent/tests/LockedBaselineDecimalLinesTest.php'
       - 'office-independent/tests/*Cost*Test.php'
       - 'office-independent/tests/*Reconciliation*Test.php'
       - 'office-independent/tests/*Labor*Test.php'
@@ -35,6 +36,7 @@ jobs:
           set -eu
           php office-independent/tests/WorkingBudgetForecastTest.php
           php office-independent/tests/LockedBaselineLinesTest.php
+          php office-independent/tests/LockedBaselineDecimalLinesTest.php
           php office-independent/tests/ProcurementCommitmentReconciliationTest.php
           php office-independent/tests/OfficeProcurementBudgetAdapterTest.php
           php office-independent/tests/FinanceCostAllocationTest.php
