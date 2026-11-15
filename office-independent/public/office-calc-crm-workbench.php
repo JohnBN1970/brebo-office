@@ -227,8 +227,23 @@ try {
                     throw new DomainException('Arbeidsregel vereist norm/uren en tarief; bestaande waarden worden niet gewist.');
             }
         }
+        $components=null;
+        if($collaborationEnabled&&isset($_POST['component_labor'])){
+            $components=[];
+            foreach(['labor','material','equipment','subcontract','other'] as $kind){
+                $raw=$_POST['component_'.$kind]??null;
+                if(!is_string($raw))$deny(400,'INVALID_COMPONENT');
+                $amount=str_replace(',','.',trim($raw));
+                if(!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
+                $components[$kind]=$amount;
+            }
+            if($labor!==null||$adjustmentMetadata!==null)$deny(400,'COMPONENT_MODE_CONFLICT');
+            $primary=(string)($_POST['cost_type']??'');
+            if(!isset($components[$primary]))$deny(400,'INVALID_COMPONENT');
+            $exactUnitCost=$components[$primary];
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -367,7 +382,10 @@ foreach($lines as $line) {
             foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'" data-hourly-rate="'.$h((string)$rate['hourly_rate']).'"'.((string)($line['labor_rate_code']??'')===(string)$rate['code']?' selected':'').'>'.$h((string)$rate['code'].' · '.$rate['description']).'</option>';
             echo '<td><select form="'.$formId.'" name="labor_rate_code" class="calc-labor-discipline">'.$rateOptions.'</select></td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';}else echo '<td>—</td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';
         }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
-        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        foreach($costCells as $kind){
+            $amount=(string)($line['cost_components'][$kind]??'0');
+            echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" min="0" step="0.0001" name="component_'.$kind.'" value="'.$h($amount).'" aria-label="'.$h($typeLabels[$kind]).' per eenheid"'.(!$collaborationEnabled?' disabled':'').'></td>';
+        }
         echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
         echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
