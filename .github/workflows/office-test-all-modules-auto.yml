@@ -53,6 +53,8 @@ jobs:
           php -l office-independent/public/office-calc-crm-material-panel.php
           php office-independent/tests/OfficeCalcGridLayoutContractTest.php
           php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          php -l office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php
+          php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
       - name: Validate existing core contracts
         run: |
           set -euo pipefail
