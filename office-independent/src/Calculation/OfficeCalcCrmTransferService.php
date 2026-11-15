@@ -39,6 +39,13 @@ final class OfficeCalcCrmTransferService
                 || bccomp(bcmul($line['quantity_decimal'], $line['unit_cost_decimal'], 4), $line['budget_decimal'], 4) !== 0) {
                 throw new DomainException('Decimal work-budget total mismatch.');
             }
+            // The legacy cents column must match the approved decimal line total
+            // rounded half-up once. Reject tampered or inconsistent payloads.
+            $roundedCents = bcadd(bcmul($line['quantity_decimal'], $line['unit_cost_decimal'], 8), '0', 8);
+            $roundedCents = bcadd(bcmul($roundedCents, '100', 8), '0.5', 0);
+            if (bccomp($roundedCents, (string)$line['unit_cost_cents'], 0) !== 0) {
+                throw new DomainException('Decimal budget cents do not match the source calculation.');
+            }
         }
         if ($hasDecimals) {
             if (count(array_filter($lines, static fn($line): bool => is_array($line) && isset($line['quantity_decimal']))) !== count($lines)) {
