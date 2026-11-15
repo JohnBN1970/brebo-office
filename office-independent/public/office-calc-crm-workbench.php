@@ -422,6 +422,29 @@ require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div><script>
 (function(){
   "use strict";
+  // Prevent adjustment fields from a different cost type being submitted.
+  for(const formId of ["calc-inline-new","calc-inline-edit"]){
+    const form=document.getElementById(formId);
+    if(!form)continue;
+    const field=name=>document.querySelector(`[form="${formId}"][name="${name}"]`)||form.querySelector(`[name="${name}"]`);
+    const type=field("cost_type"),loss=field("material_loss_percent"),extra=field("extra_labor_hours");
+    if(!type)continue;
+    const update=()=>{
+      if(loss){
+        const allowed=type.value==="material";
+        if(!allowed)loss.value="";
+        loss.disabled=!allowed;
+      }
+      if(extra){
+        const allowed=type.value==="labor";
+        if(!allowed)extra.value="";
+        extra.disabled=!allowed;
+      }
+    };
+    type.addEventListener("change",update);
+    form.addEventListener("submit",update);
+    update();
+  }
   // Last edited labor cell determines the calculation; no separate selector.
   for(const formId of ["calc-inline-new","calc-inline-edit"]){
     const form=document.getElementById(formId);
