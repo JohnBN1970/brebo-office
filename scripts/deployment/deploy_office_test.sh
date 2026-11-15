@@ -33,7 +33,15 @@ command -v python3 >/dev/null
 python3 "$helper/prepare_office_test_release.py" --active "$active" --candidate "$candidate" --incoming "$work/office-independent" --baseline "$baseline" --known-ancestor-blobs "$work/metadata/onsite-ancestor-blobs.txt" --known-calc-blobs "$work/metadata/calc-ancestor-blobs.txt" --known-calc-path-blobs "$work/metadata/calc-path-ancestor-blobs.txt" --office-test-authoritative
 # Refresh the established renderer rather than replacing its runtime adapters.
 python3 "$candidate/deployment/hostinger/mount-project-detail-v3.py" "$candidate/public/office-project.php"
-find "$candidate/src" "$candidate/public" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > "$work/php-lint.log" || { grep -v 'No syntax errors' "$work/php-lint.log"; exit 14; }
+# Hostinger's shared SSH environment must not spawn four PHP CLI workers
+# concurrently; CI has already linted the repository's canonical sources.
+echo "OFFICE_TEST_SERVER_PHP_LINT_START"
+if ! find "$candidate/src" "$candidate/public" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 1 php -l > "$work/php-lint.log"; then
+  echo "OFFICE_TEST_SERVER_PHP_LINT_FAILED"
+  grep -v 'No syntax errors' "$work/php-lint.log" || true
+  exit 14
+fi
+echo "OFFICE_TEST_SERVER_PHP_LINT_PASS"
 checkpoint="$base/development-checkpoints/$release_sha"
 mkdir -p "$checkpoint"
 chmod 700 "$checkpoint"
