@@ -748,6 +748,26 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
             ->forAuthorizedProject((int)$projectId, $workBudgetProcurement, null, $laborEvidence);
         $workBudgetTabHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
+        // Posted actual labour costs are distinct from planned/approved hours.
+        // Finance ACL and test-only panel gate are enforced above.
+        if (getenv('OFFICE_TEST_ACTUAL_LABOUR_COSTS_SCHEMA_VERIFIED') === 'enabled') {
+            try {
+                require_once dirname(__DIR__) . '/src/Inzet/OfficeActualLabourCostProjectReader.php';
+                $actualLabour = (new \Brebo\Office\Inzet\OfficeActualLabourCostProjectReader($db))
+                    ->forProject((int)$projectId);
+                $workBudgetTabHtml .= '<section class="module"><h3>Arbeid · werkelijke kosten</h3>'
+                    . '<p>Geboekte medewerkerkosten: <strong>€ '
+                    . number_format($actualLabour['actual_cost_cents'] / 100, 2, ',', '.')
+                    . '</strong></p><p>Bron: ' . (int)$actualLabour['entries']
+                    . ' unieke goedgekeurde urenboekingen. Geen planning of aanwezigheid als kosten geboekt.</p></section>';
+            } catch (\Throwable $actualLabourError) {
+                error_log('Actual labour cost read unavailable: ' . get_class($actualLabourError));
+                $workBudgetTabHtml .= '<p>Werkelijke arbeidskosten niet beschikbaar.</p>';
+            }
+        } else {
+            $workBudgetTabHtml .= '<p>Werkelijke arbeidskosten nog niet beschikbaar: kostenregister niet geverifieerd.</p>';
+        }
+
         // Project-scoped, read-only material and procurement view.
         // The enclosing Finance ACL and test-only flag are mandatory.
         // A separate opt-in flag prevents queries before additive tables exist.
