@@ -32,3 +32,10 @@ Verifieer ook: afkeuren met reden; wijziging/revisie maakt oude goedkeuringen on
 - Scheid schema-migraties van testseed. Seed alleen bij aantoonbare Office-testomgeving en expliciete testmodus.
 - Behoud autorisatie, audittrail, CSRF, backups en terugdraaimogelijkheden waar relevant.
 - Geen automatische productie-uitrol op basis van een groene test; productie vraagt afzonderlijke release-acceptatie.
+
+## 6. Een opdracht = een volledige uitvoeringsrun
+- De gebruiker hoeft niet steeds 'door', 'en' of 'doorpakken' te typen. Een opdracht om te bouwen omvat ook integratie, noodzakelijke testdata, regressietests, foutcorrecties en eindcontrole binnen dezelfde beschikbare werkronde.
+- Stop niet bij een losse commit, groene CI, gedeeltelijke codewijziging of diagnose als er nog uitvoerbare vervolgstappen zijn.
+- Bundel toolacties waar veilig mogelijk. Rapporteer pas na een verifieerbaar eindresultaat of een concrete, niet zelfstandig oplosbare blokkade.
+- Vraag alleen tussentijds om een beslissing bij wezenlijke ontwerpambiguiteit, ontbrekende bevoegdheden of risicovolle/onherroepelijke handelingen; normale fictieve Office-testdata vereisen geen nieuwe toestemming.
+- Een chatantwoord kan geen onbeperkte achtergrondtaak voortzetten. Doe geen toezeggingen over doorwerken na het antwoord zonder een daadwerkelijk ingestelde uitvoerings- of automatiseringsvoorziening.
