@@ -419,8 +419,11 @@ echo '<section class="panel"><h2>Vraaggestuurd calculeren</h2><p class="muted">K
 foreach($guidedOptions as $key=>$option)echo '<a class="guided-choice" href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;guided='.rawurlencode($key).'#calc-line-editor">'.$h($option[0]).' · + Voorstel</a>';
 echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wordt alleen een aanvullende materiaalpost voorgesteld; een procentuele berekening op de nettohoeveelheid uit Gebouwen is nog niet gekoppeld. Gebouwhoeveelheden en tarieven zijn nog niet gekoppeld aan deze vragen.</p></section>';
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
+echo '<details class="calc-support-panel"><summary>Materiaal zoeken in prijslijst (bestaande functie)</summary>';
 require __DIR__.'/office-calc-crm-material-panel.php';
+echo '</details><details class="calc-support-panel"><summary>Revisies, samenwerking en wijzigingen</summary>';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
+echo '</details>';
 echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-tail" hidden><section id="calc-tail" class="panel"><h2>Staart · kostenoverzicht</h2><p>Directe kostprijs: <strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></p><p class="muted">Staartopslagen en MAMO-verdeling worden hier gekoppeld. Er worden nog geen opslagen berekend.</p></section></div></div></div><script>
 (function(){
   "use strict";
