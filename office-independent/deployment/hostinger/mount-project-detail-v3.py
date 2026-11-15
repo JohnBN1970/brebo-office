@@ -99,7 +99,15 @@ echo $breboV23Render((string) ob_get_clean());
 
 def transform(source: str) -> str:
     if MARKER in source:
-        return source
+        # Refresh a previously mounted renderer while preserving the controller.
+        # The mount owns the entire final render tail; never leave an older UI
+        # in place when a later deployment adds forms or security guards.
+        if source.count(MARKER) != 1:
+            raise ValueError('Ambiguous mounted renderer')
+        start = source.index(MARKER)
+        if not source.rstrip().endswith('echo $breboV23Render((string) ob_get_clean());'):
+            raise ValueError('Unexpected statements after mounted renderer')
+        return source[:start] + REPLACEMENT
     missing = [marker for marker in REQUIRED if marker not in source]
     if missing:
         raise ValueError("Missing required markers: " + ", ".join(missing))
