@@ -27,7 +27,7 @@ De voormalige productie-pushtrigger op `develop` is verwijderd. De productiework
 
 ## Grensgevallen
 
-- De bronpoort controleert de workflowbestanden, maar vervangt geen GitHub-branchbeveiliging. Voor het opslaan van de voorbereide develop-regel vraagt GitHub opnieuw om accountverificatie; de passkeypoging is geweigerd. Deze beheerstap is nog niet voltooid.
+- De branchbeveiliging op `develop` is actief en teruggelezen na opslag: PR verplicht, statuscheck `Office-test source gate` verplicht, branch actueel vóór merge en geen beheerdersbypass. Force-pushes en branchverwijdering zijn niet toegestaan. De bronpoort controleert daarnaast de workflowbestanden.
 - De bestaande Hostinger-toegang gebruikt repositorysecrets en dezelfde bestaande SSH-identiteit. Er zijn geen nieuwe credentials of rechten aangemaakt. Een aparte beperkt bevoegde serveridentiteit is nog niet ingericht.
 - De productieworkflow wordt niet tijdens een ontwikkelopdracht aangezet. Met zelfreviewpreventie moet de uiteindelijke releasegoedkeurder verschillen van de identiteit die de release start.
 - Runtime-only afhankelijkheden zijn nog niet allemaal als bron in GitHub aanwezig. De centrale installer bewaart ze; verwijderingen en conflicten vragen een expliciete technische reconciliatie door de uitvoerder.

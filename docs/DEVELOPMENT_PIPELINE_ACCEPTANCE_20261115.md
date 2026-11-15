@@ -39,13 +39,17 @@ De HTTP-proef gebruikt een begrensd verzoektempo op de gedeelde hosting. Een bur
 
 ## Integraties en productiegrens
 
-Geïntegreerd: PR #1879 (scheiding productie), #1816 (startdossier) en #1880–#1885 (centrale installatie, acceptatie en herstel).
+Geïntegreerd: PR #1879 (scheiding productie), #1816 (startdossier) en #1880–#1887 (centrale installatie, acceptatie en herstel).
 
 Productie is niet uitgerold. De productieworkflow is uitgeschakeld, de develop-pushtrigger is verwijderd en productie vereist een expliciete release-tag/dispatch plus de beschermde omgeving. Productiereview is verplicht, zelfreview is geblokkeerd en beheerders mogen deze bescherming niet omzeilen. Historische automatische remote routes zijn verwijderd; bestaande geplande bedrijfsoperaties blijven gedocumenteerde uitzonderingen.
 
-## Nog open
+## Branchbeveiliging afgerond
 
-1. GitHub vraagt opnieuw om accountverificatie voor het opslaan van de voorbereide branchregel op `develop`. De passkeyverificatie is geweigerd. De regel is daarom nog niet als actief aangetoond. Minimaal nodig: één herbevestiging van de GitHub-identiteit; daarna kan de uitvoerder de regel opslaan en verifiëren.
+Na herbevestiging van de GitHub-identiteit is de develop-regel opgeslagen en opnieuw geopend ter verificatie. Actief: PR verplicht, verplichte statuscheck `Office-test source gate`, branch actueel vóór merge, geen beheerdersbypass, geen force-pushes en geen branchverwijdering. De GitHub API bevestigt `protected: true`. De eenmalige verificatieblokkade is daarmee opgeheven.
+
+## Resterende uitzonderingen
+
+1. Technische integratie verloopt via de uitvoerende ChatGPT-sessie volgens de actieve branchregels; de opdrachtgever hoeft geen handmatige merges uit te voeren.
 2. De SSH-identiteit is nog de bestaande gedeelde Hostinger-toegang. Er zijn geen nieuwe credentials of extra bevoegdheden aangemaakt.
 3. Nieuwe modulemigraties en acceptatiescenario's worden expliciet aan de centrale route toegevoegd. De eerste geaccepteerde keten is het startdossier; dit is geen claim dat alle Office-modules volledig functioneel geaccepteerd zijn.
 4. Een productierelease heeft afzonderlijk akkoord nodig en, door de ingestelde zelfreviewpreventie, een goedkeurder die verschilt van de startende identiteit. Productie is in deze opdracht bewust niet gereleased.
