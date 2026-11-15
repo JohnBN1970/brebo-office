@@ -1,13 +1,7 @@
 name: BREBO Integration API PR
 
 on:
-  pull_request:
-    branches:
-      - develop
-    paths:
-      - 'integration-api/**'
-      - '.github/workflows/integration-api-pr.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

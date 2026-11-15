@@ -1,9 +1,6 @@
 name: Calc Office-test read-only staging inventory
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/calc-office-test-staging-inventory.yml'
   workflow_dispatch:
     inputs:
       confirmation:

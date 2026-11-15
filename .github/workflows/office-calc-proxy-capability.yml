@@ -1,9 +1,6 @@
 name: Office-test Calc proxy capability
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/office-calc-proxy-capability.yml'
-      - 'office-independent/deployment/hostinger/probe-office-calc-proxy.php'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:

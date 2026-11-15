@@ -2,12 +2,6 @@ name: Diagnose Mail Intake HTTP runtime
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/mail-intake-http-runtime-diag.yml'
-
 permissions:
   contents: read
 

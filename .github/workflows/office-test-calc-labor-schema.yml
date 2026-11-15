@@ -1,11 +1,5 @@
 name: Office-test Calc labor schema
 on:
-  push:
-    branches:
-      - feature/calc-wpcalc-grid-20261114
-    paths:
-      - '.github/workflows/office-test-calc-labor-schema.yml'
-      - 'office-independent/deployment/hostinger/inspect-calc-labor-schema.php'
   workflow_dispatch:
     inputs:
       apply_schema:

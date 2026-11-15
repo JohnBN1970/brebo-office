@@ -1,14 +1,6 @@
 name: BREBO facturen mail routing acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_finance/src/Service/MailPurchaseInvoiceRouter.php'
-      - 'web/modules/custom/brebo_finance/brebo_finance.services.yml'
-      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
-      - '.github/workflows/facturen-mail-routing-acceptance.yml'
   workflow_dispatch:
 
 permissions:

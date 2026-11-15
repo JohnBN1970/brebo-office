@@ -1,10 +1,5 @@
 name: Office quality risk procurement source audit
 on:
-  push:
-    branches: ['integration/quality-risk-procurement-20261108']
-    paths:
-      - 'office-independent/deployment/hostinger/office-quality-risk-procurement-audit.php'
-      - '.github/workflows/office-quality-risk-procurement-audit.yml'
   workflow_dispatch:
 permissions:
   contents: read

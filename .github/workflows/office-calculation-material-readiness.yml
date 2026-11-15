@@ -1,9 +1,6 @@
 name: Office calculation and material readiness
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/office-calculation-material-readiness.yml'
-      - 'office-independent/deployment/hostinger/audit-calculation-material-readiness.php'
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:

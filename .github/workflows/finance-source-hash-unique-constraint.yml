@@ -1,9 +1,6 @@
 name: Finance source-hash unique constraint
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
 
 permissions:

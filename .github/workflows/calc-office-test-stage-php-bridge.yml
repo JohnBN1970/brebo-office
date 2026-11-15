@@ -1,9 +1,5 @@
 name: Calc Office-test stage PHP bridge (flags off)
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-office-test-stage-php-bridge.yml'
   workflow_dispatch:
     inputs:
       confirmation:

@@ -1,9 +1,5 @@
 name: Office demo inspection-to-calc preflight
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/audit-office-demo-calc-bridge.php'
-      - '.github/workflows/office-demo-calc-bridge-preflight.yml'
   workflow_dispatch:
     inputs:
       confirmation:

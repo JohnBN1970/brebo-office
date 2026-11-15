@@ -45,3 +45,11 @@ Verifieer ook: afkeuren met reden; wijziging/revisie maakt oude goedkeuringen on
 - De uitvoerder organiseert waar mogelijk de volledige technische keten via bestaande connectors en GitHub Actions; vraagt niet om herhaald 'door' en draagt routinematige uitvoering niet over aan de opdrachtgever.
 - Uitzonderingen uitsluitend bij noodzakelijke toestemming, ontbrekende rechten/geheimen, wezenlijke ontwerpkeuzes of expliciete productieacceptatie. Leg de blokkade en precies een benodigde gebruikersactie uit.
 - Belangrijk: de bestaande `sboffice-deploy-develop.yml` triggert op push naar develop en heet productiedeployment. Voordat merges of automatische Office-test-uitrol worden gestandaardiseerd moet de werkelijke productie-impact worden onderzocht en de productie-uitrol technisch gescheiden/geblokkeerd. Geen automatische merges naar develop zolang deze grens niet aantoonbaar veilig is.
+
+## 8. Centrale ontwikkelstraat en productiegrens
+- Centrale route: `.github/workflows/office-test-all-modules-auto.yml`. Feature/fix en PR: broncontroles zonder Hostinger-secrets. Alleen develop: geverifieerde Office-test-acties.
+- `scripts/ci/check_deployment_policy.py` blokkeert automatische remote routes buiten de centrale straat. De historische routes in `docs/DEPLOYMENT_LEGACY_WORKFLOWS.json` zijn uitsluitend handmatige onderhoudsprocedures; geen standaard ontwikkelstraat.
+- Productie: uitsluitend workflow_dispatch op `release-*` tag, bevestiging `RELEASE-PRODUCTION` en GitHub Environment `production` met verplichte releasegoedkeuring. Nooit een develop-push gebruiken als productieakkoord.
+- Bestaande geplande bedrijfsoperatie Moneybird-debiteuren en twee read-only Office-test-audits blijven bestaan. Zij vormen geen ontwikkeldeployment; wijzigingen eraan vergen aparte beoordeling.
+- Eerste centrale run inventariseert de echte actieve release, testdatabase, flags en brondrift. Zonder reconciliatie van de runtime mag een volledige bronkopie geen werkende Hostinger-mounts overschrijven.
+- Een pipeline-inventarisatie is geen installatie of functionele acceptatie. Controleer concrete runuitvoer en rapporteer resterende blokkades letterlijk.

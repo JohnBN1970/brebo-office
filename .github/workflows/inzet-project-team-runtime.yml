@@ -1,11 +1,6 @@
 name: Diagnose Inzet Project Team Runtime
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/inzet-project-team-runtime.yml'
   workflow_dispatch:
 
 permissions:

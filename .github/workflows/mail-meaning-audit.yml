@@ -1,14 +1,6 @@
 name: BREBO Mail meaning audit
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_mail_intake/src/Service/MailMeaningExtractor.php'
-      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
-      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
-      - '.github/workflows/mail-meaning-audit.yml'
   workflow_dispatch:
 
 permissions:

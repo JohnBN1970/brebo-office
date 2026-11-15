@@ -2,12 +2,6 @@ name: BREBO Zoho pilot created-node diagnosis
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-pilot-created-node-diagnosis.yml'
-
 permissions:
   contents: read
 

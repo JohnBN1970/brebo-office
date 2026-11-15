@@ -1,10 +1,6 @@
 name: Calc CRM work-budget Office-test read-only audit
 on:
   workflow_dispatch:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-crm-work-budget-db-audit.yml'
 permissions:
   contents: read
 concurrency:

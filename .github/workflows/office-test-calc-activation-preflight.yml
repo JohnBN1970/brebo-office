@@ -1,10 +1,6 @@
 name: Office-test Calc activation preflight
 on:
   workflow_dispatch:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/office-test-calc-activation-preflight.yml'
 permissions:
   contents: read
 jobs:
