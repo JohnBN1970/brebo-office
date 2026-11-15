@@ -51,7 +51,7 @@ assert "INSERT INTO office_project_start_events" in repository, "Creation audit 
 assert "createForAuthorizedProject" not in source, "Creation must remain disabled until trusted project leader resolution is wired"
 # A synthetic V2 controller exercises the deploy mount without assuming
 # the repository's unmounted controller contains prior V2 deployment markers.
-synthetic = "<?php\\n" + "\\n".join(module.REQUIRED) + "\\n" + module.ANCHOR + "\\n" + "echo $breboV23Render((string) ob_get_clean());"
+synthetic = "<?php\n" + "\n".join(module.REQUIRED) + "\n" + module.ANCHOR + "\n" + "echo $breboV23Render((string) ob_get_clean());"
 mounted = module.transform(synthetic)
 assert "OfficeProjectKickstartFormView" in mounted
 assert module.transform(mounted) == mounted, "Mount must remain idempotent"
