@@ -2,6 +2,11 @@
 declare(strict_types=1);
 require __DIR__.'/office_test_environment.php';
 require __DIR__.'/office_test_seed.php';
+set_exception_handler(static function (Throwable $error): void {
+    $message=$error instanceof RuntimeException ? $error->getMessage() : get_class($error);
+    fwrite(STDERR,'OFFICE_TEST_ACCEPTANCE_ERROR='.$message."\n");
+    exit(1);
+});
 [$base,$configPath,$config,$active]=officeTestEnvironment();
 if (($argv[1]??'')!=='OFFICE-TEST' || realpath($argv[2]??'')!==$active || !preg_match('~/release-ci-([0-9a-f]{40})/private$~D',$active,$match)) throw new RuntimeException('TEST_ACCEPTANCE_SCOPE_INVALID');
 $db=officeTestDatabase($config);
@@ -31,7 +36,7 @@ function dossierTest(PDO $db,int $project): array {
 function postTest(CurlHandle $h,string $url,PDO $db,int $project,string $action,array $extra=[],array $expected=[303]): void {
     [$get,$html]=requestTest($h,$url);ensureTest($get===200,'form_'.$action);
     $row=dossierTest($db,$project);
-    $post=array_merge(['csrf_token'=>csrfTest($html),'dossier_id'=>$row['id'],'expected_revision'=>$row['revision'],'kickstart_action'=>$action],$extra);
+    $post=array_merge(['csrf_token'=>($expected===[403]?str_repeat('a',64):csrfTest($html)),'dossier_id'=>$row['id'],'expected_revision'=>$row['revision'],'kickstart_action'=>$action],$extra);
     [$status]=requestTest($h,$url,$post);ensureTest(in_array($status,$expected,true),$action.'_http_'.$status);
 }
 try {

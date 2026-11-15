@@ -65,7 +65,7 @@ jobs:
           paths=[p for area in ['src','public','schema','deployment'] for p in (root/area).rglob('*') if p.is_file()]
           pathlib.Path('/tmp/office-source-manifest.json').write_text(json.dumps({str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}))
           PY
-      - name: Read isolated Office-test runtime
+      - name: Deploy isolated Office-test and run HTTP acceptance
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -99,5 +99,5 @@ jobs:
         env:
           RESULT: ${{ job.status }}
         run: |
-          echo "### Office-test runtime inventory: $RESULT" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Office-test deployment and acceptance: $RESULT" >> "$GITHUB_STEP_SUMMARY"
           echo "Production untouched. See acceptance artifact for migrations, release activation, HTTP role tests and rollback outcome." >> "$GITHUB_STEP_SUMMARY"
