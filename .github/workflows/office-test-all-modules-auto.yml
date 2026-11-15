@@ -104,8 +104,8 @@ jobs:
           options=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test)
           # Candidate is private and immutable after a failed reconciliation.
           # Copy ONLY the known conflicting class, never environment or config files.
-          remote="\$HOME/domains/brebobv.nl/office_calc_test/release-ci-$GITHUB_SHA/private/src/Inzet/OfficeOnSiteApprovalService.php"
-          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "test -f '$remote' && cat '$remote'" > office-test-onsite-runtime.php || rm -f office-test-onsite-runtime.php
+          remote="domains/brebobv.nl/office_calc_test/release-ci-$GITHUB_SHA/private/src/Inzet/OfficeOnSiteApprovalService.php"
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "test -f ~/$remote && cat ~/$remote" > office-test-onsite-runtime.php || rm -f office-test-onsite-runtime.php
           if test -s office-test-onsite-runtime.php; then
             echo "Private OnSite conflict evidence captured for reconciliation."
           else
