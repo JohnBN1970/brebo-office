@@ -330,9 +330,14 @@ $total=0;
 $rowNumber=0;
 foreach($lines as $line) {
     ++$rowNumber;
-    $subtotal=$lineAmount($line);if(!$collaborationEnabled)$total+=$subtotal;
+    $unitSum='0.0000';
+    foreach(['labor','material','equipment','subcontract','other'] as $componentKind){
+        $unitSum=bcadd($unitSum,(string)($line['cost_components'][$componentKind]??((string)$line['cost_type']===$componentKind?(string)$line['unit_cost_decimal']:'0')),4);
+    }
+    $subtotal=$collaborationEnabled?bcmul((string)$line['quantity_decimal'],$unitSum,8):(int)round((float)$unitSum*100)*(int)$line['quantity'];
+    if(!$collaborationEnabled)$total+=$subtotal;
     $sourceLabel=($line['price_source_type']??'manual')==='article'?($line['source_supplier'].' · '.$line['source_reference']):'Handmatig';
-    $unitCost=number_format($collaborationEnabled?(float)$line['unit_cost_decimal']:(int)$line['unit_cost_cents']/100,$collaborationEnabled?4:2,',','.');
+    $unitCost=number_format((float)$unitSum,$collaborationEnabled?4:2,',','.');
     $rowTotal=number_format($collaborationEnabled?(float)$subtotal:$subtotal/100,$collaborationEnabled?4:2,',','.');
     $costCells=['labor','material','equipment','other','subcontract'];
     $editing=$edit!==null&&(string)$edit['line_id']===(string)$line['line_id'];
