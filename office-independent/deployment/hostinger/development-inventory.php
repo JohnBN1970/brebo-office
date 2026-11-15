@@ -13,6 +13,7 @@ $active = realpath($config['OFFICE_PRIVATE_ROOT'] ?? '');
 if (!$active || !str_starts_with($active, $base . '/release-') || !str_ends_with($active, '/private') || is_link($config['OFFICE_PRIVATE_ROOT'])) {
     throw new RuntimeException('INVALID_TEST_RELEASE');
 }
+echo 'CLI_MBSTRING_AVAILABLE=' . (function_exists('mb_strlen') ? 'yes' : 'no') . "\n";
 echo 'ACTIVE_RELEASE=' . basename(dirname($active)) . "\n";
 foreach (['OFFICE_LOGIN_ENABLED','OFFICE_CRM_SESSION_MODE','OFFICE_NATIVE_PROJECTS_ENABLED','OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED','OFFICE_TEST_PROJECT_KICKSTART_ENABLED'] as $flag) {
     echo $flag . '=' . (($config[$flag] ?? '') === 'enabled' ? 'enabled' : 'disabled') . "\n";

@@ -19,6 +19,14 @@ final class OfficeProjectKickstartPolicy
         'open_punten_beoordeeld',
     ];
 
+    /** Unicode length without requiring optional Hostinger mbstring. */
+    public static function textLength(string $text): int
+    {
+        $length = preg_match_all('/./us', $text);
+        if ($length === false) throw new \DomainException('Invalid UTF-8 text');
+        return $length;
+    }
+
     public static function missingItems(array $items): array
     {
         return array_values(array_filter(
