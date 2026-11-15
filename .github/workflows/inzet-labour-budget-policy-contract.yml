@@ -16,6 +16,10 @@ on:
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
       - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php'
+      - 'office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php'
+      - 'office-independent/public/office-onsite-presence-review.php'
+      - 'office-independent/tests/OfficeOnSiteRejectionContractTest.php'
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
@@ -51,6 +55,10 @@ on:
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
       - 'office-independent/src/Inzet/OfficeOnSiteApprovalService.php'
+      - 'office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php'
+      - 'office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php'
+      - 'office-independent/public/office-onsite-presence-review.php'
+      - 'office-independent/tests/OfficeOnSiteRejectionContractTest.php'
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
@@ -97,9 +105,13 @@ jobs:
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php
           php -l office-independent/src/Inzet/OfficeOnSiteApprovalService.php
+          php -l office-independent/src/Inzet/OfficeOnSiteRejectionReasonSchema.php
+          php -l office-independent/deployment/hostinger/install-onsite-rejection-reasons-schema.php
+          php -l office-independent/public/office-onsite-presence-review.php
           php -l office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php
           php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeOnSiteRejectionContractTest.php
           php office-independent/tests/OfficeActualLabourCostProjectReaderContractTest.php
           php office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php
           php office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php
