@@ -17,6 +17,20 @@ REQUIRED = (
     "create_project_term", "create_project_change",
     "OfficeProjectFinanceOverview",
 )
+# The canonical develop controller has its own authenticated, tabbed
+# project renderer (including kickstart and locked work-budget sections).
+# This legacy V2->V3 rewrite must never replace that complete renderer.
+NATIVE_MARKERS = (
+    "OfficeNativeProjectAccess",
+    "OfficeProjectKickstartActionHandler",
+    "$workbenchHtml",
+    "$executionHtml",
+    "$workBudgetTabHtml",
+    "office-dossier-nav",
+    "$activeTab === 'werkvoorbereiding'",
+    "$activeTab === 'werkbegroting'",
+)
+
 REPLACEMENT = r'''// BREBO_PROJECT_DETAIL_V3_MOUNT
 require_once dirname(__DIR__) . '/src/Project/OfficeProjectPageStructure.php';
 require_once dirname(__DIR__) . '/src/Project/OfficeProjectDetailV3View.php';
@@ -111,6 +125,10 @@ def transform(source: str) -> str:
         if not source.rstrip().endswith('echo $breboV23Render((string) ob_get_clean());'):
             raise ValueError('Unexpected statements after mounted renderer')
         return source[:start] + REPLACEMENT
+    if all(marker in source for marker in NATIVE_MARKERS):
+        # Native repository page already contains the secure project controller.
+        # Preserve it byte-for-byte; do not splice in a legacy V2 renderer.
+        return source
     missing = [marker for marker in REQUIRED if marker not in source]
     if missing:
         raise ValueError("Missing required markers: " + ", ".join(missing))
