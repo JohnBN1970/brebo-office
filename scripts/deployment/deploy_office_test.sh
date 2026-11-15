@@ -33,7 +33,11 @@ command -v python3 >/dev/null
 python3 "$helper/prepare_office_test_release.py" --active "$active" --candidate "$candidate" --incoming "$work/office-independent" --baseline "$baseline" --known-ancestor-blobs "$work/metadata/onsite-ancestor-blobs.txt" --known-calc-blobs "$work/metadata/calc-ancestor-blobs.txt" --known-calc-path-blobs "$work/metadata/calc-path-ancestor-blobs.txt" --office-test-authoritative
 # Refresh the established renderer rather than replacing its runtime adapters.
 python3 "$candidate/deployment/hostinger/mount-project-detail-v3.py" "$candidate/public/office-project.php"
-find "$candidate/src" "$candidate/public" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > "$work/php-lint.log" || { grep -v 'No syntax errors' "$work/php-lint.log"; exit 14; }
+# Shared Hostinger processes can terminate an SSH session during parallel PHP lint.
+# Lint serially to keep memory/CPU bounded; report phase markers for diagnosis.
+echo OFFICE_TEST_CANDIDATE_LINT_START
+find "$candidate/src" "$candidate/public" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 1 php -l > "$work/php-lint.log" || { grep -v 'No syntax errors' "$work/php-lint.log" || true; echo OFFICE_TEST_CANDIDATE_LINT_FAILED; exit 14; }
+echo OFFICE_TEST_CANDIDATE_LINT_PASS
 checkpoint="$base/development-checkpoints/$release_sha"
 mkdir -p "$checkpoint"
 chmod 700 "$checkpoint"
