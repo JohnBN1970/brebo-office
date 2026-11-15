@@ -131,7 +131,7 @@ try {
             if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
             $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
             $targetLine=trim((string)($_POST['material_line_id']??''));
-            if($targetLine!==''&&!preg_match('/^[a-f0-9]{24}$/D',$targetLine))$deny(400,'INVALID_LINE_ID');
+            if($targetLine!==''&&!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$targetLine))$deny(400,'INVALID_LINE_ID');
             if($targetLine!==''){
                 $existing=array_values(array_filter($repo->list($draft,$actor,$rights),static fn(array $line):bool=>(string)$line['line_id']===$targetLine));
                 if(count($existing)!==1)$deny(404,'LINE_NOT_FOUND');
