@@ -63,4 +63,14 @@ assert module.transform(stale) == mounted, "Stale renderer must be refreshed"
 # would delete its tabs and POST handlers. This is the deployed path.
 assert all(marker in source for marker in module.NATIVE_MARKERS), "Native renderer markers missing"
 assert module.transform(source) == source, "Native repository page must be preserved unchanged"
+# The native controller must render the same actual CSRF-protected forms
+# expected by the HTTP four-eyes acceptance, without the legacy V2 mount.
+for marker in (
+    "'<input type=\"hidden\" name=\"csrf_token\" value=\"'",
+    'name="kickstart_action" value="create_dossier"',
+    'OfficeProjectKickstartFormView::render',
+    'OfficeProjectKickstartView::render',
+    'OFFICE_TEST_PROJECT_KICKSTART_ENABLED',
+):
+    assert marker in source, f"Missing native kickstart contract: {marker}"
 print("KICKSTART_MOUNT_CONTRACT_OK")
