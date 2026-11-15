@@ -30,7 +30,7 @@ baseline="$active/.development-source"
 [[ -d "$baseline" ]] || baseline="$work/baseline/office-independent"
 command -v git >/dev/null
 command -v python3 >/dev/null
-python3 "$helper/prepare_office_test_release.py" --active "$active" --candidate "$candidate" --incoming "$work/office-independent" --baseline "$baseline" --known-ancestor-blobs "$work/metadata/onsite-ancestor-blobs.txt" --known-calc-blobs "$work/metadata/calc-ancestor-blobs.txt" --known-calc-path-blobs "$work/metadata/calc-path-ancestor-blobs.txt"
+python3 "$helper/prepare_office_test_release.py" --active "$active" --candidate "$candidate" --incoming "$work/office-independent" --baseline "$baseline" --known-ancestor-blobs "$work/metadata/onsite-ancestor-blobs.txt" --known-calc-blobs "$work/metadata/calc-ancestor-blobs.txt" --known-calc-path-blobs "$work/metadata/calc-path-ancestor-blobs.txt" --office-test-authoritative
 # Refresh the established renderer rather than replacing its runtime adapters.
 python3 "$candidate/deployment/hostinger/mount-project-detail-v3.py" "$candidate/public/office-project.php"
 find "$candidate/src" "$candidate/public" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > "$work/php-lint.log" || { grep -v 'No syntax errors' "$work/php-lint.log"; exit 14; }
