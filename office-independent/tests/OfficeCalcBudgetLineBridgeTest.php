@@ -12,7 +12,7 @@ $budget = OfficeCalcWorkBudgetHandoff::prepare([
 if (count($budget['items']) !== 2 || $budget['items'][0]['budget_cents'] !== 2100 || $budget['items'][1]['budget_cents'] !== 4050 || !$budget['baseline_locked']) {
     throw new RuntimeException('Kostenraster naar vergrendelde werkbegroting klopt niet.');
 }
-foreach ([['L1','2.5',['labor'=>'10']], ['L1','2',['labor'=>'1.234']], ['L1','2',[]]] as $invalid) {
+foreach ([['L1','2.5',['labor'=>'10']], ['L1','2',['labor'=>'1.234']], ['L1','2',[]], ['L1','99999999',['labor'=>'9999999999']], [str_repeat('X',117),'2',['labor'=>'1']]] as $invalid) {
     try { OfficeCalcBudgetLineBridge::map(...$invalid); }
     catch (DomainException) { continue; }
     throw new RuntimeException('Niet-overdraagbare calculatie werd geaccepteerd.');
