@@ -96,6 +96,24 @@ try {
       require_once dirname(__DIR__) . '/src/Project/' . $file;
     }
     $dossier = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope($projectId, 'project', 0);
+    if ($dossier === null && ($_POST['kickstart_action'] ?? '') === 'create_dossier') {
+      // Explicit self-assignment by the authenticated project manager.
+      // No user ID from the browser is accepted as the project leader.
+      if (!is_string($_POST['csrf_token'] ?? null)
+        || !hash_equals($token, $_POST['csrf_token'])) {
+        http_response_code(403);
+        exit('Ongeldige formulierbeveiliging.');
+      }
+      try {
+        (new \\Brebo\\Office\\Project\\OfficeProjectKickstartRepository($db))
+          ->createForAuthorizedProject($projectId, (int)$operator->operatorId, (int)$operator->operatorId, $canManage);
+      } catch (\\Throwable $error) {
+        http_response_code(409);
+        exit('Startdossier kon niet worden aangemaakt.');
+      }
+      header('Location: ' . \\Brebo\\Office\\Intake\\OfficeMount::basePath() . '/projecten/detail?id=' . $projectId . '&tab=werkvoorbereiding', true, 303);
+      exit;
+    }
     if ($dossier === null) {
       http_response_code(404);
       exit('Startdossier niet gevonden.');
