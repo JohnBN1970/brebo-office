@@ -10,6 +10,7 @@ foreach ([
     [str_contains($approval, '?int $correctedSeconds = null'), 'Partial approval argument required'],
     [str_contains($approval, '$correctedSeconds > $seconds'), 'Partial approval may not exceed presence'],
     [str_contains($approval, "Already approved OnSite duration cannot be changed by retry"), 'Immutable partial approval required'],
+    [str_contains($approval, "Rejected OnSite session cannot be approved"), 'Rejected decisions must never be booked through retry'],
     [str_contains($posting, 'public function postInsideTransaction('), 'Transaction-aware debit required'],
     [str_contains($posting, '!$this->db->inTransaction()'), 'Caller-owned transaction required'],
     [str_contains($posting, 'WHERE approved_hours_id = ? FOR UPDATE'), 'Existing debit lock required'],
