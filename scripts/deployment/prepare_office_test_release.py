@@ -121,7 +121,10 @@ if __name__ == '__main__':
     if a.office_test_authoritative:
         # Defense in depth beyond officeTestEnvironment(): never permit this
         # source-overwrite mode outside the fixed private Office-test tree.
-        base = (Path.home() / 'domains/brebobv.nl/office_calc_test').resolve(strict=True)
+        base_path = Path.home() / 'domains/brebobv.nl/office_calc_test'
+        if not base_path.is_dir() or base_path.is_symlink():
+            raise RuntimeError('OFFICE_TEST_AUTHORITATIVE_PATH_REJECTED')
+        base = base_path.resolve(strict=True)
         active_real = a.active.resolve(strict=True)
         candidate_real = a.candidate.resolve(strict=False)
         if (not active_real.is_relative_to(base)
