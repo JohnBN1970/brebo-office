@@ -2,6 +2,8 @@ name: Inzet labour budget policy contract
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourValuation.php'
@@ -14,6 +16,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php'
       - 'office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php'
       - 'office-independent/tests/OfficeApprovedLabourCostPreviewTest.php'
       - 'office-independent/tests/OfficeApprovedLabourValuationTest.php'
@@ -30,6 +33,8 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourValuation.php'
@@ -42,6 +47,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php'
       - 'office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php'
       - 'office-independent/tests/OfficeApprovedLabourCostPreviewTest.php'
       - 'office-independent/tests/OfficeApprovedLabourValuationTest.php'
@@ -69,6 +75,8 @@ jobs:
       - name: Verify policy and planned shift contract
         run: |
           set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourFinancialHandoffPolicy.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourCostPreview.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourValuation.php
@@ -81,6 +89,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php
           php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php
           php office-independent/tests/OfficeApprovedLabourFinancialHandoffPolicyTest.php
           php office-independent/tests/OfficeApprovedLabourCostPreviewTest.php
           php office-independent/tests/OfficeApprovedLabourValuationTest.php
