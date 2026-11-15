@@ -40,6 +40,7 @@ jobs:
           php office-independent/tests/OfficeCalcCostBreakdownTest.php
           php office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php
           php office-independent/tests/OfficeCalcBudgetLineBridgeTest.php
+          php office-independent/tests/OfficeCalcDecimalQuantityMigrationContractTest.php
       - name: Validate existing core contracts
         run: |
           set -euo pipefail
