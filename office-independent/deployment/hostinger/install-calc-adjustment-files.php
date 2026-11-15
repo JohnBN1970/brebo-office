@@ -18,6 +18,7 @@ $files=[
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
  'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
+ 'OfficeCalcLaborRateCatalog.php'=>'src/Calculation/OfficeCalcLaborRateCatalog.php',
 ];
 $expected=json_decode((string)file_get_contents($manifestPath),true);
 if(!is_array($expected)||array_keys($expected)!==array_keys($files))exit(4);
