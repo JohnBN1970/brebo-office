@@ -59,6 +59,16 @@ function postTest(CurlHandle $h,string $url,PDO $db,int $project,string $action,
     ensureTest(in_array($status,$expected,true),$action.'_http_'.$status);
 }
 try {
+    // Deployment acceptance must prove the new OnSite rejection ledger exists
+    // and its verified flag is active. No employee sessions are fabricated.
+    $onsiteColumns=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_onsite_rejection_reasons'
+        ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
+    ensureTest($onsiteColumns===['decision_reference','reason','recorded_at'],'onsite_rejection_schema_verified');
+    ensureTest(($config['OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED']??'')==='enabled','onsite_rejection_flag_enabled');
+    echo 'ONSITE_HOURS_APPROVAL_ENABLED='.(($config['OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
+    echo 'ONSITE_FOUR_EYES_ENABLED='.(($config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']??'')==='enabled'?'yes':'no')."\\n";
+    echo 'ONSITE_ACTUAL_LABOUR_COST_ENABLED='.(($config['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
     $repeat=seedOfficeTest($db,$match[1]);
     ensureTest($repeat['project_id']===$fixture['project_id'],'seed_idempotent');
     $fixture=$repeat;
