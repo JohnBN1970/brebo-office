@@ -226,6 +226,13 @@ final class OfficeCalcCrmDraftLineRepository
                 'labor_driver'=>getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_driver'])?(string)$row['calc_labor_driver']:null,
                 'labor_rate_code'=>getenv('OFFICE_CALC_LABOR_RATE_CODE_SCHEMA_VERIFIED')==='enabled'&&isset($row['calc_labor_rate_code'])?(string)$row['calc_labor_rate_code']:null,
                 'extra_labor_hours'=>isset($row['calc_extra_labor_hours'])?(string)$row['calc_extra_labor_hours']:null,
+                'cost_components'=>[
+                    'labor'=>(string)$row['labour_unit_cost'],
+                    'material'=>(string)$row['material_unit_cost'],
+                    'equipment'=>(string)$row['equipment_unit_cost'],
+                    'subcontract'=>(string)$row['subcontracting_unit_cost'],
+                    'other'=>(string)$row['other_unit_cost'],
+                ],
                 'unit_cost_decimal'=>(string)$row[self::COST_COLUMNS[$type]],
                 'unit'=>(string)($row['unit']??''),
                 'price_source_type'=>(string)($row['price_source_type']??'manual'),
