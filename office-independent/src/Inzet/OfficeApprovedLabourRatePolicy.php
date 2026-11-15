@@ -4,7 +4,7 @@ namespace Brebo\Office\Inzet;
 
 /**
  * Resolve exactly one authorized historical rate from server-side Office records.
- * No implicit default, latest-rate fallback, or client-supplied rate.
+ * Rate must represent authorized employee actual cost, NOT the locked calculation\n * budget rate. The two rates serve different financial purposes.\n * No implicit default, latest-rate fallback, or client-supplied rate.
  */
 final class OfficeApprovedLabourRatePolicy
 {
