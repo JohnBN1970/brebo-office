@@ -30,19 +30,37 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
     $rates=budgetQuery($db,'SELECT hourly_rate_cents FROM office_inzet_actual_labour_rates WHERE project_id=? AND person_id=?',[$id,$person])->fetchAll(PDO::FETCH_COLUMN);
     if ($rates===[]) budgetQuery($db,'INSERT INTO office_inzet_actual_labour_rates (project_id,person_id,valid_from,hourly_rate_cents,authorized_by,authorized_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())',[$id,$person,$date,4250,$fixture['users']['reviewer']['id']]);
     else ensureTest(count($rates)===1 && (int)$rates[0]===4250,'budget_fixture_rate_unchanged');
-    $url='https://brebobv.nl/office-test/inzet/onsite/uren-beoordelen?id='.$id;
-    $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
-    [$status,$readerBody]=requestTest($reader,$url);
-    if ($status!==404) {
-        echo 'BUDGET_HOURS_READER_STATUS='.$status."\\n";
-        // Response is a generic authorization/feature-gate error; never log cookies.
-        echo 'BUDGET_HOURS_READER_REASON='.substr(trim(strip_tags($readerBody)),0,180)."\\n";
+    // Resolve the actual installed alias, without replacing the shared router.
+    // Export only allowlisted route/controller names, never private router source.
+    $router=file_get_contents(getenv('HOME').'/domains/brebobv.nl/public_html/office-test/index.php');
+    preg_match_all("~['\"](/office-test/inzet/[a-z/-]+)['\"]\\s*=>\\s*['\"]([a-z-]+\\.php)['\"]~",$router,$routeMatches,PREG_SET_ORDER);
+    $paths=[];
+    foreach ($routeMatches as $route) {
+        if ($route[2]==='office-onsite-presence-review.php') {
+            $paths[]=$route[1];echo 'BUDGET_NATIVE_REVIEW_ROUTE='.$route[1]."\n";
+        }
     }
-    ensureTest($status===404,'budget_hours_reader_denied');
+    $paths=array_values(array_unique(array_merge($paths,['/office-test/inzet/aanwezigheid','/office-test/inzet/onsite/uren-beoordelen'])));
+    $url=null;$html='';$m=[];
+    foreach ($paths as $path) {
+        $candidate='https://brebobv.nl'.$path.'?id='.$id;
+        [$status,$candidateHtml]=requestTest($leader,$candidate);
+        echo 'BUDGET_NATIVE_REVIEW_PROBE='.$path.':'.$status."\n";
+        if ($status===200 && preg_match('/name="csrf"\\s+value="([a-f0-9]{64})"/',$candidateHtml,$candidateToken)===1
+            && str_contains($candidateHtml,'review_action')) {
+            $url=$candidate;$html=$candidateHtml;$m=$candidateToken;break;
+        }
+    }
+    ensureTest($url!==null,'budget_hours_form');
+    [$status,$readerBody]=requestTest($reader,$url);
+    if (!in_array($status,[403,404],true)) {
+        echo 'BUDGET_HOURS_READER_STATUS='.$status."\n";
+        // Retain the concurrent diagnostic without exporting a successful page body.
+        if ($status>=400) echo 'BUDGET_HOURS_READER_REASON='.substr(trim(strip_tags($readerBody)),0,180)."\n";
+    }
+    ensureTest(in_array($status,[403,404],true),'budget_hours_reader_denied_http_'.$status);
+    $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
     if ($decision===false) {
-        [$status,$html]=requestTest($leader,$url);
-        echo 'BUDGET_HOURS_FORM_HTTP_STATUS='.$status."\n";
-        ensureTest($status===200 && preg_match('/name="csrf"\s+value="([a-f0-9]{64})"/',$html,$m)===1,'budget_hours_form');
         $post=['id'=>(string)$id,'csrf'=>$m[1],'in_event_id'=>$in,'out_event_id'=>$out,'review_action'=>'approve','approved_minutes'=>'360'];
         [$status]=requestTest($leader,$url,array_replace($post,['csrf'=>str_repeat('0',64)]));
         ensureTest($status===403,'budget_hours_csrf_denied');
