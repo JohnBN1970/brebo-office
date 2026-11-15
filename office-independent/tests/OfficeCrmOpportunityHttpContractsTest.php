@@ -10,7 +10,7 @@ $expected=[
 ];
 foreach ($expected as $url=>$file) {
     if (!str_contains($routes,"'".$url."' => '".$file."'")) throw new RuntimeException('Missing route '.$url);
-    $source=file_get_contents($root.'/public/'.$file);
+    $source=file_get_contents($root.'/public/'.$file).file_get_contents($root.'/public/office-crm-opportunity-bootstrap.php').file_get_contents($root.'/src/Crm/OfficeCrmOpportunityRepository.php');
     foreach (['OFFICE_TEST_CRM_ENABLED','OFFICE_CRM_AUTH_MODE','OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED','OFFICE_PUBLIC_HOST','office_operator_accounts','currentOperator'] as $gate)
         if (!str_contains($source,$gate)) throw new RuntimeException('Missing security gate '.$gate.' in '.$file);
     if ($file!=='office-crm-opportunities.php') {

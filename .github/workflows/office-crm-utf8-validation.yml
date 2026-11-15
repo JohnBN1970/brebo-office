@@ -1,0 +1,30 @@
+name: CRM UTF-8 validation regression
+on:
+  pull_request:
+    branches: [integration/crm-completion-20261108]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmOpportunityPolicy.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/src/Crm/OfficeCrmRelationPolicy.php'
+      - 'office-independent/tests/OfficeCrmUtf8ValidationTest.php'
+      - '.github/workflows/office-crm-utf8-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  utf8-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP test extensions
+        run: sudo apt-get update && sudo apt-get install -y php-mbstring php-sqlite3
+      - name: Syntax checks
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmOpportunityPolicy.php
+          php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
+          php -l office-independent/src/Crm/OfficeCrmRelationPolicy.php
+          php -l office-independent/tests/OfficeCrmUtf8ValidationTest.php
+      - name: UTF-8 regression
+        run: php office-independent/tests/OfficeCrmUtf8ValidationTest.php
+      - name: Existing CRM integration
+        run: php office-independent/tests/OfficeCrmCompletionIntegrationTest.php

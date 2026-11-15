@@ -1,0 +1,55 @@
+name: CRM completion runtime audit
+on:
+  push:
+    branches: ['integration/crm-completion-20261108']
+    paths: ['.github/workflows/office-crm-completion-runtime-audit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read native CRM metadata without changing server data
+        env:
+          CRM_AUDIT_HOST: ${{ secrets.DEPLOY_HOST }}
+          CRM_AUDIT_PORT: ${{ secrets.DEPLOY_PORT }}
+          CRM_AUDIT_USER: ${{ secrets.DEPLOY_USER }}
+          CRM_AUDIT_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for key in CRM_AUDIT_HOST CRM_AUDIT_PORT CRM_AUDIT_USER CRM_AUDIT_KEY; do test -n "${!key}"; done
+          [[ "$CRM_AUDIT_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CRM_AUDIT_KEY" > ~/.ssh/crm_audit
+          chmod 600 ~/.ssh/crm_audit
+          trap 'rm -f ~/.ssh/crm_audit' EXIT
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -i ~/.ssh/crm_audit -p "$CRM_AUDIT_PORT" "$CRM_AUDIT_USER@$CRM_AUDIT_HOST" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          try {
+              $base=getenv('HOME').'/domains/brebobv.nl/office_calc_test';
+              $c=require $base.'/config/config.php';
+              if (!is_array($c)||($c['OFFICE_BASE_PATH']??null)!=='/office-test'
+                  ||!in_array($c['OFFICE_INTAKE_PDO_DSN']??null,['mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4','mysql:host=127.0.0.1;dbname=u213420663_office_test;charset=utf8mb4'],true)
+                  ||($c['OFFICE_INTAKE_DB_USER']??null)!=='u213420663_office_test') throw new RuntimeException();
+              $root=realpath($c['OFFICE_PRIVATE_ROOT']??'');
+              if (!$root||!str_starts_with($root,$base.'/release-')||!str_ends_with($root,'/private')) throw new RuntimeException();
+              foreach(['OFFICE_TEST_CRM_ENABLED','OFFICE_CRM_AUTH_MODE','OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED','OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED'] as $flag) echo $flag.'='.(in_array($c[$flag]??null,['enabled','session_only'],true)?'ON':'OFF')."\n";
+              foreach(['src/Crm/OfficeCrmOpportunityRepository.php','public/office-crm-opportunities.php','public/office-crm-opportunity-create.php','public/office-crm-opportunity-transition.php'] as $file) echo 'FILE '.$file.' '.(is_file($root.'/'.$file)?hash_file('sha256',$root.'/'.$file):'MISSING')."\n";
+              $db=new PDO($c['OFFICE_INTAKE_PDO_DSN'],$c['OFFICE_INTAKE_DB_USER'],$c['OFFICE_INTAKE_DB_PASSWORD'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+              $db->exec('SET TRANSACTION READ ONLY');$db->beginTransaction();
+              $tables=['office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people','office_crm_relation_contacts','office_crm_relation_roles'];
+              $q=$db->prepare('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');
+              foreach($tables as $table){
+                  $q->execute([$table]);$cols=$q->fetchAll(PDO::FETCH_ASSOC);echo 'TABLE '.$table.' '.($cols===[]?'MISSING':'PRESENT')."\n";
+                  foreach($cols as $col)echo 'COLUMN '.$col['COLUMN_NAME'].' '.$col['COLUMN_TYPE'].' '.$col['IS_NULLABLE']."\n";
+                  if($cols!==[])echo 'COUNT '.$table.' '.(int)$db->query('SELECT COUNT(*) FROM '.$table)->fetchColumn()."\n";
+              }
+              $q->execute(['office_crm_opportunities']);$cols=array_column($q->fetchAll(PDO::FETCH_ASSOC),'COLUMN_NAME');
+              if(in_array('stage',$cols,true))foreach($db->query('SELECT stage,COUNT(*) AS n FROM office_crm_opportunities GROUP BY stage')->fetchAll(PDO::FETCH_ASSOC) as $r)echo 'STAGE '.(in_array($r['stage'],['lead','prospect','opportunity','proposal','negotiation','won','lost'],true)?$r['stage']:'unmapped').' '.(int)$r['n']."\n";
+              if(in_array('relation_id',$cols,true))echo 'UNLINKED '.(int)$db->query('SELECT COUNT(*) FROM office_crm_opportunities WHERE relation_id IS NULL')->fetchColumn()."\n";
+              $db->rollBack();echo "CRM_RUNTIME_READ_ONLY_COMPLETE\n";
+          }catch(Throwable $e){echo "CRM_RUNTIME_AUDIT_BLOCKED\n";exit(2);}
+          PHP

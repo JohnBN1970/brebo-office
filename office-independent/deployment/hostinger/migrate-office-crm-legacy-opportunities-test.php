@@ -43,6 +43,9 @@ try {
     foreach ($expected as $name=>$type) if (strtolower($cols['office_crm_opportunities'][$name]['COLUMN_TYPE']??'')!==$type)
         throw new RuntimeException('legacy_column_unexpected:'.$name);
     $add=[
+        'service_type'=>"VARCHAR(24) NOT NULL DEFAULT 'execution'",
+        'revision'=>'BIGINT UNSIGNED NOT NULL DEFAULT 1',
+        'outcome_note'=>'TEXT NULL',
         'relation_id'=>'BIGINT UNSIGNED NULL',
         'contact_id'=>'BIGINT UNSIGNED NULL',
         'description'=>'TEXT NULL',
