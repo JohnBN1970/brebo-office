@@ -73,6 +73,52 @@ try {
     exit('Project niet gevonden.');
   }
   $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage((int) $operator->operatorId, $projectId);
+  // Startdossier actions use the authenticated Office operator and project ACL.
+  // This branch is separate from housing-type writes and remains test-only.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['kickstart_action'])) {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest()
+      || getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') !== 'enabled'
+      || !$canManage) {
+      http_response_code(403);
+      exit('Startdossier bewerken niet toegestaan.');
+    }
+    $token = $_COOKIE['office_project_csrf'] ?? null;
+    if (!is_string($token) || strlen($token) !== 64 || !ctype_xdigit($token)) {
+      http_response_code(403);
+      exit('Ongeldige formulierbeveiliging.');
+    }
+    $schema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
+    if ((int)$schema->fetchColumn() !== 4) {
+      http_response_code(503);
+      exit('Startdossier nog niet geïnstalleerd.');
+    }
+    foreach (['OfficeProjectKickstartPolicy.php','OfficeProjectKickstartRepository.php','OfficeProjectKickstartQuestionsRepository.php','OfficeProjectKickstartReadModel.php','OfficeProjectKickstartActionHandler.php'] as $file) {
+      require_once dirname(__DIR__) . '/src/Project/' . $file;
+    }
+    $dossier = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope($projectId, 'project', 0);
+    if ($dossier === null) {
+      http_response_code(404);
+      exit('Startdossier niet gevonden.');
+    }
+    try {
+      (new \Brebo\Office\Project\OfficeProjectKickstartActionHandler(
+        new \Brebo\Office\Project\OfficeProjectKickstartRepository($db),
+        new \Brebo\Office\Project\OfficeProjectKickstartQuestionsRepository($db)
+      ))->handle($_POST, [
+        'actor_user_id'=>(int)$operator->operatorId,
+        'authorized_dossier_id'=>(int)$dossier['id'],
+        'csrf_token'=>$token,
+        'can_edit'=>$canManage,
+        'can_submit'=>$canManage && (int)$dossier['project_leader_user_id'] === (int)$operator->operatorId,
+        'can_approve'=>$canManage,
+      ]);
+    } catch (\DomainException $error) {
+      http_response_code(409);
+      exit('Startdossieractie geweigerd: ' . htmlspecialchars($error->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+    header('Location: ' . \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . $projectId . '&tab=werkvoorbereiding', true, 303);
+    exit;
+  }
   $writeMessage = null;
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$canManage || getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled') {
