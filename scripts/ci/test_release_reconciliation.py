@@ -86,4 +86,31 @@ class ReconciliationTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'UNTRACKED_RUNTIME_COLLISION'):
                 module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline')
 
+
+    def test_office_test_authoritative_mode_replaces_source_and_backs_up_both_collisions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ('active', 'incoming', 'baseline'):
+                (root / name / 'src').mkdir(parents=True)
+            (root / 'baseline/src/tracked.php').write_text('baseline')
+            (root / 'active/src/tracked.php').write_text('runtime-customization')
+            (root / 'incoming/src/tracked.php').write_text('develop-source')
+            (root / 'active/src/untracked.php').write_text('previous-server-source')
+            (root / 'incoming/src/untracked.php').write_text('new-develop-source')
+            (root / 'active/src/runtime-only.php').write_text('runtime-only-dependency')
+            result = module.reconcile(
+                root/'active', root/'candidate', root/'incoming', root/'baseline',
+                office_test_authoritative=True
+            )
+            self.assertEqual(result['updated'], 2)
+            for rel, expected, backup in [
+                ('tracked.php','develop-source','runtime-customization'),
+                ('untracked.php','new-develop-source','previous-server-source'),
+            ]:
+                self.assertEqual((root/'candidate/src'/rel).read_text(), expected)
+                self.assertEqual((root/'candidate/.development-runtime-backups/src'/rel).read_text(), backup)
+            self.assertEqual((root/'active/src/tracked.php').read_text(), 'runtime-customization')
+            self.assertEqual((root/'active/src/untracked.php').read_text(), 'previous-server-source')
+            self.assertEqual((root/'candidate/src/runtime-only.php').read_text(), 'runtime-only-dependency')
+
 if __name__=='__main__':unittest.main()
