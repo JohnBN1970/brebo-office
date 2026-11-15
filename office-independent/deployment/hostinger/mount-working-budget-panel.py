@@ -61,7 +61,7 @@ if expected != hashlib.sha256(active).hexdigest():
 # Ensure all PHP classes referenced by the new mount are staged before any write.
 required_classes = ("LockedBaselineLines.php", "WorkingBudgetKpiProjection.php",
                     "ProjectBudgetReadModel.php", "ProjectBudgetPanel.php",
-                    "OnSiteLaborEvidence.php")
+                    "OnSiteLaborEvidence.php", "OfficeProcurementBudgetAdapter.php")
 working_budget_dir = resolved.parent.parent / "src" / "WorkingBudget"
 if not all((working_budget_dir / name).is_file() and not (working_budget_dir / name).is_symlink()
            for name in required_classes):
