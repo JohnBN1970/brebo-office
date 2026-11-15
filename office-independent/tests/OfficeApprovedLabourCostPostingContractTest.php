@@ -14,4 +14,11 @@ foreach (['beginTransaction()','FOR UPDATE','OfficeApprovedLabourValuation::prep
     'commit()','rollBack()','source_sha256','office_inzet_actual_labour_rates'] as $part) {
     if(!str_contains($service,$part)) throw new RuntimeException('Missing posting guard: '.$part);
 }
-echo "ACTUAL_LABOUR_COST_POSTING_CONTRACT_OK\n";
+foreach (['public function postInsideTransaction(', 'Approval transaction required', 'postInsideTransaction($approvedHoursId)'] as $part) {
+    if (!str_contains($service,$part)) throw new RuntimeException('Missing atomic posting contract: '.$part);
+}
+$approval=file_get_contents(dirname(__DIR__).'/src/Inzet/OfficeOnSiteApprovalService.php');
+foreach (['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED', 'OfficeApprovedLabourCostPostingService($this->db))->postInsideTransaction($bookingId)', 'Actual labour cost posting conflicts with legacy budget debit modes', 'OfficeOnSiteFourEyesGuard'] as $part) {
+    if (!str_contains($approval,$part)) throw new RuntimeException('Missing OnSite cost posting guard: '.$part);
+}
+echo "ACTUAL_LABOUR_COST_POSTING_CONTRACT_OK\\n";
