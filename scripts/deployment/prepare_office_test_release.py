@@ -8,12 +8,13 @@ import subprocess
 
 AREAS = ('src', 'public', 'schema', 'deployment', 'tests')
 KNOWN_ANCESTOR_REPLACEMENT = Path('src/Inzet/OfficeOnSiteApprovalService.php')
+KNOWN_CALC_RUNTIME_FILE = Path('src/Calculation/OfficeCalcCrmDraftLineRepository.php')
 
 def git_blob_id(data):
     return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
 
 
-def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset()):
+def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset(), known_calc_blobs=frozenset()):
     if candidate.exists():
         raise RuntimeError('Candidate already exists')
     shutil.copytree(active, candidate, symlinks=True)
@@ -55,6 +56,15 @@ def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozen
                 target.write_bytes(merge.stdout)
                 count['merged'] += 1
             else:
+                # Only a byte-for-byte Git ancestor may replace an unmanaged Calc file.
+                if relative == KNOWN_CALC_RUNTIME_FILE and git_blob_id(target.read_bytes()) in known_calc_blobs:
+                    backup = candidate / '.development-runtime-backups' / relative
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(target, backup)
+                    target.write_bytes(incoming_bytes)
+                    count['updated'] += 1
+                    print(f'RELEASE_ADOPTED_KNOWN_CALC_GIT_ANCESTOR={relative}')
+                    continue
                 raise RuntimeError(f'UNTRACKED_RUNTIME_COLLISION={relative}')
     # Keep runtime-only dependencies; retire removed managed files only after explicit review.
     previous = candidate / '.development-source'
@@ -71,6 +81,7 @@ if __name__ == '__main__':
     for key in ('active','candidate','incoming','baseline'):
         parser.add_argument('--'+key, type=Path, required=True)
     parser.add_argument('--known-ancestor-blobs', type=Path)
+    parser.add_argument('--known-calc-blobs', type=Path)
     a = parser.parse_args()
     known = frozenset(a.known_ancestor_blobs.read_text().splitlines()) if a.known_ancestor_blobs else frozenset()
     print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known)))
