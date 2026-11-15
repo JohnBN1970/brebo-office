@@ -7,22 +7,28 @@ namespace Brebo\Office\Inzet;
 final class OnSitePresenceReviewView {
   public static function render(array $review): string {
     $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+    $local=static function(mixed $value):string {
+      if (!is_string($value) || $value==='') return '';
+      try { return (new \DateTimeImmutable($value,new \DateTimeZone('UTC')))
+        ->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('d-m-Y H:i'); }
+      catch (\Throwable $error) { return ''; }
+    };
     $html='<section class="onsite-presence-review"><h2>Aanwezigheidscontrole</h2>'
       .'<p>Automatisch geregistreerde aanwezigheid is bewijsmateriaal, geen goedgekeurde uren.</p>';
     $html.='<h3>Lopende aanwezigheid</h3><p>De teller is indicatief totdat vertrek is bevestigd. De pagina ververst automatisch.</p>';
-    $html.='<table><thead><tr><th>Medewerker</th><th>Project</th><th>Zone</th><th>Start (UTC)</th><th>Lopende duur</th><th>Status</th></tr></thead><tbody>';
+    $html.='<table><thead><tr><th>Medewerker</th><th>Project</th><th>Zone</th><th>Start (lokaal)</th><th>Lopende duur</th><th>Status</th></tr></thead><tbody>';
     foreach (($review['active']??[]) as $item) {
       $started = (string)($item['entered_at']??'');
       $startSeconds = strtotime($started);
       if ($startSeconds === false) continue;
       $duration = max(0,time()-$startSeconds);
       $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
-        .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($started)
+        .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($local($started))
         .'</td><td><time class="onsite-live-duration" data-start="'.$escape($startSeconds).'">'.$escape(sprintf('%d:%02d:%02d',intdiv($duration,3600),intdiv($duration%3600,60),$duration%60))
         .'</time></td><td>Aanwezig (nog niet goedgekeurd)</td></tr>';
     }
     $html.='</tbody></table><h3>Afgeronde aanwezigheidsintervallen</h3><table><thead><tr>'
-      .'<th>Medewerker</th><th>Project</th><th>Zone</th><th>Aankomst</th><th>Vertrek</th><th>Duur</th><th>Status</th>'
+      .'<th>Medewerker</th><th>Project</th><th>Zone</th><th>Aankomst (lokaal)</th><th>Vertrek (lokaal)</th><th>Duur</th><th>Status</th>'
       .'</tr></thead><tbody>';
     foreach (($review['intervals']??[]) as $item) {
       $duration=isset($item['elapsed_seconds'])?(int)$item['elapsed_seconds']:0;
@@ -30,11 +36,13 @@ final class OnSitePresenceReviewView {
       if ($status==='Goedgekeurd') {
         $approved=(int)($item['reviewed_seconds']??0);
         $status.=' · '.sprintf('%d:%02d',intdiv($approved,3600),intdiv($approved%3600,60)).' uur';
+        $deducted=max(0,$duration-$approved);
+        if ($deducted>0) $status.=' · '.sprintf('%d:%02d',intdiv($deducted,3600),intdiv($deducted%3600,60)).' niet goedgekeurd';
       }
       if ($status==='Afgekeurd' && !empty($item['review_reason'])) $status.=' · '.$item['review_reason'];
       $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
-        .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($item['entered_at']??'')
-        .'</td><td>'.$escape($item['left_at']??'').'</td><td>'.$escape(sprintf('%d:%02d',intdiv(max(0,$duration),3600),intdiv(max(0,$duration)%3600,60)))
+        .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($local($item['entered_at']??''))
+        .'</td><td>'.$escape($local($item['left_at']??'')).'</td><td>'.$escape(sprintf('%d:%02d',intdiv(max(0,$duration),3600),intdiv(max(0,$duration)%3600,60)))
         .'</td><td>'.$escape($status).'</td></tr>';
     }
     $html.='</tbody></table><h3>Afwijkingen</h3><table><thead><tr><th>Type</th><th>Gebeurtenis</th></tr></thead><tbody>';
