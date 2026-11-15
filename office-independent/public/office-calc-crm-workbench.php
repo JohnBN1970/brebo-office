@@ -363,7 +363,11 @@ foreach($lines as $line) {
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
         echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
         echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="19"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
-        foreach($costCells as $kind)echo '<div class="calc-line-cost"><span>'.$h($typeLabels[$kind]??$kind).'</span><strong>'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</strong></div>';
+        foreach($costCells as $kind){
+            $component=(string)($line['cost_components'][$kind]??((string)$line['cost_type']===$kind?(string)$line['unit_cost_decimal']:'0'));
+            $componentDisplay=number_format((float)$component,$collaborationEnabled?4:2,',','.');
+            echo '<div class="calc-line-cost"><span>'.$h($typeLabels[$kind]??$kind).' / eenheid</span><strong>€ '.$componentDisplay.'</strong></div>';
+        }
         echo '<div class="calc-line-cost"><span>Regeltotaal</span><strong>€ '.$rowTotal.'</strong></div></div><p class="muted">Kosten zijn momenteel per kostensoort opgeslagen. Meerdere kostencomponenten binnen één regel volgen na de opslaguitbreiding.</p></td></tr>';
     }
 }
