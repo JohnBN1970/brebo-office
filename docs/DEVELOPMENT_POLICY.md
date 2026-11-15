@@ -39,3 +39,9 @@ Verifieer ook: afkeuren met reden; wijziging/revisie maakt oude goedkeuringen on
 - Bundel toolacties waar veilig mogelijk. Rapporteer pas na een verifieerbaar eindresultaat of een concrete, niet zelfstandig oplosbare blokkade.
 - Vraag alleen tussentijds om een beslissing bij wezenlijke ontwerpambiguiteit, ontbrekende bevoegdheden of risicovolle/onherroepelijke handelingen; normale fictieve Office-testdata vereisen geen nieuwe toestemming.
 - Een chatantwoord kan geen onbeperkte achtergrondtaak voortzetten. Doe geen toezeggingen over doorwerken na het antwoord zonder een daadwerkelijk ingestelde uitvoerings- of automatiseringsvoorziening.
+
+## 7. Minimale handelingen voor de opdrachtgever
+- De opdrachtgever formuleert de functionele wens en beoordeelt het zichtbare Office-test-resultaat; normaal geen handmatige GitHub-merges, Hostinger-login, SSH, SQL, featureflag- of deployhandelingen.
+- De uitvoerder organiseert waar mogelijk de volledige technische keten via bestaande connectors en GitHub Actions; vraagt niet om herhaald 'door' en draagt routinematige uitvoering niet over aan de opdrachtgever.
+- Uitzonderingen uitsluitend bij noodzakelijke toestemming, ontbrekende rechten/geheimen, wezenlijke ontwerpkeuzes of expliciete productieacceptatie. Leg de blokkade en precies een benodigde gebruikersactie uit.
+- Belangrijk: de bestaande `sboffice-deploy-develop.yml` triggert op push naar develop en heet productiedeployment. Voordat merges of automatische Office-test-uitrol worden gestandaardiseerd moet de werkelijke productie-impact worden onderzocht en de productie-uitrol technisch gescheiden/geblokkeerd. Geen automatische merges naar develop zolang deze grens niet aantoonbaar veilig is.
