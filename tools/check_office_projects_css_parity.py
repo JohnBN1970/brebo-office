@@ -19,3 +19,13 @@ for source, name in pairs:
     if css.split("\n", 1)[1].strip() != blocks[0].strip():
         sys.exit(f"FAIL {source}: staged CSS differs")
     print(f"PASS {name}: exact parity")
+
+# The Projecten page appends CSS dynamically from the portfolio view.
+# Its parity must be checked separately from the literal <style> block.
+portfolio_source = (root / "office-independent/src/Project/OfficeProjectPortfolioView.php").read_text(encoding="utf-8")
+styles_method = portfolio_source.split("function styles()", 1)[-1]
+parts = re.findall(r"'([^']*)'", styles_method)
+portfolio_css = (root / "office-independent/public/assets/css/office-project-portfolio.css").read_text(encoding="utf-8")
+if not parts or portfolio_css.split("\\n", 1)[1].strip() != "".join(parts).strip():
+    sys.exit("FAIL: dynamically composed portfolio CSS differs from staged stylesheet")
+print("PASS office-project-portfolio.css: dynamic PHP CSS exact parity")
