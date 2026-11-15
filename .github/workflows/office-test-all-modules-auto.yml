@@ -123,7 +123,7 @@ jobs:
           scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json /tmp/office-development-package.tgz scripts/deployment/deploy_office_test.sh "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "php '$remote_dir/development-inventory.php' '$remote_dir/office-source-manifest.json'" | tee office-test-inventory.txt
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/deploy_office_test.sh' '$remote_dir/office-development-package.tgz' '$GITHUB_SHA'" | tee office-test-acceptance.txt
-      - name: Fingerprint conflicting OnSite runtime source
+      - name: Fingerprint conflicting OnSite and Calc runtime sources
         if: failure() && github.ref == 'refs/heads/develop'
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -142,6 +142,9 @@ jobs:
           # The repository is public: NEVER export or print private runtime source.
           # A Git blob hash is enough to identify an already committed version.
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "if test -f ~/$remote; then git hash-object ~/$remote | sed 's/^/ONSITE_RUNTIME_GIT_BLOB=/'; else echo ONSITE_RUNTIME_BLOB_UNAVAILABLE; fi"
+          # Fingerprint only: never print or export private runtime PHP sources.
+          calc_remote="domains/brebobv.nl/office_calc_test/release-ci-$GITHUB_SHA/private/src/Calculation/OfficeCalcCrmDraftLineRepository.php"
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "if test -f ~/$calc_remote; then git hash-object ~/$calc_remote | sed 's/^/CALC_RUNTIME_GIT_BLOB=/'; else echo CALC_RUNTIME_BLOB_UNAVAILABLE; fi"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
