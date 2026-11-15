@@ -447,7 +447,7 @@ if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
       $inzetHtml .= '<p>OnSite-registraties zijn nog niet aangesloten. De testdatabase bevat nog geen klokregistratietabel.</p>';
     } else {
       $inzetHtml .= '<p>Alle registraties zijn ter controle; hier worden nog geen uren goedgekeurd.</p>';
-      $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>In</th><th>Uit</th><th>Geplande uren</th><th>Status</th></tr></thead><tbody>';
+      $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>In</th><th>Uit</th><th>Geregistreerde uren</th><th>Status</th></tr></thead><tbody>';
       foreach ($inzetOverview['sessions'] as $session) {
         $inzetHtml .= '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at'])
           . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>'
