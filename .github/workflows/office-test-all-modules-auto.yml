@@ -98,6 +98,11 @@ jobs:
           # Path-specific Git ancestors for Calc only. Never trust arbitrary
           # server PHP: unmatched blobs still fail closed, with a fingerprint.
           git rev-list --objects HEAD -- office-independent/src/Calculation | awk 'NF == 2 && index($2,"office-independent/src/Calculation/")==1 {print substr($2,length("office-independent/")+1) " " $1}' | sort -u > /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt
+          # Exact runtime version verified in failed run 43748699879. Its
+          # transactional/CRM guards are incorporated into the merged source.
+          # Allow only this path+blob, with a private backup before replacement.
+          printf '%s\n' 'src/Calculation/OfficeCalcCrmTransferService.php 915211ae14b79061e750e8648c5c2e7b2094433e' >> /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt
+          sort -u /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt -o /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt
           git archive 39b992f8d022c9eba4732f5882c3c4cc3824616a office-independent | tar -x -C /tmp/office-development-package/baseline
           cp -a office-independent scripts /tmp/office-development-package/
           find /tmp/office-development-package -type d -name __pycache__ -prune -exec rm -rf {} +
