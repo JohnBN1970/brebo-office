@@ -78,8 +78,17 @@ try {
    } else {http_response_code(400);exit('Ongeldige beoordelingsactie.');}
    exit;
  }
+ // Select the entire historical evidence stream up to the week's end.
+ $weekRaw=$_GET['week']??date('o-\\WW');
+ if (!is_string($weekRaw) || !preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch)) {
+   $weekRaw=date('o-\\WW');
+   preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch);
+ }
+ $weekStart=(new DateTimeImmutable('now',new DateTimeZone('Europe/Brussels')))
+   ->setISODate((int)$weekMatch[1],(int)$weekMatch[2])->setTime(0,0);
+ $weekEnd=$weekStart->modify('+7 days');
  $review=(new \Brebo\Office\Inzet\OnSitePresenceReviewRepository($db))
-   ->forManager($operator->operatorId,(string)$id);
+   ->forManagerWeek($operator->operatorId,(string)$id,$weekEnd->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
  // Show persisted review state: previously handled intervals must not be offered again.
  $reviewedPairs=[];
  $reasonsEnabled=getenv('OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED')==='enabled';
@@ -90,15 +99,6 @@ try {
  foreach ($decisions->fetchAll(PDO::FETCH_ASSOC) as $decisionRow) {
    $reviewedPairs[(string)$decisionRow['in_event_id'].'|'.(string)$decisionRow['out_event_id']]=$decisionRow;
  }
- // Project-week review is computed from the same immutable presence intervals.
- $weekRaw=$_GET['week']??date('o-\\WW');
- if (!is_string($weekRaw) || !preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch)) {
-   $weekRaw=date('o-\\WW');
-   preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch);
- }
- $weekStart=(new DateTimeImmutable('now',new DateTimeZone('Europe/Brussels')))
-   ->setISODate((int)$weekMatch[1],(int)$weekMatch[2])->setTime(0,0);
- $weekEnd=$weekStart->modify('+7 days');
  $review['intervals']=array_map(static function(array $interval) use ($reviewedPairs):array {
    $key=(string)($interval['arrival_event_id']??'').'|'.(string)($interval['departure_event_id']??'');
    if (isset($reviewedPairs[$key])) {
@@ -108,6 +108,13 @@ try {
    }
    return $interval;
  },$review['intervals']??[]);
+ // Keep the displayed review scoped to the selected week; old events were used for pairing only.
+ $review['intervals']=array_values(array_filter($review['intervals'],static function(array $interval) use ($weekStart,$weekEnd):bool {
+   $start=$interval['entered_at']??null;
+   if (!is_string($start)) return false;
+   $local=(new DateTimeImmutable($start,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Europe/Brussels'));
+   return $local>=$weekStart && $local<$weekEnd;
+ }));
  $weekly=[];
  foreach ($review['intervals'] as $interval) {
    $start=$interval['entered_at']??null;
