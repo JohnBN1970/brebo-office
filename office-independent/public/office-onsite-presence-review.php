@@ -54,6 +54,55 @@ try {
    $origin=$_SERVER['HTTP_ORIGIN']??'';
    if ($origin!=='' && $origin!=='https://'.$host) {http_response_code(403);exit('Ongeldige herkomst.');}
    require_once dirname(__DIR__).'/src/Inzet/OfficeOnSiteApprovalService.php';
+   if (($_POST['review_action']??'')==='bulk_approve') {
+     $pairs=$_POST['pairs']??null;
+     if (!is_array($pairs) || count($pairs)<1 || count($pairs)>25) {
+       http_response_code(400);exit('Selecteer maximaal 25 registraties.');
+     }
+     $selected=[];
+     foreach ($pairs as $pair) {
+       if (!is_string($pair) || !preg_match('/^([a-f0-9]{64})$/D',$pair)) {
+         http_response_code(400);exit('Ongeldige selectie.');
+       }
+       $selected[$pair]=true;
+     }
+     // Re-read server-side verified evidence. Never trust submitted event IDs.
+     $bulkWeek=$_POST['week']??'';
+     if (!is_string($bulkWeek) || !preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$bulkWeek,$parts)) {
+       http_response_code(400);exit('Ongeldige week.');
+     }
+     $end=(new DateTimeImmutable('now',new DateTimeZone('Europe/Brussels')))
+       ->setISODate((int)$parts[1],(int)$parts[2])->setTime(0,0)->modify('+7 days');
+     $evidence=(new \Brebo\Office\Inzet\OnSitePresenceReviewRepository($db))
+       ->forManagerWeek($operator->operatorId,(string)$id,$end->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
+     $eligible=[];
+     foreach ($evidence['intervals'] as $interval) {
+       $arrival=(new DateTimeImmutable((string)$interval['entered_at'],new DateTimeZone('UTC')))
+         ->setTimezone(new DateTimeZone('Europe/Brussels'));
+       if ($arrival<$end->modify('-7 days') || $arrival>=$end) continue;
+       $key=hash('sha256',(string)$interval['arrival_event_id'].'|'.(string)$interval['departure_event_id']);
+       if (isset($selected[$key])) $eligible[$key]=$interval;
+     }
+     if (count($eligible)!==count($selected)) {http_response_code(409);exit('Selectie is verouderd. Ververs het overzicht.');}
+     $existing=$db->prepare('SELECT 1 FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=? LIMIT 1');
+     foreach ($eligible as $interval) {
+       $existing->execute([$interval['arrival_event_id'],$interval['departure_event_id']]);
+       if ($existing->fetchColumn()!==false) {http_response_code(409);exit('Een registratie is al beoordeeld. Ververs het overzicht.');}
+     }
+     $done=0;
+     foreach ($eligible as $interval) {
+       try {
+         (new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db))->approve(
+           $id,(string)$interval['arrival_event_id'],(string)$interval['departure_event_id'],$operator->operatorId);
+         $done++;
+       } catch (Throwable $error) {
+         http_response_code(409);
+         exit('Bulkactie onderbroken: '.$done.' registraties verwerkt; overige niet uitgevoerd. Ververs het overzicht.');
+       }
+     }
+     header('Location: ?id='.$id.'&week='.rawurlencode($bulkWeek).'&bulk_approved='.$done,true,303);
+     exit;
+   }
    $in=$_POST['in_event_id']??null;$out=$_POST['out_event_id']??null;
    if (!is_string($in) || !is_string($out)) {http_response_code(400);exit('Ongeldige registratie.');}
    $minutesRaw=$_POST['approved_minutes']??'';
@@ -154,6 +203,15 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  },array_keys($weekly),array_values($weekly)))
  .'</tbody></table>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
+ .($approvalsEnabled ? '<h2>Bulkgoedkeuring</h2><p>Selecteer maximaal 25 nog niet beoordeelde registraties. Bulkacties worden per registratie geboekt; bij een fout stopt de verwerking en wordt het aantal voltooide boekingen gemeld.</p>'
+ .'<form method="post"><input type="hidden" name="id" value="'.$escape($id).'"><input type="hidden" name="week" value="'.$escape($weekRaw).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['office_onsite_review_csrf']).'">'
+ .implode('',array_map(static function(array $interval) use ($escape):string {
+   if (isset($interval['review_status']) || ($interval['elapsed_seconds']??0)<1 || ($interval['elapsed_seconds']??0)>86400) return '';
+   $key=hash('sha256',(string)$interval['arrival_event_id'].'|'.(string)$interval['departure_event_id']);
+   return '<label style="display:block"><input type="checkbox" name="pairs[]" value="'.$escape($key).'"> Medewerker '.$escape($interval['person_id']).' · '.$escape($interval['entered_at']).' · '.round($interval['elapsed_seconds']/3600,2).' uur</label>';
+ },$review['intervals']??[]))
+ .'<button type="submit" name="review_action" value="bulk_approve">Selectie goedkeuren en boeken</button></form>'
+ .(isset($_GET['bulk_approved'])?'<p role="status">Bulkgoedkeuring verwerkt: '.$escape($_GET['bulk_approved']).' registraties.</p>':'') : '')
  .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
  .(isset($_GET['approved'])?'<p role="status">Uren goedgekeurd en geboekt.</p>':'')
  .(isset($_GET['rejected'])?'<p role="status">Registratie afgekeurd; geen uren geboekt.</p>':'')
