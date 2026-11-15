@@ -32,7 +32,13 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
     else ensureTest(count($rates)===1 && (int)$rates[0]===4250,'budget_fixture_rate_unchanged');
     $url='https://brebobv.nl/office-test/inzet/onsite/uren-beoordelen?id='.$id;
     $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
-    [$status]=requestTest($reader,$url);ensureTest($status===404,'budget_hours_reader_denied');
+    [$status,$readerBody]=requestTest($reader,$url);
+    if ($status!==404) {
+        echo 'BUDGET_HOURS_READER_STATUS='.$status."\\n";
+        // Response is a generic authorization/feature-gate error; never log cookies.
+        echo 'BUDGET_HOURS_READER_REASON='.substr(trim(strip_tags($readerBody)),0,180)."\\n";
+    }
+    ensureTest($status===404,'budget_hours_reader_denied');
     if ($decision===false) {
         [$status,$html]=requestTest($leader,$url);
         echo 'BUDGET_HOURS_FORM_HTTP_STATUS='.$status."\n";
