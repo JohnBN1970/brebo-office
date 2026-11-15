@@ -48,7 +48,16 @@ chmod 700 "$checkpoint"
 cp -p "$config" "$checkpoint/config.php"
 chmod 600 "$checkpoint/config.php"
 # Only additive reviewed migrations. On failure keep old release; never undo schema via DROP.
-php "$helper/office_test_migrate.php" OFFICE-TEST "$candidate"
+# Hostinger CLI may suppress fatal errors by default, returning only status 255.
+# Surface the PHP error and phase boundary without printing config or credentials.
+echo OFFICE_TEST_MIGRATION_START
+if php -d display_errors=stderr -d log_errors=1 -d error_reporting=E_ALL "$helper/office_test_migrate.php" OFFICE-TEST "$candidate"; then
+  echo OFFICE_TEST_MIGRATION_PASS
+else
+  status=$?
+  echo "OFFICE_TEST_MIGRATION_FAILED_EXIT=$status"
+  exit "$status"
+fi
 activated=0
 rollback() {
   code=$?
