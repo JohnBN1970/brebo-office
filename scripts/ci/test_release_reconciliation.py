@@ -51,6 +51,33 @@ class ReconciliationTest(unittest.TestCase):
                 module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',{'not-a-blob'})
             self.assertEqual((root/'active'/relative).read_text(),'runtime')
 
+    def test_calc_path_ancestor_conflict_is_backed_up(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            relative=Path('src/Calculation/OfficeCalcCrmTransferService.php')
+            for name,content in [('baseline','original'),('active','runtime'),('incoming','repository')]:
+                file=root/name/relative
+                file.parent.mkdir(parents=True)
+                file.write_text(content)
+            trusted={(str(relative),module.git_blob_id(b'runtime'))}
+            module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',known_calc_path_blobs=trusted)
+            self.assertEqual((root/'candidate'/relative).read_text(),'repository')
+            self.assertEqual((root/'candidate/.development-runtime-backups'/relative).read_text(),'runtime')
+            self.assertEqual((root/'active'/relative).read_text(),'runtime')
+
+    def test_calc_path_ancestor_wrong_path_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            relative=Path('src/Calculation/OfficeCalcCrmTransferService.php')
+            for name,content in [('baseline','original'),('active','runtime'),('incoming','repository')]:
+                file=root/name/relative
+                file.parent.mkdir(parents=True)
+                file.write_text(content)
+            trusted={('src/Calculation/Other.php',module.git_blob_id(b'runtime'))}
+            with self.assertRaisesRegex(RuntimeError,'RELEASE_MERGE_CONFLICT'):
+                module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',known_calc_path_blobs=trusted)
+            self.assertEqual((root/'active'/relative).read_text(),'runtime')
+
     def test_unknown_collision_is_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
