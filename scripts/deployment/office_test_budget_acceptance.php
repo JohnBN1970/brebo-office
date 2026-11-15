@@ -52,7 +52,12 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
         }
     }
     ensureTest($url!==null,'budget_hours_form');
-    [$status]=requestTest($reader,$url);
+    [$status,$readerBody]=requestTest($reader,$url);
+    if (!in_array($status,[403,404],true)) {
+        echo 'BUDGET_HOURS_READER_STATUS='.$status."\n";
+        // Retain the concurrent diagnostic without exporting a successful page body.
+        if ($status>=400) echo 'BUDGET_HOURS_READER_REASON='.substr(trim(strip_tags($readerBody)),0,180)."\n";
+    }
     ensureTest(in_array($status,[403,404],true),'budget_hours_reader_denied_http_'.$status);
     $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
     if ($decision===false) {
