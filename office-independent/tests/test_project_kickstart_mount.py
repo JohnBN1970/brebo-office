@@ -51,6 +51,15 @@ assert "INSERT INTO office_project_start_events" in repository, "Creation audit 
 assert "createForAuthorizedProject($projectId, (int)$operator->operatorId, (int)$operator->operatorId, $canManage)" in source, "Only authenticated manager may claim leadership"
 assert "hash_equals($token, $_POST['csrf_token'])" in source, "Creation requires CSRF"
 assert 'value="create_dossier"' in replacement, "Creation form missing"
+# Native controller is authoritative; its own renderer must expose the same
+# authenticated, project-scoped kickstart creation and review forms.
+assert 'OfficeProjectKickstartReadModel($db)' in source, "Native read model missing"
+assert 'OfficeProjectKickstartView::render' in source, "Native dossier view missing"
+assert 'OfficeProjectKickstartFormView::render' in source, "Native review forms missing"
+assert 'value="create_dossier"' in source, "Native dossier creation form missing"
+assert '$validKickstartCsrf = $canManage' in source, "Native forms must be manager-only"
+assert 'getenv(\'OFFICE_TEST_PROJECT_KICKSTART_ENABLED\')' in source, "Native forms must remain test-gated"
+
 # A synthetic V2 controller exercises the deploy mount without assuming
 # the repository's unmounted controller contains prior V2 deployment markers.
 synthetic = "<?php\n" + "\n".join(module.REQUIRED) + "\n" + module.ANCHOR + "\n" + "echo $breboV23Render((string) ob_get_clean());"
