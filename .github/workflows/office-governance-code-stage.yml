@@ -1,10 +1,5 @@
 name: Office governance code-only test release staging
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/office-governance-code-stage.yml'
   workflow_dispatch:
 permissions:
   contents: read

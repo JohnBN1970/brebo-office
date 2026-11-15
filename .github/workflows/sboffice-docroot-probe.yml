@@ -2,17 +2,12 @@ name: Probe sboffice document root
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/sboffice-docroot-probe.yml'
-
 permissions:
   contents: read
 
 jobs:
   probe:
+    environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

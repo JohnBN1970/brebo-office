@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   repair:
+    environment: production
     name: Ensure organization masterdata and payment profile fields
     runs-on: ubuntu-latest
     timeout-minutes: 10

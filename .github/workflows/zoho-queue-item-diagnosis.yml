@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   diagnose:
+    environment: production
     name: Inspect remaining Mail Intake queue item safely
     runs-on: ubuntu-latest
     timeout-minutes: 8

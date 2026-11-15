@@ -1,12 +1,5 @@
 name: Calc bundled staging preflight
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-bundled-staging-preflight.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/calc-bundled-staging-preflight.yml'
   workflow_dispatch:
     inputs:
       confirmation:

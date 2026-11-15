@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   diagnose:
+    environment: production
     name: Diagnose Moneybird supplier identities against CRM
     runs-on: ubuntu-latest
     timeout-minutes: 10

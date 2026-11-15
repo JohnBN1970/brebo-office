@@ -1,8 +1,5 @@
 name: Office-test project detail V3 compatibility diagnostics
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/project-detail-v3-diagnostics.yml'
   workflow_dispatch:
     inputs:
       confirm_test_only:

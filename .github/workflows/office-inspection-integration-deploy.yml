@@ -1,13 +1,5 @@
 name: Deploy Office-test inspection project and reports integration
 on:
-  push:
-    branches:
-      - feature/office-inspection-foundation-20261103
-      - develop
-    paths:
-      - 'office-independent/src/Inspection/**'
-      - 'office-independent/public/office-inspection*.php'
-      - '.github/workflows/office-inspection-integration-deploy.yml'
   workflow_dispatch:
     inputs:
       confirmation:

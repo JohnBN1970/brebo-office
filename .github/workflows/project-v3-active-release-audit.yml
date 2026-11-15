@@ -1,9 +1,6 @@
 name: Project V3 active release audit
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/project-v3-active-release-audit.yml'
 permissions:
   contents: read
 jobs:

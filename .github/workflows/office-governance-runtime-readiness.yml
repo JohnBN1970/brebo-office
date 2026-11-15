@@ -1,11 +1,5 @@
 name: Office governance runtime readiness (read only)
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'office-independent/deployment/hostinger/audit-office-governance-runtime.php'
-      - '.github/workflows/office-governance-runtime-readiness.yml'
   workflow_dispatch:
 permissions:
   contents: read

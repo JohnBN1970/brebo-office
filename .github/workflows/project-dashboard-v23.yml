@@ -1,9 +1,5 @@
 name: Project dashboard V2.3 acceptance and Office-test deployment
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/refine-project-dashboard-v23.py'
-      - '.github/workflows/project-dashboard-v23.yml'
   workflow_dispatch:
     inputs:
       confirm_test_only:

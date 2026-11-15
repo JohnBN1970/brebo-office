@@ -1,14 +1,10 @@
 name: Mail Intake technical exception acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/mail-intake-technical-exception-acceptance.yml'
-
+  workflow_dispatch:
 jobs:
   acceptance:
+    environment: production
     name: Seed and verify synthetic technical exception
     runs-on: ubuntu-latest
     steps:

@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   audit:
+    environment: production
     name: Audit functional versus personal mailbox overlap
     runs-on: ubuntu-latest
     timeout-minutes: 10

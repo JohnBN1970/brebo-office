@@ -1,17 +1,13 @@
 name: Hard-canonical building/project model
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/hard-canonical-building-project-model.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 
 jobs:
   canonicalize:
+    environment: production
     name: Remove legacy project ownership from permanent building model
     runs-on: ubuntu-latest
     timeout-minutes: 10

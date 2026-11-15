@@ -1,0 +1,47 @@
+name: Office-test Calc coded hourly rates
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type APPLY to install the additive hourly rate catalog in Office-test'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-calc-hourly-rates
+  cancel-in-progress: false
+jobs:
+  install:
+    if: ${{ inputs.confirmation == 'APPLY' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: feature/calc-wpcalc-grid-20261114
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Validate migration and catalog
+        run: |
+          php -l office-independent/deployment/hostinger/apply-calc-labor-rates-schema.php
+          php -l office-independent/src/Calculation/OfficeCalcLaborRateCatalog.php
+      - name: Apply guarded Office-test-only schema
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY" && test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_calc_rates
+          chmod 600 ~/.ssh/id_calc_rates
+          remote="$USER@$HOST"
+          stage="domains/brebobv.nl/office_calc_test/.calc-rates-stage-$(git rev-parse HEAD)"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_rates -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_rates -P "$PORT" office-independent/deployment/hostinger/apply-calc-labor-rates-schema.php "$remote:$stage/apply.php"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_rates -p "$PORT" "$remote" "php '$stage/apply.php' --apply"

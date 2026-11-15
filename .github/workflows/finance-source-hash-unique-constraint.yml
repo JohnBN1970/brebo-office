@@ -1,9 +1,6 @@
 name: Finance source-hash unique constraint
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
 
 permissions:
@@ -11,6 +8,7 @@ permissions:
 
 jobs:
   enforce:
+    environment: production
     name: Enforce production purchase-invoice source-hash uniqueness
     runs-on: ubuntu-latest
     timeout-minutes: 10

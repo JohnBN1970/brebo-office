@@ -1,10 +1,5 @@
 name: Office governance activate isolated test modules
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/office-governance-activate-test.yml'
   workflow_dispatch:
 permissions:
   contents: read

@@ -1,11 +1,6 @@
 name: Diagnose BREBO Drupal Cache Rebuild
 
 on:
-  workflow_run:
-    workflows:
-      - 'Deploy BREBO Office Production'
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -17,6 +12,7 @@ concurrency:
 
 jobs:
   diagnose:
+    environment: production
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

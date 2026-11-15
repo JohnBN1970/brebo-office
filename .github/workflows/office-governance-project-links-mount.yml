@@ -1,9 +1,6 @@
 name: Office-test project governance links guarded mount
 # Corrected PHP apostrophe escaping for guarded candidate lint.
 on:
-  push:
-    branches: [develop]
-    paths: ['.github/workflows/office-governance-project-links-mount.yml']
   workflow_dispatch:
 permissions:
   contents: read

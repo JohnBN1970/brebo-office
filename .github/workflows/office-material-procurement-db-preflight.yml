@@ -1,9 +1,5 @@
 name: Office material procurement database preflight (read only)
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/office-material-procurement-db-preflight.yml'
   workflow_dispatch:
     inputs:
       confirmation:

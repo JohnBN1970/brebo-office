@@ -1,18 +1,13 @@
 name: BREBO Mail runtime readiness
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/mail-runtime-readiness.yml'
-      - 'web/modules/custom/brebo_mail_intake/**'
-
+  workflow_dispatch:
 permissions:
   contents: read
 
 jobs:
   readiness:
+    environment: production
     name: Non-secret mail runtime readiness
     runs-on: ubuntu-latest
     timeout-minutes: 5

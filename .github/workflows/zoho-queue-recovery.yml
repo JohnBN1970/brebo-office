@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   recover:
+    environment: production
     name: Recover diagnosed empty-subject queue item
     runs-on: ubuntu-latest
     timeout-minutes: 8

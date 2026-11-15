@@ -1,10 +1,5 @@
 name: Office-test Gantt schema install
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/install-office-gantt-plan-test.php'
-      - 'office-independent/deployment/hostinger/sql/office-project-gantt-plan.sql'
-      - '.github/workflows/office-gantt-schema-install.yml'
   workflow_dispatch:
     inputs:
       confirmation:

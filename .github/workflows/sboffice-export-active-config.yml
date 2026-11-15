@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   export-config:
+    environment: production
     name: Export active Drupal config
     runs-on: ubuntu-latest
     steps:

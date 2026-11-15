@@ -1,9 +1,5 @@
 name: Calc Office-test fresh database backup
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-office-test-fresh-backup.yml'
   workflow_dispatch:
     inputs:
       confirmation:

@@ -1,9 +1,5 @@
 name: Office-test Gantt real-data preflight
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/audit-office-gantt-demo-preflight.php'
-      - '.github/workflows/office-gantt-demo-preflight.yml'
   workflow_dispatch:
     inputs:
       confirmation:

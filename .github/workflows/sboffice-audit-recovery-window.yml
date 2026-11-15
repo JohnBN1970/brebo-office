@@ -1,11 +1,6 @@
 name: Audit sboffice recovery window
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/sboffice-audit-recovery-window.yml'
   workflow_dispatch:
 
 permissions:
@@ -17,6 +12,7 @@ concurrency:
 
 jobs:
   audit:
+    environment: production
     name: Read-only activity and file audit
     runs-on: ubuntu-latest
     timeout-minutes: 10

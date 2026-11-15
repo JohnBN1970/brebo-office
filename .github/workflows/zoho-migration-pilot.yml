@@ -2,12 +2,6 @@ name: BREBO Zoho migration pilot
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-migration-pilot.yml'
-
 permissions:
   contents: read
 
@@ -17,6 +11,7 @@ concurrency:
 
 jobs:
   pilot:
+    environment: production
     name: Pilot newest 10 Zoho messages and hold cron backfill
     runs-on: ubuntu-latest
     timeout-minutes: 15

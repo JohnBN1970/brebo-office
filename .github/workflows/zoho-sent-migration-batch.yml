@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   migrate:
+    environment: production
     name: Migrate next ${{ inputs.batch_size }} Zoho Sent messages newest-first
     runs-on: ubuntu-latest
     timeout-minutes: 30

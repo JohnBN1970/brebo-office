@@ -1,10 +1,5 @@
 name: Office-test work budget tab guarded deployment
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/office-work-budget-tab-deploy.yml'
-      - 'office-independent/deployment/hostinger/mount-work-budget-tab-v3.py'
-      - 'office-independent/tests/test_work_budget_tab_v3.py'
   workflow_dispatch:
     inputs:
       confirmation:

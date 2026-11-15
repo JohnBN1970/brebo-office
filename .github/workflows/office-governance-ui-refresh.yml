@@ -1,9 +1,6 @@
 name: Office governance UI guarded refresh on test
 # Refresh ACL-scoped navigation and prioritized governance actions with Docker-bundled SSH.
 on:
-  push:
-    branches: [develop]
-    paths: ['.github/workflows/office-governance-ui-refresh.yml']
   workflow_dispatch:
 permissions:
   contents: read

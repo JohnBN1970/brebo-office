@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   diagnose:
+    environment: production
     name: Diagnose and classify Moneybird suppliers in Finance
     runs-on: ubuntu-latest
     timeout-minutes: 10

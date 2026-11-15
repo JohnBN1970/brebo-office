@@ -28,6 +28,41 @@ $projectV3Sections = [
   'uitvoering' => '<section><h2>Uitvoering</h2><p>Uitvoeringsgegevens worden vanuit de gekoppelde projectmodules ontsloten.</p></section>',
   'financieel' => (string) $financeHtml,
 ];
+// Optional read-only startdossier; only for already authenticated project scope.
+if ($projectV3Tab === 'werkvoorbereiding'
+    && \Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
+  try {
+    $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
+    if ((int) $kickstartSchema->fetchColumn() !== 4) {
+      $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier nog niet geïnstalleerd.</p></section>';
+    } else {
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartReadModel.php';
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartView.php';
+      $kickstart = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope((int)$projectId, 'project', 0);
+      $projectV3Sections['kickstart'] = $kickstart === null
+        ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Nog geen startdossier. Een bevoegde projectbeheerder kan zichzelf voor dit testproject als projectleider aanwijzen en het dossier starten.</p>'
+          . ($canManage && is_string($csrfToken ?? null) && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken)
+            ? '<form method="post" action="' . htmlspecialchars(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding', ENT_QUOTES, 'UTF-8') . '"><input type="hidden" name="kickstart_action" value="create_dossier"><input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') . '"><button type="submit">Als projectleider startdossier aanmaken</button></form>'
+            : '')
+        : \Brebo\Office\Project\OfficeProjectKickstartView::render($kickstart, $kickstart['questions'], $kickstart['approvals']);
+      if ($kickstart !== null && $canManage && is_string($csrfToken ?? null)
+          && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken)) {
+        require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartFormView.php';
+        $projectV3Sections['kickstart'] .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
+          $kickstart,
+          \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding',
+          $csrfToken, true,
+          (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId,
+          true
+        );
+      }
+
+    }
+  } catch (\Throwable $kickstartError) {
+    $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
+  }
+}
 $projectV3Body = \Brebo\Office\Project\OfficeProjectDetailV3View::render(
   \Brebo\Office\Intake\OfficeMount::basePath(),
   (int) $projectId,
@@ -67,7 +102,15 @@ echo $breboV23Render((string) ob_get_clean());
 
 def transform(source: str) -> str:
     if MARKER in source:
-        return source
+        # Refresh a previously mounted renderer while preserving the controller.
+        # The mount owns the entire final render tail; never leave an older UI
+        # in place when a later deployment adds forms or security guards.
+        if source.count(MARKER) != 1:
+            raise ValueError('Ambiguous mounted renderer')
+        start = source.index(MARKER)
+        if not source.rstrip().endswith('echo $breboV23Render((string) ob_get_clean());'):
+            raise ValueError('Unexpected statements after mounted renderer')
+        return source[:start] + REPLACEMENT
     missing = [marker for marker in REQUIRED if marker not in source]
     if missing:
         raise ValueError("Missing required markers: " + ", ".join(missing))

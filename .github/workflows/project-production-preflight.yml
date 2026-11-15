@@ -1,11 +1,6 @@
 name: BREBO Project Operational Acceptance
 
 on:
-  workflow_run:
-    workflows:
-      - 'Configure BREBO Document Extraction Runtime'
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -17,6 +12,7 @@ concurrency:
 
 jobs:
   preflight:
+    environment: production
     name: Verify Project operational production state
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest

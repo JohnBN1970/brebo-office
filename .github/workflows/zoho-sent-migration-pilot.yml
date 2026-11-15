@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   pilot:
+    environment: production
     name: Pilot Zoho Sent read-only source
     runs-on: ubuntu-latest
     steps:

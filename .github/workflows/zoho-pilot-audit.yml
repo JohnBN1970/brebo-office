@@ -1,17 +1,13 @@
 name: BREBO Zoho pilot audit
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-pilot-audit.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 
 jobs:
   audit:
+    environment: production
     name: Audit first 5 imported Zoho communications
     runs-on: ubuntu-latest
     timeout-minutes: 5

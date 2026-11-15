@@ -1,9 +1,5 @@
 name: Office demo Calc link diagnostics
 on:
-  pull_request:
-    paths:
-      - 'office-independent/deployment/hostinger/audit-office-demo-calc-link.php'
-      - '.github/workflows/office-demo-calc-link-diagnostics.yml'
   workflow_dispatch:
     inputs:
       confirmation:

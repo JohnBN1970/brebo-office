@@ -2,14 +2,6 @@ name: BREBO Zoho pilot safety audit
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-pilot-safety-audit.yml'
-      - '.github/workflows/zoho-migration-pilot.yml'
-      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.module'
-
 permissions:
   contents: read
 
@@ -19,6 +11,7 @@ concurrency:
 
 jobs:
   audit:
+    environment: production
     name: Disable backfill and audit original newest-10 pilot range
     runs-on: ubuntu-latest
     timeout-minutes: 10

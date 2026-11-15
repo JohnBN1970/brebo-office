@@ -1,12 +1,6 @@
 name: BREBO Zoho mail inventory
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-mail-inventory.yml'
-      - 'web/modules/custom/brebo_mail_intake/**'
   workflow_dispatch:
 
 permissions:
@@ -18,6 +12,7 @@ concurrency:
 
 jobs:
   inventory:
+    environment: production
     name: Read-only Zoho mailbox inventory
     runs-on: ubuntu-latest
     timeout-minutes: 5
