@@ -23,6 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/public/office-calc-crm-material-panel.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
           php -l office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php
           php -l office-independent/src/Calculation/OfficeCalcLaborNorm.php
@@ -52,6 +53,7 @@ jobs:
           stage="domains/brebobv.nl/office_calc_test/.calc-grid-stage-$revision"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -p "$PORT" "$remote" "mkdir -p '$stage' && chmod 700 '$stage'"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/public/office-calc-crm-workbench.php "$remote:$stage/workbench.php"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/public/office-calc-crm-material-panel.php "$remote:$stage/material-panel.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php "$remote:$stage/OfficeCalcCrmDraftLineRepository.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcQuantityAdjustments.php "$remote:$stage/OfficeCalcQuantityAdjustments.php"
           scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_calc_adjustments -P "$PORT" office-independent/src/Calculation/OfficeCalcLaborNorm.php "$remote:$stage/OfficeCalcLaborNorm.php"
