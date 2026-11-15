@@ -206,6 +206,7 @@ try {
             $rate=str_replace(',','.',trim((string)($_POST['labor_hourly_rate']??'')));
             $labor=\Brebo\Office\Calculation\OfficeCalcLaborNorm::calculate($exactQuantity,$driver,$input,$rate);
             $labor['input']=$input;
+            $labor['rate_code']=$selectedRate['code']??'';
             $exactUnitCost=$labor['labor_unit_cost'];
             $cost=(int)bcdiv(bcmul($exactUnitCost,'100',4),'1',0);
             $adjustmentReason='Arbeid '.$labor['hours'].' uur, norm '.$labor['norm'].', tarief '.$labor['hourly_rate'].' (leidend '.$driver.')';
@@ -330,7 +331,7 @@ foreach($lines as $line) {
             echo '<td><input form="'.$formId.'" name="labor_norm" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_norm']??'')).'" placeholder="Norm"></td>';
             echo '<td><input form="'.$formId.'" name="labor_hours" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hours']??'')).'" placeholder="Uren"></td>';
             if($laborRateCatalog!==null){$rateOptions='<option value="">Handmatig tarief</option>';
-            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'" data-hourly-rate="'.$h((string)$rate['hourly_rate']).'">'.$h((string)$rate['code'].' · '.$rate['description']).'</option>';
+            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'" data-hourly-rate="'.$h((string)$rate['hourly_rate']).'"'.((string)($line['labor_rate_code']??'')===(string)$rate['code']?' selected':'').'>'.$h((string)$rate['code'].' · '.$rate['description']).'</option>';
             echo '<td><select form="'.$formId.'" name="labor_rate_code" class="calc-labor-discipline">'.$rateOptions.'</select></td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';}else echo '<td>—</td><td><input form="'.$formId.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" value="'.$h((string)($line['labor_hourly_rate']??'')).'" placeholder="€/uur"></td>';
         }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
@@ -338,7 +339,7 @@ foreach($lines as $line) {
         echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
     }else{
-        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td>—</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
+        echo '<tr><td>'.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td>'.$h((string)($line['labor_rate_code']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
         foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
         echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
     }
