@@ -33,8 +33,8 @@ if ($projectV3Tab === 'werkvoorbereiding'
     && \Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
   try {
-    $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_questions')");
-    if ((int) $kickstartSchema->fetchColumn() !== 3) {
+    $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
+    if ((int) $kickstartSchema->fetchColumn() !== 4) {
       $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier nog niet geïnstalleerd.</p></section>';
     } else {
       require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartReadModel.php';
