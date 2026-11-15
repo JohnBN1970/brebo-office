@@ -35,9 +35,20 @@ final class LockedBaselineLines
         if (empty($baseline['locked_at'])) {
             throw new RuntimeException('Baseline is not locked.');
         }
+        // Optional additive v2 fields. Old installations remain readable until
+        // the Office-test migration is explicitly applied.
+        $columns = $this->db->query(
+            "SELECT COLUMN_NAME FROM information_schema.COLUMNS " .
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_calc_work_budget_lines'"
+        )->fetchAll(PDO::FETCH_COLUMN);
+        $decimalFields = ['quantity_decimal', 'unit_cost_decimal', 'budget_decimal'];
+        $available = count(array_intersect($decimalFields, $columns)) === count($decimalFields);
+        $selection = 'source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref';
+        if ($available) {
+            $selection .= ', quantity_decimal, unit_cost_decimal, budget_decimal';
+        }
         $statement = $this->db->prepare(
-            'SELECT source_line_id, cost_type, quantity, unit_cost_cents, budget_cents, activity_ref
-             FROM office_calc_work_budget_lines WHERE baseline_id = :baseline ORDER BY id'
+            'SELECT '.$selection.' FROM office_calc_work_budget_lines WHERE baseline_id = :baseline ORDER BY id'
         );
         $statement->execute(['baseline' => $baseline['id']]);
         $lines = [];
@@ -67,6 +78,13 @@ final class LockedBaselineLines
                     throw new RuntimeException('Invalid baseline quantity or unit price.');
                 }
             }
+            if ($available && $line['quantity_decimal'] !== null) {
+                foreach ($decimalFields as $field) {
+                    if (!is_string($line[$field]) || !preg_match('/^(?:0|[1-9][0-9]{0,17})(?:\\.[0-9]{1,4})?$/D', $line[$field])) {
+                        throw new RuntimeException('Invalid decimal baseline field: '.$field);
+                    }
+                }
+            }
             $lines[] = [
                 'code' => $source,
                 'cost_type' => $type,
@@ -74,6 +92,9 @@ final class LockedBaselineLines
                 'baseline_cents' => $amount,
                 'quantity' => (int) $line['quantity'],
                 'unit_cost_cents' => (int) $line['unit_cost_cents'],
+                'quantity_decimal' => $available ? $line['quantity_decimal'] : null,
+                'unit_cost_decimal' => $available ? $line['unit_cost_decimal'] : null,
+                'budget_decimal' => $available ? $line['budget_decimal'] : null,
             ];
         }
         return [
