@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: 'Type APPLY to install the additive hourly rate catalog and enable it in Office-test'
+        description: 'Type APPLY to install the additive hourly rate catalog in Office-test'
         required: true
         type: string
 permissions:
