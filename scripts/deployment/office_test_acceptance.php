@@ -14,7 +14,7 @@ $fixture=seedOfficeTest($db,$match[1]);
 $id=$fixture['project_id'];
 $url='https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=werkvoorbereiding';
 $login='https://brebobv.nl/office-test/inloggen';
-$handles=[];$jars=[];
+$handles=[];$jars=[];$accepted=false;$revokedSessionsOk=true;
 function ensureTest(bool $ok,string $name): void { if (!$ok) throw new RuntimeException('ACCEPTANCE_FAILED='.$name); echo 'ACCEPTANCE_PASS='.$name."\n"; }
 function requestTest(CurlHandle $h,string $url,?array $post=null): array {
     // Bound the acceptance burst on shared hosting; do not retry failed requests.
@@ -25,10 +25,7 @@ function requestTest(CurlHandle $h,string $url,?array $post=null): array {
     $response=curl_exec($h);
     if ($response===false) throw new RuntimeException('ACCEPTANCE_HTTP_TRANSPORT_FAILED');
     $status=curl_getinfo($h,CURLINFO_RESPONSE_CODE);$headerSize=curl_getinfo($h,CURLINFO_HEADER_SIZE);
-    if ($status === 503 && preg_match('/^X-BREBO-CI-Diagnostic:\s*([^\r\n]+)/im',substr($response,0,$headerSize),$diagnostic)) {
-        echo 'FIXTURE_HTTP_DIAGNOSTIC='.base64_decode(trim($diagnostic[1]),true)."\n";
-    }
-
+    if ($status === 503) echo 'FIXTURE_HTTP_503_RESPONSE=' . substr(preg_replace('/\s+/',' ',strip_tags(substr($response,$headerSize))),0,180) . "\n";
     return [$status,substr($response,$headerSize),substr($response,0,$headerSize)];
 }
 function csrfTest(string $html): string {
@@ -62,6 +59,9 @@ function postTest(CurlHandle $h,string $url,PDO $db,int $project,string $action,
     ensureTest(in_array($status,$expected,true),$action.'_http_'.$status);
 }
 try {
+    $repeat=seedOfficeTest($db,$match[1]);
+    ensureTest($repeat['project_id']===$fixture['project_id'],'seed_idempotent');
+    $fixture=$repeat;
     $anonymous=curl_init();[$status,$body,$headers]=requestTest($anonymous,$url);ensureTest($status===302 && str_contains($headers,'/office-test/inloggen'),'anonymous_redirect');
     [$status]=requestTest($anonymous,$login,['username'=>'invalid','password'=>'invalid']);ensureTest($status===403,'login_csrf_rejected');
     foreach ($fixture['users'] as $role=>$user) {
@@ -103,12 +103,21 @@ try {
     postTest($leader,$url,$db,$id,'submit_for_approval');postTest($leader,$url,$db,$id,'approve');postTest($reviewer,$url,$db,$id,'approve');
     [$status,$html]=requestTest($leader,$url);ensureTest($status===200 && str_contains($html,'FICTIEF: deellevering afgestemd?') && str_contains($html,'Uitvoering starten'),'final_render_and_controls');
     echo 'OFFICE_TEST_ACCEPTANCE_PROJECT='.$id."\n";
-    echo "OFFICE_TEST_HTTP_FOUR_EYES_ACCEPTANCE_PASS\n";
+    $accepted=true;
 } finally {
     foreach ($fixture['users'] as $user) {
         $q=$db->prepare('UPDATE office_operator_accounts SET active=0 WHERE id=? AND username=?');$q->execute([$user['id'],$user['username']]);
         $q=$db->prepare('UPDATE office_operator_sessions SET revoked_at=CURRENT_TIMESTAMP WHERE operator_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);
     }
+    if ($accepted) foreach ($handles as $role=>$h) {
+        try { [$status]=requestTest($h,$url); $ok=$status===302; }
+        catch (Throwable $ignored) { $ok=false; }
+        $revokedSessionsOk=$revokedSessionsOk && $ok;
+        if ($ok) echo 'ACCEPTANCE_PASS=session_revoked_'.$role."\n";
+    }
     foreach ($handles as $h) curl_close($h);
     foreach ($jars as $jar) @unlink($jar);
 }
+
+ensureTest($revokedSessionsOk,'revoked_session_access_denied');
+echo "OFFICE_TEST_HTTP_FOUR_EYES_ACCEPTANCE_PASS\n";
