@@ -45,6 +45,10 @@ jobs:
           php office-independent/tests/OfficeCalcDecimalTransferContractTest.php
           php office-independent/tests/OfficeCalcDecimalBaselineReadContractTest.php
           php -l office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php -l office-independent/public/office-calc-crm-collaboration-panels.php
+          php -l office-independent/public/office-calc-crm-material-panel.php
+          php office-independent/tests/OfficeCalcGridLayoutContractTest.php
       - name: Validate existing core contracts
         run: |
           set -euo pipefail
