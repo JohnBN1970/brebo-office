@@ -59,4 +59,5 @@ $repositorySource=file_get_contents(dirname(__DIR__).'/src/Calculation/OfficeCal
 if(!is_string($repositorySource)||!str_contains($repositorySource,"'cost_components'=>["))throw new RuntimeException('Canonical cost component read model missing');
 foreach(["'labor'=>(string)","'material'=>(string)","'equipment'=>(string)","'subcontract'=>(string)","'other'=>(string)"] as $component)if(!str_contains($repositorySource,$component))throw new RuntimeException('Missing cost component: '.$component);
 if(!str_contains($source,"line['cost_components']"))throw new RuntimeException('Cost details not linked to canonical values');
+if(!str_contains($repositorySource,'if(is_array($existingRow))')||!str_contains($repositorySource,'$costs[$column]=(string)$existingRow[$column]'))throw new RuntimeException('Editing a cost component must preserve other stored components');
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
