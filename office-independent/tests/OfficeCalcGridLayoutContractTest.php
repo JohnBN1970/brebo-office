@@ -1,0 +1,68 @@
+<?php
+declare(strict_types=1);
+$source=file_get_contents(dirname(__DIR__).'/public/office-calc-crm-workbench.php');
+if(!is_string($source))throw new RuntimeException('Workbench source missing');
+foreach([
+ 'Gezamenlijke calculaties',
+ 'office_calc_crm_drafts',
+ 'office-calc-crm-material-panel.php',
+ 'office-calc-crm-collaboration-panels.php',
+ 'element-tree',
+ 'Data · Calculatieregels',
+ 'Kosten/eh',
+ 'Subtotaal',
+ 'expected_revision',
+ 'office_project_csrf',
+ 'OfficeCalcCrmDraftLineRepository',
+ 'name="labor_norm"',
+ 'name="labor_hours"',
+ 'name="labor_hourly_rate"',
+ 'name="labor_driver"',
+ 'OFFICE_CALC_LABOR_SCHEMA_VERIFIED',
+ 'Vraaggestuurd calculeren',
+ 'guidedOptions',
+ 'guidedPreset',
+ 'calc-line-editor',
+ 'Kraan nodig?',
+ 'Steiger nodig?',
+ 'Bouwtoilet nodig?',
+ 'Extra arbeidsuren nodig?',
+ 'Extra transport nodig?',
+ 'Materiaalverlies voorzien?',
+ 'Bescherming werkgebied nodig?',
+ 'Geen automatische boeking',
+ 'material_loss_percent',
+ 'extra_labor_hours',
+ 'OfficeCalcQuantityAdjustments',
+ 'INVALID_MATERIAL_LOSS',
+ 'INVALID_EXTRA_HOURS',
+ 'ADJUSTMENT_CONFLICT',
+ 'ADJUSTMENT_SCHEMA_UNVERIFIED',
+ 'OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED'
+] as $contract){
+ if(!str_contains($source,$contract))throw new RuntimeException('Calc grid regression: '.$contract);
+}
+if(!str_contains($source,'grid-template-columns:minmax(0,1fr) 300px') && !str_contains($source,'.gridlayout{display:block}'))throw new RuntimeException('Grid layout missing');
+if(substr_count($source,"echo '<!doctype")!==2)throw new RuntimeException('List and draft views must both exist');
+if(!str_contains($source,'colspan="19"'))throw new RuntimeException('Empty grid column count mismatch');
+foreach(['calc-inline-new','calc-inline-row','Verliesfactor %','name="material_loss_percent"'] as $inline)if(!str_contains($source,$inline))throw new RuntimeException('Inline entry missing: '.$inline);
+foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/uitloggen','calc-topbar-settings','calc-inline-material-picker'] as $uiContract){
+ if(!str_contains($source,$uiContract))throw new RuntimeException('Calculator UI regression: '.$uiContract);
+}
+if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==2)throw new RuntimeException('Material picker must be available in new and edit rows');
+foreach(['$materialLineId=(string)$line[\'line_id\']','Materiaal vervangen','Materiaal kiezen','NOT_MATERIAL_LINE','material_line_id'] as $contract)if(!str_contains($source,$contract))throw new RuntimeException('Line-level material picker missing: '.$contract);
+if(str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Standalone material row must not return');
+foreach(['calc-lines-expand','calc-lines-collapse','calc-collapsible-line','calc-line-toggle','aria-expanded','calc-line-detail','calc-line-costs','aria-controls'] as $contract){
+ if(!str_contains($source,$contract))throw new RuntimeException('Bulk line folding regression: '.$contract);
+}
+$repositorySource=file_get_contents(dirname(__DIR__).'/src/Calculation/OfficeCalcCrmDraftLineRepository.php');
+if(!is_string($repositorySource)||!str_contains($repositorySource,"'cost_components'=>["))throw new RuntimeException('Canonical cost component read model missing');
+foreach(["'labor'=>(string)","'material'=>(string)","'equipment'=>(string)","'subcontract'=>(string)","'other'=>(string)"] as $component)if(!str_contains($repositorySource,$component))throw new RuntimeException('Missing cost component: '.$component);
+if(!str_contains($source,"line['cost_components']"))throw new RuntimeException('Cost details not linked to canonical values');
+if(!str_contains($repositorySource,'if(is_array($existingRow))')||!str_contains($repositorySource,'$costs[$column]=(string)$existingRow[$column]'))throw new RuntimeException('Editing a cost component must preserve other stored components');
+if(!str_contains($source,'name="component_')||!str_contains($source,"['labor','material','equipment','subcontract','other']"))throw new RuntimeException('Combined cost input generation missing');
+foreach(['if($costComponents!==null)','array_keys($costComponents)!==array_keys(self::COST_COLUMNS)','$costs[$column]=$costComponents[$kind]'] as $contract){
+ if(!str_contains($repositorySource,$contract))throw new RuntimeException('Atomic mixed-cost save missing: '.$contract);
+}
+if(!str_contains($source,'$components[$kind]=$amount'))throw new RuntimeException('Mixed cost POST validation missing');
+echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
