@@ -672,7 +672,7 @@ $arbeidInzetHtml = '<div id="project-arbeid-inzet"><h2>Arbeid &amp; Inzet</h2>'
   . '<div class="module"><strong>Personeelsplanning</strong><small>Projectteam, beschikbaarheid en geplande diensten. De weekkalender gebruikt de bestaande geautoriseerde Inzet-gegevens.</small><p><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet&tab=planning') . '">Weekplanning openen</a></p><p><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/projectkaart?id=' . (int) $projectId) . '">Projectteam en zones</a></p></div>'
   . '<div class="module"><strong>OnSite · urencontrole</strong><small>Registraties beoordelen en, indien geactiveerd en bevoegd, goedkeuren en boeken.</small><p>'
   . (\Brebo\Office\Intake\OfficeMount::isTest()
-      ? '<a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/onsite/uren-beoordelen?id=' . (int) $projectId) . '">Aanwezigheid controleren</a>'
+      ? '<a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/inzet/aanwezigheid?id=' . (int) $projectId) . '">Aanwezigheid controleren</a>'
       : 'Aanwezigheidscontrole alleen beschikbaar in Office-test.')
   . '</p></div>'
   . '</div>' . $projectWeekHtml . $inzetHtml . '</div>';

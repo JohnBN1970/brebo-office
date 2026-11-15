@@ -105,6 +105,7 @@ $routes = [
   '/office-test/inzet/importcontrole' => 'office-inzet-import-review.php',
   '/office-test/inzet/dienst/annuleren' => 'office-inzet-shift-cancel.php',
   '/office-test/inzet/dienst/verplaatsen' => 'office-inzet-shift-reschedule.php',
+  '/office-test/inzet/aanwezigheid' => 'office-onsite-presence-review.php',
   '/office-test/inzet/onsite/aanwezigheid' => 'office-onsite-presence-review.php',
   '/office-test/inzet/onsite/uren-beoordelen' => 'office-onsite-presence-review.php',
   '/office-test/inzet/zone/bijwerken' => 'office-onsite-zone-update.php',
