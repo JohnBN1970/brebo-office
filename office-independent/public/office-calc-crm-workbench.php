@@ -426,7 +426,7 @@ echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</
   for(const formId of ["calc-inline-new","calc-inline-edit"]){
     const form=document.getElementById(formId);
     if(!form)continue;
-    const field=name=>document.querySelector('[form="'+formId+'"][name="'+name+'"]')||form.querySelector('[name="'+name+'"]');
+    const field=name=>document.querySelector(`[form="${formId}"][name="${name}"]`)||form.querySelector(`[name="${name}"]`);
     const discipline=field("labor_rate_code"),hourly=field("labor_hourly_rate");
     if(discipline&&hourly){
       discipline.addEventListener("change",()=>{
