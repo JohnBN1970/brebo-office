@@ -50,5 +50,6 @@ foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/
  if(!str_contains($source,$uiContract))throw new RuntimeException('Calculator UI regression: '.$uiContract);
 }
 if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==1)throw new RuntimeException('Material picker must render once in grid');
-if(strpos($source,'calc-inline-material-picker')>strpos($source,'Nieuwe regel direct onderaan de tabel invullen'))throw new RuntimeException('Material picker must precede calculation rows');
+if(!str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Material picker must appear inside calculation table');
+if(strpos($source,'calc-material-row')<strpos($source,'Nieuwe regel direct onderaan de tabel invullen'))throw new RuntimeException('Material picker must follow row-entry toolbar');
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\n";
