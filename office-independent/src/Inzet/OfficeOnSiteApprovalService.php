@@ -15,6 +15,7 @@ require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
 require_once __DIR__ . '/OfficeLabourBudgetDebitPostingService.php';
 require_once __DIR__ . '/OfficeLabourShiftAggregatePostingService.php';
 require_once __DIR__ . '/OfficeOnSiteFourEyesGuard.php';
+require_once __DIR__ . '/OfficeApprovedLabourCostPostingService.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
@@ -29,10 +30,16 @@ final class OfficeOnSiteApprovalService
     {
         $legacy=getenv('OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED') === 'enabled';
         $aggregate=getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled';
+        $actual=getenv('OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED') === 'enabled';
+        if ($actual && ($legacy || $aggregate)) {
+            throw new \DomainException('Actual labour cost posting conflicts with legacy budget debit modes');
+        }
         if ($legacy && $aggregate) {
             throw new \DomainException('Conflicting labour budget posting modes');
         }
-        if ($aggregate) {
+        if ($actual) {
+            (new OfficeApprovedLabourCostPostingService($this->db))->postInsideTransaction($bookingId);
+        } elseif ($aggregate) {
             (new OfficeLabourShiftAggregatePostingService($this->db))->postInsideTransaction($bookingId);
         } elseif ($legacy) {
             (new OfficeLabourBudgetDebitPostingService($this->db))->postInsideTransaction($bookingId);
@@ -94,6 +101,7 @@ final class OfficeOnSiteApprovalService
         // Aggregate rollout requires a separately identified reviewer.
         // Guard both first-time approvals and idempotent retries before any write.
         if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled'
+            || getenv('OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED') === 'enabled'
             || getenv('OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED') === 'enabled') {
             (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
         }
