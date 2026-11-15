@@ -59,4 +59,51 @@ if ($verifiedColumns!==$expectedColumns) throw new RuntimeException('ONSITE_REJE
 $q=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
 $q->execute([$rejectionMigrationId,$rejectionChecksum]);
 echo "OFFICE_TEST_ONSITE_REJECTION_SCHEMA_PASS\\n";
+// Prepare the Office-test actual labour ledger, but do NOT enable cost posting.
+// The rate source must be separately authorized before the feature flag is set.
+$labourSchemaPath=$candidate.'/src/Inzet/OfficeApprovedLabourCostSchema.php';
+if (!is_file($labourSchemaPath)) throw new RuntimeException('ACTUAL_LABOUR_SCHEMA_SOURCE_MISSING');
+require_once $labourSchemaPath;
+$labourStatements=\\Brebo\\Office\\Inzet\\OfficeApprovedLabourCostSchema::statements();
+$labourTables=['office_inzet_actual_labour_costs','office_inzet_actual_labour_rates'];
+if (count($labourStatements)!==count($labourTables)) throw new RuntimeException('UNREVIEWED_ACTUAL_LABOUR_MIGRATION');
+foreach ($labourStatements as $i=>$statement) {
+    if (!str_starts_with($statement,'CREATE TABLE IF NOT EXISTS '.$labourTables[$i].' (')) {
+        throw new RuntimeException('UNREVIEWED_ACTUAL_LABOUR_MIGRATION');
+    }
+}
+$parentType=$db->query("SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_inzet_approved_hours' AND COLUMN_NAME='id'")->fetchColumn();
+if (strtolower((string)$parentType)!=='bigint unsigned') throw new RuntimeException('ACTUAL_LABOUR_PARENT_SCHEMA_UNVERIFIED');
+$expectedLabourColumns=[
+    'office_inzet_actual_labour_costs'=>['id','approved_hours_id','project_id','person_id','work_date','approved_seconds','hourly_rate_cents','amount_cents','source_sha256','recorded_at'],
+    'office_inzet_actual_labour_rates'=>['id','project_id','person_id','valid_from','valid_until','hourly_rate_cents','authorized_by','authorized_at','revoked_at'],
+];
+$labourColumns=$db->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION");
+foreach ($expectedLabourColumns as $table=>$columns) {
+    $labourColumns->execute([$table]);
+    $existing=$labourColumns->fetchAll(PDO::FETCH_COLUMN);
+    if ($existing!==[] && $existing!==$columns) throw new RuntimeException('ACTUAL_LABOUR_SCHEMA_MISMATCH='.$table);
+}
+$labourMigrationId='onsite-actual-labour-ledger-v1';
+$labourChecksum=hash('sha256',implode(';',$labourStatements));
+$labourLookup=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$labourLookup->execute([$labourMigrationId]);
+$priorLabourChecksum=$labourLookup->fetchColumn();
+if ($priorLabourChecksum!==false && !hash_equals((string)$priorLabourChecksum,$labourChecksum)) {
+    throw new RuntimeException('ACTUAL_LABOUR_MIGRATION_CHECKSUM_CHANGED');
+}
+foreach ($labourStatements as $statement) $db->exec($statement);
+foreach ($expectedLabourColumns as $table=>$columns) {
+    $labourColumns->execute([$table]);
+    if ($labourColumns->fetchAll(PDO::FETCH_COLUMN)!==$columns) throw new RuntimeException('ACTUAL_LABOUR_SCHEMA_UNVERIFIED='.$table);
+}
+$unique=$db->query("SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_inzet_actual_labour_costs'
+    AND INDEX_NAME='uq_actual_labour_approval' AND COLUMN_NAME='approved_hours_id' AND NON_UNIQUE=0")->fetchColumn();
+if ((int)$unique!==1) throw new RuntimeException('ACTUAL_LABOUR_UNIQUE_INDEX_MISSING');
+$labourRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
+$labourRecord->execute([$labourMigrationId,$labourChecksum]);
+echo "OFFICE_TEST_ACTUAL_LABOUR_SCHEMA_PASS\\n";
 echo "OFFICE_TEST_ADDITIVE_MIGRATIONS_PASS\n";
