@@ -1,14 +1,7 @@
 name: Building identity resolution acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_building_data/**'
-      - 'web/modules/custom/brebo_mail_intake/src/Service/CanonicalContextResolver.php'
-      - '.github/workflows/building-identity-resolution-acceptance.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

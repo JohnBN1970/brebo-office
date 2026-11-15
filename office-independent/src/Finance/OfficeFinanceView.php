@@ -72,6 +72,7 @@ final class OfficeFinanceView {
       $invoice = $dossier['invoice'];
       $html .= '<section><h2>Inkoopfactuur '.$e($invoice['invoice_number']).'</h2>';
       $html .= '<p class="muted">Office-test · Concept · Niet geboekt of betaalbaar.</p>';
+      if(!empty($data['can_import_materials']))$html.='<p><a href="'.$e(OfficeMount::route('materialen',['invoice_id'=>(int)$invoice['id']])).'">Materiaalregels naar de vaste prijslijst</a></p>';
       if (!empty($data['can_edit_dossier'])) {
       $html .= '<form method="post" action="'.$e($url('finance/dossier', ['id'=>(int)$invoice['id']])).'">';
       $html .= '<input type="hidden" name="csrf" value="'.$e($data['upload_csrf'] ?? '').'">';

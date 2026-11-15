@@ -66,6 +66,9 @@ final class ArticleSearchController extends ControllerBase {
     $query->condition('a.active', 1);
     $query->condition('sa.active', 1);
     $query->condition('ci.status', 'actief');
+    $query->condition('s.active', 1);
+    $date=(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Amsterdam')))->format('Y-m-d');
+    $query->where(\Drupal\brebo_article\Infrastructure\ArticleCurrentPriceQuery::predicate(),\Drupal\brebo_article\Infrastructure\ArticleCurrentPriceQuery::arguments($date));
 
     if ($term !== '') {
       $or = $query->orConditionGroup()
@@ -86,6 +89,7 @@ final class ArticleSearchController extends ControllerBase {
 
     $query->orderBy('a.description');
     $query->orderBy('p.valid_from', 'DESC');
+    $query->orderBy('p.id', 'DESC');
     $query->range(0, $limit);
 
     $seen = [];

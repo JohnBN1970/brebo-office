@@ -1,0 +1,116 @@
+name: OnSite approved hours guarded Office-test deployment
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-ONSITE-OFFICE-TEST
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate OnSite approval and dashboard sources
+        run: |
+          set -euo pipefail
+          for file in office-independent/public/office-onsite-presence-review.php office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/public/office-projects.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php; do php -l "$file"; done
+          php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+          python3 -m py_compile office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py
+  inspect:
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - name: Configure read-only SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_inspect
+          chmod 600 ~/.ssh/id_onsite_inspect
+      - name: Inspect live pages and service fingerprints without writes
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_inspect"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          for f in public/office-onsite-presence-review.php public/office-projects.php src/Inzet/OfficeOnSiteApprovalService.php src/Inzet/OfficeApprovedHoursWeekRepository.php; do
+            if test ! -f "$active/$f" || test -L "$active/$f"; then echo "LIVE_FILE_MISSING:$f"; continue; fi
+            echo "LIVE_SHA256:$f:$(sha256sum "$active/$f" | cut -d' ' -f1)"
+            php -l "$active/$f"
+            for marker in OfficeOnSiteApprovalService OfficeApprovedHoursWeekRepository approved_week_seconds OfficeProjectPortfolioGantt OfficeProjectPortfolioView; do
+              if grep -Fq "$marker" "$active/$f"; then echo "LIVE_MARKER_PRESENT:$f:$marker"; else echo "LIVE_MARKER_ABSENT:$f:$marker"; fi
+            done
+          done
+          REMOTE
+  deploy:
+    needs: [validate, inspect]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmation == 'DEPLOY-ONSITE-OFFICE-TEST' }}
+    runs-on: ubuntu-latest
+    environment: office-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_deploy
+          chmod 600 ~/.ssh/id_onsite_deploy
+      - name: Stage OnSite integration candidates and guarded merge script
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
+          remote="$USER@$HOST"
+          ssh $opts -p "$PORT" "$remote" 'mkdir -p "$HOME/office_calc_test/.onsite-deploy-stage/public" "$HOME/office_calc_test/.onsite-deploy-stage/src/Inzet" "$HOME/office_calc_test/.onsite-deploy-stage/src/Project" "$HOME/office_calc_test/.onsite-deploy-stage/src/Finance"'
+          scp $opts -P "$PORT" office-independent/public/office-onsite-presence-review.php office-independent/public/office-projects.php "$remote:office_calc_test/.onsite-deploy-stage/public/"
+          scp $opts -P "$PORT" office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php "$remote:office_calc_test/.onsite-deploy-stage/src/Inzet/"
+          scp $opts -P "$PORT" office-independent/src/Project/OfficeProjectPortfolioView.php office-independent/src/Project/OfficeProjectPageStructure.php office-independent/src/Project/OfficeProjectPortfolioPlannedHours.php office-independent/src/Project/OfficeProjectPortfolioTotals.php "$remote:office_calc_test/.onsite-deploy-stage/src/Project/"
+          scp $opts -P "$PORT" office-independent/src/Finance/OfficeFinanceAccess.php "$remote:office_calc_test/.onsite-deploy-stage/src/Finance/"
+          scp $opts -P "$PORT" office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$remote:office_calc_test/.onsite-deploy-stage/"
+      - name: Verify exact live version, prepare guarded merge and perform read-only acceptance
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_deploy"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          stage="$HOME/office_calc_test/.onsite-deploy-stage"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          test -f "$stage/integrate-onsite-approval-live-guarded.py"
+          test ! -L "$stage/integrate-onsite-approval-live-guarded.py"
+          backup="$HOME/office_calc_test/.onsite-backups/onsite-$(date +%Y%m%d-%H%M%S)-$$"
+          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup"
+          python3 "$stage/integrate-onsite-approval-live-guarded.py" --active "$active" --stage "$stage" --backup "$backup" --apply --config "$config" --probe "$stage/onsite-approved-hours-readonly-acceptance.php"
+          echo ONSITE_GUARDED_DEPLOY_AND_READ_ONLY_ACCEPTANCE_COMPLETE
+          REMOTE

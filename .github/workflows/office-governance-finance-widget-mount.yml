@@ -1,9 +1,6 @@
 name: Office-test project Finance procurement widget mount
 # Live Finance anchor audited before surgical installation.
 on:
-  push:
-    branches: [develop]
-    paths: ['.github/workflows/office-governance-finance-widget-mount.yml']
   workflow_dispatch:
 permissions:
   contents: read

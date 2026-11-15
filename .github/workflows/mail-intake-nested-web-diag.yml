@@ -2,12 +2,6 @@ name: Diagnose nested Drupal webroot
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/mail-intake-nested-web-diag.yml'
-
 permissions:
   contents: read
 

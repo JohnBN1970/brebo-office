@@ -1,9 +1,5 @@
 name: Calc Office-test verified isolated database restore
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/calc-office-test-verified-isolated-restore.yml'
   workflow_dispatch:
     inputs:
       confirmation:

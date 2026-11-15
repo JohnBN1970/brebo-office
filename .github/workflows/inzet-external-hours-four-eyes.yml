@@ -1,0 +1,14 @@
+name: Inzet external hours four-eyes policy
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursFourEyesPolicy.php'
+      - 'office-independent/tests/OfficeExternalHoursFourEyesPolicyTest.php'
+      - '.github/workflows/inzet-external-hours-four-eyes.yml'
+jobs:
+  four-eyes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursFourEyesPolicy.php
+      - run: php office-independent/tests/OfficeExternalHoursFourEyesPolicyTest.php

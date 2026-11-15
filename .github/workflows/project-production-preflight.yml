@@ -1,11 +1,6 @@
 name: BREBO Project Operational Acceptance
 
 on:
-  workflow_run:
-    workflows:
-      - 'Configure BREBO Document Extraction Runtime'
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:

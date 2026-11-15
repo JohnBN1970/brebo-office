@@ -19,6 +19,8 @@ $db=new PDO($dsn,(string)($config['OFFICE_INTAKE_DB_USER']??''),
 echo "SCOPE=OFFICE_TEST\n";
 $flag=$config['OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED']??null;
 echo "APPROVAL_CONFIG_FLAG=".($flag==='enabled'?'ENABLED':($flag===null?'NOT_SET':'DISABLED'))."\n";
+// Readiness is not granted until approvals are explicitly enabled.
+$flagReady=$flag==='enabled';
 $expected=[
  'office_onsite_event_inbox'=>['event_id','person_id','project_id','zone_id','event_kind','occurred_at_utc'],
  'office_onsite_hours_decisions'=>['decision_reference','in_event_id','out_event_id','project_id','person_id','status','reviewed_seconds','reviewer_id'],
@@ -26,7 +28,7 @@ $expected=[
  'office_project_memberships'=>['project_id','operator_id','permission'],
  'office_operator_accounts'=>['id','active'],
 ];
-$ready=true;
+$ready=$flagReady;
 foreach($expected as $table=>$columns) {
     $q=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
     $q->execute([$table]);
@@ -74,9 +76,13 @@ if (!is_string($live) || $live==='' || !is_dir($live)) {
         foreach($markers as $marker) if (!$ok || !str_contains($contents,$marker)) $missing[]=$marker;
         $ok=$ok && $missing===[];
         $state=$ok?'READY':(is_string($contents)?'MARKER_MISMATCH':'FILE_MISSING');
-        echo 'DEPLOYED_'.strtoupper(str_replace(['/', '.', '-'],'_', $file)).'='.$state."\n";
+        $label='DEPLOYED_'.strtoupper(str_replace(['/', '.', '-'],'_', $file));
+        echo $label.'='.$state."\n";
+        // Report only expected marker names, never contents of live files.
+        foreach ($missing as $marker) echo $label.'_MISSING_MARKER='.$marker."\n";
         if (!$ok) $ready=false;
     }
 }
+if (!$flagReady) echo "ON_SITE_BLOCKER=APPROVAL_FLAG_NOT_ENABLED\n";
 echo "ON_SITE_READ_ONLY_ACCEPTANCE=".($ready?'READY_FOR_CONTROLLED_TRIAL':'BLOCKED')."\n";
 exit($ready?0:4);

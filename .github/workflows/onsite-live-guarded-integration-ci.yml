@@ -1,0 +1,24 @@
+name: OnSite guarded integration source checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py'
+      - '.github/workflows/onsite-approved-hours-guarded-deploy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify integration script syntax and CLI
+        run: |
+          set -euo pipefail
+          python3 -m py_compile office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py
+          python3 office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py --help
+      - name: Validate approval chain and PHP sources
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeOnSiteApprovalChainContractTest.php
+          for f in office-independent/public/office-onsite-presence-review.php office-independent/public/office-projects.php office-independent/src/Inzet/OfficeOnSiteApprovalService.php office-independent/src/Inzet/OfficeApprovedHoursWeekRepository.php office-independent/src/Project/OfficeProjectPortfolioView.php; do php -l "$f"; done

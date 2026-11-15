@@ -1,8 +1,5 @@
 name: Office governance functional acceptance on real test DB
 on:
-  push:
-    branches: [develop]
-    paths: ['.github/workflows/office-governance-functional-acceptance.yml']
   workflow_dispatch:
 permissions:
   contents: read

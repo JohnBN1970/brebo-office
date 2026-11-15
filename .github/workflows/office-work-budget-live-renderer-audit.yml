@@ -1,9 +1,5 @@
 name: Office-test work budget live renderer audit
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/office-work-budget-live-renderer-audit.yml'
   workflow_dispatch:
 permissions:
   contents: read

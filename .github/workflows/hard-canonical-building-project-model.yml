@@ -1,12 +1,7 @@
 name: Hard-canonical building/project model
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/hard-canonical-building-project-model.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

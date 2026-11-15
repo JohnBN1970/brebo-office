@@ -1,73 +1,16 @@
 name: BREBO deploy principle acceptance
-
 on:
   pull_request:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/sboffice-deploy-develop.yml'
-      - '.github/workflows/deploy-principle-acceptance.yml'
+    branches: [develop]
   push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/sboffice-deploy-develop.yml'
-      - '.github/workflows/deploy-principle-acceptance.yml'
-
+    branches: [develop, 'feature/**', 'fix/**']
 permissions:
   contents: read
-
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validate workflow YAML
-        run: |
-          python - <<'PY'
-          import yaml
-          for path in [
-              '.github/workflows/sboffice-deploy-develop.yml',
-              '.github/workflows/deploy-principle-acceptance.yml',
-          ]:
-              with open(path, encoding='utf-8') as fh:
-                  yaml.safe_load(fh)
-              print('YAML_OK=' + path)
-          PY
-
-      - name: Enforce central BREBO deploy principle
-        shell: bash
-        run: |
-          set -euo pipefail
-          f=.github/workflows/sboffice-deploy-develop.yml
-          grep -q 'branches:' "$f"
-          grep -q -- '- develop' "$f"
-          grep -q 'DEPLOY_HOST:.*secrets.DEPLOY_HOST' "$f"
-          grep -q 'DEPLOY_PORT:.*secrets.DEPLOY_PORT' "$f"
-          grep -q 'DEPLOY_USER:.*secrets.DEPLOY_USER' "$f"
-          grep -q 'DEPLOY_SSH_KEY:.*secrets.DEPLOY_SSH_KEY' "$f"
-          grep -q 'public_html/sboffice"' "$f"
-          grep -q 'webroot="$app/web"' "$f"
-          grep -q 'settings="$webroot/sites/default/settings.php"' "$f"
-          grep -q 'Drupal webroot missing or invalid' "$f"
-          grep -q 'updb -y --no-cache-clear' "$f"
-          grep -q 'CACHE_REBUILD_OK=1' "$f"
-          grep -q 'BREBO_RUNTIME_OK=1' "$f"
-          grep -q 'PUBLIC_LOGIN_OK=1' "$f"
-          grep -q 'FINANCE_HTTP_SMOKE_OK' "$f"
-          grep -q 'CONTROL_CENTER_HTTP_SMOKE_OK' "$f"
-          grep -q 'DEPLOY_OK=1' "$f"
-          if grep -q 'sboffice_app' "$f"; then
-            echo '::error::Legacy sboffice_app path must not be used.'
-            exit 1
-          fi
-          if grep -q 'must be a symlink' "$f"; then
-            echo '::error::Current production layout must not require a symlink.'
-            exit 1
-          fi
-          if grep -q 'DEPLOY_HOST: 77\.' "$f"; then
-            echo '::error::DEPLOY_HOST must not be hardcoded.'
-            exit 1
-          fi
-          echo 'BREBO_DEPLOY_PRINCIPLE=PASS'
+      - run: python -m pip install PyYAML==6.0.2
+      - name: Enforce isolated development and explicit production release
+        run: python scripts/ci/check_deployment_policy.py

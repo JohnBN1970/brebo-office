@@ -2,12 +2,6 @@ name: BREBO Zoho migration pilot
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-migration-pilot.yml'
-
 permissions:
   contents: read
 

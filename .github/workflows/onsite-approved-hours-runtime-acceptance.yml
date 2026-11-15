@@ -1,11 +1,11 @@
 name: OnSite approved hours read-only runtime acceptance
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/onsite-approved-hours-runtime-acceptance.yml'
-      - 'office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php'
   workflow_dispatch:
+    inputs:
+      activation_confirmation:
+        description: 'Optional: type ENABLE-ONSITE-OFFICE-TEST to enable approvals before acceptance'
+        required: false
+        type: string
 permissions:
   contents: read
 jobs:
@@ -15,8 +15,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Validate read-only acceptance probe
-        run: php -l office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php
+      - name: Validate acceptance and guarded activation scripts
+        run: |
+          php -l office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php
+          php -l office-independent/deployment/hostinger/onsite-approved-hours-activate-guarded.php
       - name: Configure SSH
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -26,6 +28,37 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_onsite_acceptance
           chmod 600 ~/.ssh/id_onsite_acceptance
+      - name: Guarded OnSite activation (explicit opt-in only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.activation_confirmation == 'ENABLE-ONSITE-OFFICE-TEST' }}
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          test -n "$HOST" && test -n "$PORT" && test -n "$USER"
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
+          echo "ON_SITE_REMOTE_STAGE=START"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-activation-stage"'
+          echo "ON_SITE_REMOTE_STAGE=READY"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "$HOME/.ssh/id_onsite_acceptance" -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-activate-guarded.php "$USER@$HOST:office_calc_test/.onsite-activation-stage/"
+          echo "ON_SITE_SCRIPT_TRANSFER=READY"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          config="$HOME/domains/brebobv.nl/office_calc_test/config/config.php"
+          script="$HOME/office_calc_test/.onsite-activation-stage/onsite-approved-hours-activate-guarded.php"
+          if test ! -f "$config" || test -L "$config"; then
+            echo "ON_SITE_CONFIG_PATH=INVALID"
+            exit 24
+          fi
+          if test ! -f "$script" || test -L "$script"; then
+            echo "ON_SITE_ACTIVATION_SCRIPT_PATH=INVALID"
+            exit 24
+          fi
+          echo "ON_SITE_REMOTE_SCRIPT=START"
+          OFFICE_TEST_CONFIG_PATH="$config" php "$script"
+          echo "ON_SITE_REMOTE_SCRIPT=COMPLETE"
+          REMOTE
       - name: Inspect active Office-test without writes
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
@@ -36,7 +69,7 @@ jobs:
           test -n "$HOST" && test -n "$PORT" && test -n "$USER"
           opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_acceptance"
           ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-acceptance-stage"'
-          scp $opts -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$USER@$HOST:office_calc_test/.onsite-acceptance-stage/"
+          scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "$HOME/.ssh/id_onsite_acceptance" -P "$PORT" office-independent/deployment/hostinger/onsite-approved-hours-readonly-acceptance.php "$USER@$HOST:office_calc_test/.onsite-acceptance-stage/"
           ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           base="$HOME/domains/brebobv.nl/office_calc_test"

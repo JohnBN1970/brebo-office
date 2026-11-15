@@ -12,11 +12,32 @@ require_once __DIR__ . '/OnSitePresenceIntervalProjector.php';
 require_once __DIR__ . '/OfficeApprovedHoursDecisionRepository.php';
 require_once __DIR__ . '/OfficeApprovedHoursEvidence.php';
 require_once __DIR__ . '/OfficeApprovedHoursBooking.php';
+require_once __DIR__ . '/OfficeLabourBudgetDebitPostingService.php';
+require_once __DIR__ . '/OfficeLabourShiftAggregatePostingService.php';
+require_once __DIR__ . '/OfficeOnSiteFourEyesGuard.php';
 
 /** Verify immutable inbox events and persist a manager decision and its booking atomically. */
 final class OfficeOnSiteApprovalService
 {
     public function __construct(private PDO $db) {}
+
+    /**
+     * Mutually exclusive rollout paths. Aggregate mode must be explicitly enabled
+     * after integration testing; existing installations remain unchanged.
+     */
+    private function postBudgetInsideTransaction(int $bookingId): void
+    {
+        $legacy=getenv('OFFICE_TEST_LABOUR_BUDGET_DEBIT_ENABLED') === 'enabled';
+        $aggregate=getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled';
+        if ($legacy && $aggregate) {
+            throw new \DomainException('Conflicting labour budget posting modes');
+        }
+        if ($aggregate) {
+            (new OfficeLabourShiftAggregatePostingService($this->db))->postInsideTransaction($bookingId);
+        } elseif ($legacy) {
+            (new OfficeLabourBudgetDebitPostingService($this->db))->postInsideTransaction($bookingId);
+        }
+    }
 
     public function approve(int $projectId, string $inEventId, string $outEventId, string $reviewer): int
     {
@@ -70,6 +91,11 @@ final class OfficeOnSiteApprovalService
         $reference=hash('sha256',$inEventId.'|'.$outEventId);
         $personId=filter_var($events[$inEventId]['person_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if (!is_int($personId)) throw new \DomainException('Unmapped OnSite person');
+        // Aggregate rollout requires a separately identified reviewer.
+        // Guard both first-time approvals and idempotent retries before any write.
+        if (getenv('OFFICE_TEST_LABOUR_SHIFT_AGGREGATE_ENABLED') === 'enabled') {
+            (new OfficeOnSiteFourEyesGuard($this->db))->assertIndependent($reviewer,$personId);
+        }
         $this->db->beginTransaction();
         try {
         $existing=$this->db->prepare("SELECT d.decision_reference,d.reviewer_id FROM office_onsite_hours_decisions d WHERE d.in_event_id=? AND d.out_event_id=? LIMIT 1 FOR UPDATE");
@@ -87,6 +113,7 @@ final class OfficeOnSiteApprovalService
             if (!is_array($booking) || !hash_equals((string)$booking['source_sha256'],$entry['source_sha256'])) {
                 throw new \DomainException('Previously approved OnSite booking missing or changed');
             }
+            $this->postBudgetInsideTransaction((int)$booking['id']);
             $this->db->commit();
             return (int)$booking['id'];
         }
@@ -95,10 +122,11 @@ final class OfficeOnSiteApprovalService
              reviewed_seconds,reviewer_id,decided_at)
             VALUES (?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP())");
         $insert->execute([$reference,$inEventId,$outEventId,$projectId,$personId,
-            $in->format('Y-m-d'),$decision['status'],$decision['reviewed_seconds'],$reviewer]);
+            $in->setTimezone(new DateTimeZone('Europe/Brussels'))->format('Y-m-d'),$decision['status'],$decision['reviewed_seconds'],$reviewer]);
         $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified($reference,$reviewer);
         $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
         $bookingId=(new OfficeApprovedHoursBooking($this->db))->append($entry,$reviewer);
+        $this->postBudgetInsideTransaction($bookingId);
         $this->db->commit();
         return $bookingId;
         } catch (\Throwable $error) {

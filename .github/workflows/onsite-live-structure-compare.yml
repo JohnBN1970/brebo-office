@@ -1,0 +1,79 @@
+name: OnSite Office-test live structure comparison
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: office-test
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate local source files
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/public/office-onsite-presence-review.php
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_compare
+          chmod 600 ~/.ssh/id_onsite_compare
+      - name: Stage repository copies outside active release
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_compare"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'mkdir -p "$HOME/office_calc_test/.onsite-diff-stage"'
+          scp $opts -P "$PORT" office-independent/public/office-projects.php office-independent/public/office-onsite-presence-review.php "$USER@$HOST:office_calc_test/.onsite-diff-stage/"
+      - name: Compare code structure without exposing live file contents
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_compare"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          export ONSITE_ACTIVE="$active"
+          python3 - <<'PY'
+          import difflib, hashlib, os, pathlib
+          root=pathlib.Path(os.environ["ONSITE_ACTIVE"])
+          stage=pathlib.Path.home()/"office_calc_test/.onsite-diff-stage"
+          for name in ("office-projects.php","office-onsite-presence-review.php"):
+              live=root/"public"/name
+              candidate=stage/name
+              if not live.is_file() or live.is_symlink() or not candidate.is_file() or candidate.is_symlink():
+                  raise SystemExit("UNVERIFIED_FILE:"+name)
+              a=live.read_bytes()
+              b=candidate.read_bytes()
+              print("FILE="+name)
+              print("LIVE_SHA256="+hashlib.sha256(a).hexdigest())
+              print("CANDIDATE_SHA256="+hashlib.sha256(b).hexdigest())
+              left=a.decode("utf-8").splitlines()
+              right=b.decode("utf-8").splitlines()
+              print("LIVE_LINES="+str(len(left))+" CANDIDATE_LINES="+str(len(right)))
+              changes=[(tag,i1+1,i2,j1+1,j2) for tag,i1,i2,j1,j2 in difflib.SequenceMatcher(None,left,right,autojunk=False).get_opcodes() if tag!="equal"]
+              print("DIFF_BLOCKS="+str(len(changes)))
+              for tag,i1,i2,j1,j2 in changes[:35]:
+                  print("CHANGE="+tag+" LIVE_LINES="+str(i1)+"-"+str(i2)+" CANDIDATE_LINES="+str(j1)+"-"+str(j2))
+              if len(changes)>35: print("DIFF_BLOCKS_TRUNCATED="+str(len(changes)-35))
+              for marker in ("OfficeProjectPortfolioGantt","OfficeProjectPortfolioView","OfficeApprovedHoursWeekRepository","OfficeOnSiteApprovalService","approved_week_seconds","OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED"):
+                  print("MARKER="+marker+" LIVE="+str(marker in "\n".join(left))+" CANDIDATE="+str(marker in "\n".join(right)))
+          PY
+          REMOTE

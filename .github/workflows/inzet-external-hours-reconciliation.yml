@@ -1,0 +1,20 @@
+name: Inzet external hours reconciliation policy
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursReconciliationPolicy.php'
+      - 'office-independent/tests/OfficeExternalHoursReconciliationPolicyTest.php'
+      - '.github/workflows/inzet-external-hours-reconciliation.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursReconciliationPolicy.php'
+      - 'office-independent/tests/OfficeExternalHoursReconciliationPolicyTest.php'
+      - '.github/workflows/inzet-external-hours-reconciliation.yml'
+jobs:
+  reconciliation-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursReconciliationPolicy.php
+      - run: php office-independent/tests/OfficeExternalHoursReconciliationPolicyTest.php

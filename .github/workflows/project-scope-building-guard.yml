@@ -1,14 +1,7 @@
 name: Project scope building guard acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_scope_guard/**'
-      - '.github/workflows/project-scope-building-guard.yml'
-      - '.github/workflows/sboffice-deploy-develop.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

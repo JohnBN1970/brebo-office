@@ -1,8 +1,5 @@
 name: Office-test V3 active renderer structure
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/project-detail-v3-render-structure.yml'
   workflow_dispatch:
     inputs:
       confirm_test_only:

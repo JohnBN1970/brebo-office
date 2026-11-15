@@ -1,14 +1,7 @@
 name: BREBO building data acceptance
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_building_data/**'
-      - 'config/sync/core.extension.yml'
-      - '.github/workflows/building-data-acceptance.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

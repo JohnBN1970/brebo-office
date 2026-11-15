@@ -1,0 +1,65 @@
+name: OnSite controlled trial read-only preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: office-test
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$KEY"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_onsite_preflight
+          chmod 600 ~/.ssh/id_onsite_preflight
+      - name: Check active Office-test integration and dependencies (read-only)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/id_onsite_preflight"
+          ssh $opts -p "$PORT" "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/office_calc_test"
+          config="$base/config/config.php"
+          test -f "$config" && test ! -L "$config"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??"")!=="/office-test") exit(9); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")"
+          case "$active" in "$base"/release-*/private) ;; *) echo INVALID_ACTIVE_RELEASE; exit 21;; esac
+          test -d "$active" && test ! -L "$active"
+          files=(
+            public/office-onsite-presence-review.php
+            public/office-projects.php
+            src/Inzet/OfficeOnSiteApprovalService.php
+            src/Inzet/OfficeApprovedHoursWeekRepository.php
+            src/Inzet/OnSiteHoursReview.php
+            src/Inzet/OnSitePresenceIntervalProjector.php
+            src/Inzet/OfficeApprovedHoursDecisionRepository.php
+            src/Inzet/OfficeApprovedHoursEvidence.php
+            src/Inzet/OfficeApprovedHoursBooking.php
+            src/Inzet/OnSiteOfficeZoneProjectAccess.php
+            src/Inzet/OnSitePresenceReviewRepository.php
+            src/Inzet/OnSitePresenceReviewView.php
+            src/Project/OfficeProjectPortfolioView.php
+            src/Project/OfficeProjectPageStructure.php
+            src/Project/OfficeProjectPortfolioPlannedHours.php
+            src/Project/OfficeProjectPortfolioTotals.php
+          )
+          ready=1
+          for f in "${files[@]}"; do
+            if test -f "$active/$f" && test ! -L "$active/$f" && php -l "$active/$f" >/dev/null; then
+              echo "READY:$f"
+            else
+              echo "MISSING_OR_INVALID:$f"
+              ready=0
+            fi
+          done
+          if test "$ready" -eq 1; then echo ONSITE_DEPENDENCY_PREFLIGHT=READY; else echo ONSITE_DEPENDENCY_PREFLIGHT=BLOCKED; exit 4; fi
+          REMOTE

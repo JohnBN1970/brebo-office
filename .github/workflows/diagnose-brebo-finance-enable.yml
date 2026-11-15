@@ -1,9 +1,6 @@
 name: Diagnose BREBO Drupal Cache Rebuild
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
 
 permissions:

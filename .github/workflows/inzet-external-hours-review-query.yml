@@ -1,0 +1,14 @@
+name: Inzet external hours read-only review query
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalHoursClaimsReviewRepository.php'
+      - 'office-independent/tests/OfficeExternalHoursClaimsReviewContractTest.php'
+      - '.github/workflows/inzet-external-hours-review-query.yml'
+jobs:
+  review-query:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalHoursClaimsReviewRepository.php
+      - run: php office-independent/tests/OfficeExternalHoursClaimsReviewContractTest.php

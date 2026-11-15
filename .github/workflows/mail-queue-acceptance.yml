@@ -1,14 +1,7 @@
 name: Mail queue acceptance
 
 on:
-  push:
-    branches: [develop]
-    paths:
-      - 'web/modules/custom/brebo_mail_intake/src/Plugin/QueueWorker/MailIntakeQueueWorker.php'
-      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakeQueueManager.php'
-      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.module'
-      - '.github/workflows/mail-queue-acceptance.yml'
-
+  workflow_dispatch:
 permissions:
   contents: read
 

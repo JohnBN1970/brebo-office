@@ -1,0 +1,28 @@
+name: Inzet budget debit ledger contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitSchema.php'
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php'
+      - 'office-independent/tests/OfficeLabourBudgetDebitLedgerContractTest.php'
+      - '.github/workflows/inzet-budget-debit-ledger-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitSchema.php'
+      - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php'
+      - 'office-independent/tests/OfficeLabourBudgetDebitLedgerContractTest.php'
+      - '.github/workflows/inzet-budget-debit-ledger-contract.yml'
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and ledger invariants
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeLabourBudgetDebitSchema.php
+          php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPostingService.php
+          php office-independent/tests/OfficeLabourBudgetDebitLedgerContractTest.php

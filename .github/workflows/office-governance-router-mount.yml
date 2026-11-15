@@ -1,10 +1,5 @@
 name: Office governance guarded router mount on Office-test
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/office-governance-router-mount.yml'
   workflow_dispatch:
 permissions:
   contents: read

@@ -21,7 +21,8 @@ final class OfficePrivateFileStorage
             throw new \RuntimeException('private_storage_root_unavailable');
         }
         $this->root = rtrim($resolved, '/');
-        $webroot = realpath($_SERVER['DOCUMENT_ROOT'] ?? '') ?: null;
+        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        $webroot = $documentRoot !== '' ? (realpath($documentRoot) ?: null) : null;
         if ($webroot !== null && ($this->root === $webroot || str_starts_with($this->root, rtrim($webroot, '/') . '/'))) {
             throw new \RuntimeException('storage_must_be_outside_webroot');
         }
@@ -69,8 +70,28 @@ final class OfficePrivateFileStorage
                     throw new \RuntimeException('integrity_check_failed');
                 }
                 // Atomic hard-link avoids overwriting an existing immutable original.
-                if (!@link($temporary, $target) && !is_file($target)) {
-                    throw new \RuntimeException('storage_commit_failed');
+                if (function_exists('link')) {
+                    if (!@link($temporary, $target) && !is_file($target)) {
+                        throw new \RuntimeException('storage_commit_failed');
+                    }
+                } else {
+                    // Shared hosting can disable hard links. A directory-scoped lock
+                    // serializes writers; rename makes the complete original visible atomically.
+                    $lockPath = $directory . '/.commit.lock';
+                    if (is_link($lockPath)) throw new \RuntimeException('unsafe_storage_lock');
+                    $lock = fopen($lockPath, 'c');
+                    if ($lock === false) throw new \RuntimeException('storage_lock_failed');
+                    try {
+                        chmod($lockPath, 0600);
+                        if (!flock($lock, LOCK_EX)) throw new \RuntimeException('storage_lock_failed');
+                        if (is_link($target)) throw new \RuntimeException('unsafe_storage_target');
+                        if (!is_file($target) && !rename($temporary, $target)) {
+                            throw new \RuntimeException('storage_commit_failed');
+                        }
+                    } finally {
+                        flock($lock, LOCK_UN);
+                        fclose($lock);
+                    }
                 }
             } finally {
                 @unlink($temporary);

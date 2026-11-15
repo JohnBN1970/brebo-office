@@ -2,14 +2,6 @@ name: BREBO Zoho pilot safety audit
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - '.github/workflows/zoho-pilot-safety-audit.yml'
-      - '.github/workflows/zoho-migration-pilot.yml'
-      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.module'
-
 permissions:
   contents: read
 

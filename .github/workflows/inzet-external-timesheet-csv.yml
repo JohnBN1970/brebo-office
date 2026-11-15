@@ -1,0 +1,14 @@
+name: Inzet external timesheet CSV preview
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeExternalTimesheetCsvReader.php'
+      - 'office-independent/tests/OfficeExternalTimesheetCsvReaderTest.php'
+      - '.github/workflows/inzet-external-timesheet-csv.yml'
+jobs:
+  csv-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/Inzet/OfficeExternalTimesheetCsvReader.php
+      - run: php office-independent/tests/OfficeExternalTimesheetCsvReaderTest.php
