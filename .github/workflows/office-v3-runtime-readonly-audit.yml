@@ -46,9 +46,20 @@ jobs:
           echo "CONTROLLER_SHA256=$(sha256sum "$controller" | cut -d' ' -f1)"
           echo "ROUTER_SHA256=$(sha256sum "$router" | cut -d' ' -f1)"
           failed=0
-          for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View 'echo $breboV23Render((string) ob_get_clean());' create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview; do
-            if grep -Fq "$marker" "$controller"; then echo "CONTROLLER_MARKER_PRESENT=$marker"; else echo "CONTROLLER_MARKER_MISSING=$marker"; failed=1; fi
-          done
+          # The canonical develop project controller is native and must not be
+          # replaced by the retired V2-to-V3 mount. Accept either complete
+          # controller contract, but never a partial mixture.
+          if grep -Fq 'office-dossier-nav' "$controller" && grep -Fq '$workBudgetTabHtml' "$controller"; then
+            echo PROJECT_CONTROLLER_MODE=native
+            for marker in OfficeNativeProjectAccess OfficeProjectKickstartActionHandler OfficeProjectFinanceOverview '$workbenchHtml' '$executionHtml' '$workBudgetTabHtml' 'office-dossier-nav'; do
+              if grep -Fq "$marker" "$controller"; then echo "MARKER_OK=$marker"; else echo "MARKER_MISSING=$marker"; failed=1; fi
+            done
+          else
+            echo PROJECT_CONTROLLER_MODE=legacy_v3
+            for marker in BREBO_PROJECT_DETAIL_V3_MOUNT OfficeProjectDetailV3View create_project_contract create_project_term create_project_change OfficeProjectFinanceOverview OfficeNativeProjectAccess; do
+              if grep -Fq "$marker" "$controller"; then echo "MARKER_OK=$marker"; else echo "MARKER_MISSING=$marker"; failed=1; fi
+            done
+          fi
           for name in OfficeProjectDetailV3View OfficeProjectPageStructure; do
             if test -f "$active/src/Project/$name.php"; then
               echo "V3_CLASS_PRESENT=$name"
