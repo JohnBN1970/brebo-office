@@ -42,6 +42,12 @@ final class ProjectBudgetPanel
             $html .= '<dt>'.self::e((string)$source).'</dt><dd>'.self::e((string)$state).'</dd>';
         }
         $html .= '</dl>';
+        $actualLabor = $view['actual_labor_costs'] ?? null;
+        if ($actualLabor !== null && (!is_array($actualLabor) || !is_int($actualLabor['actual_cost_cents'] ?? null)
+            || $actualLabor['actual_cost_cents'] < 0 || !is_int($actualLabor['entries'] ?? null)
+            || $actualLabor['entries'] < 0)) {
+            throw new InvalidArgumentException('Invalid posted labor cost evidence.');
+        }
         $labor = $view['labor_evidence'] ?? null;
         if ($labor !== null) {
             if (!is_array($labor) || !in_array($labor['state'] ?? null,
@@ -107,9 +113,13 @@ final class ProjectBudgetPanel
                     throw new InvalidArgumentException('Budget total overflow.');
                 }
                 $totalBudget += $totals[$type];
+                $actualCell = '—';
+                if ($type === 'labor' && $actualLabor !== null && $actualLabor['entries'] > 0) {
+                    $actualCell = '€ '.number_format($actualLabor['actual_cost_cents'] / 100, 2, ',', '.');
+                }
                 $html .= '<tr><th scope="row">'.self::e($label).'</th><td>€ '
                     .number_format($totals[$type] / 100, 2, ',', '.')
-                    .'</td><td>—</td><td>—</td><td>—</td></tr>';
+                    .'</td><td>—</td><td>'.self::e($actualCell).'</td><td>—</td></tr>';
             }
             $lockedTotal = $kpis['baseline_cents'] ?? null;
             if ($lockedTotal !== null && (!is_int($lockedTotal) || $lockedTotal !== $totalBudget)) {
