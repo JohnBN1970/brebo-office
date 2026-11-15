@@ -10,7 +10,7 @@ $labor=Adjustments::labor('40','12','45');
 if ($labor['total_hours']!=='52.0000'||$labor['labor_cost']!=='2340.0000') {
     throw new RuntimeException('Extra arbeidsuren berekening onjuist');
 }
-foreach ([['100','101','25'],['-1','5','25'],['100','5','-1']] as $invalid) {
+foreach ([['100','101','25'],['-1','5','25'],['100','5','-1'], ['1x2','5','25'], ['100','1x2','25']] as $invalid) {
     try { Adjustments::material(...$invalid); }
     catch (DomainException) { continue; }
     throw new RuntimeException('Ongeldige invoer werd geaccepteerd');
