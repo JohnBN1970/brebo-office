@@ -25,6 +25,8 @@ jobs:
       - name: Enforce deployment boundaries
         run: python scripts/ci/check_deployment_policy.py
       - run: python scripts/ci/test_release_reconciliation.py
+      - name: Verify release reconciliation CLI allowlists
+        run: python3 scripts/deployment/test_calc_runtime_reconciliation.py
       - run: python scripts/ci/test_deployment_policy.py
       - name: Validate all Office PHP sources
         shell: bash
@@ -77,7 +79,6 @@ jobs:
       - name: Build exact source and reconciliation baseline
         run: |
           set -euo pipefail
-          python3 scripts/deployment/test_calc_runtime_reconciliation.py
           mkdir -p /tmp/office-development-package/baseline /tmp/office-development-package/metadata
           path=office-independent/src/Inzet/OfficeOnSiteApprovalService.php
           git log --format=%H HEAD -- "$path" | while IFS= read -r commit; do
