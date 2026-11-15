@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/deploy-native-calc-adjustment-files.yml'
       - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/src/Calculation/OfficeCalcLaborRateCatalog.php'
   workflow_dispatch:
 permissions:
   contents: read
