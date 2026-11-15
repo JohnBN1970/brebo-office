@@ -43,6 +43,19 @@ if ($projectV3Tab === 'werkvoorbereiding'
       $projectV3Sections['kickstart'] = $kickstart === null
         ? '<section><h2>Startdossier &amp; Kickstart</h2><p>Voor dit project is nog geen startdossier aangemaakt.</p></section>'
         : \Brebo\Office\Project\OfficeProjectKickstartView::render($kickstart, $kickstart['questions'], $kickstart['approvals']);
+      if ($kickstart !== null && $canManage
+          && is_string($csrfToken ?? null) && strlen($csrfToken) === 64
+          && ctype_xdigit($csrfToken)) {
+        require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartFormView.php';
+        $projectV3Sections['kickstart'] .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
+          $kickstart,
+          \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding',
+          $csrfToken,
+          true,
+          (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId,
+          true
+        );
+      }
     }
   } catch (\Throwable $kickstartError) {
     $projectV3Sections['kickstart'] = '<section><h2>Startdossier &amp; Kickstart</h2><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
