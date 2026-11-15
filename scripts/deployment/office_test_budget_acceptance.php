@@ -28,7 +28,7 @@ function budgetLabourAcceptance(PDO $db,string $active,array $fixture,CurlHandle
         budgetQuery($db,'INSERT IGNORE INTO office_onsite_event_inbox (event_id,person_id,project_id,zone_id,event_kind,occurred_at_utc) VALUES (?,?,?,?,?,?)',[$event,$person,(string)$id,'BREBO-CI-WB-'.$id,$kind,$date.'T'.$time.'Z']);
     }
     $rates=budgetQuery($db,'SELECT hourly_rate_cents FROM office_inzet_actual_labour_rates WHERE project_id=? AND person_id=?',[$id,$person])->fetchAll(PDO::FETCH_COLUMN);
-    if ($rates===[]) budgetQuery($db,'INSERT INTO office_inzet_actual_labour_rates (project_id,person_id,valid_from,hourly_rate_cents,authorized_by) VALUES (?,?,?,?,?)',[$id,$person,$date,4250,$fixture['users']['reviewer']['id']]);
+    if ($rates===[]) budgetQuery($db,'INSERT INTO office_inzet_actual_labour_rates (project_id,person_id,valid_from,hourly_rate_cents,authorized_by,authorized_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())',[$id,$person,$date,4250,$fixture['users']['reviewer']['id']]);
     else ensureTest(count($rates)===1 && (int)$rates[0]===4250,'budget_fixture_rate_unchanged');
     $url='https://brebobv.nl/office-test/inzet/onsite/uren-beoordelen?id='.$id;
     $decision=budgetQuery($db,'SELECT status FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=?',[$in,$out])->fetchColumn();
