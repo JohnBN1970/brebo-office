@@ -36,7 +36,7 @@ if (!str_contains($rendered,'6:00 uur') || !str_contains($rendered,'2:00 niet go
 }
 $page=file_get_contents(dirname(__DIR__).'/public/office-onsite-presence-review.php');
 if (!str_contains($page,"['not_approved']+=") || !str_contains($page,'Niet goedgekeurd</th>')
-    || !str_contains($page,"$"."weekly[$"."person]['approved']+=")) {
+    || !str_contains($page,'$weekly[$person][\'approved\']+=')) {
     throw new RuntimeException('OnSite week totals must separate approved and deducted hours');
 }
 $migrate=file_get_contents(dirname(__DIR__,2).'/scripts/deployment/office_test_migrate.php');
@@ -45,5 +45,5 @@ if (!str_contains($migrate,'OFFICE_TEST_ONSITE_REJECTION_SCHEMA_PASS')
     || !str_contains($activate,"OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED")) {
     throw new RuntimeException('OnSite rejection schema must be verified before activation');
 }
-echo "ONSITE_READINESS_CONTRACT_OK\\n";
+echo "ONSITE_READINESS_CONTRACT_OK\n";
 echo "LABOUR_ATOMIC_APPROVAL_CONTRACT_OK\n";
