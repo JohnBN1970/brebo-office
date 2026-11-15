@@ -755,11 +755,16 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
                 require_once dirname(__DIR__) . '/src/Inzet/OfficeActualLabourCostProjectReader.php';
                 $actualLabour = (new \Brebo\Office\Inzet\OfficeActualLabourCostProjectReader($db))
                     ->forProject((int)$projectId);
-                $workBudgetTabHtml .= '<section class="module"><h3>Arbeid · werkelijke kosten</h3>'
-                    . '<p>Geboekte medewerkerkosten: <strong>€ '
-                    . number_format($actualLabour['actual_cost_cents'] / 100, 2, ',', '.')
-                    . '</strong></p><p>Bron: ' . (int)$actualLabour['entries']
-                    . ' unieke goedgekeurde urenboekingen. Geen planning of aanwezigheid als kosten geboekt.</p></section>';
+                if ($actualLabour['entries'] === 0) {
+                    $workBudgetTabHtml .= '<section class="module"><h3>Arbeid · werkelijke kosten</h3>'
+                        . '<p>Geen geboekte arbeidskosten beschikbaar. Dit is geen bevestiging dat het project geen arbeidskosten heeft.</p></section>';
+                } else {
+                    $workBudgetTabHtml .= '<section class="module"><h3>Arbeid · werkelijke kosten</h3>'
+                        . '<p>Geboekte medewerkerkosten: <strong>€ '
+                        . number_format($actualLabour['actual_cost_cents'] / 100, 2, ',', '.')
+                        . '</strong></p><p>Bron: ' . (int)$actualLabour['entries']
+                        . ' unieke goedgekeurde urenboekingen. Alleen geboekte kosten; onvolledige brondekking is mogelijk.</p></section>';
+                }
             } catch (\Throwable $actualLabourError) {
                 error_log('Actual labour cost read unavailable: ' . get_class($actualLabourError));
                 $workBudgetTabHtml .= '<p>Werkelijke arbeidskosten niet beschikbaar.</p>';
