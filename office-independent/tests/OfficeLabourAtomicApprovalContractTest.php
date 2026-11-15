@@ -19,4 +19,31 @@ foreach ([
 ] as [$ok, $message]) {
     if (!$ok) throw new RuntimeException($message);
 }
+// OnSite readiness: 8 hours present, 6 hours approved => 2 hours deducted.
+require_once $root.'OnSitePresenceReviewView.php';
+$rendered=\Brebo\Office\Inzet\OnSitePresenceReviewView::render([
+    'active'=>[],
+    'intervals'=>[[
+        'person_id'=>17,'project_id'=>1,'zone_id'=>2,
+        'entered_at'=>'2026-11-15 08:00:00','left_at'=>'2026-11-15 16:00:00',
+        'elapsed_seconds'=>28800,'review_status'=>'approved','reviewed_seconds'=>21600,
+    ]],
+    'exceptions'=>[],
+]);
+if (!str_contains($rendered,'6:00 uur') || !str_contains($rendered,'2:00 niet goedgekeurd')
+    || !str_contains($rendered,'Aankomst (lokaal)') || !str_contains($rendered,'09:00')) {
+    throw new RuntimeException('OnSite partial approval must show deducted hours and local timestamps');
+}
+$page=file_get_contents(dirname(__DIR__).'/public/office-onsite-presence-review.php');
+if (!str_contains($page,"['not_approved']+=") || !str_contains($page,'Niet goedgekeurd</th>')
+    || !str_contains($page,"$"."weekly[$"."person]['approved']+=")) {
+    throw new RuntimeException('OnSite week totals must separate approved and deducted hours');
+}
+$migrate=file_get_contents(dirname(__DIR__,2).'/scripts/deployment/office_test_migrate.php');
+$activate=file_get_contents(dirname(__DIR__,2).'/scripts/deployment/office_test_activate.php');
+if (!str_contains($migrate,'OFFICE_TEST_ONSITE_REJECTION_SCHEMA_PASS')
+    || !str_contains($activate,"OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED")) {
+    throw new RuntimeException('OnSite rejection schema must be verified before activation');
+}
+echo "ONSITE_READINESS_CONTRACT_OK\\n";
 echo "LABOUR_ATOMIC_APPROVAL_CONTRACT_OK\n";
