@@ -63,8 +63,19 @@ try {
          || (int)$minutesRaw>1440) {http_response_code(400);exit('Ongeldige goedgekeurde minuten.');}
      $correctedSeconds=(int)$minutesRaw*60;
    }
-   (new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db))->approve($id,$in,$out,$operator->operatorId,$correctedSeconds);
-   header('Location: ?id='.$id.'&approved=1',true,303);
+   $action=$_POST['review_action']??'approve';
+   $service=new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db);
+   if ($action==='reject') {
+     $reason=$_POST['rejection_reason']??null;
+     if (!is_string($reason) || trim($reason)==='' || mb_strlen(trim($reason),'UTF-8')>1000) {
+       http_response_code(400);exit('Afkeuren vereist een opmerking van maximaal 1000 tekens.');
+     }
+     $service->reject($id,$in,$out,$operator->operatorId,$reason);
+     header('Location: ?id='.$id.'&rejected=1',true,303);
+   } elseif ($action==='approve') {
+     $service->approve($id,$in,$out,$operator->operatorId,$correctedSeconds);
+     header('Location: ?id='.$id.'&approved=1',true,303);
+   } else {http_response_code(400);exit('Ongeldige beoordelingsactie.');}
    exit;
  }
  $review=(new \Brebo\Office\Inzet\OnSitePresenceReviewRepository($db))
@@ -98,6 +109,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
  .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
  .(isset($_GET['approved'])?'<p role="status">Uren goedgekeurd en geboekt.</p>':'')
+ .(isset($_GET['rejected'])?'<p role="status">Registratie afgekeurd; geen uren geboekt.</p>':'')
  .implode('',array_map(static function(array $interval) use ($escape,$id):string {
    if (isset($interval['review_status']) || ($interval['elapsed_seconds']??0)>86400 || ($interval['elapsed_seconds']??0)<1) return '';
    return '<form method="post" action=""><input type="hidden" name="id" value="'.$escape($id).'">'
@@ -106,7 +118,11 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
      .'<input type="hidden" name="out_event_id" value="'.$escape($interval['departure_event_id']).'">'
      .'<span>Medewerker '.$escape($interval['person_id']).' · '. $escape(round($interval['elapsed_seconds']/3600,2)).' uur</span> '
      .'<label>Goedgekeurde minuten (leeg = volledig): <input type="number" name="approved_minutes" min="1" max="'.(int)floor($interval['elapsed_seconds']/60).'" step="1" placeholder="Volledig"></label> '
-     .'<button type="submit">Goedkeuren en boeken</button></form>';
+     .'<button type="submit" name="review_action" value="approve">Goedkeuren en boeken</button> '
+     .(getenv('OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED')==='enabled'
+       ? '<label>Reden afkeuring: <input type="text" name="rejection_reason" maxlength="1000"></label> '
+         .'<button type="submit" name="review_action" value="reject">Afkeuren</button>' : '')
+     .'</form>';
  },$review['intervals']??[])) : '')
  .'</main><script nonce="'.$escape($nonce).'">'
  .'function updateTimers(){for(const el of document.querySelectorAll(".onsite-live-duration")){const start=Number(el.dataset.start);if(!Number.isFinite(start)||start<=0)continue;const seconds=Math.max(0,Math.floor(Date.now()/1000-start));const h=Math.floor(seconds/3600);const m=Math.floor(seconds%3600/60);const s=seconds%60;el.textContent=[h,m,s].map(n=>String(n).padStart(2,"0")).join(":");}}'
