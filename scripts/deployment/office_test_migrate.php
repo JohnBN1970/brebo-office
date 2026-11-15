@@ -64,7 +64,7 @@ echo "OFFICE_TEST_ONSITE_REJECTION_SCHEMA_PASS\\n";
 $labourSchemaPath=$candidate.'/src/Inzet/OfficeApprovedLabourCostSchema.php';
 if (!is_file($labourSchemaPath)) throw new RuntimeException('ACTUAL_LABOUR_SCHEMA_SOURCE_MISSING');
 require_once $labourSchemaPath;
-$labourStatements=\\Brebo\\Office\\Inzet\\OfficeApprovedLabourCostSchema::statements();
+$labourStatements=\Brebo\Office\Inzet\OfficeApprovedLabourCostSchema::statements();
 $labourTables=['office_inzet_actual_labour_costs','office_inzet_actual_labour_rates'];
 if (count($labourStatements)!==count($labourTables)) throw new RuntimeException('UNREVIEWED_ACTUAL_LABOUR_MIGRATION');
 foreach ($labourStatements as $i=>$statement) {
@@ -105,5 +105,5 @@ $unique=$db->query("SELECT COUNT(*) FROM information_schema.STATISTICS
 if ((int)$unique!==1) throw new RuntimeException('ACTUAL_LABOUR_UNIQUE_INDEX_MISSING');
 $labourRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
 $labourRecord->execute([$labourMigrationId,$labourChecksum]);
-echo "OFFICE_TEST_ACTUAL_LABOUR_SCHEMA_PASS\\n";
+echo "OFFICE_TEST_ACTUAL_LABOUR_SCHEMA_PASS\n";
 echo "OFFICE_TEST_ADDITIVE_MIGRATIONS_PASS\n";
