@@ -55,4 +55,8 @@ if(str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw
 foreach(['calc-lines-expand','calc-lines-collapse','calc-collapsible-line','calc-line-toggle','aria-expanded','calc-line-detail','calc-line-costs','aria-controls'] as $contract){
  if(!str_contains($source,$contract))throw new RuntimeException('Bulk line folding regression: '.$contract);
 }
+$repositorySource=file_get_contents(dirname(__DIR__).'/src/Calculation/OfficeCalcCrmDraftLineRepository.php');
+if(!is_string($repositorySource)||!str_contains($repositorySource,"'cost_components'=>["))throw new RuntimeException('Canonical cost component read model missing');
+foreach(["'labor'=>(string)","'material'=>(string)","'equipment'=>(string)","'subcontract'=>(string)","'other'=>(string)"] as $component)if(!str_contains($repositorySource,$component))throw new RuntimeException('Missing cost component: '.$component);
+if(!str_contains($source,"line['cost_components']"))throw new RuntimeException('Cost details not linked to canonical values');
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
