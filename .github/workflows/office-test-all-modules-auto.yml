@@ -82,6 +82,10 @@ jobs:
           git log --format=%H HEAD -- "$path" | while IFS= read -r commit; do
             git rev-parse "$commit:$path" 2>/dev/null || true
           done | sort -u > /tmp/office-development-package/metadata/onsite-ancestor-blobs.txt
+          calc_path=office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php
+          git log --format=%H HEAD -- "$calc_path" | while IFS= read -r commit; do
+            git rev-parse "$commit:$calc_path" 2>/dev/null || true
+          done | sort -u > /tmp/office-development-package/metadata/calc-ancestor-blobs.txt
           git archive 39b992f8d022c9eba4732f5882c3c4cc3824616a office-independent | tar -x -C /tmp/office-development-package/baseline
           cp -a office-independent scripts /tmp/office-development-package/
           find /tmp/office-development-package -type d -name __pycache__ -prune -exec rm -rf {} +
