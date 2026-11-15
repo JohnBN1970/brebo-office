@@ -56,7 +56,14 @@ try {
    require_once dirname(__DIR__).'/src/Inzet/OfficeOnSiteApprovalService.php';
    $in=$_POST['in_event_id']??null;$out=$_POST['out_event_id']??null;
    if (!is_string($in) || !is_string($out)) {http_response_code(400);exit('Ongeldige registratie.');}
-   (new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db))->approve($id,$in,$out,$operator->operatorId);
+   $minutesRaw=$_POST['approved_minutes']??'';
+   $correctedSeconds=null;
+   if ($minutesRaw!=='' && $minutesRaw!==null) {
+     if (!is_string($minutesRaw) || !preg_match('/^[1-9][0-9]{0,3}$/D',$minutesRaw)
+         || (int)$minutesRaw>1440) {http_response_code(400);exit('Ongeldige goedgekeurde minuten.');}
+     $correctedSeconds=(int)$minutesRaw*60;
+   }
+   (new \Brebo\Office\Inzet\OfficeOnSiteApprovalService($db))->approve($id,$in,$out,$operator->operatorId,$correctedSeconds);
    header('Location: ?id='.$id.'&approved=1',true,303);
    exit;
  }
@@ -83,6 +90,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
      .'<input type="hidden" name="in_event_id" value="'.$escape($interval['arrival_event_id']).'">'
      .'<input type="hidden" name="out_event_id" value="'.$escape($interval['departure_event_id']).'">'
      .'<span>Medewerker '.$escape($interval['person_id']).' · '. $escape(round($interval['elapsed_seconds']/3600,2)).' uur</span> '
+     .'<label>Goedgekeurde minuten (leeg = volledig): <input type="number" name="approved_minutes" min="1" max="'.(int)floor($interval['elapsed_seconds']/60).'" step="1" placeholder="Volledig"></label> '
      .'<button type="submit">Goedkeuren en boeken</button></form>';
  },$review['intervals']??[])) : '')
  .'</main><script nonce="'.$escape($nonce).'">'
