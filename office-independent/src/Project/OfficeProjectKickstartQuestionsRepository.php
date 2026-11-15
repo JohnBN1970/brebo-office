@@ -56,6 +56,8 @@ final class OfficeProjectKickstartQuestionsRepository
             if ($update->rowCount() !== 1) throw new DomainException('Concurrent dossier update');
             $event = $this->db->prepare('INSERT INTO office_project_start_events (dossier_id,dossier_revision,actor_user_id,event_type,payload_json) VALUES (?,?,?,?,?)');
             $event->execute([$dossierId,$next,$actorId,'kickstart_question_added',json_encode(['question_id'=>$questionId,'previous_status'=>$row['status']],JSON_THROW_ON_ERROR)]);
+            $revoke = $this->db->prepare("UPDATE office_projects p INNER JOIN office_project_start_dossiers d ON d.project_id=p.id SET p.status='preparation',p.updated_at=CURRENT_TIMESTAMP WHERE d.id=? AND p.status IN ('active','execution','in_progress')");
+            $revoke->execute([$dossierId]);
             $this->db->commit();
             return ['id'=>$questionId,'revision'=>$next,'status'=>'draft'];
         } catch (\Throwable $error) {

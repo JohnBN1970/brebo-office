@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   inspect-sboffice:
+    environment: production
     name: Verify SSH and sboffice layout
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   audit:
+    environment: production
     name: Audit meaning extraction on first 5 pilot communications
     runs-on: ubuntu-24.04
     steps:

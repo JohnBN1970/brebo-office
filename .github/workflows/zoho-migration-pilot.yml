@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   pilot:
+    environment: production
     name: Pilot newest 10 Zoho messages and hold cron backfill
     runs-on: ubuntu-latest
     timeout-minutes: 15

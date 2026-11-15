@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   audit:
+    environment: production
     name: Audit group address coverage in Inbox and Sent
     runs-on: ubuntu-latest
     timeout-minutes: 10

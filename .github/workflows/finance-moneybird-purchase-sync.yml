@@ -8,6 +8,7 @@ permissions:
 
 jobs:
   sync:
+    environment: production
     name: Sync Moneybird purchase invoices to Finance
     runs-on: ubuntu-latest
     timeout-minutes: 10

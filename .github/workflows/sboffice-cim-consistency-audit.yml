@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   audit:
+    environment: production
     name: Audit building, project, scope and communication relations
     runs-on: ubuntu-latest
     timeout-minutes: 10

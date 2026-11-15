@@ -5,6 +5,7 @@ on:
 
 jobs:
   backfill:
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Configure SSH

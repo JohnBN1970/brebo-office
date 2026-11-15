@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   inventory:
+    environment: production
     name: Read-only Zoho mailbox inventory
     runs-on: ubuntu-latest
     timeout-minutes: 5

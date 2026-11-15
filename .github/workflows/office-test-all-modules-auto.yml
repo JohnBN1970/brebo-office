@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   validate:
+    name: Office-test source gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +24,12 @@ jobs:
       - run: python -m pip install PyYAML==6.0.2
       - name: Enforce deployment boundaries
         run: python scripts/ci/check_deployment_policy.py
+      - run: python scripts/ci/test_release_reconciliation.py
       - name: Validate all Office PHP sources
         shell: bash
         run: |
           set -euo pipefail
-          find office-independent -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > /tmp/php-lint.log || { grep -v 'No syntax errors' /tmp/php-lint.log; exit 1; }
+          find office-independent scripts/deployment -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > /tmp/php-lint.log || { grep -v 'No syntax errors' /tmp/php-lint.log; exit 1; }
           echo OFFICE_SOURCE_LINT_PASS
       - name: Validate existing core contracts
         run: |
@@ -37,12 +39,24 @@ jobs:
           for file in office-independent/tests/test_project_kickstart_*.php office-independent/tests/test_project_execution_start_gate.php; do php "$file"; done
           python3 office-independent/tests/test_project_kickstart_mount.py
   inventory:
+    name: Office-test deployment and acceptance
+    environment: office-test
     needs: validate
     if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build exact source and reconciliation baseline
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/office-development-package/baseline
+          git archive 39b992f8d022c9eba4732f5882c3c4cc3824616a office-independent | tar -x -C /tmp/office-development-package/baseline
+          cp -a office-independent scripts /tmp/office-development-package/
+          find /tmp/office-development-package -type d -name __pycache__ -prune -exec rm -rf {} +
+          tar -czf /tmp/office-development-package.tgz -C /tmp/office-development-package .
       - name: Prepare source inventory
         run: |
           python - <<'PY'
@@ -69,13 +83,16 @@ jobs:
           remote_dir="$(ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'mktemp -d /tmp/office-development.XXXXXXXX')"
           [[ "$remote_dir" =~ ^/tmp/office-development\.[A-Za-z0-9]+$ ]]
           trap 'ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "rm -rf -- $remote_dir" >/dev/null 2>&1 || true; rm -f ~/.ssh/office_test' EXIT
-          scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
+          scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json /tmp/office-development-package.tgz scripts/deployment/deploy_office_test.sh "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "php '$remote_dir/development-inventory.php' '$remote_dir/office-source-manifest.json'" | tee office-test-inventory.txt
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/deploy_office_test.sh' '$remote_dir/office-development-package.tgz' '$GITHUB_SHA'" | tee office-test-acceptance.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: office-test-inventory-${{ github.sha }}
-          path: office-test-inventory.txt
+          path: |
+            office-test-inventory.txt
+            office-test-acceptance.txt
           if-no-files-found: warn
       - name: Report actual status
         if: always()
@@ -83,4 +100,4 @@ jobs:
           RESULT: ${{ job.status }}
         run: |
           echo "### Office-test runtime inventory: $RESULT" >> "$GITHUB_STEP_SUMMARY"
-          echo "Production untouched. Inventory only; deployment and functional acceptance are not yet claimed." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production untouched. See acceptance artifact for migrations, release activation, HTTP role tests and rollback outcome." >> "$GITHUB_STEP_SUMMARY"

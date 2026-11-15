@@ -7,6 +7,7 @@ permissions:
 
 jobs:
   verify:
+    environment: production
     name: Verify same-street identity and ambiguity handling
     runs-on: ubuntu-latest
     steps:
