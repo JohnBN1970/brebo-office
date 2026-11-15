@@ -2,6 +2,7 @@ name: Inzet labour budget policy contract
 on:
   pull_request:
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
@@ -9,6 +10,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php'
@@ -20,6 +22,7 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php'
@@ -27,6 +30,7 @@ on:
       - 'office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php'
       - 'office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php'
       - 'office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php'
+      - 'office-independent/tests/OfficeApprovedLabourCostPolicyTest.php'
       - 'office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php'
       - 'office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php'
@@ -49,6 +53,7 @@ jobs:
       - name: Verify policy and planned shift contract
         run: |
           set -euo pipefail
+          php -l office-independent/src/Inzet/OfficeApprovedLabourCostPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourBudgetDebitPolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePolicy.php
           php -l office-independent/src/Inzet/OfficeLabourShiftAggregatePostingService.php
@@ -56,6 +61,7 @@ jobs:
           php -l office-independent/src/Inzet/OfficeOnSiteFourEyesGuard.php
           php -l office-independent/src/Inzet/OfficeLabourShiftApprovalLinkSchema.php
           php -l office-independent/src/Inzet/OfficeLabourPlannedShiftResolver.php
+          php office-independent/tests/OfficeApprovedLabourCostPolicyTest.php
           php office-independent/tests/OfficeLabourBudgetDebitPolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePolicyTest.php
           php office-independent/tests/OfficeLabourShiftAggregatePostingContractTest.php
