@@ -285,8 +285,8 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 .workbench{display:grid;grid-template-columns:225px minmax(0,1fr);gap:8px}.element-tree{background:#fff;border:1px solid #cbd4df;padding:8px;min-height:500px;max-height:calc(100vh - 115px);overflow:auto}.element-tree h2{border-bottom:1px solid #d8e0ea;padding-bottom:7px}.element-tree ul{list-style:none;margin:0;padding:0}.element-tree li{padding:5px 3px;border-bottom:1px solid #edf0f4;font-size:12px}.element-tree li:before{content:"▸ ";color:#8c9aad}.sheet-label{background:#d8e5f2;border:1px solid #bfcfe1;padding:6px 9px;font-weight:700}.sheet-tabs{padding:6px 8px;background:#f4f6fa;border-top:1px solid #cbd4df}.sheet-tabs span{padding:4px 12px;border:1px solid #cbd4df;background:white}.sheet-tabs span:first-child{border-bottom:2px solid #3665b3;color:#244c89}
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
-</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test/crm/verkoopkansen">Terug naar CRM</a></header>';
-echo '<div class="workbench"><aside class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
+</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div><a href="/office-test">← Hoofdmenu</a></header>';
+echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
 echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
@@ -294,7 +294,7 @@ echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong><
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
 echo '</div>'; 
 if($laborRateCatalog!==null){
-    echo '<section><h3>Uurtarieven op code</h3><p>Gebruik een tariefcode bij arbeidsregels. Een wijziging in de prijslijst wijzigt bestaande calculatieregels niet.</p><table><thead><tr><th>Code</th><th>Functie</th><th>Uurtarief</th><th>Status</th></tr></thead><tbody>';
+    echo '<section id="calc-hours"><h3>Uurtarieven op code</h3><p>Gebruik een tariefcode bij arbeidsregels. Een wijziging in de prijslijst wijzigt bestaande calculatieregels niet.</p><table><thead><tr><th>Code</th><th>Functie</th><th>Uurtarief</th><th>Status</th></tr></thead><tbody>';
     foreach($laborRates as $tariff)echo '<tr><td>'.$h((string)$tariff['code']).'</td><td>'.$h((string)$tariff['description']).'</td><td>€ '.$h((string)$tariff['hourly_rate']).'</td><td>'.((int)$tariff['active']===1?'Actief':'Inactief').'</td></tr>';
     echo '</tbody></table>';
     if($collaboration!==null&&$collaboration->owns($actor,$draft)){
@@ -304,7 +304,7 @@ if($laborRateCatalog!==null){
     echo '</section>';
 }
 
-echo '<div class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '<div class="sheet-tabs"><a href="#calc-data">Data</a> <a href="#calc-hours">Uren</a> <a href="#calc-tail">Staart</a></div><div id="calc-data" class="sheet-label">Data · Calculatieregels</div><div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Nieuwe regel direct onderaan de tabel invullen</strong></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
@@ -421,9 +421,18 @@ echo '</div><p class="muted">Geen automatische boeking. Bij materiaalverlies wor
 if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($materialWarning).'</p></section>';
 require __DIR__.'/office-calc-crm-material-panel.php';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
-echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div><script>
+echo '<section id="calc-tail" class="panel"><h2>Staart · kostenoverzicht</h2><p>Directe kostprijs: <strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></p><p class="muted">Staartopslagen en MAMO-verdeling worden hier gekoppeld. Er worden nog geen opslagen berekend.</p></section></div></div><script>
 (function(){
   "use strict";
+  const wb=document.getElementById("calc-workbench"),panel=document.getElementById("calc-elements");
+  const toggle=document.getElementById("calc-toggle-elements"),pin=document.getElementById("calc-pin-elements"),popout=document.getElementById("calc-popout-elements");
+  let pinned=localStorage.getItem("brebo_calc_elements_pinned")!=="false";
+  let visible=localStorage.getItem("brebo_calc_elements_visible")!=="false";
+  const render=()=>{if(!wb||!panel)return;panel.hidden=!visible;wb.style.gridTemplateColumns=visible?"225px minmax(0,1fr)":"minmax(0,1fr)";toggle.textContent=visible?"Elementen inklappen":"Elementen tonen";toggle.setAttribute("aria-expanded",String(visible));pin.textContent=pinned?"📌 Vastgezet":"📍 Niet vastgezet";pin.setAttribute("aria-pressed",String(pinned));};
+  toggle?.addEventListener("click",()=>{visible=!visible;localStorage.setItem("brebo_calc_elements_visible",String(visible));render();});
+  pin?.addEventListener("click",()=>{pinned=!pinned;localStorage.setItem("brebo_calc_elements_pinned",String(pinned));render();});
+  popout?.addEventListener("click",()=>{const w=window.open("","calc-elements","width=460,height=760");if(!w)return;const title=document.createElement("h2");title.textContent="Elementen · Bouwkosten";const list=panel.querySelector("ul");w.document.title="BREBO · Elementen";w.document.body.append(title,list.cloneNode(true));});
+  render();
   // Prevent adjustment fields from a different cost type being submitted.
   for(const formId of ["calc-inline-new","calc-inline-edit"]){
     const form=document.getElementById(formId);
