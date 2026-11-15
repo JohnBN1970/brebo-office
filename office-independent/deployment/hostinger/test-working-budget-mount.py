@@ -50,7 +50,7 @@ $financialSectionHtml .= $financeHtml;
     deps.mkdir(parents=True)
     for name in ("LockedBaselineLines.php", "WorkingBudgetKpiProjection.php",
                  "ProjectBudgetReadModel.php", "ProjectBudgetPanel.php",
-                 "OnSiteLaborEvidence.php"):
+                 "OnSiteLaborEvidence.php", "OfficeProcurementBudgetAdapter.php"):
         (deps / name).write_text("<?php\\n")
     env = dict(os.environ, OFFICE_BASE_PATH="/office-test",
                OFFICE_WORK_BUDGET_MOUNT="explicit")
