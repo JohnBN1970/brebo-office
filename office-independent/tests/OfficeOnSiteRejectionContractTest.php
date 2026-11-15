@@ -18,7 +18,7 @@ foreach (['PHP_SAPI', "'/office-test'", "'_office_test'", '--preflight', '--appl
 foreach (['bulk_approve', 'count($pairs)>25', 'count($eligible)!==count($selected)', 'Bulkactie onderbroken', 'forManagerWeek('] as $part) {
  if (!str_contains($page,$part)) throw new RuntimeException('Missing bulk or week UI: '.$part);
 }
-foreach (['function forManagerWeek(', 'presence_week_history_incomplete', 'occurred_at_utc<?'] as $part) {
+foreach (['function forManagerWeek(', 'presence_week_history_incomplete', "REPLACE(SUBSTR(e.occurred_at_utc,1,19),'T',' ')<?"] as $part) {
  if (!str_contains($repository,$part)) throw new RuntimeException('Missing complete week guard: '.$part);
 }
 echo "ONSITE_REJECTION_CONTRACT_OK\n";

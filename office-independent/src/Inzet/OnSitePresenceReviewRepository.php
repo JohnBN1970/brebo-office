@@ -24,7 +24,7 @@ final class OnSitePresenceReviewRepository {
     $stmt=$this->db->prepare(
       "SELECT e.event_id,e.person_id,e.project_id,e.zone_id,e.event_kind,e.occurred_at_utc
        FROM office_onsite_event_inbox e
-       WHERE e.project_id=? AND e.occurred_at_utc<?
+       WHERE e.project_id=? AND REPLACE(SUBSTR(e.occurred_at_utc,1,19),'T',' ')<?
          AND EXISTS (
            SELECT 1 FROM office_operator_accounts a
            JOIN office_project_memberships m ON m.operator_id=a.id

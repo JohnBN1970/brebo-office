@@ -65,7 +65,7 @@ jobs:
       - name: Validate native work budget and costs
         run: |
           set -euo pipefail
-          for test in LockedBaselineLinesTest LockedBaselineDecimalLinesTest ProjectBudgetReadModelTest ProjectBudgetPanelTest WorkingBudgetKpiProjectionTest OfficeProcurementBudgetAdapterTest OfficeWorkBudgetCommitmentComparisonTest OfficeCalcWorkBudgetHandoffTest OfficeApprovedLabourCostPolicyTest OfficeApprovedLabourValuationTest OfficeApprovedLabourRatePolicyTest OfficeApprovedLabourCostPostingContractTest OfficeActualLabourCostProjectReaderContractTest; do
+          for test in LockedBaselineLinesTest LockedBaselineDecimalLinesTest ProjectBudgetReadModelTest ProjectBudgetPanelTest WorkingBudgetKpiProjectionTest OfficeProcurementBudgetAdapterTest OfficeWorkBudgetCommitmentComparisonTest OfficeCalcWorkBudgetHandoffTest OfficeOnSiteWeekBoundaryTest OfficeOnSiteRejectionContractTest OfficeApprovedLabourCostPolicyTest OfficeApprovedLabourValuationTest OfficeApprovedLabourRatePolicyTest OfficeApprovedLabourCostPostingContractTest OfficeActualLabourCostProjectReaderContractTest; do
             php "office-independent/tests/$test.php"
           done
       - name: Validate OnSite approval and weekly deductions
