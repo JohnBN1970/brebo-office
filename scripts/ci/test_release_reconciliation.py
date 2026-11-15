@@ -25,6 +25,32 @@ class ReconciliationTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'RELEASE_MERGE_CONFLICT'):
                 module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline')
             self.assertEqual((root/'active/src/file.php').read_text(),'runtime')
+    def test_known_git_ancestor_onsite_conflict_preserves_backup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            relative=Path('src/Inzet/OfficeOnSiteApprovalService.php')
+            for name,content in [('baseline','original'),('active','runtime'),('incoming','repository')]:
+                file=root/name/relative
+                file.parent.mkdir(parents=True)
+                file.write_text(content)
+            trusted={module.git_blob_id(b'runtime')}
+            module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',trusted)
+            self.assertEqual((root/'candidate'/relative).read_text(),'repository')
+            self.assertEqual((root/'candidate/.development-runtime-backups'/relative).read_text(),'runtime')
+            self.assertEqual((root/'active'/relative).read_text(),'runtime')
+
+    def test_unrecognized_onsite_conflict_stays_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            relative=Path('src/Inzet/OfficeOnSiteApprovalService.php')
+            for name,content in [('baseline','original'),('active','runtime'),('incoming','repository')]:
+                file=root/name/relative
+                file.parent.mkdir(parents=True)
+                file.write_text(content)
+            with self.assertRaisesRegex(RuntimeError,'RELEASE_MERGE_CONFLICT'):
+                module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',{'not-a-blob'})
+            self.assertEqual((root/'active'/relative).read_text(),'runtime')
+
     def test_unknown_collision_is_blocked(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

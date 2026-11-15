@@ -53,7 +53,11 @@ jobs:
       - name: Build exact source and reconciliation baseline
         run: |
           set -euo pipefail
-          mkdir -p /tmp/office-development-package/baseline
+          mkdir -p /tmp/office-development-package/baseline /tmp/office-development-package/metadata
+          path=office-independent/src/Inzet/OfficeOnSiteApprovalService.php
+          git log --format=%H HEAD -- "$path" | while IFS= read -r commit; do
+            git rev-parse "$commit:$path" 2>/dev/null || true
+          done | sort -u > /tmp/office-development-package/metadata/onsite-ancestor-blobs.txt
           git archive 39b992f8d022c9eba4732f5882c3c4cc3824616a office-independent | tar -x -C /tmp/office-development-package/baseline
           cp -a office-independent scripts /tmp/office-development-package/
           find /tmp/office-development-package -type d -name __pycache__ -prune -exec rm -rf {} +
@@ -87,6 +91,25 @@ jobs:
           scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json /tmp/office-development-package.tgz scripts/deployment/deploy_office_test.sh "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "php '$remote_dir/development-inventory.php' '$remote_dir/office-source-manifest.json'" | tee office-test-inventory.txt
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/deploy_office_test.sh' '$remote_dir/office-development-package.tgz' '$GITHUB_SHA'" | tee office-test-acceptance.txt
+      - name: Fingerprint conflicting OnSite runtime source
+        if: failure() && github.ref == 'refs/heads/develop'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/office_test
+          chmod 600 ~/.ssh/office_test
+          trap 'rm -f ~/.ssh/office_test' EXIT
+          options=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/office_test)
+          remote="domains/brebobv.nl/office_calc_test/release-ci-$GITHUB_SHA/private/src/Inzet/OfficeOnSiteApprovalService.php"
+          # The repository is public: NEVER export or print private runtime source.
+          # A Git blob hash is enough to identify an already committed version.
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "if test -f ~/$remote; then git hash-object ~/$remote | sed 's/^/ONSITE_RUNTIME_GIT_BLOB=/'; else echo ONSITE_RUNTIME_BLOB_UNAVAILABLE; fi"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
