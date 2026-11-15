@@ -54,7 +54,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -65,6 +65,14 @@ final class OfficeCalcCrmDraftLineRepository
         if($exactQuantity!==null&&(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0))throw new DomainException('Ongeldige hoeveelheid.');
         if($exactUnitCost!==null&&!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$exactUnitCost))throw new DomainException('Ongeldige eenheidsprijs.');
         if($unit!==null&&(trim($unit)===''||mb_strlen($unit)>32))throw new DomainException('Ongeldige eenheid.');
+        if($costComponents!==null){
+            if(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')!=='enabled'||$exactUnitCost===null||$labor!==null||$priceSource!==null||$quantityAdjustment!==null)throw new DomainException('Gecombineerde kosten zijn voor deze regel niet beschikbaar.');
+            if(array_keys($costComponents)!==array_keys(self::COST_COLUMNS))throw new DomainException('Alle vijf kostencomponenten zijn verplicht.');
+            foreach($costComponents as $kind=>$amount){
+                if(!is_string($amount)||!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$amount))throw new DomainException('Ongeldige kostencomponent: '.$kind);
+            }
+            if(bccomp($costComponents[$costType],$exactUnitCost,4)!==0)throw new DomainException('Primaire kostensoort en eenheidsprijs verschillen.');
+        }
         $adjustmentEnabled=getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled';
         if($quantityAdjustment!==null){
             if(!$adjustmentEnabled||$exactQuantity===null||$exactUnitCost===null)throw new DomainException('Correctieopslag niet beschikbaar.');
@@ -139,6 +147,7 @@ final class OfficeCalcCrmDraftLineRepository
                 }
             }
             $costs[self::COST_COLUMNS[$costType]]=$value;
+            if($costComponents!==null){foreach(self::COST_COLUMNS as $kind=>$column)$costs[$column]=$costComponents[$kind];}
             $code=self::TYPES[$costType].':'.$lineId;
             if ($existing!==false) {
                 $q=$this->db->prepare('UPDATE calculation_lines SET code=?,description=?,quantity=?,unit=COALESCE(?,unit),labour_unit_cost=?,material_unit_cost=?,equipment_unit_cost=?,subcontracting_unit_cost=?,other_unit_cost=? WHERE id=? AND version_id=?');
