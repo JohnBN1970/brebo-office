@@ -60,4 +60,11 @@ if(!is_string($repositorySource)||!str_contains($repositorySource,"'cost_compone
 foreach(["'labor'=>(string)","'material'=>(string)","'equipment'=>(string)","'subcontract'=>(string)","'other'=>(string)"] as $component)if(!str_contains($repositorySource,$component))throw new RuntimeException('Missing cost component: '.$component);
 if(!str_contains($source,"line['cost_components']"))throw new RuntimeException('Cost details not linked to canonical values');
 if(!str_contains($repositorySource,'if(is_array($existingRow))')||!str_contains($repositorySource,'$costs[$column]=(string)$existingRow[$column]'))throw new RuntimeException('Editing a cost component must preserve other stored components');
+foreach(['labor','material','equipment','subcontract','other'] as $kind){
+ if(!str_contains($source,'name="component_'.$kind.'"'))throw new RuntimeException('Missing combined cost input: '.$kind);
+}
+foreach(['if($costComponents!==null)','array_keys($costComponents)!==array_keys(self::COST_COLUMNS)','$costs[$column]=$costComponents[$kind]'] as $contract){
+ if(!str_contains($repositorySource,$contract))throw new RuntimeException('Atomic mixed-cost save missing: '.$contract);
+}
+if(!str_contains($source,'$components[$kind]=$amount'))throw new RuntimeException('Mixed cost POST validation missing');
 echo "NATIVE_CALC_GRID_CONTRACT=PASS\\n";
