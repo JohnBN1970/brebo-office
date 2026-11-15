@@ -13,6 +13,7 @@ $paths=[
  'OfficeCalcCrmDraftLineRepository.php'=>'src/Calculation/OfficeCalcCrmDraftLineRepository.php',
  'OfficeCalcQuantityAdjustments.php'=>'src/Calculation/OfficeCalcQuantityAdjustments.php',
  'OfficeCalcLaborNorm.php'=>'src/Calculation/OfficeCalcLaborNorm.php',
+ 'OfficeCalcLaborRateCatalog.php'=>'src/Calculation/OfficeCalcLaborRateCatalog.php',
 ];
 foreach($paths as $name=>$path){
  $src=$stage.'/'.$name;
@@ -27,4 +28,4 @@ foreach($paths as $name=>$path){
  fclose($pipes[0]);stream_get_contents($pipes[1]);stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
  if(proc_close($process)!==0)exit(7);
 }
-echo "CALC_VERIFY=PASS\nCALC_VERIFIED_FILES=4\n";
+echo "CALC_VERIFY=PASS\nCALC_VERIFIED_FILES=5\n";
