@@ -118,6 +118,9 @@ final class OfficeOnSiteApprovalService
             $originalReviewer=(string)$previous['reviewer_id'];
             if (!hash_equals($originalReviewer,$reviewer)) throw new \DomainException('OnSite session already reviewed');
             $verified=(new OfficeApprovedHoursDecisionRepository($this->db))->verified((string)$previous['decision_reference'],$reviewer);
+            if ($correctedSeconds !== null && $correctedSeconds !== $verified['decision']['reviewed_seconds']) {
+                throw new \DomainException('Already approved OnSite duration cannot be changed by retry');
+            }
             $entry=OfficeApprovedHoursEvidence::fromVerifiedDecision($verified['session'],$verified['decision'],$reviewer);
             $existingBooking=$this->db->prepare('SELECT id,source_sha256 FROM office_inzet_approved_hours WHERE source_kind=? AND source_reference=? LIMIT 1 FOR UPDATE');
             $existingBooking->execute([$entry['source_kind'],$entry['source_reference']]);
