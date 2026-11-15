@@ -21,4 +21,10 @@ $approval=file_get_contents(dirname(__DIR__).'/src/Inzet/OfficeOnSiteApprovalSer
 foreach (['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED', 'OfficeApprovedLabourCostPostingService($this->db))->postInsideTransaction($bookingId)', 'Actual labour cost posting conflicts with legacy budget debit modes', 'OfficeOnSiteFourEyesGuard'] as $part) {
     if (!str_contains($approval,$part)) throw new RuntimeException('Missing OnSite cost posting guard: '.$part);
 }
+$migration=file_get_contents(dirname(__DIR__,2).'/scripts/deployment/office_test_migrate.php');
+$acceptance=file_get_contents(dirname(__DIR__,2).'/scripts/deployment/office_test_acceptance.php');
+foreach (['OfficeApprovedLabourCostSchema::statements()', 'ACTUAL_LABOUR_PARENT_SCHEMA_UNVERIFIED', 'ACTUAL_LABOUR_MIGRATION_CHECKSUM_CHANGED', 'OFFICE_TEST_ACTUAL_LABOUR_SCHEMA_PASS'] as $marker) {
+    if (!str_contains($migration,$marker)) throw new RuntimeException('Actual labour test migration contract missing: '.$marker);
+}
+if (!str_contains($acceptance,'actual_labour_unique_approval')) throw new RuntimeException('Actual labour test acceptance contract missing');
 echo "ACTUAL_LABOUR_COST_POSTING_CONTRACT_OK\\n";

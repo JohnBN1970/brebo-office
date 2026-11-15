@@ -66,6 +66,23 @@ try {
         ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
     ensureTest($onsiteColumns===['decision_reference','reason','recorded_at'],'onsite_rejection_schema_verified');
     ensureTest(($config['OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED']??'')==='enabled','onsite_rejection_flag_enabled');
+    // Actual labour ledger may be prepared without enabling monetary postings.
+    $labourExpected=[
+        'office_inzet_actual_labour_costs'=>['id','approved_hours_id','project_id','person_id','work_date','approved_seconds','hourly_rate_cents','amount_cents','source_sha256','recorded_at'],
+        'office_inzet_actual_labour_rates'=>['id','project_id','person_id','valid_from','valid_until','hourly_rate_cents','authorized_by','authorized_at','revoked_at'],
+    ];
+    $labourColumns=$db->prepare("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION");
+    foreach ($labourExpected as $table=>$columns) {
+        $labourColumns->execute([$table]);
+        ensureTest($labourColumns->fetchAll(PDO::FETCH_COLUMN)===$columns,'actual_labour_schema_'.$table);
+    }
+    $labourUnique=$db->query("SELECT COUNT(*) FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_inzet_actual_labour_costs'
+        AND INDEX_NAME='uq_actual_labour_approval' AND COLUMN_NAME='approved_hours_id' AND NON_UNIQUE=0")->fetchColumn();
+    ensureTest((int)$labourUnique===1,'actual_labour_unique_approval');
+    echo 'ACTUAL_LABOUR_POSTING_FLAG='.(($config['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED']??'')==='enabled'?'enabled':'disabled')."\\n";
+
     echo 'ONSITE_HOURS_APPROVAL_ENABLED='.(($config['OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
     echo 'ONSITE_FOUR_EYES_ENABLED='.(($config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']??'')==='enabled'?'yes':'no')."\\n";
     echo 'ONSITE_ACTUAL_LABOUR_COST_ENABLED='.(($config['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
