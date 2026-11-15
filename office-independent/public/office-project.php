@@ -567,7 +567,7 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
  // deliberately leaves this renderer untouched; POST already uses the
  // authenticated operator, project ACL, and a cookie-bound CSRF token.
  if ($activeTab === 'werkvoorbereiding'
-     && \\Brebo\\Office\\Intake\\OfficeMount::isTest()
+     && \Brebo\Office\Intake\OfficeMount::isTest()
      && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
    try {
      $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
@@ -577,7 +577,7 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
        require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartReadModel.php';
        require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartView.php';
        require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartFormView.php';
-       $kickstartDossier = (new \\Brebo\\Office\\Project\\OfficeProjectKickstartReadModel($db))
+       $kickstartDossier = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))
          ->forAuthorizedScope((int)$projectId, 'project', 0);
        $kickstartUrl = $projectUrl . '&tab=werkvoorbereiding';
        $validKickstartCsrf = $canManage && is_string($csrfToken)
@@ -592,11 +592,11 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
          }
          $workbenchHtml .= '</section>';
        } else {
-         $workbenchHtml .= \\Brebo\\Office\\Project\\OfficeProjectKickstartView::render(
+         $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartView::render(
            $kickstartDossier, $kickstartDossier['questions'], $kickstartDossier['approvals']
          );
          if ($validKickstartCsrf) {
-           $workbenchHtml .= \\Brebo\\Office\\Project\\OfficeProjectKickstartFormView::render(
+           $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
              $kickstartDossier, $kickstartUrl, $csrfToken, true,
              (int)$kickstartDossier['project_leader_user_id'] === (int)$operator->operatorId,
              true
@@ -604,7 +604,7 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
          }
        }
      }
-   } catch (\\Throwable $kickstartError) {
+   } catch (\Throwable $kickstartError) {
      error_log('OFFICE_TEST_KICKSTART_RENDER_FAILED=' . get_class($kickstartError));
      $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
    }
