@@ -392,7 +392,10 @@ foreach($lines as $line) {
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
     }else{
         echo '<tr class="calc-collapsible-line" data-calc-row="'.$rowNumber.'"><td><button type="button" class="calc-line-toggle" aria-expanded="false" aria-controls="calc-line-detail-'.$rowNumber.'" aria-label="Kostenopbouw regel '.$rowNumber.' tonen">▸</button> '.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td>'.$h((string)($line['labor_rate_code']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
-        foreach($costCells as $kind)echo '<td class="numeric">'.((string)$line['cost_type']===$kind?'€ '.$unitCost:'—').'</td>';
+        foreach($costCells as $kind){
+            $component=(string)($line['cost_components'][$kind]??'0');
+            echo '<td class="numeric">€ '.number_format((float)$component,$collaborationEnabled?4:2,',','.').'</td>';
+        }
         echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
         echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="19"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
         foreach($costCells as $kind){
