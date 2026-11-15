@@ -2,6 +2,7 @@ name: Inzet labour budget policy contract
 on:
   pull_request:
     paths:
+      - 'office-independent/deployment/hostinger/install-actual-labour-cost-schema.php'
       - 'office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
@@ -35,6 +36,7 @@ on:
   push:
     branches: [develop]
     paths:
+      - 'office-independent/deployment/hostinger/install-actual-labour-cost-schema.php'
       - 'office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php'
       - 'office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php'
@@ -79,6 +81,7 @@ jobs:
       - name: Verify policy and planned shift contract
         run: |
           set -euo pipefail
+          php -l office-independent/deployment/hostinger/install-actual-labour-cost-schema.php
           php -l office-independent/src/Inzet/OfficeActualLabourCostProjectReader.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourCostSchema.php
           php -l office-independent/src/Inzet/OfficeApprovedLabourCostPostingService.php
