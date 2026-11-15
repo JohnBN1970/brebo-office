@@ -23,6 +23,9 @@ for marker in (
     assert marker in replacement, f"Missing guarded kickstart mount: {marker}"
 assert replacement.index("OfficeMount::isTest()") < replacement.index("OfficeProjectKickstartReadModel")
 assert "OfficeProjectKickstartFormView" in replacement, "Authorized form missing from mount"
+assert "'office_project_start_events'" in replacement, "Forms require audit event schema"
+assert "fetchColumn() !== 4" in replacement, "Incomplete schema must fail closed"
+assert "$canManage" in replacement, "Forms must be restricted to project managers"
 
 source = (root / "public/office-project.php").read_text()
 assert "OfficeNativeProjectAccess($db))->canRead" in source, "Missing project ACL"
