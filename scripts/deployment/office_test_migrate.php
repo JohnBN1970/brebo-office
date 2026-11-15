@@ -45,8 +45,9 @@ if ($existingColumns!==[] && $existingColumns!==$expectedColumns) {
 }
 $rejectionMigrationId='onsite-rejection-reasons-v1';
 $rejectionChecksum=hash('sha256',implode(';',$rejectionStatements));
-$q->execute([$rejectionMigrationId]);
-$previousChecksum=$q->fetchColumn();
+$rejectionChecksumLookup=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$rejectionChecksumLookup->execute([$rejectionMigrationId]);
+$previousChecksum=$rejectionChecksumLookup->fetchColumn();
 if ($previousChecksum!==false && !hash_equals((string)$previousChecksum,$rejectionChecksum)) {
     throw new RuntimeException('ONSITE_MIGRATION_CHECKSUM_CHANGED');
 }
