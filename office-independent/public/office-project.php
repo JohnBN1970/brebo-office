@@ -668,8 +668,25 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
                 $inzetOverview, (int)$projectId
             );
         }
+        // Reuse only the procurement orders already authorized for this project/building scope.
+        // Never infer zero commitments when governance is disabled or the read failed.
+        $workBudgetProcurement = null;
+        if (isset($commitment) && is_array($commitment)
+            && ($commitment['project_id'] ?? null) === (int)$projectId
+            && ($commitment['source'] ?? null) === 'office_procurement_orders'
+            && isset($commitment['orders']) && is_array($commitment['orders'])
+            && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'enabled'
+            && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED') === 'enabled') {
+            require_once dirname(__DIR__) . '/src/WorkingBudget/OfficeProcurementBudgetAdapter.php';
+            $workBudgetProcurement = \Brebo\Office\WorkingBudget\OfficeProcurementBudgetAdapter::fromAwardedOrders(
+                (int)$projectId, $commitment['orders']
+            );
+            if ($workBudgetProcurement['awarded_cents'] !== $commitment['commitment_cents']) {
+                throw new \UnexpectedValueException('Procurement total does not reconcile.');
+            }
+        }
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
-            ->forAuthorizedProject((int)$projectId, null, null, $laborEvidence);
+            ->forAuthorizedProject((int)$projectId, $workBudgetProcurement, null, $laborEvidence);
         $financeHtml .= \Brebo\Office\WorkingBudget\ProjectBudgetPanel::render($workBudgetView);
     } catch (\Throwable $workBudgetError) {
         error_log('Office work budget panel unavailable: ' . get_class($workBudgetError));
