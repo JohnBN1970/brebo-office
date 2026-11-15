@@ -375,14 +375,14 @@ if($edit!==null){
  echo '<form id="calc-inline-edit" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="line_id" value="'.$h((string)$edit['line_id']).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Calculatieregel direct in tabel gewijzigd">';
  echo '<input type="hidden" name="extra_labor_hours" value="'.$h((string)($edit['extra_labor_hours']??'')).'">';
- if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm"'.(($edit['labor_driver']??'norm')==='norm'?' selected':'').'>Norm</option><option value="hours"'.(($edit['labor_driver']??'')==='hours'?' selected':'').'>Uren</option></select></label>';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<input type="hidden" name="labor_driver" value="'.$h((string)($edit['labor_driver']??'norm')).'">';
  echo '</form>';
 }
 if($edit===null){
  echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
- if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<label>Leidende invoer <select name="labor_driver"><option value="norm">Norm</option><option value="hours">Uren</option></select></label>';
+ if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<input type="hidden" name="labor_driver" value="norm">';
  echo '</form>';
 }
 if($guidedPreset!==null||$conflict!==''){echo '<section id="calc-line-editor" class="panel line-editor'.($edit!==null||$guidedPreset!==null?' is-editing':'').($conflict!==''?' has-conflict':'').'"><h2>'.($edit===null?'Nieuwe calculatieregel':'Calculatieregel wijzigen').'</h2>';
@@ -421,6 +421,29 @@ require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '<div class="sheet-tabs"><span>Data</span><span>Uren (nog niet gekoppeld)</span><span>Staart (nog niet gekoppeld)</span></div></div></div><script>
 (function(){
   "use strict";
+  // Last edited labor cell determines the calculation; no separate selector.
+  for(const formId of ["calc-inline-new","calc-inline-edit"]){
+    const form=document.getElementById(formId);
+    if(!form)continue;
+    const field=name=>document.querySelector('[form="'+formId+'"][name="'+name+'"]')||form.querySelector('[name="'+name+'"]');
+    const norm=field("labor_norm"),hours=field("labor_hours"),qty=field("quantity"),driver=field("labor_driver");
+    if(!norm||!hours||!qty||!driver)continue;
+    const format=n=>Number.isFinite(n)?String(Math.round((n+Number.EPSILON)*10000)/10000):"";
+    const read=el=>Number(String(el.value).replace(",","."));
+    const sync=()=>{
+      const quantity=read(qty);
+      if(!(quantity>0))return;
+      if(driver.value==="hours"){
+        if(hours.value.trim()!=="")norm.value=format(read(hours)/quantity);
+      }else if(norm.value.trim()!==""){
+        hours.value=format(read(norm)*quantity);
+      }
+    };
+    norm.addEventListener("input",()=>{driver.value="norm";sync();});
+    hours.addEventListener("input",()=>{driver.value="hours";sync();});
+    qty.addEventListener("input",sync);
+    form.addEventListener("submit",sync);
+  }
   const search=document.getElementById("calc-element-search");
   const list=document.getElementById("calc-element-list");
   const status=document.getElementById("calc-element-search-status");
