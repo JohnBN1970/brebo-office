@@ -48,7 +48,9 @@ assert "beginTransaction()" in repository, "Dossier creation must be atomic"
 assert "project_leader_user_id" in repository, "Project leader binding missing"
 assert "INSERT INTO office_project_start_dossiers" in repository, "Dossier insert missing"
 assert "INSERT INTO office_project_start_events" in repository, "Creation audit insert missing"
-assert "createForAuthorizedProject" not in source, "Creation must remain disabled until trusted project leader resolution is wired"
+assert "createForAuthorizedProject($projectId, (int)$operator->operatorId, (int)$operator->operatorId, $canManage)" in source, "Only authenticated manager may claim leadership"
+assert "hash_equals($token, $_POST['csrf_token'])" in source, "Creation requires CSRF"
+assert 'value="create_dossier"' in replacement, "Creation form missing"
 # A synthetic V2 controller exercises the deploy mount without assuming
 # the repository's unmounted controller contains prior V2 deployment markers.
 synthetic = "<?php\n" + "\n".join(module.REQUIRED) + "\n" + module.ANCHOR + "\n" + "echo $breboV23Render((string) ob_get_clean());"
