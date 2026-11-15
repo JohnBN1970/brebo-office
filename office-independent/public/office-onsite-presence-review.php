@@ -84,6 +84,11 @@ try {
        if (isset($selected[$key])) $eligible[$key]=$interval;
      }
      if (count($eligible)!==count($selected)) {http_response_code(409);exit('Selectie is verouderd. Ververs het overzicht.');}
+     foreach ($eligible as $interval) {
+       if ((int)$interval['elapsed_seconds']<1 || (int)$interval['elapsed_seconds']>86400) {
+         http_response_code(409);exit('Selectie bevat een ongeldige duur. Ververs het overzicht.');
+       }
+     }
      $existing=$db->prepare('SELECT 1 FROM office_onsite_hours_decisions WHERE in_event_id=? AND out_event_id=? LIMIT 1');
      foreach ($eligible as $interval) {
        $existing->execute([$interval['arrival_event_id'],$interval['departure_event_id']]);
@@ -128,9 +133,9 @@ try {
    exit;
  }
  // Select the entire historical evidence stream up to the week's end.
- $weekRaw=$_GET['week']??date('o-\\WW');
+ $weekRaw=$_GET['week']??date('o-\WW');
  if (!is_string($weekRaw) || !preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch)) {
-   $weekRaw=date('o-\\WW');
+   $weekRaw=date('o-\WW');
    preg_match('/^(20[0-9]{2})-W(0[1-9]|[1-4][0-9]|5[0-3])$/D',$weekRaw,$weekMatch);
  }
  $weekStart=(new DateTimeImmutable('now',new DateTimeZone('Europe/Brussels')))
