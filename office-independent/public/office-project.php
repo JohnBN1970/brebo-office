@@ -563,6 +563,53 @@ $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
   . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
   . '</div>'
 ;
+ // Native Office project page owns the kickstart UI. The legacy V3 mount
+ // deliberately leaves this renderer untouched; POST already uses the
+ // authenticated operator, project ACL, and a cookie-bound CSRF token.
+ if ($activeTab === 'werkvoorbereiding'
+     && \\Brebo\\Office\\Intake\\OfficeMount::isTest()
+     && getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
+   try {
+     $kickstartSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions')");
+     if ((int)$kickstartSchema->fetchColumn() !== 4) {
+       $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Startdossier nog niet geïnstalleerd.</p></section>';
+     } else {
+       require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartReadModel.php';
+       require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartView.php';
+       require_once dirname(__DIR__) . '/src/Project/OfficeProjectKickstartFormView.php';
+       $kickstartDossier = (new \\Brebo\\Office\\Project\\OfficeProjectKickstartReadModel($db))
+         ->forAuthorizedScope((int)$projectId, 'project', 0);
+       $kickstartUrl = $projectUrl . '&tab=werkvoorbereiding';
+       $validKickstartCsrf = $canManage && is_string($csrfToken)
+         && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken);
+       if ($kickstartDossier === null) {
+         $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Nog geen startdossier.</p>';
+         if ($validKickstartCsrf) {
+           $workbenchHtml .= '<form method="post" action="' . $escape($kickstartUrl) . '">'
+             . '<input type="hidden" name="kickstart_action" value="create_dossier">'
+             . '<input type="hidden" name="csrf_token" value="' . $escape($csrfToken) . '">'
+             . '<button type="submit">Startdossier aanmaken</button></form>';
+         }
+         $workbenchHtml .= '</section>';
+       } else {
+         $workbenchHtml .= \\Brebo\\Office\\Project\\OfficeProjectKickstartView::render(
+           $kickstartDossier, $kickstartDossier['questions'], $kickstartDossier['approvals']
+         );
+         if ($validKickstartCsrf) {
+           $workbenchHtml .= \\Brebo\\Office\\Project\\OfficeProjectKickstartFormView::render(
+             $kickstartDossier, $kickstartUrl, $csrfToken, true,
+             (int)$kickstartDossier['project_leader_user_id'] === (int)$operator->operatorId,
+             true
+           );
+         }
+       }
+     }
+   } catch (\\Throwable $kickstartError) {
+     error_log('OFFICE_TEST_KICKSTART_RENDER_FAILED=' . get_class($kickstartError));
+     $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Startdossier tijdelijk niet beschikbaar.</p></section>';
+   }
+ }
+
 $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Uitvoeringsvoortgang, kwaliteit en projectacties. Personeelsplanning en urencontrole staan onder Arbeid &amp; Inzet.</p>'
   . '</div>'
