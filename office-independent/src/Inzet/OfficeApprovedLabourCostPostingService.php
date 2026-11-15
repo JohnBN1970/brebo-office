@@ -30,8 +30,7 @@ final class OfficeApprovedLabourCostPostingService
     public function postInsideTransaction(int $approvedHoursId): int
     {
         if ($approvedHoursId < 1 || !$this->db->inTransaction()) throw new \LogicException('Approval transaction required');
-        {
-            $q=$this->db->prepare('SELECT id,project_id,person_id,work_date,approved_seconds,source_sha256
+        $q=$this->db->prepare('SELECT id,project_id,person_id,work_date,approved_seconds,source_sha256
                 FROM office_inzet_approved_hours WHERE id=? FOR UPDATE');
             $q->execute([$approvedHoursId]);
             $approved=$q->fetch(PDO::FETCH_ASSOC);
@@ -76,6 +75,5 @@ final class OfficeApprovedLabourCostPostingService
                 $valuation['actual_cost_cents'],$valuation['source_sha256']]);
             $id=(int)$this->db->lastInsertId();
             return $id;
-        }
     }
 }
