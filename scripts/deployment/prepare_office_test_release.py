@@ -10,7 +10,7 @@ AREAS = ('src', 'public', 'schema', 'deployment', 'tests')
 KNOWN_ANCESTOR_REPLACEMENT = Path('src/Inzet/OfficeOnSiteApprovalService.php')
 
 def git_blob_id(data):
-    return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\\0' + data).hexdigest()
+    return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
 
 
 def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset()):
