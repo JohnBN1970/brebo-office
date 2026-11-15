@@ -23,4 +23,39 @@ $q=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,
 foreach (['office_project_start_dossiers','office_project_start_approvals','office_project_start_events','office_project_start_questions'] as $table) {
     $db->query('SELECT 1 FROM `'.$table.'` LIMIT 0');
 }
+// OnSite rejection reasons are additive and must exist before any rejected review.
+// Never create review decisions or test hours during schema installation.
+$rejectionSchema=$candidate.'/src/Inzet/OfficeOnSiteRejectionReasonSchema.php';
+if (!is_file($rejectionSchema)) throw new RuntimeException('ONSITE_REJECTION_SCHEMA_SOURCE_MISSING');
+require_once $rejectionSchema;
+$rejectionStatements=\Brebo\Office\Inzet\OfficeOnSiteRejectionReasonSchema::statements();
+if (count($rejectionStatements)!==1
+    || !preg_match('/^CREATE TABLE IF NOT EXISTS office_onsite_rejection_reasons\\s*\\(/D',$rejectionStatements[0])) {
+    throw new RuntimeException('UNREVIEWED_ONSITE_MIGRATION');
+}
+$required=$db->query("SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_onsite_hours_decisions'")->fetchColumn();
+if ((int)$required!==1) throw new RuntimeException('ONSITE_DECISIONS_SCHEMA_MISSING');
+$existingColumns=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_onsite_rejection_reasons'
+    ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
+$expectedColumns=['decision_reference','reason','recorded_at'];
+if ($existingColumns!==[] && $existingColumns!==$expectedColumns) {
+    throw new RuntimeException('ONSITE_REJECTION_SCHEMA_MISMATCH');
+}
+$rejectionMigrationId='onsite-rejection-reasons-v1';
+$rejectionChecksum=hash('sha256',implode(';',$rejectionStatements));
+$q->execute([$rejectionMigrationId]);
+$previousChecksum=$q->fetchColumn();
+if ($previousChecksum!==false && !hash_equals((string)$previousChecksum,$rejectionChecksum)) {
+    throw new RuntimeException('ONSITE_MIGRATION_CHECKSUM_CHANGED');
+}
+foreach ($rejectionStatements as $statement) $db->exec($statement);
+$verifiedColumns=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_onsite_rejection_reasons'
+    ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
+if ($verifiedColumns!==$expectedColumns) throw new RuntimeException('ONSITE_REJECTION_SCHEMA_UNVERIFIED');
+$q=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
+$q->execute([$rejectionMigrationId,$rejectionChecksum]);
+echo "OFFICE_TEST_ONSITE_REJECTION_SCHEMA_PASS\\n";
 echo "OFFICE_TEST_ADDITIVE_MIGRATIONS_PASS\n";

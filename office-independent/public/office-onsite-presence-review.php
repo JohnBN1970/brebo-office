@@ -178,19 +178,32 @@ try {
    if ($local<$weekStart || $local>=$weekEnd) continue;
    $person=(string)($interval['person_id']??'');
    if ($person==='') continue;
-   if (!isset($weekly[$person])) $weekly[$person]=['registered'=>0,'approved'=>0,'rejected'=>0,'pending'=>0];
+   if (!isset($weekly[$person])) $weekly[$person]=['registered'=>0,'approved'=>0,'rejected'=>0,'not_approved'=>0,'pending'=>0];
    $duration=max(0,(int)($interval['elapsed_seconds']??0));
    $weekly[$person]['registered']+=$duration;
    $status=$interval['review_status']??'pending';
-   if ($status==='approved') $weekly[$person]['approved']+=(int)($interval['reviewed_seconds']??0);
-   elseif ($status==='rejected') $weekly[$person]['rejected']+=$duration;
-   else $weekly[$person]['pending']+=$duration;
+   if ($status==='approved') {
+     $approved=max(0,min($duration,(int)($interval['reviewed_seconds']??0)));
+     $weekly[$person]['approved']+=$approved;
+     // Approved presence may be shorter than registered presence: the difference
+     // is explicitly not payable and must not enter actual labour cost posting.
+     $weekly[$person]['not_approved']+=$duration-$approved;
+   } elseif ($status==='rejected') {
+     $weekly[$person]['rejected']+=$duration;
+     $weekly[$person]['not_approved']+=$duration;
+   } else $weekly[$person]['pending']+=$duration;
  }
  ksort($weekly,SORT_NATURAL);
 } catch (Throwable $error) {
  http_response_code(503);exit('Aanwezigheidscontrole tijdelijk niet beschikbaar.');
 }
 $escape=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+$localTime=static function(mixed $value):string {
+ if (!is_string($value)||$value==='') return '';
+ try {return (new DateTimeImmutable($value,new DateTimeZone('UTC')))
+   ->setTimezone(new DateTimeZone('Europe/Brussels'))->format('d-m-Y H:i');}
+ catch (Throwable $ignored) {return '';}
+};
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
  .'<title>Aanwezigheidscontrole · BREBO Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:1100px;padding:1rem;color:#243244}'
@@ -201,32 +214,32 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'<h2>Weekoverzicht</h2><form method="get"><input type="hidden" name="id" value="'.$escape($id).'">'
  .'<label>Week <input type="week" name="week" value="'.$escape($weekRaw).'"></label> <button type="submit">Toon week</button></form>'
  .'<p>Week vanaf '.$escape($weekStart->format('d-m-Y')).' · overzicht van de geladen aanwezigheidsintervallen</p>'
- .'<table><thead><tr><th>Medewerker</th><th>Geregistreerd</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Te beoordelen</th></tr></thead><tbody>'
+ .'<table><thead><tr><th>Medewerker</th><th>Geregistreerd</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Niet goedgekeurd</th><th>Te beoordelen</th></tr></thead><tbody>'
  .implode('',array_map(static function(string $person,array $values) use ($escape):string {
    $format=static fn(int $seconds):string=>sprintf('%d:%02d',intdiv($seconds,3600),intdiv($seconds%3600,60));
-   return '<tr><td>'.$escape($person).'</td><td>'.$format($values['registered']).'</td><td>'.$format($values['approved']).'</td><td>'.$format($values['rejected']).'</td><td>'.$format($values['pending']).'</td></tr>';
+   return '<tr><td>'.$escape($person).'</td><td>'.$format($values['registered']).'</td><td>'.$format($values['approved']).'</td><td>'.$format($values['rejected']).'</td><td>'.$format($values['not_approved']).'</td><td>'.$format($values['pending']).'</td></tr>';
  },array_keys($weekly),array_values($weekly)))
  .'</tbody></table>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
  .($approvalsEnabled ? '<h2>Bulkgoedkeuring</h2><p>Selecteer maximaal 25 nog niet beoordeelde registraties. Bulkacties worden per registratie geboekt; bij een fout stopt de verwerking en wordt het aantal voltooide boekingen gemeld.</p>'
  .'<form method="post"><input type="hidden" name="id" value="'.$escape($id).'"><input type="hidden" name="week" value="'.$escape($weekRaw).'"><input type="hidden" name="csrf" value="'.$escape($_SESSION['office_onsite_review_csrf']).'">'
- .implode('',array_map(static function(array $interval) use ($escape):string {
+ .implode('',array_map(static function(array $interval) use ($escape,$localTime):string {
    if (isset($interval['review_status']) || ($interval['elapsed_seconds']??0)<1 || ($interval['elapsed_seconds']??0)>86400) return '';
    $key=hash('sha256',(string)$interval['arrival_event_id'].'|'.(string)$interval['departure_event_id']);
-   return '<label style="display:block"><input type="checkbox" name="pairs[]" value="'.$escape($key).'"> Medewerker '.$escape($interval['person_id']).' · '.$escape($interval['entered_at']).' · '.round($interval['elapsed_seconds']/3600,2).' uur</label>';
+   return '<label style="display:block"><input type="checkbox" name="pairs[]" value="'.$escape($key).'"> Medewerker '.$escape($interval['person_id']).' · '.$escape($localTime($interval['entered_at']??'')).' – '.$escape($localTime($interval['left_at']??'')).' · '.round($interval['elapsed_seconds']/3600,2).' uur</label>';
  },$review['intervals']??[]))
  .'<button type="submit" name="review_action" value="bulk_approve">Selectie goedkeuren en boeken</button></form>'
  .(isset($_GET['bulk_approved'])?'<p role="status">Bulkgoedkeuring verwerkt: '.$escape($_GET['bulk_approved']).' registraties.</p>':'') : '')
- .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Alleen volledige OnSite-registraties. Goedkeuring boekt de uren direct op het project.</p>'
+ .($approvalsEnabled ? '<h2>Uren goedkeuren</h2><p>Afgeronde OnSite-registraties. Bij een gedeeltelijke goedkeuring worden uitsluitend de goedgekeurde minuten als arbeid geboekt; het restant staat als niet goedgekeurd in het weekoverzicht.</p>'
  .(isset($_GET['approved'])?'<p role="status">Uren goedgekeurd en geboekt.</p>':'')
  .(isset($_GET['rejected'])?'<p role="status">Registratie afgekeurd; geen uren geboekt.</p>':'')
- .implode('',array_map(static function(array $interval) use ($escape,$id):string {
+ .implode('',array_map(static function(array $interval) use ($escape,$localTime,$id):string {
    if (isset($interval['review_status']) || ($interval['elapsed_seconds']??0)>86400 || ($interval['elapsed_seconds']??0)<1) return '';
    return '<form method="post" action=""><input type="hidden" name="id" value="'.$escape($id).'">'
      .'<input type="hidden" name="csrf" value="'.$escape($_SESSION['office_onsite_review_csrf']).'">'
      .'<input type="hidden" name="in_event_id" value="'.$escape($interval['arrival_event_id']).'">'
      .'<input type="hidden" name="out_event_id" value="'.$escape($interval['departure_event_id']).'">'
-     .'<span>Medewerker '.$escape($interval['person_id']).' · '. $escape(round($interval['elapsed_seconds']/3600,2)).' uur</span> '
+     .'<span>Medewerker '.$escape($interval['person_id']).' · '.$escape($localTime($interval['entered_at']??'')).' – '.$escape($localTime($interval['left_at']??'')).' · '. $escape(round($interval['elapsed_seconds']/3600,2)).' uur</span> '
      .'<label>Goedgekeurde minuten (leeg = volledig): <input type="number" name="approved_minutes" min="1" max="'.(int)floor($interval['elapsed_seconds']/60).'" step="1" placeholder="Volledig"></label> '
      .'<button type="submit" name="review_action" value="approve">Goedkeuren en boeken</button> '
      .(getenv('OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED')==='enabled'
