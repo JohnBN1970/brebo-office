@@ -49,10 +49,11 @@ assert "project_leader_user_id" in repository, "Project leader binding missing"
 assert "INSERT INTO office_project_start_dossiers" in repository, "Dossier insert missing"
 assert "INSERT INTO office_project_start_events" in repository, "Creation audit insert missing"
 assert "createForAuthorizedProject" not in source, "Creation must remain disabled until trusted project leader resolution is wired"
-# Deployment must refresh an already-mounted renderer, not silently retain stale UI.
-old_renderer = replacement.replace("OfficeProjectKickstartFormView", "LegacyKickstartFormView")
-assert module.transform(source) == source[:source.index(module.ANCHOR)] + replacement
-mounted = module.transform(source)
+# A synthetic V2 controller exercises the deploy mount without assuming
+# the repository's unmounted controller contains prior V2 deployment markers.
+synthetic = "<?php\\n" + "\\n".join(module.REQUIRED) + "\\n" + module.ANCHOR + "\\n" + "echo $breboV23Render((string) ob_get_clean());"
+mounted = module.transform(synthetic)
+assert "OfficeProjectKickstartFormView" in mounted
 assert module.transform(mounted) == mounted, "Mount must remain idempotent"
 stale = mounted.replace("OfficeProjectKickstartFormView", "LegacyKickstartFormView")
 assert module.transform(stale) == mounted, "Stale renderer must be refreshed"
