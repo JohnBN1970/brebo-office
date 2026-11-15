@@ -139,9 +139,10 @@ try {
     ensureTest($status===200 && str_contains($budgetHtml,'class="office-work-budget"')
         && str_contains($budgetHtml,'Nog niet beschikbaar')
         && !str_contains($budgetHtml,'Werkbegroting tijdelijk niet beschikbaar'),'native_work_budget_http');
-    ensureTest(str_contains($budgetHtml,'Vergrendelde werkbegroting #') && str_contains($budgetHtml,'€ 494,32')
-        && str_contains($budgetHtml,'€ 120,00') && str_contains($budgetHtml,'€ 255,00')
-        && str_contains($budgetHtml,'€ 34,32'),'budget_complete_persisted_http_render');
+    foreach (['locked'=>'Vergrendelde werkbegroting #','baseline_494_32'=>'€ 494,32',
+        'procurement_120'=>'€ 120,00','labour_255'=>'€ 255,00','remaining_34_32'=>'€ 34,32'] as $name=>$marker) {
+        ensureTest(str_contains($budgetHtml,$marker),'budget_http_render_'.$name);
+    }
     ensureTest(str_contains($budgetHtml,'<strong>Geboekte kosten</strong><span>Nog niet beschikbaar</span>')
         && str_contains($budgetHtml,'Een inkoopopdracht is geen betaling.'),'budget_missing_finance_is_unknown');
     [$status,$controlHtml]=requestTest($leader,'https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=overzicht');
