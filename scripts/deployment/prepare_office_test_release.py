@@ -2,12 +2,18 @@
 """Merge repository changes into a new private release; never modify active code."""
 from pathlib import Path
 import argparse
+import hashlib
 import shutil
 import subprocess
 
 AREAS = ('src', 'public', 'schema', 'deployment', 'tests')
+KNOWN_ANCESTOR_REPLACEMENT = Path('src/Inzet/OfficeOnSiteApprovalService.php')
 
-def reconcile(active, candidate, incoming, baseline):
+def git_blob_id(data):
+    return hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\\0' + data).hexdigest()
+
+
+def reconcile(active, candidate, incoming, baseline, known_ancestor_blobs=frozenset()):
     if candidate.exists():
         raise RuntimeError('Candidate already exists')
     shutil.copytree(active, candidate, symlinks=True)
@@ -34,6 +40,17 @@ def reconcile(active, candidate, incoming, baseline):
             elif old.is_file():
                 merge = subprocess.run(['git', 'merge-file', '-p', str(target), str(old), str(new)], capture_output=True)
                 if merge.returncode:
+                    # Narrowly scoped recovery: an active file whose exact Git blob
+                    # exists in develop's ancestry is repository-managed, not an
+                    # untracked server customization. Preserve a private backup.
+                    if relative == KNOWN_ANCESTOR_REPLACEMENT and git_blob_id(target.read_bytes()) in known_ancestor_blobs:
+                        backup = candidate / '.development-runtime-backups' / relative
+                        backup.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(target, backup)
+                        target.write_bytes(incoming_bytes)
+                        count['updated'] += 1
+                        print(f'RELEASE_RECONCILED_KNOWN_GIT_ANCESTOR={relative}')
+                        continue
                     raise RuntimeError(f'RELEASE_MERGE_CONFLICT={relative}')
                 target.write_bytes(merge.stdout)
                 count['merged'] += 1
@@ -53,5 +70,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     for key in ('active','candidate','incoming','baseline'):
         parser.add_argument('--'+key, type=Path, required=True)
+    parser.add_argument('--known-ancestor-blobs', type=Path)
     a = parser.parse_args()
-    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline)))
+    known = frozenset(a.known_ancestor_blobs.read_text().splitlines()) if a.known_ancestor_blobs else frozenset()
+    print('RELEASE_RECONCILIATION=' + str(reconcile(a.active,a.candidate,a.incoming,a.baseline, known)))
