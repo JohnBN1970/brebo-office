@@ -26,6 +26,10 @@ def check(root=ROOT):
             continue
         if path.name != CENTRAL and set(events) & {'push', 'pull_request', 'pull_request_target', 'workflow_run', 'repository_dispatch'}:
             errors.append(f'{path.name}: automatic remote route outside central Office-test pipeline')
+        if path.name not in SCHEDULED_OPERATIONS and re.search(r'public_html/sboffice|sboffice\.brebobv\.nl|npm run deploy', source):
+            for name, job in workflow.get('jobs', {}).items():
+                if job.get('environment') != 'production':
+                    errors.append(f'{path.name}/{name}: production maintenance requires protected environment')
         if 'schedule' in events and path.name not in SCHEDULED_OPERATIONS:
             errors.append(f'{path.name}: unreviewed scheduled remote operation')
     central = yaml.safe_load((root / '.github/workflows' / CENTRAL).read_text())
