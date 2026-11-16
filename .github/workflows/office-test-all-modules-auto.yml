@@ -68,6 +68,13 @@ jobs:
           for test in LockedBaselineLinesTest LockedBaselineDecimalLinesTest ProjectBudgetReadModelTest ProjectBudgetPanelTest WorkingBudgetKpiProjectionTest OfficeProcurementBudgetAdapterTest OfficeWorkBudgetCommitmentComparisonTest OfficeCalcWorkBudgetHandoffTest OfficeOnSiteWeekBoundaryTest OfficeOnSiteRejectionContractTest OfficeApprovedLabourCostPolicyTest OfficeApprovedLabourValuationTest OfficeApprovedLabourRatePolicyTest OfficeApprovedLabourCostPostingContractTest OfficeActualLabourCostProjectReaderContractTest; do
             php "office-independent/tests/$test.php"
           done
+      - name: Validate Finance dependency, sessions and project access
+        run: |
+          set -euo pipefail
+          find packages/brebo-finance-core -type f -name '*.php' -print0 | xargs -0 -r -n 1 php -l
+          php office-independent/tests/OfficeFinanceIntegrationRegressionTest.php
+          php office-independent/tests/OfficeFinanceSessionIntegrationTest.php
+          php office-independent/tests/OfficeFinanceProjectAccessTest.php
       - name: Validate OnSite approval and weekly deductions
         run: php office-independent/tests/OfficeLabourAtomicApprovalContractTest.php
       - name: Validate existing core contracts
@@ -115,6 +122,8 @@ jobs:
           sort -u /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt -o /tmp/office-development-package/metadata/calc-path-ancestor-blobs.txt
           git archive 39b992f8d022c9eba4732f5882c3c4cc3824616a office-independent | tar -x -C /tmp/office-development-package/baseline
           cp -a office-independent scripts /tmp/office-development-package/
+          mkdir -p /tmp/office-development-package/packages
+          cp -a packages/brebo-finance-core /tmp/office-development-package/packages/
           find /tmp/office-development-package -type d -name __pycache__ -prune -exec rm -rf {} +
           tar -czf /tmp/office-development-package.tgz -C /tmp/office-development-package .
       - name: Prepare source inventory

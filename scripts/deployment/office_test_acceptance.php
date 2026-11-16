@@ -90,6 +90,8 @@ try {
     ensureTest($repeat['project_id']===$fixture['project_id'],'seed_idempotent');
     $fixture=$repeat;
     $anonymous=curl_init();[$status,$body,$headers]=requestTest($anonymous,$url);ensureTest($status===302 && str_contains($headers,'/office-test/inloggen'),'anonymous_redirect');
+    [$status,$body,$headers]=requestTest($anonymous,'https://brebobv.nl/office-test/finance');
+    ensureTest($status===302 && str_contains($headers,'/office-test/inloggen'),'finance_anonymous_redirect');
     [$status]=requestTest($anonymous,$login,['username'=>'invalid','password'=>'invalid']);ensureTest($status===403,'login_csrf_rejected');
     foreach ($fixture['users'] as $role=>$user) {
         $jar=tempnam($base,'ci-cookie-');chmod($jar,0600);$jars[]=$jar;
@@ -99,6 +101,27 @@ try {
         [$status,$html]=requestTest($h,$url);ensureTest($status===($role==='outsider'?404:200),'project_acl_'.$role);
     }
     $leader=$handles['leader'];$reviewer=$handles['reviewer'];$reader=$handles['reader'];
+    $financeUrl='https://brebobv.nl/office-test/finance';
+    foreach ([$financeUrl,$financeUrl.'?project_id='.$id] as $financeCheckUrl) {
+        [$status,$financeHtml]=requestTest($leader,$financeCheckUrl);
+        if ($status===503) {
+            // Reproduce only the bounded fixture read; log error location, no records or secrets.
+            foreach ($config as $key=>$value) if (is_string($value)) putenv($key.'='.$value);
+            try {
+                require_once $active.'/src/Finance/bootstrap.php';
+                $source=\Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment();
+                $financeData=(new \Brebo\Office\Finance\OfficeFinanceApplication($db,$source,$config['OFFICE_FINANCE_TABLE_PREFIX']??''))->read($fixture['users']['leader']['id'],null,str_contains($financeCheckUrl,'project_id=')?$id:null);
+                $financeData['registered_drafts']=(new \Brebo\Office\Finance\OfficeFinanceDraftRegister($db))->visible($fixture['users']['leader']['id'],str_contains($financeCheckUrl,'project_id=')?$id:null);
+                \Brebo\Office\Finance\OfficeFinanceView::render($financeData,'dashboard','',1,'');
+                echo "FINANCE_FIXTURE_DIAGNOSTIC=CLI_PASS_HTTP_FAILED\n";
+            } catch (Throwable $financeError) {
+                echo 'FINANCE_FIXTURE_DIAGNOSTIC='.get_class($financeError).' code='.(string)$financeError->getCode().' file='.basename($financeError->getFile()).' line='.$financeError->getLine()."\n";
+            }
+        }
+        ensureTest($status===200 && str_contains($financeHtml,'Finance') && !str_contains($financeHtml,'Finance is tijdelijk niet beschikbaar.'),'finance_dashboard_http_'.(str_contains($financeCheckUrl,'project_id=')?'project':'all'));
+    }
+    [$status]=requestTest($reader,$financeUrl);ensureTest($status===403,'finance_reader_acl_denied');
+    echo 'OFFICE_TEST_FINANCE_URL='.$financeUrl."\n";
     [$status,$html]=requestTest($leader,$url);$csrf=csrfTest($html);
     [$status]=requestTest($leader,$url,['csrf_token'=>$csrf,'kickstart_action'=>'create_dossier']);ensureTest($status===303,'create_dossier');
     $row=dossierTest($db,$id);ensureTest((int)$row['project_leader_user_id']===(int)$fixture['users']['leader']['id'],'stored_leader');

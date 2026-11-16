@@ -135,3 +135,15 @@ echo "OFFICE_TEST_WORK_BUDGET_DECIMAL_SCHEMA_PASS\n";
 function budgetMigrationChecksum(PDO $db,string $id): mixed {
     $q=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');$q->execute([$id]);return $q->fetchColumn();
 }
+
+// Code dependency gate, before activation. No connection to external Finance data.
+$financeCore=$candidate.'/packages/brebo-finance-core';
+if (!is_file($financeCore.'/bootstrap.php')) throw new RuntimeException('FINANCE_CORE_PACKAGE_MISSING');
+putenv('OFFICE_FINANCE_CORE_ROOT='.$financeCore);
+require_once $candidate.'/src/Finance/bootstrap.php';
+foreach ([\Brebo\Office\Finance\OfficeFinanceApplication::class,
+    \Brebo\Office\Finance\OfficeFinanceView::class,
+    \Brebo\Finance\Service\PayablesWorkQueueBuilder::class] as $class) {
+    if (!class_exists($class)) throw new RuntimeException('FINANCE_DEPENDENCY_CLASS_MISSING='.$class);
+}
+echo "OFFICE_TEST_FINANCE_DEPENDENCIES_PASS\n";

@@ -5,6 +5,7 @@ require __DIR__.'/office_test_environment.php';
 $candidate=realpath($argv[1]??'');
 if (($argv[2]??'')!=='OFFICE-TEST' || !$candidate || !str_starts_with($candidate,$base.'/release-ci-') || !str_ends_with($candidate,'/private')) throw new RuntimeException('INVALID_TEST_ACTIVATION');
 $config['OFFICE_PRIVATE_ROOT']=$candidate;
+$config['OFFICE_FINANCE_CORE_ROOT']=$candidate.'/packages/brebo-finance-core';
 $config['OFFICE_TEST_PROJECT_KICKSTART_ENABLED']='enabled';
 // Read-only native work budget; monetary postings retain their separate rollout gate.
 $config['OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED']='enabled';

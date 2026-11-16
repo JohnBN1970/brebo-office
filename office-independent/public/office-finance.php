@@ -621,6 +621,9 @@ try {
   http_response_code(404);
   exit('Factuur niet beschikbaar.');
 } catch (Throwable $e) {
+  // Operational detail only in the private server log; never expose credentials or invoice data.
+  error_log('OFFICE_FINANCE_FAILURE class='.get_class($e).' code='.(string)$e->getCode()
+    .' file='.basename($e->getFile()).' line='.$e->getLine());
   http_response_code(503);
   exit('Finance is tijdelijk niet beschikbaar.');
 }
