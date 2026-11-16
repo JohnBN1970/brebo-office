@@ -38,4 +38,12 @@ $db->exec("INSERT INTO office_inzet_actual_labour_rates VALUES (2,2,7,'2026-01-0
 $check('BLOCKED','BLOCKED',1,1);
 $db->exec("INSERT INTO office_inzet_actual_labour_costs VALUES (1,1,2)");
 $check('BLOCKED','NO_UNPOSTED_APPROVALS',1,0);
-echo "ONSITE_READINESS_CONTRACT_OK\n";
+$ready=OfficeOnSiteRolloutReadiness::inspect($db);
+if (OfficeOnSiteRolloutReadiness::enableFourEyesForTest($ready,false)) throw new RuntimeException('Blocked mapping must not activate');
+if (!OfficeOnSiteRolloutReadiness::enableFourEyesForTest($ready,true)) throw new RuntimeException('Existing four-eyes policy must not downgrade');
+$db->exec("DELETE FROM office_operator_people WHERE person_id=7");
+$ready=OfficeOnSiteRolloutReadiness::inspect($db);
+if (!OfficeOnSiteRolloutReadiness::enableFourEyesForTest($ready,false)) throw new RuntimeException('Verified mapping must activate');
+$ready['onsite_real_arrivals']=0;
+if (OfficeOnSiteRolloutReadiness::enableFourEyesForTest($ready,false)) throw new RuntimeException('No real events must not activate');
+echo "ONSITE_READINESS_CONTRACT_OK\\n";

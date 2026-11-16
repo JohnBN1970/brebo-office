@@ -7,6 +7,17 @@ declare(strict_types=1);
  */
 final class OfficeOnSiteRolloutReadiness
 {
+    /** Do not silently weaken an already enabled four-eyes policy. */
+    public static function enableFourEyesForTest(array $report, bool $alreadyEnabled): bool
+    {
+        return $alreadyEnabled || (
+            ($report['four_eyes_readiness'] ?? '') === 'READY_FOR_CONTROLLED_TRIAL'
+            && (int)($report['onsite_real_arrivals'] ?? 0) > 0
+            && (int)($report['reviewer_project_assignments'] ?? 0) > 0
+            && (int)($report['reviewer_assignments_without_unique_active_mapping'] ?? -1) === 0
+        );
+    }
+
     public static function inspect(PDO $db): array
     {
         // Only active reviewers for non-CI projects with actual OnSite events.

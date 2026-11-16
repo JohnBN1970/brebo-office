@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/office_test_environment.php';
 require __DIR__.'/office_test_seed.php';
+require __DIR__.'/OfficeOnSiteRolloutReadiness.php';
 set_exception_handler(static function (Throwable $error): void {
     $message=$error instanceof RuntimeException ? $error->getMessage() : get_class($error);
     fwrite(STDERR,'OFFICE_TEST_ACCEPTANCE_ERROR='.$message."\n");
@@ -83,6 +84,10 @@ try {
     ensureTest((int)$labourUnique===1,'actual_labour_unique_approval');
     echo 'ACTUAL_LABOUR_POSTING_FLAG='.(($config['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED']??'')==='enabled'?'enabled':'disabled')."\\n";
 
+    $onsiteReadiness=OfficeOnSiteRolloutReadiness::inspect($db);
+    if ($onsiteReadiness['four_eyes_readiness']==='READY_FOR_CONTROLLED_TRIAL') {
+        ensureTest(($config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']??'')==='enabled','onsite_four_eyes_controlled_test_active');
+    }
     echo 'ONSITE_HOURS_APPROVAL_ENABLED='.(($config['OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
     echo 'ONSITE_FOUR_EYES_ENABLED='.(($config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']??'')==='enabled'?'yes':'no')."\\n";
     echo 'ONSITE_ACTUAL_LABOUR_COST_ENABLED='.(($config['OFFICE_TEST_ACTUAL_LABOUR_COST_POSTING_ENABLED']??'')==='enabled'?'yes':'no')."\\n";
