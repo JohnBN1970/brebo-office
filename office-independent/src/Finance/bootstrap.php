@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 // Deploy packages/brebo-finance-core beside office-independent, or set this private path.
 $financeCore = getenv('OFFICE_FINANCE_CORE_ROOT') ?: dirname(__DIR__, 3) . '/packages/brebo-finance-core';
+if (!is_file($financeCore . '/bootstrap.php')) {
+  throw new \RuntimeException('FINANCE_CORE_BOOTSTRAP_UNAVAILABLE');
+}
 require_once $financeCore . '/bootstrap.php';
 spl_autoload_register(static function (string $class): void {
   $prefix = 'Brebo\\Office\\Finance\\';

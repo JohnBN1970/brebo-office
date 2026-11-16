@@ -31,6 +31,11 @@ baseline="$active/.development-source"
 command -v git >/dev/null
 command -v python3 >/dev/null
 python3 "$helper/prepare_office_test_release.py" --active "$active" --candidate "$candidate" --incoming "$work/office-independent" --baseline "$baseline" --known-ancestor-blobs "$work/metadata/onsite-ancestor-blobs.txt" --known-calc-blobs "$work/metadata/calc-ancestor-blobs.txt" --known-calc-path-blobs "$work/metadata/calc-path-ancestor-blobs.txt" --office-test-authoritative
+# Pin the shared Finance dependency inside this private candidate, never a retired release.
+[[ -f "$work/packages/brebo-finance-core/bootstrap.php" && -d "$work/packages/brebo-finance-core/src" ]] || { echo FINANCE_CORE_PACKAGE_MISSING; exit 15; }
+[[ ! -L "$candidate/packages" && ! -L "$candidate/packages/brebo-finance-core" ]] || { echo FINANCE_CORE_PACKAGE_UNSAFE; exit 15; }
+mkdir -p "$candidate/packages"
+cp -a "$work/packages/brebo-finance-core" "$candidate/packages/"
 # Refresh the established renderer rather than replacing its runtime adapters.
 python3 "$candidate/deployment/hostinger/mount-project-detail-v3.py" "$candidate/public/office-project.php"
 # Hostinger's shared SSH environment must not spawn four PHP CLI workers
