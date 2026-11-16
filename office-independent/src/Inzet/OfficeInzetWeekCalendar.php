@@ -95,7 +95,10 @@ final class OfficeInzetWeekCalendar {
         $reference = (int)$date->format('N') <= 5 ? 8 * 3600 : 0;
         $percent = $reference > 0 ? round($seconds / $reference * 100, 1) : null;
         $fill = $reference > 0 ? min(100, $percent) : ($seconds > 0 ? 100 : 0);
-        $color = $reference === 0 ? '#426ca8' : ($percent >= 100 ? '#23845b' : ($percent >= 85 ? '#d59b25' : '#cc574c'));
+        // A read-only OnSite registration is not an approval. Never show green
+        // (approved) or red (rejected) without actual approval evidence.
+        // Blue = registered; amber = above the 8-hour weekday reference.
+        $color = $reference > 0 && $seconds > $reference ? '#d59b25' : '#426ca8';
         $out .= '<td style="min-width:92px;background:#f4f6fa;padding:8px;border-radius:8px">';
         $out .= '<div style="height:12px;background:#dbe1e8;border-radius:9px;overflow:hidden"><div style="width:' . $fill . '%;height:100%;background:' . $color . '"></div></div>';
         $out .= '<div style="font-size:12px;text-align:center;margin-top:5px">' . number_format($seconds / 3600, 2, ',', '.') . ' u';
@@ -118,6 +121,6 @@ final class OfficeInzetWeekCalendar {
       }
     }
     if ($byPerson === []) $out .= '<tr><td colspan="9">Geen afgeronde OnSite-sessies in deze week.</td></tr>';
-    return $out . '</tbody></table></div><p style="font-size:12px">Grijs = referentie van 8 uur op werkdagen, kleur = geregistreerde OnSite-uren. Dit is geen geverifieerde planning of urenfiattering. Overuren blijven als percentage boven 100% zichtbaar.</p>';
+    return $out . '</tbody></table></div><p style="font-size:12px">Blauw = geregistreerde OnSite-uren (nog niet goedgekeurd); geel = boven de 8-uursreferentie op werkdagen; grijs = resterende referentieruimte. Groen en rood worden pas gebruikt als daadwerkelijke goedkeuring of afkeuring bekend is. Dit is geen geverifieerde planning of urenfiattering. Overuren blijven als percentage boven 100% zichtbaar.</p>';
   }
 }
