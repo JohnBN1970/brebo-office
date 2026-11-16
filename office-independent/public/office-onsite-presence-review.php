@@ -217,7 +217,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'<table><thead><tr><th>Medewerker</th><th>Geregistreerd</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Niet goedgekeurd</th><th>Te beoordelen</th></tr></thead><tbody>'
  .implode('',array_map(static function(string $person,array $values) use ($escape):string {
    $format=static fn(int $seconds):string=>sprintf('%d:%02d',intdiv($seconds,3600),intdiv($seconds%3600,60));
-   return '<tr><td>'.$escape($person).'</td><td>'.$format($values['registered']).'</td><td>'.$format($values['approved']).'</td><td>'.$format($values['rejected']).'</td><td>'.$format($values['not_approved']).'</td><td>'.$format($values['pending']).'</td></tr>';
+   return '<tr><td>'.$escape($person).'</td><td>'.$format($values['registered']).'</td><td><span class="badge" data-status="approved">'.$format($values['approved']).'</span></td><td><span class="badge" data-status="rejected">'.$format($values['rejected']).'</span></td><td><span class="badge" data-status="rejected">'.$format($values['not_approved']).'</span></td><td><span class="badge" data-status="pending">'.$format($values['pending']).'</span></td></tr>';
  },array_keys($weekly),array_values($weekly)))
  .'</tbody></table>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
