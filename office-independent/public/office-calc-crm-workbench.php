@@ -252,6 +252,16 @@ try {
 catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
 catch (PDOException) { $deny(503,'DATABASE'); }
 catch (Throwable) { $deny(503,'RUNTIME'); }
+$calcHeadings=[];$calcHeadingWarning='';
+if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
+    try{
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcHeadingRepository.php';
+        $versionQuery=$db->prepare('SELECT v.id FROM calculations c JOIN calculation_versions v ON v.calculation_id=c.id WHERE c.office_calculation_id=? AND c.office_project_id IS NULL ORDER BY v.version_no DESC LIMIT 1');
+        $versionQuery->execute([$draft]);
+        $headingVersion=$versionQuery->fetchColumn();
+        if($headingVersion!==false)$calcHeadings=(new \Brebo\Office\Calculation\OfficeCalcHeadingRepository($db))->list((int)$headingVersion);
+    }catch(Throwable){$calcHeadingWarning='Hoofdgroepen zijn tijdelijk niet beschikbaar.';}
+}
 $expectedRevision='';$history=[];$members=[];$eligible=[];$auditDetail=null;$canManageCollaborators=false;
 if($collaboration!==null){
     try{
@@ -349,6 +359,19 @@ if($laborRateCatalog!==null){
 }
 
 echo '</div><div id="panel-data" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-data"><div id="calc-data" class="sheet-label">Data · Calculatieregels</div>';
+if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
+    echo '<section class="panel" aria-label="Calculatiehoofdgroepen"><h3>Hoofdgroepen</h3>';
+    if($calcHeadingWarning!=='')echo '<p role="status">'.$h($calcHeadingWarning).'</p>';
+    elseif($calcHeadings===[])echo '<p>Er zijn nog geen hoofdgroepen ingedeeld.</p>';
+    else{
+        foreach($calcHeadings as $heading){
+            $systemLabels=['nlsfb'=>'NL-SfB','stabu'=>'STABU','free'=>'Vrije code'];
+            $system=(string)$heading['code_system'];
+            echo '<details class="calc-heading"><summary><strong>'.$h($systemLabels[$system]??$system).' · '.$h($heading['heading_code']).'</strong> — '.$h($heading['title']).'</summary><p>Hoofdgroep opgeslagen. Regelindeling volgt in de bewerkfunctie.</p></details>';
+        }
+    }
+    echo '</section>';
+}
 echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Calculatieregels</strong> <button type="button" id="calc-lines-expand" class="calc-grid-action">Alle details tonen</button> <button type="button" id="calc-lines-collapse" class="calc-grid-action">Alle details verbergen</button> <span class="calc-grid-hint">Omschrijving en totaal blijven zichtbaar; per regel uitklappen.</span></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
