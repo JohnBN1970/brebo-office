@@ -126,6 +126,7 @@ try {
         ensureTest($status===200 && str_contains($financeHtml,'Finance') && !str_contains($financeHtml,'Finance is tijdelijk niet beschikbaar.'),'finance_dashboard_http_'.(str_contains($financeCheckUrl,'project_id=')?'project':'all'));
     }
     [$status]=requestTest($reader,$financeUrl);ensureTest($status===403,'finance_reader_acl_denied');
+    ensureTest(str_contains($financeHtml,'href="/office-test/finance/verkoop"') && str_contains($financeHtml,'href="/office-test/finance/administratie"') && str_contains($financeHtml,'office-global-nav-v2'),'finance_restored_navigation');
     $contractUrl='https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=werkbegroting';
     [$status,$contractHtml]=requestTest($leader,$contractUrl);
     ensureTest($status===200 && preg_match('/name="csrf" value="([a-f0-9]{64})"/',$contractHtml,$contractCsrf)===1 && str_contains($contractHtml,'create_project_contract'),'project_contract_controls');
