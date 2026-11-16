@@ -8,6 +8,8 @@ if (($argv[2]??'')!=='OFFICE-TEST' || !$candidate || !str_starts_with($candidate
 $config['OFFICE_PRIVATE_ROOT']=$candidate;
 $config['OFFICE_FINANCE_CORE_ROOT']=$candidate.'/packages/brebo-finance-core';
 // These are the existing verified Office-test sales and administration screens.
+$config['OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED']='enabled';
+$config['OFFICE_TEST_NAV_V2_ENABLED']='enabled';
 $config['OFFICE_SALES_ENABLED']='enabled';
 $config['OFFICE_SALES_SCHEMA_VERIFIED']='enabled';
 $config['OFFICE_FINANCE_CENTER_ENABLED']='enabled';
