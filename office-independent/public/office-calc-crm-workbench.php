@@ -259,7 +259,7 @@ if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
         $versionQuery=$db->prepare('SELECT v.id FROM calculations c JOIN calculation_versions v ON v.calculation_id=c.id WHERE c.office_calculation_id=? AND c.office_project_id IS NULL ORDER BY v.version_no DESC LIMIT 1');
         $versionQuery->execute([$draft]);
         $headingVersion=$versionQuery->fetchColumn();
-        if($headingVersion!==false)$calcHeadings=(new \\Brebo\\Office\\Calculation\\OfficeCalcHeadingRepository($db))->list((int)$headingVersion);
+        if($headingVersion!==false)$calcHeadings=(new \Brebo\Office\Calculation\OfficeCalcHeadingRepository($db))->list((int)$headingVersion);
     }catch(Throwable){$calcHeadingWarning='Hoofdgroepen zijn tijdelijk niet beschikbaar.';}
 }
 $expectedRevision='';$history=[];$members=[];$eligible=[];$auditDetail=null;$canManageCollaborators=false;
