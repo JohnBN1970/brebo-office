@@ -190,7 +190,7 @@ if ($inzetView) {
 
   // INZET_TABS_V2 - tabinhoud.
   if ($activeInzetTab === 'controle') {
-    echo '<section><h2>Urencontrole · OnSite</h2><p>Voorlopige aanwezigheid; geen goedgekeurde uren.</p>';
+    echo '<section><h2>Urencontrole · OnSite</h2><p>Weekoverzicht van OnSite-registraties. Goedkeuringen worden afzonderlijk gecontroleerd.</p>';
     try {
       require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
       require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
@@ -272,7 +272,11 @@ if ($inzetView) {
         echo '</details>';
       }
     } catch (Throwable $error) {
-      echo '<p>Urenoverzicht tijdelijk niet beschikbaar.</p>';
+      // Keep sensitive attendance details out of the browser, but log a
+      // correlation token so the real server-side failure can be diagnosed.
+      $incidentId = bin2hex(random_bytes(6));
+      error_log('[Office Inzet week control ' . $incidentId . '] ' . get_class($error) . ': ' . $error->getMessage());
+      echo '<p role="alert">Het weekoverzicht kon niet worden geladen. Meldcode: ' . $escape($incidentId) . '.</p>';
     }
     echo '</section>';
   }
