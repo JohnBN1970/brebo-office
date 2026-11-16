@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Calculation/OfficeCalcHeadingCode.php'
+      - 'office-independent/src/Calculation/OfficeCalcHeadingRepository.php'
+      - 'office-independent/deployment/hostinger/sql/office-calc-version-headings.sql'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -14,6 +16,8 @@ on:
     branches: [develop]
     paths:
       - 'office-independent/src/Calculation/OfficeCalcHeadingCode.php'
+      - 'office-independent/src/Calculation/OfficeCalcHeadingRepository.php'
+      - 'office-independent/deployment/hostinger/sql/office-calc-version-headings.sql'
       - 'office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php'
       - 'office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php'
       - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
@@ -38,6 +42,7 @@ jobs:
           set -euo pipefail
           for f in \
             office-independent/src/Calculation/OfficeCalcHeadingCode.php \
+            office-independent/src/Calculation/OfficeCalcHeadingRepository.php \
             office-independent/src/Calculation/OfficeCalcAcceptanceIdentity.php \
             office-independent/src/Calculation/OfficeCalcWorkBudgetHandoff.php \
             office-independent/src/Calculation/OfficeCalcCrmTransferService.php \
@@ -46,6 +51,7 @@ jobs:
           done
           for f in \
             office-independent/tests/OfficeCalcHeadingCodeTest.php \
+            office-independent/tests/OfficeCalcHeadingRepositoryTest.php \
             office-independent/tests/OfficeCalcAcceptanceIdentityTest.php \
             office-independent/tests/OfficeCalcWorkBudgetHandoffTest.php \
             office-independent/tests/OfficeCalcCrmTransferServiceContractTest.php \
