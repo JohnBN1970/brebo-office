@@ -126,6 +126,40 @@ try {
         ensureTest($status===200 && str_contains($financeHtml,'Finance') && !str_contains($financeHtml,'Finance is tijdelijk niet beschikbaar.'),'finance_dashboard_http_'.(str_contains($financeCheckUrl,'project_id=')?'project':'all'));
     }
     [$status]=requestTest($reader,$financeUrl);ensureTest($status===403,'finance_reader_acl_denied');
+    $contractUrl='https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab=werkbegroting';
+    [$status,$contractHtml]=requestTest($leader,$contractUrl);
+    ensureTest($status===200 && preg_match('/name="csrf" value="([a-f0-9]{64})"/',$contractHtml,$contractCsrf)===1 && str_contains($contractHtml,'create_project_contract'),'project_contract_controls');
+    $contractPost=['action'=>'create_project_contract','csrf'=>$contractCsrf[1],'contract_number'=>'FICTIEF-CI-FINANCE','client_name'=>'FICTIEVE acceptatieklant','amount'=>'1.234,56'];
+    [$status]=requestTest($leader,$contractUrl,array_replace($contractPost,['csrf'=>str_repeat('0',64)]));ensureTest($status===403,'project_contract_csrf_denied');
+    [$status]=requestTest($reader,$contractUrl,$contractPost);ensureTest($status===403,'project_contract_reader_denied');
+    $q=$db->prepare('SELECT id,contract_amount FROM office_project_contracts WHERE office_project_id=? AND contract_number=?');$q->execute([$id,$contractPost['contract_number']]);$contract=$q->fetch(PDO::FETCH_ASSOC);
+    if (!$contract) {[$status]=requestTest($leader,$contractUrl,$contractPost);ensureTest($status===303,'project_contract_created');$q->execute([$id,$contractPost['contract_number']]);$contract=$q->fetch(PDO::FETCH_ASSOC);}
+    ensureTest($contract && (string)$contract['contract_amount']==='1234.56','project_contract_decimal_persisted');
+    $termPost=['action'=>'create_project_term','csrf'=>$contractCsrf[1],'contract_id'=>$contract['id'],'term_number'=>'1','description'=>'FICTIEF acceptatietermijn','amount'=>'123,45'];
+    $q=$db->prepare('SELECT amount FROM office_project_terms WHERE contract_id=? AND term_number=1');$q->execute([$contract['id']]);$termAmount=$q->fetchColumn();
+    if ($termAmount===false) {[$status]=requestTest($leader,$contractUrl,$termPost);ensureTest($status===303,'project_term_created');$q->execute([$contract['id']]);$termAmount=$q->fetchColumn();}
+    ensureTest((string)$termAmount==='123.45','project_term_decimal_persisted');
+    // Recovered native screens are required acceptance, not just a healthy dashboard.
+    foreach (['/finance/verkoop','/finance/verkoop?new=1','/finance/administratie'] as $path) {
+        [$status,$screen]=requestTest($leader,'https://brebobv.nl/office-test'.$path);
+        ensureTest($status===200 && str_contains($screen,'data-office-theme="brebo-2026"'),'native_finance_screen_'.rawurlencode($path));
+        [$status]=requestTest($reader,'https://brebobv.nl/office-test'.$path);
+        ensureTest($status===403,'native_finance_reader_denied_'.rawurlencode($path));
+    }
+    foreach (['purchases','hours','payments','planning','review','customers'] as $tab) {
+        [$status]=requestTest($leader,$financeUrl.'/administratie?tab='.$tab);
+        ensureTest($status===200,'finance_administration_tab_'.$tab);
+    }
+    foreach (['/','/projecten','/projecten?view=gantt','/projecten?view=kanban','/gebouwen','/documenten','/personeel/medewerkers','/crm/relaties','/crm/aanvragen'] as $path) {
+        [$status,$screen]=requestTest($leader,'https://brebobv.nl/office-test'.$path);
+        // Module-specific ACL is retained. Report denied routes separately, reject missing/broken routes.
+        ensureTest(in_array($status,[200,403],true),'office_route_'.rawurlencode($path).'_http_'.$status);
+        if ($status===200) ensureTest(str_contains($screen,'data-office-theme="brebo-2026"') && substr_count($screen,'class="office-app-bar"')===1,'office_theme_'.rawurlencode($path));
+    }
+    foreach (['overzicht','planning','arbeid','werkbegroting','werkvoorbereiding','uitvoering'] as $tab) {
+        [$status,$screen]=requestTest($leader,'https://brebobv.nl/office-test/projecten/detail?id='.$id.'&tab='.$tab);
+        ensureTest($status===200 && str_contains($screen,'office-dossier-nav'),'project_tab_'.$tab);
+    }
     echo 'OFFICE_TEST_FINANCE_URL='.$financeUrl."\n";
     [$status,$html]=requestTest($leader,$url);$csrf=csrfTest($html);
     [$status]=requestTest($leader,$url,['csrf_token'=>$csrf,'kickstart_action'=>'create_dossier']);ensureTest($status===303,'create_dossier');

@@ -113,4 +113,18 @@ class ReconciliationTest(unittest.TestCase):
             self.assertEqual((root/'active/src/untracked.php').read_text(), 'previous-server-source')
             self.assertEqual((root/'candidate/src/runtime-only.php').read_text(), 'runtime-only-dependency')
 
+    def test_native_module_routes_replace_old_maps_and_preserve_runtime_modules(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for area in ['active','incoming','baseline']:
+                (root/area/'modules/sales').mkdir(parents=True)
+            (root/'active/modules/sales/routes.php').write_text('old-versioned-controller')
+            (root/'incoming/modules/sales/routes.php').write_text('canonical-controller')
+            (root/'active/modules/runtime').mkdir()
+            (root/'active/modules/runtime/routes.php').write_text('keep-runtime')
+            module.reconcile(root/'active',root/'candidate',root/'incoming',root/'baseline',office_test_authoritative=True)
+            self.assertEqual((root/'candidate/modules/sales/routes.php').read_text(),'canonical-controller')
+            self.assertEqual((root/'candidate/modules/runtime/routes.php').read_text(),'keep-runtime')
+            self.assertEqual((root/'candidate/.development-runtime-backups/modules/sales/routes.php').read_text(),'old-versioned-controller')
+
 if __name__=='__main__':unittest.main()

@@ -147,3 +147,15 @@ foreach ([\Brebo\Office\Finance\OfficeFinanceApplication::class,
     if (!class_exists($class)) throw new RuntimeException('FINANCE_DEPENDENCY_CLASS_MISSING='.$class);
 }
 echo "OFFICE_TEST_FINANCE_DEPENDENCIES_PASS\n";
+
+// Restore the previously installed native Finance workspace, without changing business data.
+require_once $candidate.'/src/Finance/Center/Schema.php';
+require_once $candidate.'/src/Sales/OfficeSalesSchema.php';
+foreach (array_merge(\Brebo\Office\Finance\Center\Schema::statements(),\Brebo\Office\Sales\OfficeSalesSchema::statements()) as $ddl) {
+    if (!preg_match('/^CREATE TABLE (office_finance_[a-z_]+) \(/D',$ddl,$table)) throw new RuntimeException('FINANCE_RESTORE_SCHEMA_SCOPE_INVALID');
+    preg_match_all('/(?:\(|,\s*)([a-z][a-z_]+) (?:VARCHAR|BIGINT|INTEGER|MEDIUMTEXT|TEXT)/',$ddl,$fields);
+    if ($fields[1]===[]) throw new RuntimeException('FINANCE_RESTORE_SCHEMA_FIELDS_MISSING');
+    $db->query('SELECT `'.implode('`,`',$fields[1]).'` FROM `'.$table[1].'` WHERE 1=0');
+}
+$db->query('SELECT invoice_email,offer_email,billing_street,billing_postal_code,billing_city,billing_country_code FROM office_crm_relations WHERE 1=0');
+echo "OFFICE_TEST_NATIVE_FINANCE_SCHEMA_PASS\n";

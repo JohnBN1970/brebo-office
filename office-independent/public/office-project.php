@@ -139,7 +139,8 @@ try {
   }
   $writeMessage = null;
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    if (!$canManage || getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled') {
+    $contractAction=in_array($_POST['action']??null,['create_project_contract','create_project_term','create_project_change'],true);
+    if (!$canManage || (!$contractAction && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled')) {
       http_response_code(403);
       exit('Bewerken niet toegestaan.');
     }
@@ -151,6 +152,14 @@ try {
       exit('Ongeldige formulierbeveiliging.');
     }
     $action = $_POST['action'] ?? 'housing_type';
+    if (in_array($action,['create_project_contract','create_project_term','create_project_change'],true)) {
+      require_once dirname(__DIR__).'/src/Project/OfficeProjectFinanceControls.php';
+      try {\Brebo\Office\Project\OfficeProjectFinanceControls::handle($db,(string)$operator->operatorId,$projectId,$_POST);}
+      catch (\DomainException $error) {http_response_code(403);exit('Geen toegang tot deze contractactie.');}
+      catch (\InvalidArgumentException $error) {http_response_code(400);exit('Controleer de contractgegevens en het bedrag.');}
+      catch (\PDOException $error) {http_response_code(409);exit('Registratie niet opgeslagen; controleer nummer en actuele stand.');}
+      header('Location: '.\Brebo\Office\Intake\OfficeMount::basePath().'/projecten/detail?id='.$projectId.'&tab=werkbegroting',true,303);exit;
+    }
     if ($action === 'save_scope_quantity') {
       // Legacy experimental input is disabled: building truth owns counts.
       http_response_code(403);
@@ -549,6 +558,10 @@ $dossierNav = '<nav class="office-dossier-nav" aria-label="Projectdossier onderd
 foreach ($tabs as $key => $label) {
   $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current="page" ' : '') . 'href="' . $escape($projectUrl . '&tab=' . $key) . '">' . $escape($label) . '</a>';
 }
+$dossierNav .= '<a href="'.$escape(\Brebo\Office\Intake\OfficeMount::route('documenten',['project_id'=>$projectId])).'">Documenten</a>';
+if (getenv('OFFICE_TEST_GOVERNANCE_ENABLED')==='enabled' && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED')==='enabled') {
+  foreach (['kwaliteit'=>'Kwaliteit','risicos'=>'Risico’s','inkoop'=>'Inkoop'] as $route=>$label) $dossierNav.='<a href="/office-test/'.$route.'?project_id='.(int)$projectId.'">'.$label.'</a>';
+}
 $dossierNav .= '</nav>';
 $inspectionActions = '';
 if (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
@@ -770,6 +783,10 @@ try {
     $financeHtml = '<p>Het financiële overzicht is nog niet beschikbaar.</p>';
 }
 
+if (is_array($financeContracts)) {
+  require_once dirname(__DIR__).'/src/Project/OfficeProjectFinanceControls.php';
+  $financeHtml.=\Brebo\Office\Project\OfficeProjectFinanceControls::render($db,(string)$operator->operatorId,$projectId,$csrfToken);
+}
 $workBudgetProcurement = null;
 // Read-only Office procurement commitments: independent of invoicing and bank transactions.
 // Show only after Finance ACL succeeded, and only with explicit governance activation.

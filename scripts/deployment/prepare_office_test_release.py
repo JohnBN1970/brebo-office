@@ -6,7 +6,7 @@ import hashlib
 import shutil
 import subprocess
 
-AREAS = ('src', 'public', 'schema', 'deployment', 'tests')
+AREAS = ('src', 'public', 'schema', 'deployment', 'tests', 'modules')
 KNOWN_ANCESTOR_REPLACEMENT = Path('src/Inzet/OfficeOnSiteApprovalService.php')
 KNOWN_CALC_RUNTIME_FILE = Path('src/Calculation/OfficeCalcCrmDraftLineRepository.php')
 KNOWN_CALC_DIR = ('src', 'Calculation')

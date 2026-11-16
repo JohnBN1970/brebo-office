@@ -9,6 +9,7 @@ final class OfficeNavigation {
     'bedrijf'=>['Bedrijfsoverzicht','/'],
     'crm'=>['CRM','/crm/bedrijven'],
     'projecten'=>['Projecten','/projecten'],
+    'gebouwen'=>['Gebouwen & inspecties','/gebouwen'],
     'personeel'=>['Personeel','/projecten?view=inzet'],
     'calculatie-offertes'=>['Calculatie & Offertes','/calculatie-offertes'],
     'finance'=>['Finance','/finance'],
@@ -20,8 +21,10 @@ final class OfficeNavigation {
   public const GOTIK=['geld'=>'Geld','organisatie'=>'Organisatie','tijd'=>'Tijd','informatie'=>'Informatie','kwaliteit'=>'Kwaliteit'];
   private static function h(string $value):string{return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function current(string $path):string {
-    if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
+    if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/calculatie')||str_starts_with($path,'/office-test/crm/offertes')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
     foreach(['crm','calculatie-offertes','finance','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
+    if(str_starts_with($path,'/office-test/documenten')||str_starts_with($path,'/office-test/email')||str_starts_with($path,'/office-test/mail'))return 'informatie';
+    if(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))return 'gebouwen';
     if(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel'))return 'personeel';
     if(str_starts_with($path,'/office-test/projecten'))return 'projecten';
     return 'bedrijf';
@@ -76,10 +79,21 @@ final class OfficeNavigation {
       && getenv('OFFICE_CRM_AUTH_MODE')==='session_only';
     $projectsAvailable=getenv('OFFICE_NATIVE_PROJECTS_ENABLED')==='enabled'
       && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED')==='enabled';
+    $quoteLinks=[];
+    foreach (['/office-test/crm/offertes','/office-test/offertes'] as $quotePath) {
+      if (self::runtimeRouteExists($quotePath)) {$quoteLinks[]=['Offertestudio',$quotePath];break;}
+    }
+    $informationLinks=[['Documenten','/office-test/documenten']];
+    foreach (['/office-test/email','/office-test/mail','/office-test/communicatie'] as $mailPath) {
+      if (self::runtimeRouteExists($mailPath)) {$informationLinks[]=['E-mail',$mailPath];break;}
+    }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard']] : [])],
       ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
-      ['Projecten','projecten',$projectsAvailable?[['Projectoverzicht','/office-test/projecten']]:[]],
+      ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
+      ['Projecten','projecten',$projectsAvailable?[
+        ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
+      ]:[]],
       ['Personeel','personeel',$projectsAvailable?[
         ['Medewerkers','/office-test/personeel/medewerkers'],
         ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
@@ -95,14 +109,19 @@ final class OfficeNavigation {
       ):[]],
       ['Bedrijfsvoering','bedrijfsvoering',array_merge(self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
+        ...(getenv('OFFICE_SALES_ENABLED')==='enabled'?[['Verkoopfacturen','/office-test/finance/verkoop']]:[]),
+        ...(getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'?[['Financiële administratie','/office-test/finance/administratie']]:[]),
         ['Betaalcentrum','/office-test/finance/betaalcentrum'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[],self::governanceVisible()?[['Inkoop','/office-test/inkoop']]:[])],
+      ['Documenten & communicatie','informatie',$informationLinks],
       ['Rapporten','rapporten',getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled' && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled' ? [['Inspectierapporten','/office-test/inspecties']] : []],
       ['Kennis & kwaliteit','kennis',self::governanceVisible()?[['Kwaliteit','/office-test/kwaliteit'],['Risico’s','/office-test/risicos']]:[]],
     ];
     $selected='werkplek';
-    if(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
+    if (str_starts_with($path,'/office-test/calculatie') || str_starts_with($path,'/office-test/crm/offertes') || str_starts_with($path,'/office-test/offertes'))$selected='calculatie';
+    elseif(str_starts_with($path,'/office-test/documenten') || str_starts_with($path,'/office-test/email') || str_starts_with($path,'/office-test/mail') || str_starts_with($path,'/office-test/communicatie'))$selected='informatie';
+    elseif(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
     elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
@@ -116,10 +135,30 @@ final class OfficeNavigation {
       $open=$selected===$key;
       $html.='<details class="office-nav-group"'.($open?' open':'').'><summary'.($open?' aria-current="page"':'').'>'.self::h($label).'</summary><div class="office-nav-children">';
       if($links===[])$html.='<span class="office-nav-unavailable">Nog niet aangesloten</span>';
-      foreach($links as [$name,$url])$html.='<a href="'.self::h($url).'">'.self::h($name).'</a>';
+      foreach($links as [$name,$url]) {
+        $linkPath=parse_url($url,PHP_URL_PATH);$linkQuery=[];parse_str((string)parse_url($url,PHP_URL_QUERY),$linkQuery);
+        $active=$path===$linkPath && array_diff_assoc($linkQuery,$_GET)===[]
+          && (isset($linkQuery['view']) || !isset($_GET['view']));
+        $html.='<a'.($active?' aria-current="page"':'').' href="'.self::h($url).'">'.self::h($name).'</a>';
+      }
       $html.='</div></details>';
     }
     return $html.'</nav>';
+  }
+  /** Inspect only declared routes in the isolated test router; never advertise guessed URLs. */
+  private static function runtimeRouteExists(string $route):bool {
+    $private=realpath(getenv('OFFICE_PRIVATE_ROOT')?:'');
+    if (!$private || !str_contains($private,'/office_calc_test/release-') || !str_ends_with($private,'/private')) return false;
+    $base=dirname($private,2);
+    $files=array_merge([dirname($base).'/public_html/office-test/index.php'],glob($private.'/modules/*/routes.php')?:[]);
+    foreach ($files as $file) {
+      if (is_link($file)||!is_file($file)) continue;
+      $source=file_get_contents($file);
+      if (!is_string($source)) continue;
+      $pattern="~['\"]".preg_quote($route,'~')."['\"]\\s*(?:=>|\\]\\s*=)\\s*['\"]([a-zA-Z0-9_.-]+\\.php)['\"]~";
+      if (preg_match($pattern,$source,$match)===1 && is_file($private.'/public/'.$match[1])) return true;
+    }
+    return false;
   }
   public static function projectId(string $path,array $query):?int {
     if(in_array($path,['/office-test/projecten/detail','/office-test/inzet/projectkaart','/office-test/inzet/aanwezigheid','/office-test/inzet/onsite/uren-beoordelen'],true))$value=$query['id']??null;
@@ -163,12 +202,24 @@ final class OfficeNavigation {
   }
   public static function decorate(string $html,string $path,array $query,int $status,string $type):string {
     if($status!==200||!str_starts_with(strtolower($type),'text/html')||!str_starts_with($path,'/office-test')||in_array($path,['/office-test/inloggen','/office-test/uitloggen'],true)||str_contains($path,'/api/')||!preg_match('/<html\b/i',$html))return $html;
+    if (str_contains($html,'data-office-theme="brebo-2026"')) return $html;
     $current=self::current($path);$nav=getenv('OFFICE_TEST_NAV_V2_ENABLED')==='enabled'?self::mainV2($path):self::main($current);
     $count=0;$html=preg_replace_callback('~<nav\b[^>]*\baria-label="Hoofdnavigatie"[^>]*>.*?</nav>~si',static fn()=>$nav,$html,1,$count)??$html;
     if($count===0)$html=self::wrapStandalonePage($html,$nav);
     // Keep page-owned Module tabs. Removing them hides Projecten/Inzet navigation.
     $css='<style>.office-global-nav-v2{display:block!important}.office-global-nav-v2 .office-nav-group{margin:4px 0;border-radius:8px}.office-global-nav-v2 summary{cursor:pointer;padding:12px;font-weight:650;list-style-position:inside}.office-global-nav-v2 summary[aria-current=page]{background:#175a91;color:white}.office-global-nav-v2 .office-nav-children{display:grid;gap:4px;padding:4px 8px 8px 16px}.office-global-nav-v2 .office-nav-children a{display:block;margin:0}.office-global-nav-v2 .office-nav-unavailable{font-size:13px;color:#697789;padding:8px}.office-global-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}.office-global-nav a,.office-project-context nav a{display:inline-block;padding:9px 12px;border-radius:7px;text-decoration:none;background:#edf2f7;color:#173c60;font-weight:650}.office-global-nav a[aria-current=page],.office-project-context a[aria-current=page]{background:#175a91;color:white}aside .office-global-nav{display:grid;gap:6px}aside .office-global-nav a{margin:0}.office-project-context{padding:12px 0;border-block:1px solid #dce3eb;margin:16px 0 24px}.office-project-context nav{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.office-steering{margin:24px 0}.office-steering-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.office-steering-grid>section{padding:16px;border:1px solid #dce3eb;border-radius:10px;background:#fff;color:#243244}.office-steering-grid h3{margin:0 0 10px}.office-unavailable{color:#627185;font-size:.9rem}</style>';
     $css.='<style>.office-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#14263b;color:#eaf0f7;padding:24px 16px}.office-sidebar>a{display:block;color:white;font-size:22px;font-weight:800;text-decoration:none;margin:0 8px 24px}.office-sidebar .office-global-nav{display:grid;gap:6px;margin:0}.office-sidebar .office-global-nav a{color:#eaf0f7;background:transparent;display:block}.office-sidebar .office-global-nav a:hover{background:#29445f}.office-sidebar .office-nav-group summary{color:#eaf0f7}.office-sidebar .office-nav-group summary[aria-current=page]{background:#175a91}.office-sidebar .office-nav-unavailable{color:#b7c7d8}.office-shell>main{width:100%;min-width:0;max-width:1180px;margin:0 auto;padding:32px 24px}@media(max-width:760px){.office-shell{grid-template-columns:minmax(0,1fr)}.office-sidebar{padding:12px 16px}.office-shell>main{padding:20px 16px}}</style>';
+    require_once __DIR__.'/OfficeTheme.php';
+    $css.=OfficeTheme::styles();
+    $html=preg_replace_callback('~<body\\b([^>]*)>~i',static function($m):string {
+      $attrs=$m[1];
+      if (preg_match('/\\bclass="([^"]*)"/i',$attrs)) $attrs=preg_replace('/\\bclass="([^"]*)"/i','class="$1 office-ui"',$attrs,1);
+      else $attrs.=' class="office-ui"';
+      return '<body'.$attrs.'>';
+    },$html,1)??$html;
+    $module=$current==='bedrijf'?'Mijn werkplek':(self::AREAS[$current][0]??'Mijn werkplek');
+    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><span class="office-env-badge">TESTOMGEVING</span></header>';
+    $html=preg_replace_callback('~<main\\b[^>]*>~i',static fn($m)=>$m[0].$bar,$html,1)??$html;
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;
     if(!$styled)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$css.$m[0],$html,1)??$html;
     $project=self::projectId($path,$query);
