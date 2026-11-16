@@ -11,12 +11,17 @@ final class OfficeFinanceAccess {
   public function __construct(private readonly PDO $db, private readonly string $operatorId) {}
 
   public function allows(string $permission = 'read'): bool {
-    if (!in_array($permission, ['read', 'unassigned_read', 'draft_edit'], true)) return false;
+    if (!in_array($permission, ['read', 'unassigned_read', 'draft_edit', 'bank_read'], true)) return false;
     $q = $this->db->prepare("SELECT 1 FROM office_module_permissions g
       INNER JOIN office_operator_accounts a ON a.id=g.operator_id
       WHERE g.operator_id=? AND g.module='finance' AND g.permission=? AND a.active=1 LIMIT 1");
     $q->execute([$this->operatorId, $permission]);
     return $q->fetchColumn() !== false;
+  }
+
+  /** Company-wide bank evidence requires its own grant as well as Finance read. */
+  public function allowsBankRead(): bool {
+    return $this->allows('read') && $this->allows('bank_read');
   }
 
   /** Office-native draft assignments do not require legacy Finance source mappings. */
@@ -47,3 +52,4 @@ final class OfficeFinanceAccess {
     return $result;
   }
 }
+

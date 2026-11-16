@@ -36,7 +36,7 @@ echo 'TABLES=' . json_encode($tables, JSON_THROW_ON_ERROR) . "\n";
 $manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
 $counts = ['same'=>0,'different'=>0,'missing'=>0];
 foreach ($manifest as $path => $hash) {
-    if (!preg_match('~^(src|public|schema|deployment)/[A-Za-z0-9_./-]+$~D', $path) || str_contains($path, '..')) throw new RuntimeException('INVALID_MANIFEST_PATH');
+    if (!preg_match('~^(src|public|schema|deployment|modules)/[A-Za-z0-9_./-]+$~D', $path) || str_contains($path, '..')) throw new RuntimeException('INVALID_MANIFEST_PATH');
     $file = $active . '/' . $path;
     $status = !is_file($file) ? 'missing' : (hash_equals($hash, hash_file('sha256', $file)) ? 'same' : 'different');
     ++$counts[$status];

@@ -42,6 +42,9 @@ function seedOfficeTest(PDO $db, string $release): array {
                 $q=$db->prepare("INSERT IGNORE INTO office_module_permissions (operator_id,module,permission) VALUES (?,'finance','read')");
                 $q->execute([$id]);
             }
+            if ($role==='leader') {
+                $q=$db->prepare("INSERT IGNORE INTO office_module_permissions (operator_id,module,permission) VALUES (?,'finance','draft_edit')");$q->execute([$id]);
+            }
             $users[$role]=['id'=>$id,'username'=>$username,'password'=>$password];
         }
         // Make fictitious acceptance data reviewable to existing project-1 managers

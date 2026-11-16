@@ -8,7 +8,7 @@ $nav=OfficeNavigation::mainV2('/office-test/projecten');
 foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
   if(!str_contains($nav,$name)){fwrite(STDERR,"Missing group: ".$name.PHP_EOL);exit(1);}
 }
-if(substr_count($nav,'<details ')!==8){fwrite(STDERR,"Expected eight collapsible groups".PHP_EOL);exit(1);}
+if(substr_count($nav,'<details ')!==10){fwrite(STDERR,"Expected ten collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
 if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
@@ -41,8 +41,13 @@ putenv('OFFICE_TEST_CRM_ENABLED=disabled');
 if(str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'),'href="/office-test/crm/aanvragen"')){fwrite(STDERR,"Disabled CRM must not be linked".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_NAV_V2_ENABLED=enabled');
 $html='<html><head></head><body><aside><nav aria-label="Hoofdnavigatie">Old</nav></aside><main><h1>Projecten</h1><nav aria-label="Module"><a href="/office-test/projecten?view=inzet">Inzet</a></nav></main></body></html>';
+$html=str_replace('<body>','<body class="existing-page">',$html);
+$html=str_replace('</main>','<form method="post"><input name="csrf_token" value="preserved"><button>Opslaan</button></form></main>',$html);
 $out=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html');
 if(substr_count($out,'aria-label="Hoofdnavigatie"')!==1||!str_contains($out,'aria-label="Module"')){fwrite(STDERR,"Navigation regression".PHP_EOL);exit(1);}
+if (!str_contains($out,'class="existing-page office-ui"') || !str_contains($out,'data-office-theme="brebo-2026"') || substr_count($out,'class="office-app-bar"')!==1 || !str_contains($out,'name="csrf_token" value="preserved"')) throw new RuntimeException('Theme must preserve body, forms and one app bar');
+if (OfficeNavigation::decorate($out,'/office-test/projecten',[],200,'text/html')!==$out) throw new RuntimeException('Decoration must be idempotent');
+if (OfficeNavigation::decorate($html,'/office-test/projecten',[],403,'text/html')!==$html) throw new RuntimeException('Error responses must be preserved');
 $home='<html><head></head><body><nav aria-label="Hoofdnavigatie">Old</nav><main><h1>Goedemorgen, welkom in Office</h1><p>Mijn werkplek</p></main></body></html>';
 $homeV2=OfficeNavigation::decorate($home,'/office-test/',[],200,'text/html');
 if(!str_contains($homeV2,'<h1>Goedemorgen, welkom in Office</h1>')){fwrite(STDERR,"V2 workspace title lost".PHP_EOL);exit(1);}

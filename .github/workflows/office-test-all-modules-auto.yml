@@ -75,6 +75,22 @@ jobs:
           php office-independent/tests/OfficeFinanceIntegrationRegressionTest.php
           php office-independent/tests/OfficeFinanceSessionIntegrationTest.php
           php office-independent/tests/OfficeFinanceProjectAccessTest.php
+          for test in OfficeFinanceBankViewTest OfficeFinanceCenterTest OfficeFinanceCostReadinessTest OfficeFinanceDashboardTest OfficeFinanceOverviewTest OfficeFinanceSalesOverviewTest OfficeSalesBillingTest OfficeSalesPdfTest OfficeSalesServiceTest OfficeNavigationV2Test OfficeFinanceNavigationAccessTest OfficeProjectContractServiceTest OfficeProjectFinanceControlsTest; do
+            php "office-independent/tests/$test.php"
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Finance editor and debtor interactions
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeFinanceCenterTest.php --sales-fixture "$RUNNER_TEMP/finance-party.html"
+          php office-independent/tests/OfficeSalesBillingTest.php --fixture "$RUNNER_TEMP/term-layout.html"
+          php office-independent/tests/OfficeSalesPdfTest.php --layout-fixture "$RUNNER_TEMP/sales-layout.html"
+          npm install --prefix "$RUNNER_TEMP/sales-dom" --no-save --ignore-scripts jsdom@26.1.0
+          export SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom"
+          node office-independent/tests/OfficeSalesEditorDomTest.cjs "$RUNNER_TEMP/sales-layout.html" "$RUNNER_TEMP/term-layout.html"
+          node office-independent/tests/OfficeFinancePartyDomTest.cjs "$RUNNER_TEMP/finance-party.html"
       - name: Validate OnSite approval and weekly deductions
         run: php office-independent/tests/OfficeLabourAtomicApprovalContractTest.php
       - name: Validate existing core contracts
@@ -131,7 +147,7 @@ jobs:
           python - <<'PY'
           import pathlib,hashlib,json
           root=pathlib.Path('office-independent')
-          paths=[p for area in ['src','public','schema','deployment'] for p in (root/area).rglob('*') if p.is_file()]
+          paths=[p for area in ['src','public','schema','deployment','modules'] for p in (root/area).rglob('*') if p.is_file()]
           pathlib.Path('/tmp/office-source-manifest.json').write_text(json.dumps({str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}))
           PY
       - name: Deploy isolated Office-test and run HTTP acceptance
