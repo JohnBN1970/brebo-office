@@ -211,7 +211,14 @@ if ($inzetView) {
       $projectCalendarRows = [];
       foreach ($projects as $project) {
         $projectId = (int)$project['id'];
-        $projectResult = $overview->forProject($operator->operatorId, $projectId);
+        try {
+          $projectResult = $overview->forProject($operator->operatorId, $projectId);
+        } catch (Throwable $projectError) {
+          $incidentId = bin2hex(random_bytes(6));
+          error_log('[Office Inzet project ' . $projectId . ' incident ' . $incidentId . '] ' . get_class($projectError) . ': ' . $projectError->getMessage());
+          echo '<p role="status">Uren van project #' . $projectId . ' tijdelijk niet beschikbaar (meldcode ' . $escape($incidentId) . '). Andere projecten blijven zichtbaar.</p>';
+          continue;
+        }
         if (!$projectResult['available']) continue;
         $projectCalendarRows[$projectId] = ['title'=>(string)$project['title'], 'sessions'=>$projectResult['sessions']];
         foreach ($projectResult['sessions'] as $session) $allProjectSessions[] = $session;
@@ -253,7 +260,14 @@ if ($inzetView) {
       }
       echo '<h3>Details en afwijkingen per project</h3>';
       foreach ($projects as $project) {
-        $result = $overview->forProject($operator->operatorId, (int)$project['id']);
+        try {
+          $result = $overview->forProject($operator->operatorId, (int)$project['id']);
+        } catch (Throwable $projectError) {
+          $incidentId = bin2hex(random_bytes(6));
+          error_log('[Office Inzet project detail ' . (int)$project['id'] . ' incident ' . $incidentId . '] ' . get_class($projectError) . ': ' . $projectError->getMessage());
+          echo '<p role="status">Projectdetails tijdelijk niet beschikbaar (meldcode ' . $escape($incidentId) . ').</p>';
+          continue;
+        }
         echo '<details><summary>' . $escape((string)$project['title']) . '</summary>';
         if (!$result['available']) {
           echo '<p>OnSite-klokgebeurtenissen nog niet aangesloten.</p>';
