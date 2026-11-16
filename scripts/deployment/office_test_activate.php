@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/office_test_environment.php';
+require __DIR__.'/OfficeOnSiteRolloutReadiness.php';
 [$base,$path,$config,$active]=officeTestEnvironment();
 $candidate=realpath($argv[1]??'');
 if (($argv[2]??'')!=='OFFICE-TEST' || !$candidate || !str_starts_with($candidate,$base.'/release-ci-') || !str_ends_with($candidate,'/private')) throw new RuntimeException('INVALID_TEST_ACTIVATION');
@@ -14,6 +15,18 @@ $config['OFFICE_TEST_ACTUAL_LABOUR_COSTS_SCHEMA_VERIFIED']='enabled';
 // office_test_migrate.php verifies the isolated OnSite rejection table before activation.
 // This flag never affects production and does not enable unverified labour-cost posting.
 $config['OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED']='enabled';
+// OnSite four-eyes is enabled in the isolated test environment only when
+// active reviewers have unique, active person mappings for real OnSite projects.
+// Existing enabled policy is never downgraded, even if mappings later drift.
+// This does not enable monetary labour posting or change any real OnSite data.
+$onsiteReadiness=OfficeOnSiteRolloutReadiness::inspect(officeTestDatabase($config));
+$wasFourEyes=($config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']??'')==='enabled';
+if (OfficeOnSiteRolloutReadiness::enableFourEyesForTest($onsiteReadiness,$wasFourEyes)) {
+    $config['OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED']='enabled';
+    echo "ONSITE_FOUR_EYES_TEST_ACTIVATION=ENABLED\\n";
+} else {
+    echo "ONSITE_FOUR_EYES_TEST_ACTIVATION=NOT_READY\\n";
+}
 // Prevent configured external mail, banking and payment transports in test releases.
 foreach ($config as $key=>$value) {
     if (preg_match('/(?:SMTP|MONEYBIRD|ZOHO|PAYMENT|WEBHOOK|OUTBOUND|BANK_API)/i',$key)) {
