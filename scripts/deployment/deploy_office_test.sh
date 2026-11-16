@@ -19,6 +19,7 @@ candidate="$base/release-ci-$release_sha/private"
 if [[ -e "$candidate" ]]; then
   if [[ "$active" == "$candidate" && -f "$candidate/.office-deployed-sha" && "$(cat "$candidate/.office-deployed-sha")" == "$release_sha" ]]; then
     php "$helper/office_test_acceptance.php" OFFICE-TEST "$candidate"
+    php "$helper/office_test_onsite_readiness.php" OFFICE-TEST "$candidate"
     echo "OFFICE_TEST_DEPLOY_ACCEPTED=$release_sha"
     exit 0
   fi
@@ -78,6 +79,7 @@ trap rollback ERR HUP INT TERM
 activated=1
 php "$helper/office_test_activate.php" "$candidate" OFFICE-TEST
 php "$helper/office_test_acceptance.php" OFFICE-TEST "$candidate"
+php "$helper/office_test_onsite_readiness.php" OFFICE-TEST "$candidate"
 printf '%s\n' "$release_sha" > "$candidate/.office-deployed-sha"
 activated=0
 trap - ERR INT TERM
