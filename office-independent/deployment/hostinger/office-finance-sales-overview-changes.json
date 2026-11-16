@@ -1,0 +1,14 @@
+{
+  "src/Finance/OfficeFinanceView.php": [
+    {
+      "before": "    foreach ([\n      'Omzet YTD' => 'Geboekte verkoopfacturen uit BREBO nog niet aangesloten.',\n      'Brutomarge' => 'Omzet en bijbehorende directe kosten uit BREBO nog niet aangesloten.',\n      'Bedrijfsresultaat YTD' => 'Geboekte opbrengsten en bedrijfskosten uit BREBO nog niet aangesloten.',\n      'Te factureren' => 'Factureerbare termijnen en geaccepteerd meerwerk nog niet aangesloten.',\n      'Vervallen verkoopfacturen' => 'Vervaldatum en openstaand bedrag uit BREBO nog niet aangesloten.',\n    ] as $label => $reason) {\n      $html .= '<div class=\"card\"><span>'.$e($label).'</span><strong>Niet beschikbaar</strong><small>'.$e($reason).'</small></div>';\n    }\n",
+      "after": "    require_once __DIR__.'/OfficeFinanceSalesOverview.php';\n    $html .= OfficeFinanceSalesOverview::cards($data['sales_overview'] ?? [], '/office-test/finance/verkoop');\n"
+    }
+  ],
+  "public/office-finance.php": [
+    {
+      "before": "  $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';",
+      "after": "  if ($view === 'dashboard' && \\Brebo\\Office\\Intake\\OfficeMount::isTest()\n      && getenv('OFFICE_SALES_ENABLED') === 'enabled' && getenv('OFFICE_SALES_SCHEMA_VERIFIED') === 'enabled') {\n    require_once dirname(__DIR__).'/src/Finance/OfficeFinanceSalesOverview.php';\n    try {\n      $today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d');\n      $data['sales_overview']=\\Brebo\\Office\\Finance\\OfficeFinanceSalesOverview::read($db,$operator->operatorId,$projectId,$today);\n    } catch (PDOException $salesSourceError) {\n      $data['sales_overview']=['available'=>false];\n    }\n  }\n\n  $queue = is_string($_GET['queue'] ?? null) ? $_GET['queue'] : '';"
+    }
+  ]
+}

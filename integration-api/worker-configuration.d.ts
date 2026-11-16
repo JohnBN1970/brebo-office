@@ -1,6 +1,7 @@
 /* eslint-disable */
 // Generated shape for Wrangler bindings. Regenerate with `wrangler types --include-runtime=false` before deployment.
 interface __BaseEnv_Env {
+	MONEYBIRD_REMINDERS_ENABLED?: string;
 	API_VERSION: "1.2.0-draft";
 	WORKER_VERSION: "0.3.0";
 	OFFICE_PUBLICATION_BASE_URL: "https://sboffice.brebobv.nl";

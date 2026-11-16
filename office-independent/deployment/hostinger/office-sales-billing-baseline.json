@@ -1,0 +1,13 @@
+{
+  "public/office-sales.php": "1de487596c4643ba5d062af5345d7bac78c14253",
+  "modules/sales/routes.php": "b6be71d2973c55e0a87ccafa7ac5893ab979eeab",
+  "src/Sales/OfficeSalesSchema.php": "614ba820770aff26dd54517db5474015c7146090",
+  "src/Sales/OfficeSalesService.php": "e0a3b3787f27f0d48652d2f607f294efeafdef27",
+  "src/Sales/OfficeSalesView.php": "9bdb2bff121b575798f7edd4fd76d30b3422c594",
+  "src/Sales/OfficeSalesPdf.php": "225836c1f8b29b1725d83e27d329789e6b170716",
+  "src/Sales/OfficeSalesTransport.php": "9a1673903ad999943a102850f90db6585f4b8623",
+  "src/Sales/brebo-logo.rgb.json": "60f10edc4b1d4c4b01e495e8bfa5a8eddde1d015",
+  "src/Sales/brebo-logo-web.json": "fb6d7c60e8fbf396bb1761218b629ec0f10cff5f",
+  "src/Sales/brebo-fonts.json": "a815e846d3f4bc969413b418bebd51758b8b8374",
+  "src/Sales/brebo-fonts-LICENSE.txt": "b3d93a1235a82213fbc451853317c40e62ed9272"
+}

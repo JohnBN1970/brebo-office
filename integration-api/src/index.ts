@@ -1,3 +1,4 @@
+import { parseSalesReminder, sendSalesReminder } from "./moneybird-reminder";
 import { analyzeRequestSchema } from "./contracts";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { checkMoneybirdConnection, createAndSendSalesInvoice, getBusinessHealth, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
@@ -29,6 +30,8 @@ export default {
         response = await accountingBusinessHealth(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/communications/analyze" && request.method === "POST") {
         response = await analyze(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/accounting/sales-reminders" && request.method === "POST") {
+        response = await dispatchSalesReminder(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "POST") {
         response = await dispatchSalesInvoice(request, env, url.pathname, requestId);
       } else {
@@ -236,3 +239,30 @@ async function readBoundedBody(request: Request, maxBytes: number): Promise<stri
 function errorResponse(status: number, code: string, message: string, requestId: string, headers?: HeadersInit): Response { return Response.json({ status: "error", request_id: safeRequestId(requestId), error: { code, message } }, headers ? { status, headers } : { status }); }
 function safeRequestId(value: string): string { return UUID_V4.test(value) ? value : "00000000-0000-4000-8000-000000000000"; }
 function numberSetting(value: string, fallback: number): number { const parsed = Number.parseInt(value, 10); return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback; }
+
+async function dispatchSalesReminder(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  if (env.MONEYBIRD_REMINDERS_ENABLED !== "enabled") return errorResponse(404, "not_found", "Endpoint not found.", requestId);
+  const body = await authenticatedJsonBody(request, env, path, requestId);
+  if (body instanceof Response) return body;
+  let command: ReturnType<typeof parseSalesReminder>;
+  try { command = parseSalesReminder(JSON.parse(body)); }
+  catch { return errorResponse(400, "invalid_request", "Invalid reminder command.", requestId); }
+  if (!env.MONEYBIRD_ACCESS_TOKEN || !/^\d+$/.test(env.MONEYBIRD_ADMINISTRATION_ID)) return errorResponse(503, "accounting_not_configured", "Accounting provider configuration is incomplete.", requestId);
+  const commandHash = await sha256Hex("sales-reminder:" + command.idempotency_key);
+  const guard = env.SALES_INVOICE_DISPATCH_GUARD.getByName(commandHash.slice(0, 2));
+  const now = Math.floor(Date.now() / 1000);
+  const start = await guard.begin(commandHash, now + 315360000, now);
+  if (!start.accepted) {
+    if (start.record.state === "completed" && start.record.response_json) return Response.json(JSON.parse(start.record.response_json));
+    return errorResponse(409, "reconciliation_required", "Reminder outcome requires review before retry.", requestId);
+  }
+  try {
+    await sendSalesReminder(command, env);
+    const result = { status: "ok", reminder: { invoice_id: command.reminder.id } };
+    await guard.complete(commandHash, JSON.stringify(result), Math.floor(Date.now() / 1000));
+    return Response.json(result);
+  } catch {
+    await guard.requireReconciliation(commandHash, Math.floor(Date.now() / 1000));
+    return errorResponse(502, "reconciliation_required", "Reminder outcome requires review before retry.", requestId);
+  }
+}
