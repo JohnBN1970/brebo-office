@@ -17,7 +17,7 @@ sha=$(git -C "$work/repo" rev-parse HEAD)
 [[ $sha =~ ^[0-9a-f]{40}$ ]] || exit 15
 target="$base/releases/$sha"
 [[ ! -e $target && ! -L $target ]] || { echo "RELEASE_ALREADY_STAGED=$sha"; exit 0; }
-[[ -f "$work/repo/office-independent/public/index.php" ]] || { echo 'ENTRYPOINT_MISSING' >&2; exit 16; }
+[[ -f "$work/repo/office-independent/public/office-home.php" ]] || { echo 'ENTRYPOINT_MISSING' >&2; exit 16; }
 [[ -f "$work/repo/packages/brebo-finance-core/bootstrap.php" ]] || { echo 'FINANCE_PACKAGE_MISSING' >&2; exit 17; }
 mkdir -p "$work/candidate"
 cp -a "$work/repo/office-independent/." "$work/candidate/"
