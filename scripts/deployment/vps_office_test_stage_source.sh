@@ -24,7 +24,7 @@ cp -a "$work/repo/office-independent/." "$work/candidate/"
 mkdir -p "$work/candidate/packages"
 cp -a "$work/repo/packages/brebo-finance-core" "$work/candidate/packages/"
 find "$work/candidate/public" "$work/candidate/src" -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 2 php -l > "$work/php-lint.log" || { grep -v 'No syntax errors' "$work/php-lint.log" >&2; exit 18; }
-printf '%s\\n' "$sha" > "$work/candidate/.office-source-sha"
+printf '%s\n' "$sha" > "$work/candidate/.office-source-sha"
 mv "$work/candidate" "$target"
 echo "OFFICE_TEST_SOURCE_STAGED=$sha"
 echo "RELEASE_PATH=$target"
