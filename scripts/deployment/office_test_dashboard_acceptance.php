@@ -1,11 +1,18 @@
 <?php
 declare(strict_types=1);
 // Included by the existing central HTTP acceptance using only its fictitious accounts.
+// Distinguish a missing webserver route from a missing/rejected dashboard handler.
+// Inspect only the isolated Hostinger test router and candidate, never production.
+// The public webroot entrypoint is provisioned separately from release source.
+$expectedDashboardRoute="'/office-test/mijn-dashboard' => 'office-personal-dashboard.php'";
+$routerSource=@file_get_contents($active.'/deployment/hostinger/office-test-index.php');
+if(!is_string($routerSource)||!str_contains($routerSource,$expectedDashboardRoute))throw new RuntimeException('DASHBOARD_TEST_ROUTER_SOURCE_MISSING');
+if(!is_file($active.'/public/office-personal-dashboard.php'))throw new RuntimeException('DASHBOARD_TEST_HANDLER_MISSING');
 $dashboardUrl='https://brebobv.nl/office-test/mijn-dashboard';
 [$status,$anonymousBody]=requestTest($anonymous,$dashboardUrl);
 if($status!==302){
   // Log only the HTTP status and test target; never log cookies, session tokens or page bodies.
-  fwrite(STDERR,"DASHBOARD_ANONYMOUS_REDIRECT_DIAGNOSTIC target=legacy-office-test status=".var_export($status,true)." expected=302\n");
+  fwrite(STDERR,"DASHBOARD_ANONYMOUS_REDIRECT_DIAGNOSTIC target=legacy-office-test status=".var_export($status,true)." expected=302 route_source=present handler=present; inspect public_html/office-test/index.php routing and webserver rewrites\n");
 }
 ensureTest($status===302,'dashboard_anonymous_redirect');
 foreach(['projects','quality','builder','wallboard'] as $dashboardView){
