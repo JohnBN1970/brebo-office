@@ -6,6 +6,9 @@ require __DIR__.'/OfficeOnSiteRolloutReadiness.php';
 $candidate=realpath($argv[1]??'');
 if (($argv[2]??'')!=='OFFICE-TEST' || !$candidate || !str_starts_with($candidate,$base.'/release-ci-') || !str_ends_with($candidate,'/private')) throw new RuntimeException('INVALID_TEST_ACTIVATION');
 $config['OFFICE_PRIVATE_ROOT']=$candidate;
+$config['OFFICE_PERSONAL_DASHBOARD_ENABLED']='enabled';
+$config['OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED']='enabled';
+if(strlen((string)($config['OFFICE_DASHBOARD_CSRF_SECRET']??''))<32)$config['OFFICE_DASHBOARD_CSRF_SECRET']=bin2hex(random_bytes(32));
 $config['OFFICE_FINANCE_CORE_ROOT']=$candidate.'/packages/brebo-finance-core';
 // These are the existing verified Office-test sales and administration screens.
 $config['OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED']='enabled';

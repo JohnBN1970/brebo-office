@@ -159,3 +159,16 @@ foreach (array_merge(\Brebo\Office\Finance\Center\Schema::statements(),\Brebo\Of
 }
 $db->query('SELECT invoice_email,offer_email,billing_street,billing_postal_code,billing_city,billing_country_code FROM office_crm_relations WHERE 1=0');
 echo "OFFICE_TEST_NATIVE_FINANCE_SCHEMA_PASS\n";
+
+// Presentation preferences reuse the existing dashboard table; no business records are changed.
+require_once $candidate.'/src/Dashboard/OfficeDashboardPreferences.php';
+$dashboardSql=\Brebo\Office\Dashboard\OfficeDashboardPreferences::schema();
+$dashboardHash=hash('sha256',$dashboardSql);
+$q=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$q->execute(['dashboard-preferences-v1']);$prior=$q->fetchColumn();
+if($prior!==false&&!hash_equals((string)$prior,$dashboardHash))throw new RuntimeException('DASHBOARD_MIGRATION_CHECKSUM_CHANGED');
+$db->exec($dashboardSql);
+$db->query('SELECT operator_id,layout_json,updated_at FROM office_dashboard_preferences LIMIT 0');
+$q=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
+$q->execute(['dashboard-preferences-v1',$dashboardHash]);
+echo "DASHBOARD_PREFERENCES_SCHEMA_VERIFIED\n";
