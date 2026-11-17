@@ -22,7 +22,13 @@ if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED')==='enabled'
 putenv('OFFICE_PUBLIC_HOST='.$expectedHost);
 putenv('OFFICE_BASE_PATH=/office-test');
 putenv('OFFICE_PRIVATE_ROOT='.$release);
+$private = $release; // Existing isolated module handlers use this root.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+// Preserve the existing /office-test URL and cookie namespace on the new subdomain.
+if ($path === '/') {
+  header('Location: /office-test/', true, 302);
+  exit;
+}
 $routes = [
   '/office-test/materialen' => 'office-materials.php',
   '/office-test/calculatie' => 'office-calc-crm-workbench.php',
