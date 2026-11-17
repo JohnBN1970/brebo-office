@@ -1,0 +1,34 @@
+name: Office VPS login component smoke
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Intake/WebsiteOfficeLogin*.php'
+      - 'office-independent/src/Intake/WebsiteOfficeOperatorAuthenticator.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmSessionIssuer.php'
+      - 'office-independent/tests/OfficeVpsLoginComponentsSmokeTest.php'
+      - 'office-independent/database/office_vps_*.sql'
+      - '.github/workflows/office-vps-login-smoke.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Intake/WebsiteOfficeLogin*.php'
+      - 'office-independent/src/Intake/WebsiteOfficeOperatorAuthenticator.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmSessionIssuer.php'
+      - 'office-independent/tests/OfficeVpsLoginComponentsSmokeTest.php'
+      - 'office-independent/database/office_vps_*.sql'
+      - '.github/workflows/office-vps-login-smoke.yml'
+jobs:
+  login-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+      - name: Lint restored login classes and smoke test
+        run: |
+          set -eu
+          for file in office-independent/src/Intake/WebsiteOfficeLogin*.php office-independent/src/Intake/WebsiteOfficeOperatorAuthenticator.php office-independent/src/Intake/WebsiteOfficeCrmSessionIssuer.php office-independent/tests/OfficeVpsLoginComponentsSmokeTest.php; do php -l "$file"; done
+      - name: Execute login smoke test
+        run: php office-independent/tests/OfficeVpsLoginComponentsSmokeTest.php
