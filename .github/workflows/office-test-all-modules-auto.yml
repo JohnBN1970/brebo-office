@@ -174,8 +174,8 @@ jobs:
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "php '$remote_dir/development-inventory.php' '$remote_dir/office-source-manifest.json'" | tee office-test-inventory.txt
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/deploy_office_test.sh' '$remote_dir/office-development-package.tgz' '$GITHUB_SHA'" | tee office-test-acceptance.txt
           # Cleanup only after the deployment command has exited successfully and released its lock.
-          # Retention errors are visible but cannot roll back an already accepted release.
-          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/retain_office_test_releases.sh' --apply '$GITHUB_SHA'" | tee office-test-retention.txt
+          # First rollout is read-only; inspect the retention artifact before enabling deletion.
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/retain_office_test_releases.sh' --dry-run '$GITHUB_SHA'" | tee office-test-retention.txt
       - name: Fingerprint conflicting OnSite and Calc runtime sources
         if: failure() && github.ref == 'refs/heads/develop'
         env:
