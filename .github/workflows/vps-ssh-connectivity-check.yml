@@ -1,0 +1,32 @@
+name: VPS SSH connectivity check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connectivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify VPS deploy SSH access (no deployment)
+        env:
+          VPS_DEPLOY_HOST: ${{ secrets.VPS_DEPLOY_HOST }}
+          VPS_DEPLOY_PORT: ${{ secrets.VPS_DEPLOY_PORT }}
+          VPS_DEPLOY_USER: ${{ secrets.VPS_DEPLOY_USER }}
+          VPS_DEPLOY_SSH_KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in VPS_DEPLOY_HOST VPS_DEPLOY_PORT VPS_DEPLOY_USER VPS_DEPLOY_SSH_KEY; do
+            test -n "${!name}" || { echo "::error::Missing $name"; exit 1; }
+          done
+          [[ "$VPS_DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          key="$(mktemp ~/.ssh/vps-key.XXXXXX)"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$VPS_DEPLOY_SSH_KEY" > "$key"
+          chmod 600 "$key"
+          ssh -i "$key" -p "$VPS_DEPLOY_PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$VPS_DEPLOY_USER@$VPS_DEPLOY_HOST" 'test "$(id -un)" = brebo-deploy && test -d /srv/brebo/office-test && printf "VPS_SSH_OK\n"'
