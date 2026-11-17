@@ -44,6 +44,7 @@ jobs:
           php office-independent/tests/TwelveBuildClientTest.php
           php office-independent/tests/TwelveBuildPrivateRuntimeTest.php
           php office-independent/tests/TwelveBuildInvitationsTest.php
+          php office-independent/tests/TwelveBuildLeadStagingTest.php
       - name: Validate calculation arithmetic contracts
         run: |
           set -euo pipefail
