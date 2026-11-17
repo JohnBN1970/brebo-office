@@ -1,0 +1,29 @@
+name: VPS Office-test release foundation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create isolated test release directories only
+        shell: bash
+        env:
+          HOST: ${{ secrets.VPS_DEPLOY_HOST }}
+          PORT: ${{ secrets.VPS_DEPLOY_PORT }}
+          USER: ${{ secrets.VPS_DEPLOY_USER }}
+          KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for v in HOST PORT USER KEY; do test -n "${!v}" || { echo "::error::Missing VPS secret $v"; exit 1; }; done
+          [[ "$PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          keyfile="$(mktemp ~/.ssh/vps.XXXXXX)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          ssh_opts=(-i "$keyfile" -p "$PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
+          ssh "${ssh_opts[@]}" "$USER@$HOST" 'bash -se' < scripts/deployment/vps_office_test_foundation.sh
