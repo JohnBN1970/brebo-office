@@ -214,3 +214,40 @@ jobs:
         run: |
           echo "### Office-test deployment and acceptance: $RESULT" >> "$GITHUB_STEP_SUMMARY"
           echo "Production untouched. See acceptance artifact for migrations, release activation, HTTP role tests and rollback outcome." >> "$GITHUB_STEP_SUMMARY"
+
+  vps_deploy:
+    name: Office-test VPS release
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/develop' && vars.VPS_OFFICE_TEST_DEPLOY_ENABLED == 'true'
+    environment: office-test-vps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: office-test-vps-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate VPS deployment script
+        run: bash -n scripts/deployment/deploy_office_test_vps.sh
+      - name: Deploy to isolated VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do
+            test -n "${!key}" || { echo "::error::Missing VPS credential: $key"; exit 1; }
+          done
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          test "$VPS_USER" = brebo-deploy
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/office_test_vps
+          chmod 600 ~/.ssh/office_test_vps
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            'bash -s --' "$GITHUB_SHA" < scripts/deployment/deploy_office_test_vps.sh
