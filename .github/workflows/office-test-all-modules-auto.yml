@@ -242,12 +242,27 @@ jobs:
           for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do
             test -n "${!key}" || { echo "::error::Missing VPS credential: $key"; exit 1; }
           done
-          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
-          test "$VPS_USER" = brebo-deploy
+          if ! [[ "$VPS_PORT" =~ ^[0-9]+$ ]]; then
+            echo "::error::VPS SSH port is not numeric"
+            exit 1
+          fi
+          if [[ "$VPS_USER" != "brebo-deploy" ]]; then
+            echo "::error::VPS_OFFICE_TEST_USER must be exactly brebo-deploy (no spaces or quotes)"
+            exit 1
+          fi
           install -d -m 700 ~/.ssh
           printf '%s\n' "$VPS_KEY" > ~/.ssh/office_test_vps
           chmod 600 ~/.ssh/office_test_vps
           printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+          if ! ssh-keygen -y -f ~/.ssh/office_test_vps > /dev/null 2>&1; then
+            echo "::error::VPS SSH private key is invalid or cannot be parsed"
+            exit 1
+          fi
+          if ! ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts > /dev/null 2>&1; then
+            echo "::error::VPS known_hosts entry does not match the configured host"
+            exit 1
+          fi
+          echo "VPS credentials structurally valid; connecting over SSH"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
             'bash -s --' "$GITHUB_SHA" < scripts/deployment/deploy_office_test_vps.sh
