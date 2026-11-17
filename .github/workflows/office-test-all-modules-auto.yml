@@ -25,7 +25,9 @@ jobs:
       - name: Enforce deployment boundaries
         run: python scripts/ci/check_deployment_policy.py
       - name: Verify Hostinger deployment shell syntax
-        run: bash -n scripts/deployment/deploy_office_test.sh
+        run: |
+          bash -n scripts/deployment/deploy_office_test.sh
+          bash -n scripts/deployment/retain_office_test_releases.sh
       - name: Verify Office-test migration statement parameter contracts
         run: python3 scripts/ci/test_office_test_migration_contract.py
       - run: python scripts/ci/test_release_reconciliation.py
@@ -168,9 +170,12 @@ jobs:
           remote_dir="$(ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'mktemp -d /tmp/office-development.XXXXXXXX')"
           [[ "$remote_dir" =~ ^/tmp/office-development\.[A-Za-z0-9]+$ ]]
           trap 'ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "rm -rf -- $remote_dir" >/dev/null 2>&1 || true; rm -f ~/.ssh/office_test' EXIT
-          scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json /tmp/office-development-package.tgz scripts/deployment/deploy_office_test.sh "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
+          scp "${options[@]}" -P "$DEPLOY_PORT" office-independent/deployment/hostinger/development-inventory.php /tmp/office-source-manifest.json /tmp/office-development-package.tgz scripts/deployment/deploy_office_test.sh scripts/deployment/retain_office_test_releases.sh "$DEPLOY_USER@$DEPLOY_HOST:$remote_dir/"
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "php '$remote_dir/development-inventory.php' '$remote_dir/office-source-manifest.json'" | tee office-test-inventory.txt
           ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/deploy_office_test.sh' '$remote_dir/office-development-package.tgz' '$GITHUB_SHA'" | tee office-test-acceptance.txt
+          # Cleanup only after the deployment command has exited successfully and released its lock.
+          # Retention errors are visible but cannot roll back an already accepted release.
+          ssh "${options[@]}" -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "bash '$remote_dir/retain_office_test_releases.sh' --apply '$GITHUB_SHA'" | tee office-test-retention.txt
       - name: Fingerprint conflicting OnSite and Calc runtime sources
         if: failure() && github.ref == 'refs/heads/develop'
         env:
@@ -200,6 +205,7 @@ jobs:
           path: |
             office-test-inventory.txt
             office-test-acceptance.txt
+            office-test-retention.txt
           if-no-files-found: warn
       - name: Report actual status
         if: always()
