@@ -88,7 +88,7 @@ final class OfficeNavigation {
       if (self::runtimeRouteExists($mailPath)) {$informationLinks[]=['E-mail',$mailPath];break;}
     }
     $groups=[
-      ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard']] : [])],
+      ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
       ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
       ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
       ['Projecten','projecten',$projectsAvailable?[
@@ -210,7 +210,7 @@ final class OfficeNavigation {
     $css='<style>.office-global-nav-v2{display:block!important}.office-global-nav-v2 .office-nav-group{margin:4px 0;border-radius:8px}.office-global-nav-v2 summary{cursor:pointer;padding:12px;font-weight:650;list-style-position:inside}.office-global-nav-v2 summary[aria-current=page]{background:#175a91;color:white}.office-global-nav-v2 .office-nav-children{display:grid;gap:4px;padding:4px 8px 8px 16px}.office-global-nav-v2 .office-nav-children a{display:block;margin:0}.office-global-nav-v2 .office-nav-unavailable{font-size:13px;color:#697789;padding:8px}.office-global-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}.office-global-nav a,.office-project-context nav a{display:inline-block;padding:9px 12px;border-radius:7px;text-decoration:none;background:#edf2f7;color:#173c60;font-weight:650}.office-global-nav a[aria-current=page],.office-project-context a[aria-current=page]{background:#175a91;color:white}aside .office-global-nav{display:grid;gap:6px}aside .office-global-nav a{margin:0}.office-project-context{padding:12px 0;border-block:1px solid #dce3eb;margin:16px 0 24px}.office-project-context nav{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}.office-steering{margin:24px 0}.office-steering-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.office-steering-grid>section{padding:16px;border:1px solid #dce3eb;border-radius:10px;background:#fff;color:#243244}.office-steering-grid h3{margin:0 0 10px}.office-unavailable{color:#627185;font-size:.9rem}</style>';
     $css.='<style>.office-shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#14263b;color:#eaf0f7;padding:24px 16px}.office-sidebar>a{display:block;color:white;font-size:22px;font-weight:800;text-decoration:none;margin:0 8px 24px}.office-sidebar .office-global-nav{display:grid;gap:6px;margin:0}.office-sidebar .office-global-nav a{color:#eaf0f7;background:transparent;display:block}.office-sidebar .office-global-nav a:hover{background:#29445f}.office-sidebar .office-nav-group summary{color:#eaf0f7}.office-sidebar .office-nav-group summary[aria-current=page]{background:#175a91}.office-sidebar .office-nav-unavailable{color:#b7c7d8}.office-shell>main{width:100%;min-width:0;max-width:1180px;margin:0 auto;padding:32px 24px}@media(max-width:760px){.office-shell{grid-template-columns:minmax(0,1fr)}.office-sidebar{padding:12px 16px}.office-shell>main{padding:20px 16px}}</style>';
     require_once __DIR__.'/OfficeTheme.php';
-    $css.=OfficeTheme::styles();
+    $css.=OfficeTheme::styles().'<script>'.OfficeTheme::script().'</script>';
     $html=preg_replace_callback('~<body\\b([^>]*)>~i',static function($m):string {
       $attrs=$m[1];
       if (preg_match('/\\bclass="([^"]*)"/i',$attrs)) $attrs=preg_replace('/\\bclass="([^"]*)"/i','class="$1 office-ui"',$attrs,1);
@@ -218,7 +218,7 @@ final class OfficeNavigation {
       return '<body'.$attrs.'>';
     },$html,1)??$html;
     $module=$current==='bedrijf'?'Mijn werkplek':(self::AREAS[$current][0]??'Mijn werkplek');
-    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><span class="office-env-badge">TESTOMGEVING</span></header>';
+    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><div class="office-app-controls"><span class="office-env-badge">TESTOMGEVING</span>'.OfficeTheme::controls().'</div></header>';
     $html=preg_replace_callback('~<main\\b[^>]*>~i',static fn($m)=>$m[0].$bar,$html,1)??$html;
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;
     if(!$styled)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$css.$m[0],$html,1)??$html;
@@ -242,6 +242,10 @@ final class OfficeNavigation {
   public static function register():void {
     if(getenv('OFFICE_BASE_PATH')!=='/office-test'||($_SERVER['REQUEST_METHOD']??'')!=='GET')return;
     $path=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH);if(!is_string($path))return;
-    ob_start(static function(string $html)use($path):string{$type='';foreach(headers_list()as$header)if(str_starts_with(strtolower($header),'content-type:'))$type=trim(substr($header,13));return self::decorate($html,$path,$_GET,http_response_code()?:200,$type);});
+    ob_start(static function(string $html)use($path):string{$type='';foreach(headers_list()as$header)if(str_starts_with(strtolower($header),'content-type:'))$type=trim(substr($header,13));$result=self::decorate($html,$path,$_GET,http_response_code()?:200,$type);
+      if(str_contains($result,'data-office-theme="brebo-2026"')&&!headers_sent()) {
+        foreach(headers_list() as $header) if(str_starts_with(strtolower($header),'content-security-policy:')) header('Content-Security-Policy: '.OfficeTheme::policy(trim(substr($header,24))));
+      }
+      return $result;});
   }
 }

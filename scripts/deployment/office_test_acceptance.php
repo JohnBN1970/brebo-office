@@ -106,6 +106,7 @@ try {
         [$status,$html]=requestTest($h,$url);ensureTest($status===($role==='outsider'?404:200),'project_acl_'.$role);
     }
     $leader=$handles['leader'];$reviewer=$handles['reviewer'];$reader=$handles['reader'];
+    require __DIR__.'/office_test_dashboard_acceptance.php';
     $financeUrl='https://brebobv.nl/office-test/finance';
     foreach ([$financeUrl,$financeUrl.'?project_id='.$id] as $financeCheckUrl) {
         [$status,$financeHtml]=requestTest($leader,$financeCheckUrl);
