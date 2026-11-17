@@ -2,7 +2,12 @@
 declare(strict_types=1);
 // Included by the existing central HTTP acceptance using only its fictitious accounts.
 $dashboardUrl='https://brebobv.nl/office-test/mijn-dashboard';
-[$status]=requestTest($anonymous,$dashboardUrl);ensureTest($status===302,'dashboard_anonymous_redirect');
+[$status,$anonymousBody]=requestTest($anonymous,$dashboardUrl);
+if($status!==302){
+  // Log only the HTTP status and test target; never log cookies, session tokens or page bodies.
+  fwrite(STDERR,"DASHBOARD_ANONYMOUS_REDIRECT_DIAGNOSTIC target=legacy-office-test status=".var_export($status,true)." expected=302\n");
+}
+ensureTest($status===302,'dashboard_anonymous_redirect');
 foreach(['projects','quality','builder','wallboard'] as $dashboardView){
   [$status,$dashboardHtml]=requestTest($leader,$dashboardUrl.'?view='.$dashboardView);
   ensureTest($status===200&&str_contains($dashboardHtml,'data-office-mode="system"'),'dashboard_view_'.$dashboardView);
