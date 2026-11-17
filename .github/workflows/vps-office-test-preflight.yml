@@ -1,0 +1,51 @@
+name: VPS Office-test infrastructure preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    name: Inspect VPS Office-test readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only VPS infrastructure inspection
+        shell: bash
+        env:
+          HOST: ${{ secrets.VPS_DEPLOY_HOST }}
+          PORT: ${{ secrets.VPS_DEPLOY_PORT }}
+          USER: ${{ secrets.VPS_DEPLOY_USER }}
+          KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for v in HOST PORT USER KEY; do test -n "${!v}" || { echo "::error::Missing VPS deployment secret $v"; exit 1; }; done
+          [[ "$PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          keyfile="$(mktemp ~/.ssh/vps.XXXXXX)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          ssh -i "$keyfile" -p "$PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(id -un)" = brebo-deploy
+          echo "=== OS AND SERVICES ==="
+          . /etc/os-release
+          printf 'OS=%s\n' "$PRETTY_NAME"
+          for cmd in nginx php mariadb git python3 flock; do
+            if command -v "$cmd" >/dev/null 2>&1; then echo "COMMAND_$cmd=present"; else echo "COMMAND_$cmd=missing"; fi
+          done
+          for service in nginx php8.3-fpm mariadb; do
+            if systemctl is-active --quiet "$service"; then echo "SERVICE_$service=active"; else echo "SERVICE_$service=inactive"; fi
+          done
+          echo "=== TEST TARGET ==="
+          test -d /srv/brebo/office-test
+          test -w /srv/brebo/office-test
+          echo OFFICE_TEST_DIRECTORY_WRITABLE=yes
+          echo "=== ISOLATION CHECK ==="
+          for path in /srv/brebo/office-test /srv/brebo/office /srv/brebo/private; do
+            stat -c '%n owner=%U group=%G mode=%a' "$path"
+          done
+          echo "=== CAPACITY ==="
+          df -h /srv/brebo/office-test | tail -n 1
+          echo "VPS_OFFICE_TEST_PREFLIGHT_COMPLETE"
+          REMOTE
