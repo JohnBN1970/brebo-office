@@ -21,9 +21,9 @@ if(in_array('sqlite',PDO::getAvailableDrivers(),true)){
   $password='test-password-'.bin2hex(random_bytes(8));
   $q=$db->prepare('INSERT INTO office_operator_accounts (id,username,password_hash,active,can_edit_crm) VALUES (1,?,?,1,0)');
   $q->execute(['test-user',password_hash($password,PASSWORD_DEFAULT)]);
-  $auth=new \\Brebo\\Office\\Intake\\WebsiteOfficeOperatorAuthenticator($db);
-  $issuer=new \\Brebo\\Office\\Intake\\WebsiteOfficeCrmSessionIssuer($db);
-  $controller=new \\Brebo\\Office\\Intake\\WebsiteOfficeLoginController($auth,$issuer);
+  $auth=new \Brebo\Office\Intake\WebsiteOfficeOperatorAuthenticator($db);
+  $issuer=new \Brebo\Office\Intake\WebsiteOfficeCrmSessionIssuer($db);
+  $controller=new \Brebo\Office\Intake\WebsiteOfficeLoginController($auth,$issuer);
   if($controller->login('test-user','wrong',time())!==null)throw new RuntimeException('Invalid password accepted');
   $session=$controller->login('test-user',$password,time());
   if(!is_string($session)||strlen($session)!==64)throw new RuntimeException('Session not issued');
