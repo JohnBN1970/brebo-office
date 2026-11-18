@@ -1,6 +1,6 @@
 # VPS Office-test via GitHub Actions
 
-The existing central workflow `.github/workflows/office-test-all-modules-auto.yml` owns the VPS deployment job. There is no second deployment pipeline. Its source gate runs on PRs, and VPS deployment is opt-in on develop only.
+The existing central workflow `.github/workflows/office-test-all-modules-auto.yml` owns the VPS deployment job. There is no second deployment pipeline. Its source gate runs on PRs, and VPS deployment is opt-in on develop only. When VPS_OFFICE_TEST_DEPLOY_ENABLED=true, the legacy shared-hosting deployment job is skipped; only the VPS receives new test releases.
 
 ## One-time setup
 

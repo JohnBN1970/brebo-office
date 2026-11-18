@@ -111,7 +111,7 @@ jobs:
     name: Office-test deployment and acceptance
     environment: office-test
     needs: validate
-    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request' && vars.VPS_OFFICE_TEST_DEPLOY_ENABLED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
