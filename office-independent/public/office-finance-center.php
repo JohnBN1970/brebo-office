@@ -39,4 +39,8 @@ try{
   if(isset($_GET['purchase']))$data['purchase_preview']=$ledger->purchase(\Brebo\Office\Finance\Center\Amounts::id($_GET['purchase']));if(isset($_GET['posting']))$data['posting_preview']=$ledger->get(\Brebo\Office\Finance\Center\Amounts::id($_GET['posting']));
   if($tab==='customers'){$data['customers']=$ledger->sales()->customers();$data['project_parties']=[];foreach($ledger->projects() as $project)$data['project_parties'][(int)$project['office_project_id']]=(new \Brebo\Office\Finance\Center\Parties($db,$actor))->current((int)$project['office_project_id']);}
   header('Content-Type: text/html; charset=utf-8');echo \Brebo\Office\Finance\Center\View::render($data,$ledger->projects(),$csrf,$write,$tab,(string)$_SESSION['center_command'],$error,$posted);
-}catch(DomainException $e){http_response_code(403);exit('Geen toegang tot deze financiële gegevens.');}catch(Throwable $e){http_response_code(503);exit('De financiële administratie is tijdelijk niet beschikbaar.');}
+}catch(DomainException $e){http_response_code(403);exit('Geen toegang tot deze financiële gegevens.');}catch(Throwable $e){
+  error_log(sprintf('OFFICE_FINANCE_CENTER_FAILURE class=%s code=%s file=%s line=%d', get_class($e), (string)$e->getCode(), basename($e->getFile()), $e->getLine()));
+  http_response_code(503);
+  exit('De financiële administratie is tijdelijk niet beschikbaar.');
+}
