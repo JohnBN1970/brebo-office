@@ -22,7 +22,7 @@ $required=[
 $ok=true;
 foreach($required as $file){$present=is_file($root.'/'.$file);echo ($present?'PASS ':'MISSING ').$file."\n";$ok=$ok&&$present;}
 $dsn=getenv('OFFICE_INTAKE_PDO_DSN');
-if(!is_string($dsn)||$dsn===''||!str_starts_with($dsn,'mysql:')){echo "SKIP DB_ENV_NOT_SET\n";exit($ok?0:2);}
+if(!is_string($dsn)||$dsn===''||!str_starts_with($dsn,'mysql:')){echo "VPS_AUTH_PREFLIGHT=BLOCKED DB_ENV_NOT_SET\n";exit(2);}
 try{
   $db=new PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
   $dbName=$db->query('SELECT DATABASE()')->fetchColumn();
