@@ -17,7 +17,14 @@ final class Report {
     $result=['as_of'=>$today,'source_hash'=>$hash,'revenue_cents'=>0,'direct_cents'=>0,'labor_cents'=>0,'overhead_cents'=>0,'gross_margin_cents'=>null,'operating_result_cents'=>null,'cost_review_ready'=>false,'pending_purchase_count'=>count(array_filter($ownDrafts,static fn($v)=>empty($v['invoice_date'])||(substr($v['invoice_date'],0,4)===$year&&$v['invoice_date']<=$today)))+count(array_filter($pendingPurchases,static fn($v)=>!in_array($v['id'],array_column($ownDrafts,'id')))),'unpriced_hours_count'=>count($pendingHours),'postings'=>$postings,'sales'=>$sales,'purchase_choices'=>$purchase,'hours'=>$hours,'plans'=>$plans,'forecast'=>null,'forecast_reasons'=>[]];
     foreach($sales as $i)if(($i['invoice_number']??'')!==''&&in_array($i['status'],['sent','reminder_sending','reconciliation_required'],true)&&substr($i['invoice_date'],0,4)===$year&&$i['invoice_date']<=$today)$result['revenue_cents']+=(int)$i['net_cents'];
     foreach($postings as $p)if($p['status']==='booked'&&substr($p['booking_date'],0,4)===$year&&$p['booking_date']<=$today)foreach($p['lines'] as $line)$result[$line['category'].'_cents']+=(int)$line['net_cents'];
-    $result['valuation_stale']=false;foreach($postings as $p)if($p['status']==='booked'&&$p['source_kind']==='hours'&&substr($p['booking_date'],0,4)===$year){$q=$this->db->prepare('SELECT revision,approval_status FROM office_onsite_hours_reviews WHERE id=?');$q->execute([$p['source_id']]);$current=$q->fetch(PDO::FETCH_ASSOC);$snapshot=json_decode($p['snapshot_json'],true,64,JSON_THROW_ON_ERROR);if(!$current||$current['approval_status']!=='approved'||(int)$current['revision']!==(int)$snapshot['review']['revision'])$result['valuation_stale']=true;}
+    // Legacy Finance hours postings cannot be validated against the canonical approval chain.
+    // Flag them for reconciliation rather than querying the removed reviews table.
+    $result['valuation_stale']=false;
+    foreach($postings as $p){
+      if($p['status']==='booked'&&$p['source_kind']==='hours'&&substr($p['booking_date'],0,4)===$year){
+        $result['valuation_stale']=true;
+      }
+    }
     $q=$this->db->prepare('SELECT * FROM office_finance_period_reviews WHERE operator_id=? AND through_date=? ORDER BY id DESC LIMIT 1');$q->execute([$this->actor,$today]);$review=$q->fetch(PDO::FETCH_ASSOC);
     $valid=$review&&hash_equals($review['source_hash'],$hash);$result['review']=$review?:null;
     if(!$result['valuation_stale']&&$valid&&(int)$review['costs_complete']===1&&(int)$review['hours_complete']===1&&(int)$review['overhead_complete']===1&&$result['pending_purchase_count']===0&&count($pendingHours)===0){$result['cost_review_ready']=true;$result['gross_margin_cents']=$result['revenue_cents']-$result['direct_cents']-$result['labor_cents'];$result['operating_result_cents']=$result['gross_margin_cents']-$result['overhead_cents'];}
