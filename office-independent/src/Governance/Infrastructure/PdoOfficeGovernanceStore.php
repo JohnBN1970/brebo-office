@@ -21,7 +21,7 @@ final class PdoOfficeGovernanceStore implements OfficeGovernanceStore
     public function contexts(string $actor,string $module): array
     {
         $this->table($module);
-        return $this->rows("SELECT p.id AS project_id,p.title,pb.building_id,b.name AS building_name FROM office_projects p
+        return $this->rows("SELECT p.id AS project_id,p.title,pb.building_id,b.building_name AS building_name FROM office_projects p
             JOIN office_project_buildings pb ON pb.project_id=p.id
             JOIN office_buildings b ON b.id=pb.building_id
             JOIN office_project_memberships m ON m.project_id=p.id
