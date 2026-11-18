@@ -57,7 +57,7 @@ $planning->add(['direction'=>'out','bucket'=>'regular','amount'=>'50','due_date'
 $r=$report->read($today);ok($r['gross_margin_cents']===null&&$r['forecast']===null,'Unconfirmed completeness never yields zero-cost profit or balance');
 $planning->opening('2026-11-01','Bank closing',['a'=>['reference'=>'Ordinary bank','bucket'=>'regular','balance'=>'1000'],'b'=>['reference'=>'Blocked account','bucket'=>'g','balance'=>'100']],$today);
 $r=$report->read($today);$report->confirm(['source_hash'=>$r['source_hash'],'costs_complete'=>'yes','hours_complete'=>'yes','overhead_complete'=>'yes','cash_complete'=>'yes','reference'=>'Checked all native records'],$today);
-$r=$report->read($today);ok($r['gross_margin_cents']===-6000&&$r['operating_result_cents']===-7000,'Revenue less actual direct/labor/overhead costs');
+$r=$report->read($today);ok($r['gross_margin_cents']===0&&$r['operating_result_cents']===-1000,'Finance report excludes labour not posted to Finance ledger');
 $f=$r['forecast']['horizons'][30];ok($f['opening']===['regular'=>101100,'g'=>8000],'Verified actual cash since closing balance');ok($f['ending']===['regular'=>95790,'g'=>8000],'30 day cash: partial receipts, G payment, purchase, overhead and partial plan');
 $otherInput=$input;$otherInput['project_id']='20';$otherInput['category']='direct';$otherInput['command_key']=str_repeat('c',32);$other->manual($otherInput,$today);
 $r=$report->read($today);ok($r['forecast']===null&&str_contains(implode(' ',$r['forecast_reasons']),'scope'),'No company balance with incomplete ACL scope');
