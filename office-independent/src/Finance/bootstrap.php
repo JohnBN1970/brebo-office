@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 // Deploy packages/brebo-finance-core beside office-independent, or set this private path.
 $financeCore = getenv('OFFICE_FINANCE_CORE_ROOT') ?: dirname(__DIR__, 3) . '/packages/brebo-finance-core';
+// VPS releases place the core inside the Office release, unlike the source checkout.
+if (!is_file($financeCore . '/bootstrap.php') && getenv('OFFICE_FINANCE_CORE_ROOT') === false) {
+  $financeCore = dirname(__DIR__, 2) . '/packages/brebo-finance-core';
+}
 if (!is_file($financeCore . '/bootstrap.php')) {
   throw new \RuntimeException('FINANCE_CORE_BOOTSTRAP_UNAVAILABLE');
 }
