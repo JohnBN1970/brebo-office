@@ -73,7 +73,7 @@ final class Ledger {
     $this->authorize(true);
     // Fail closed until the Finance UI is wired to the canonical approved-labour posting service.
     // The former implementation created a duplicate financial posting from a nonexistent review table.
-    throw new \\DomainException('Urenwaardering via FinanceCenter is uitgeschakeld. Gebruik de gecontroleerde Inzet-arbeidskostenketen.');
+    throw new \DomainException('Urenwaardering via FinanceCenter is uitgeschakeld. Gebruik de gecontroleerde Inzet-arbeidskostenketen.');
   }
   public function payment(string $type,int $id,int $revision,string $amount,string $date,string $reference,string $bucket,string $today): void{
     $this->authorize(true);Amounts::date($date);if($date>$today||!in_array($bucket,['regular','g'],true)||!in_array($type,['expense','sale'],true))throw new \InvalidArgumentException('Controleer ontvangstdatum en rekeningsoort.');$cents=Amounts::cents($amount);$reference=Amounts::text($reference,160);if($cents<=0)throw new \InvalidArgumentException('Bedrag moet positief zijn.');
