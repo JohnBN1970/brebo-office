@@ -15,3 +15,16 @@ The existing central workflow `.github/workflows/office-test-all-modules-auto.ym
 On a develop commit, after the central source gate passes, the VPS job fetches that exact commit, builds an immutable Office-test release, atomically switches `current`, and checks HTTPS locally. An unexpected HTTP result triggers a symlink rollback. It never touches the production domain, website, Zoho, or production DB.
 
 Do not interpret a green VPS deployment as proof of session/login functionality. Add separate end-to-end login acceptance before enabling the router for users. Never paste passwords into logs.
+
+## Dashboard activation on the existing VPS
+
+The dashboard suite is already included in develop. Deploying its source does not activate the PHP-FPM feature flags or install the presentation preferences table. As root, the bounded helper in the active release can inspect and activate only this component:
+
+```sh
+php /srv/brebo/office-test/current/deployment/vps/activate-dashboard-suite.php --plan
+php /srv/brebo/office-test/current/deployment/vps/activate-dashboard-suite.php --apply
+```
+
+It requires the already-active VPS test router, the exact `brebo_office_test` database/user, the existing root-private database environment and dedicated PHP 8.3 test pool. It creates only the existing preference table if absent, preserves business data, makes a private pool backup, validates PHP-FPM before reload and restores the old pool if validation/reload fails. Credentials are never printed. The unprivileged GitHub deploy account cannot run this activation.
+
+After activation, verify `/office-test/mijn-dashboard?view=projects`, `finance`, `quality`, `builder`, and `wallboard` at `https://office-test.brebobv.nl`, including authenticated saving and monitor privacy. A release health check or anonymous login redirect is not functional acceptance.

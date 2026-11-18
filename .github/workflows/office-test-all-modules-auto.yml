@@ -96,6 +96,7 @@ jobs:
       - name: Validate dashboard calculations, privacy and preferences
         run: |
           php office-independent/tests/OfficeDashboardSuiteTest.php
+          php office-independent/tests/OfficeVpsDashboardActivationTest.php
           php office-independent/tests/OfficePersonalDashboardIntegrationTest.php
           php office-independent/tests/OfficePersonalDashboardRouteTest.php
           SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeDashboardDomTest.cjs
