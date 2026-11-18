@@ -24,7 +24,8 @@ INSERT INTO office_finance_invoice_lines VALUES(1,1,1,'Material','1','100','100.
 CREATE TABLE office_finance_invoice_events(id INTEGER PRIMARY KEY,invoice_id INTEGER,event_type TEXT,operator_id TEXT,event_data TEXT);
 CREATE TABLE office_inzet_people(id INTEGER PRIMARY KEY);INSERT INTO office_inzet_people VALUES(7);
 CREATE TABLE office_onsite_event_inbox(event_id TEXT,person_id INTEGER,project_id TEXT,occurred_at_utc TEXT);INSERT INTO office_onsite_event_inbox VALUES('in',7,'10','2026-11-02T07:00:00Z'),('out',7,'10','2026-11-02T08:30:00Z');
-CREATE TABLE office_onsite_hours_reviews(id INTEGER PRIMARY KEY,person_id INTEGER,project_id TEXT,in_event_id TEXT,out_event_id TEXT,reviewed_seconds INTEGER,revision INTEGER,approval_status TEXT,approved_at TEXT);INSERT INTO office_onsite_hours_reviews VALUES(1,7,'10','in','out',5400,1,'approved','2026-11-03');
+CREATE TABLE office_inzet_approved_hours(id INTEGER PRIMARY KEY,person_id INTEGER,project_id INTEGER,work_date TEXT,approved_seconds INTEGER,approved_at TEXT);INSERT INTO office_inzet_approved_hours VALUES(1,7,10,'2026-11-02',5400,'2026-11-03');
+CREATE TABLE office_inzet_actual_labour_costs(id INTEGER PRIMARY KEY,approved_hours_id INTEGER,source_sha256 TEXT);
 CREATE TABLE office_crm_relations(id INTEGER PRIMARY KEY,display_name TEXT,legal_name TEXT,email TEXT,invoice_email TEXT,offer_email TEXT,street TEXT,postal_code TEXT,city TEXT,country_code TEXT,vat_number TEXT,status TEXT);
 INSERT INTO office_crm_relations VALUES(4,'Client','Client BV','general@example.com','invoice@example.com','offer@example.com','Street 1','1234AB','Town','NL','NL123','active');
 CREATE TABLE office_crm_contact_people(id INTEGER PRIMARY KEY,given_name TEXT,family_name TEXT,email TEXT,status TEXT);INSERT INTO office_crm_contact_people VALUES(8,'Jan','Test','jan@example.com','active');
@@ -39,7 +40,7 @@ $purchase=$l->purchase(1);$pid=$l->bookPurchase(1,Amounts::hash($purchase),$toda
 rejects(fn()=>$l->bookPurchase(1,Amounts::hash($purchase),$today));rejects(fn()=>$other->get($pid));
 rejects(fn()=>$l->payment('expense',$pid,1,'21','2026-11-03','PAY-X','g',$today));ok((int)$l->get($pid)['paid_cents']===0,'Wrong bucket rolls back');
 $l->payment('expense',$pid,1,'20','2026-11-03','PAY-1','g',$today);rejects(fn()=>$l->reverse($pid,2,'Wrong supplier'));rejects(fn()=>$l->payment('expense',$pid,2,'1','2026-11-03','PAY-1','regular',$today));ok((int)$l->get($pid)['paid_cents']===2000,'Unique bank reference rolls back all state');
-rejects(fn()=>$l->valueHours(1,1,$today));$l->rate(7,'2026-01-01','40.00','Confirmed salary basis',$today);$hid=$l->valueHours(1,1,$today);ok((int)$l->get($hid)['net_cents']===6000,'Approved duration and effective hourly cost');rejects(fn()=>$l->valueHours(1,1,$today));
+ok(count($l->hoursChoices())===1,'Canonical approved hours visible');$l->rate(7,'2026-01-01','40.00','Confirmed salary basis',$today);rejects(fn()=>$l->valueHours(1,1,$today));ok(count($l->hoursChoices())===1,'Blocked Finance valuation does not create a posting');
 $input=['date'=>'2026-11-02','category'=>'overhead','project_id'=>'','net'=>'10.00','vat'=>'2.10','reference'=>'OH-1','description'=>'Office expense','command_key'=>str_repeat('a',32),'cash_due'=>'yes','due_date'=>'2026-11-20'];$oid=$l->manual($input,$today);rejects(fn()=>$l->manual($input,$today));
 $transient=$input;$transient['command_key']=str_repeat('b',32);$transient['reference']='Correction';$cid=$l->manual($transient,$today);$l->reverse($cid,1,'Duplicate supplier document');ok($l->get($cid)['status']==='reversed','Correction preserves original snapshot');
 $service=new OfficeSalesService($db,'1');ok(OfficeSalesParties::billing($db,10)['contact_id']===8,'Canonical project debtor and primary contact');
