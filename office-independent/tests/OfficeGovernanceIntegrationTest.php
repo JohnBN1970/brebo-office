@@ -18,7 +18,7 @@ foreach ([
     'CREATE TABLE office_operator_accounts (id VARCHAR(128) PRIMARY KEY,username VARCHAR(128),active INTEGER NOT NULL)',
     'CREATE TABLE office_module_permissions (operator_id VARCHAR(128),module VARCHAR(32),permission VARCHAR(32),PRIMARY KEY(operator_id,module,permission))',
     'CREATE TABLE office_projects (id BIGINT UNSIGNED PRIMARY KEY,title VARCHAR(128))',
-    'CREATE TABLE office_buildings (id BIGINT UNSIGNED PRIMARY KEY,name VARCHAR(128))',
+    'CREATE TABLE office_buildings (id BIGINT UNSIGNED PRIMARY KEY,building_name VARCHAR(128))',
     'CREATE TABLE office_project_memberships (project_id BIGINT UNSIGNED,operator_id VARCHAR(128),permission VARCHAR(32))',
     'CREATE TABLE office_project_buildings (project_id BIGINT UNSIGNED,building_id BIGINT UNSIGNED,PRIMARY KEY(project_id,building_id))',
     'CREATE TABLE office_crm_relations (id BIGINT PRIMARY KEY,display_name VARCHAR(128),status VARCHAR(32))',
