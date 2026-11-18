@@ -33,11 +33,11 @@ final class WebsiteOfficeCrmSessionRepository {
       ':now' => gmdate('Y-m-d H:i:s', $now),
     ]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row === false || !is_string($row['operator_id']) || $row['operator_id'] === '') {
+    if ($row === false || !isset($row['operator_id']) || !is_scalar($row['operator_id']) || (string) $row['operator_id'] === '') {
       return null;
     }
     return new WebsiteCrmOperatorContext(
-      $row['operator_id'],
+      (string) $row['operator_id'],
       hash('sha256', $sessionToken),
       (int) $row['can_edit_crm'] === 1,
     );
