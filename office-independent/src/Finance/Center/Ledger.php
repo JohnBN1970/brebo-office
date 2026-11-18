@@ -53,22 +53,27 @@ final class Ledger {
   }
   public function rate(int $person,string $from,string $value,string $reference,string $today): void{
     $this->authorize(true);Amounts::date($from);if($from>$today)throw new \InvalidArgumentException('Voer een ingegane kostprijs in.');$cents=Amounts::cents($value);if($cents<=0||$cents>1000000)throw new \InvalidArgumentException('Controleer de kostprijs per uur.');
-    $q=$this->db->prepare("SELECT 1 FROM office_inzet_people p WHERE p.id=? AND EXISTS (SELECT 1 FROM office_onsite_hours_reviews h JOIN office_project_memberships m ON HEX(CAST(m.project_id AS CHAR))=HEX(h.project_id) WHERE h.person_id=p.id AND m.operator_id=? AND m.permission IN ('read','manage'))");$q->execute([$person,$this->actor]);if(!$q->fetchColumn())throw new \DomainException('Medewerker heeft geen uren binnen jouw toegankelijke projecten.');
+    $q=$this->db->prepare("SELECT 1 FROM office_inzet_people p WHERE p.id=? AND EXISTS (SELECT 1 FROM office_inzet_approved_hours h JOIN office_project_memberships m ON m.project_id=h.project_id WHERE h.person_id=p.id AND m.operator_id=? AND m.permission IN ('read','manage'))");$q->execute([$person,$this->actor]);if(!$q->fetchColumn())throw new \DomainException('Medewerker heeft geen uren binnen jouw toegankelijke projecten.');
     $this->db->beginTransaction();try{$this->db->prepare('INSERT INTO office_finance_cost_rates(person_id,effective_from,cents_per_hour,evidence_reference,operator_id,created_at) VALUES(?,?,?,?,?,?)')->execute([$person,$from,$cents,Amounts::text($reference),$this->actor,gmdate('c')]);$this->audit('cost_rate_recorded',null,['person_id'=>$person,'effective_from'=>$from]);$this->db->commit();}catch(\Throwable $e){$this->db->rollBack();throw $e;}
   }
   public function hoursChoices(): array{
     $this->authorize();
-    // Stable source IDs prevent duplicate valuation.
-    $sql="SELECT h.id,h.person_id,h.project_id,h.reviewed_seconds,h.revision,h.approved_at,e.occurred_at_utc AS worked_at FROM office_onsite_hours_reviews h JOIN office_onsite_event_inbox e ON e.event_id=h.in_event_id AND e.person_id=h.person_id AND e.project_id=h.project_id WHERE h.approval_status='approved' AND h.reviewed_seconds>0 AND h.reviewed_seconds<=86400 AND EXISTS (SELECT 1 FROM office_project_memberships m WHERE HEX(CAST(m.project_id AS CHAR))=HEX(h.project_id) AND m.operator_id=? AND m.permission IN ('read','manage')) AND NOT EXISTS (SELECT 1 FROM office_finance_postings p WHERE p.source_kind='hours' AND p.source_id=h.id AND p.status='booked') ORDER BY h.id DESC";$q=$this->db->prepare($sql);$q->execute([$this->actor]);return $q->fetchAll(PDO::FETCH_ASSOC);
+    // Approved hours are the canonical OnSite source. Finance does not post a second labour cost.
+    $sql="SELECT h.id,h.person_id,h.project_id,h.approved_seconds AS reviewed_seconds,
+      1 AS revision,h.approved_at,CONCAT(h.work_date,'T12:00:00Z') AS worked_at
+      FROM office_inzet_approved_hours h
+      WHERE h.approved_seconds>0 AND h.approved_seconds<=86400
+      AND EXISTS (SELECT 1 FROM office_project_memberships m
+        WHERE m.project_id=h.project_id AND m.operator_id=? AND m.permission IN ('read','manage'))
+      AND NOT EXISTS (SELECT 1 FROM office_inzet_actual_labour_costs c WHERE c.approved_hours_id=h.id)
+      ORDER BY h.id DESC";
+    $q=$this->db->prepare($sql);$q->execute([$this->actor]);return $q->fetchAll(PDO::FETCH_ASSOC);
   }
   public function valueHours(int $id,int $revision,string $today): int{
-    $this->authorize(true);$this->db->beginTransaction();try{
-      $q=$this->db->prepare('SELECT * FROM office_onsite_hours_reviews WHERE id=?'.$this->lock());$q->execute([$id]);$h=$q->fetch(PDO::FETCH_ASSOC);if(!$h||$h['approval_status']!=='approved'||(int)$h['revision']!==$revision||(int)$h['reviewed_seconds']<=0||(int)$h['reviewed_seconds']>86400||empty($h['approved_at']))throw new \DomainException('Alleen actuele goedgekeurde uren kunnen worden gewaardeerd.');$project=Amounts::id($h['project_id']);$this->project($project);
-      $q=$this->db->prepare('SELECT occurred_at_utc FROM office_onsite_event_inbox WHERE event_id=? AND person_id=? AND project_id=?');$q->execute([$h['in_event_id'],$h['person_id'],$h['project_id']]);$entered=$q->fetchColumn();$q->execute([$h['out_event_id'],$h['person_id'],$h['project_id']]);$left=$q->fetchColumn();if(!$entered||!$left||strtotime((string)$left)<strtotime((string)$entered))throw new \DomainException('De bron van de goedgekeurde uren is onvolledig.');
-      $date=(new \DateTimeImmutable((string)$entered,new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Europe/Amsterdam'))->format('Y-m-d');if($date>$today)throw new \DomainException('Uren liggen in de toekomst.');
-      $q=$this->db->prepare('SELECT * FROM office_finance_cost_rates WHERE person_id=? AND effective_from<=? ORDER BY effective_from DESC,id DESC LIMIT 1'.$this->lock());$q->execute([$h['person_id'],$date]);$rate=$q->fetch(PDO::FETCH_ASSOC);if(!$rate)throw new \DomainException('Leg eerst een bevestigde kostprijs vast die geldig is op de werkdatum.');$amount=intdiv((int)$h['reviewed_seconds']*(int)$rate['cents_per_hour']+1800,3600);
-      $posting=$this->insert(['key'=>'hours:'.$id,'kind'=>'hours','source_id'=>$id,'reference'=>'Goedgekeurde uren #'.$id,'date'=>$date,'cash_due'=>0,'snapshot'=>['review'=>$h,'rate'=>$rate,'worked_at'=>$entered]], [['project'=>$project,'category'=>'labor','net_cents'=>$amount,'vat_cents'=>0,'description'=>'Gewaardeerde goedgekeurde uren']]);$this->db->commit();return $posting;
-    }catch(\Throwable $e){$this->db->rollBack();throw $e;}
+    $this->authorize(true);
+    // Fail closed until the Finance UI is wired to the canonical approved-labour posting service.
+    // The former implementation created a duplicate financial posting from a nonexistent review table.
+    throw new \DomainException('Urenwaardering via FinanceCenter is uitgeschakeld. Gebruik de gecontroleerde Inzet-arbeidskostenketen.');
   }
   public function payment(string $type,int $id,int $revision,string $amount,string $date,string $reference,string $bucket,string $today): void{
     $this->authorize(true);Amounts::date($date);if($date>$today||!in_array($bucket,['regular','g'],true)||!in_array($type,['expense','sale'],true))throw new \InvalidArgumentException('Controleer ontvangstdatum en rekeningsoort.');$cents=Amounts::cents($amount);$reference=Amounts::text($reference,160);if($cents<=0)throw new \InvalidArgumentException('Bedrag moet positief zijn.');
