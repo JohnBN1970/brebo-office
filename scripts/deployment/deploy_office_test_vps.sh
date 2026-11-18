@@ -16,6 +16,9 @@ if [ ! -d "$RELEASE" ]; then
   STAGING="$(mktemp -d "$BASE/releases/.staging-XXXXXXXX")"
   trap 'rm -rf -- "$STAGING"' EXIT
   git -C "$REPO" archive "$SHA:office-independent" | tar -x -C "$STAGING"
+  mkdir -p "$STAGING/packages/brebo-finance-core"
+  git -C "$REPO" archive "$SHA:packages/brebo-finance-core" | tar -x -C "$STAGING/packages/brebo-finance-core"
+  test -f "$STAGING/packages/brebo-finance-core/bootstrap.php"
   test -f "$STAGING/public/index.php"
   test -f "$STAGING/public/office-login.php"
   php -l "$STAGING/public/index.php"
