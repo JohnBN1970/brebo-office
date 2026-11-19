@@ -61,3 +61,10 @@
 @media(hover:hover) and (prefers-reduced-motion:no-preference){.office-dash-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(25,35,82,.1)}}
 @media(max-width:650px){.office-dash-heading{padding:18px}.office-dash-tabs{width:100%;box-sizing:border-box}.office-dash-tabs a{flex:1;text-align:center}.office-dash-status-key{padding:10px}}
 @media(prefers-reduced-motion:reduce){.office-dash-card,.office-dash-tabs a{transition:none}}
+
+
+.office-dash-mini-quality{display:grid;gap:7px;padding-top:10px;border-top:1px solid var(--office-line)}
+.office-dash-mini-quality>div{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--office-muted)}
+.office-dash-mini-quality strong{font-size:14px;letter-spacing:0;margin-left:auto;color:var(--office-text);font-variant-numeric:tabular-nums}
+.office-dash-monitor:fullscreen .office-dash-mini-quality>div{font-size:clamp(14px,1.3vw,22px)}
+.office-dash-monitor:fullscreen .office-dash-mini-quality strong{font-size:clamp(18px,2vw,32px)}

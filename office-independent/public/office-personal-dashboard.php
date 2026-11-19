@@ -69,6 +69,19 @@ if(is_int($totalProjects)&&$totalProjects>0&&is_int($criticalProjects)&&is_int($
 }
 foreach($display as &$entry){if($entry['id']==='projects'&&$projectVisual!==null)$entry['visual']=$projectVisual;}
 unset($entry);
+// Independent quality counts, never a percentage or invented total.
+// Monitor-visible values are restricted by the existing catalog allowlist.
+$qualityParts=[];
+foreach([['quality','Acties','waiting'],['deviations','Afwijkingen','critical'],['risks','Risico’s','critical']] as [$id,$label,$tone]){
+  $value=$widgets[$id]['value']??null;
+  if(is_int($value)&&$value>=0)$qualityParts[]=['label'=>$label,'count'=>$value,'tone'=>$tone];
+}
+if($qualityParts){
+  foreach($display as &$entry){
+    if($entry['id']==='quality')$entry['visual']=['kind'=>'quality-counts','parts'=>$qualityParts];
+  }
+  unset($entry);
+}
 if($json){header('Content-Type: application/json; charset=utf-8');echo json_encode(['widgets'=>$display,'columns'=>$board['columns'],'updated'=>$updated],JSON_THROW_ON_ERROR);exit;}
 $e=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $titles=['projects'=>'Projectcockpit','finance'=>'Financecockpit','quality'=>'Kennis & Kwaliteit','builder'=>'Dashboardbouwer','wallboard'=>'KPI Wallboard'];
@@ -84,6 +97,11 @@ foreach($display as $w){echo '<article class="office-dash-card" data-tone="'.$e(
   $parts=$w['visual']['parts'];$sum=array_sum(array_column($parts,'count'));
   echo '<div class="office-dash-mini-chart" role="img" aria-label="'.$e(implode(', ',array_map(static fn($p)=>$p['label'].': '.$p['count'],$parts))).'">';
   foreach($parts as $part){if($part['count']>0)echo '<span data-status="'.$e($part['tone']).'" style="width:'.number_format($part['count']/$sum*100,4,'.','').'%"></span>';}
+  echo '</div>';
+}
+if(isset($w['visual'])&&$w['visual']['kind']==='quality-counts'){
+  echo '<div class="office-dash-mini-quality" aria-label="Kwaliteitsstatus">';
+  foreach($w['visual']['parts'] as $part)echo '<div><span class="office-dash-status-dot" data-status="'.$e($part['tone']).'"></span><span>'.$e($part['label']).'</span><strong>'.$e($part['count']).'</strong></div>';
   echo '</div>';
 }
 if(!$monitor)echo '<a href="/office-test'.$e($catalog[$w['id']][4]).'">Bekijk details ↗</a>';echo '</article>';}
