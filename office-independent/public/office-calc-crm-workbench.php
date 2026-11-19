@@ -515,7 +515,7 @@ foreach($lines as $line) {
             if($approval===null||in_array((string)$approval['status'],['draft','rejected'],true)){
                 if($actor===(int)($approval['author_id']??$draftAuthorId??0))echo '<button type="submit" name="action" value="approval_submit">Ter controle</button>';
             }elseif((string)$approval['status']==='submitted' && $actor!==$draftAuthorId && getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')==='enabled'){
-                echo '<button type="submit" name="action" value="approval_green" style="background:#087f42;color:white">✓ Groen</button> ';
+                echo '<button type="submit" name="action" value="approval_green" formnovalidate style="background:#087f42;color:white">✓ Groen</button> ';
                 echo '<details class="calc-review-popup"><summary style="color:#b91c1c;cursor:pointer">✕ Rood</summary><div class="calc-review-dialog"><strong>Regel afkeuren</strong><p>Omschrijf wat de calculator moet aanpassen.</p><label>Opmerking verplicht<textarea name="approval_note" maxlength="1000" required></textarea></label><button type="submit" name="action" value="approval_red">Afkeuren en terugsturen</button></div></details>';
             }
             echo '</form>';
