@@ -81,3 +81,7 @@
 .office-dash-card[data-data-state=unavailable] strong{font-size:clamp(18px,1.5vw,24px);color:var(--office-muted)}
 .office-dash-card[data-data-state=unavailable]{border-left-style:dashed}
 .office-dash-card[data-data-state=zero] small{font-style:italic}
+
+/* Dashboard empty-state indicators are informational, never simulated KPI values. */
+.office-dash-data-label{display:inline-flex;align-self:flex-start;margin-top:10px;padding:4px 9px;border:1px solid currentColor;border-radius:999px;font-size:12px;opacity:.75}
+.office-dash-card[data-data-state=unavailable] .office-dash-data-label{border-style:dashed}
