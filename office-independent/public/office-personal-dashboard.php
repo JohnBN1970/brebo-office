@@ -80,7 +80,13 @@ if($monitor){
   echo '<section class="office-dash-monitor" data-wallboard data-boards="'.$e(implode(',',array_keys($state['boards']))).'"><h2>Kantooroverzicht</h2><p>Alleen vrijgegeven soorten tellingen. Geen namen, bedragen of individuele uren.</p><div class="office-dash-toolbar"><button type="button" data-fullscreen>Volledig scherm</button><button type="button" data-present aria-pressed="false">Presentatiemodus</button><span>Verversing elke minuut</span></div>';
 }
 echo '<div class="office-dash-grid" data-columns="'.(in_array($view,['builder','wallboard'],true)?(int)$board['columns']:3).'">';
-foreach($display as $w){echo '<article class="office-dash-card" data-tone="'.$e($w['tone']).'"><span>'.$e($w['label']).'</span><strong>'.$e($w['value']).'</strong><small>'.$e($w['note']).'</small>';if(!$monitor)echo '<a href="/office-test'.$e($catalog[$w['id']][4]).'">Bekijk details ↗</a>';echo '</article>';}
+foreach($display as $w){echo '<article class="office-dash-card" data-tone="'.$e($w['tone']).'"><span>'.$e($w['label']).'</span><strong>'.$e($w['value']).'</strong><small>'.$e($w['note']).'</small>';if(isset($w['visual'])&&$w['visual']['kind']==='project-status'){
+  $parts=$w['visual']['parts'];$sum=array_sum(array_column($parts,'count'));
+  echo '<div class="office-dash-mini-chart" role="img" aria-label="'.$e(implode(', ',array_map(static fn($p)=>$p['label'].': '.$p['count'],$parts))).'">';
+  foreach($parts as $part){if($part['count']>0)echo '<span data-status="'.$e($part['tone']).'" style="width:'.number_format($part['count']/$sum*100,4,'.','').'%"></span>';}
+  echo '</div>';
+}
+if(!$monitor)echo '<a href="/office-test'.$e($catalog[$w['id']][4]).'">Bekijk details ↗</a>';echo '</article>';}
 echo '</div><p class="office-dash-status" role="status">'.$e($updated).'</p>';
 if(!$display)echo '<p class="office-dash-empty">Geen toegankelijke widgets voor deze weergave. Kies geschikte widgets in de dashboardbouwer.</p>';
 if($monitor)echo '</section>';
