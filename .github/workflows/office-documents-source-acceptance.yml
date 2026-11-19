@@ -43,6 +43,19 @@ jobs:
               }
             }
             require "office-independent/src/Documents/OfficeNewDocumentMenu.php";
+            $disabled = \Brebo\Office\Documents\OfficeNewDocumentMenu::render("documenten", ["project_id" => 1]);
+            if (strpos($disabled, "href=\"/office-test/inspectie") !== false) {
+              fwrite(STDERR, "Unavailable inspection linked\n"); exit(1);
+            }
+            $fixture = sys_get_temp_dir() . "/office-document-menu-" . bin2hex(random_bytes(6));
+            $private = $fixture . "/office_calc_test/release-contract/private";
+            mkdir($private . "/public", 0700, true);
+            mkdir($fixture . "/public_html/office-test", 0700, true);
+            file_put_contents($private . "/public/inspection.php", "<?php");
+            file_put_contents($fixture . "/public_html/office-test/index.php", "<?php return [\"/office-test/inspectie\" => \"inspection.php\"];");
+            putenv("OFFICE_PRIVATE_ROOT=" . $private);
+            putenv("OFFICE_TEST_INSPECTION_UI_ENABLED=enabled");
+            putenv("OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED=enabled");
             $menu = \Brebo\Office\Documents\OfficeNewDocumentMenu::render("documenten", ["project_id" => 1]);
             if (strpos($menu, "/office-test/inspectie?project_id=1") === false || strpos($menu, "aria-disabled") === false) {
               fwrite(STDERR, "Document menu contract failed\n"); exit(1);
