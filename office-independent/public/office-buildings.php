@@ -47,7 +47,7 @@ try {
     exit;
   }
   $statement = $db->prepare(
-    "SELECT b.id, b.building_name, b.street_address, b.postal_code, b.city,
+    "SELECT b.id, b.building_name, b.street_address, b.postal_code, b.city, b.latitude, b.longitude,
             COUNT(DISTINCT pb.project_id) AS project_count,
             0 AS active_zone_count
        FROM office_buildings b
@@ -56,7 +56,7 @@ try {
        INNER JOIN office_operator_accounts a ON a.id = m.operator_id AND a.active = 1
       WHERE m.operator_id = ?
         AND m.permission IN ('read','manage')
-      GROUP BY b.id, b.building_name, b.street_address, b.postal_code, b.city
+      GROUP BY b.id, b.building_name, b.street_address, b.postal_code, b.city, b.latitude, b.longitude
       ORDER BY b.building_name, b.id LIMIT 200"
   );
   $statement->execute([$operator->operatorId]);
@@ -153,6 +153,39 @@ header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
   echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  // Render the saved location on every detail visit, not only after a new PDOK search.
+  if (is_numeric($selectedBuilding['latitude'] ?? null) && is_numeric($selectedBuilding['longitude'] ?? null)) {
+    $savedLat = (float)$selectedBuilding['latitude'];
+    $savedLon = (float)$selectedBuilding['longitude'];
+    if ($savedLat >= 50 && $savedLat <= 54 && $savedLon >= 3 && $savedLon <= 8) {
+      $earthRadius = 6378137.0;
+      $savedX = $earthRadius * deg2rad($savedLon);
+      $savedY = $earthRadius * log(tan(M_PI / 4 + deg2rad($savedLat) / 2));
+      $savedBbox = implode(',', [$savedX - 110, $savedY - 70, $savedX + 110, $savedY + 70]);
+      $savedMapUrl = 'https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?' . http_build_query([
+        'service'=>'WMS', 'version'=>'1.3.0', 'request'=>'GetMap',
+        'layers'=>'Actueel_orthoHR', 'styles'=>'', 'crs'=>'EPSG:3857',
+        'bbox'=>$savedBbox, 'width'=>900, 'height'=>560,
+        'format'=>'image/jpeg', 'transparent'=>'false',
+      ]);
+      echo '<section style="margin-top:20px"><h2>Vastgelegde gebouwlocatie</h2><figure><img src="' . $h($savedMapUrl) . '" alt="PDOK-luchtfoto van de vastgelegde gebouwlocatie" style="width:100%;height:auto;border-radius:8px"><figcaption>Locatie ' . $h($savedLat) . ', ' . $h($savedLon) . '. Deze kaart blijft zichtbaar na opnieuw openen.</figcaption></figure></section>';
+    }
+  }
+  // Existing OnSite geofences are building-owned and read-only on this page.
+  try {
+    $zoneQuery = $db->prepare('SELECT zone_name,latitude,longitude,radius_metres FROM office_building_zones WHERE building_id=? AND active=1 ORDER BY id');
+    $zoneQuery->execute([$buildingId]);
+    $zoneRows = $zoneQuery->fetchAll(PDO::FETCH_ASSOC);
+    if ($zoneRows !== []) {
+      echo '<section style="margin-top:20px"><h2>OnSite-zones</h2><ul>';
+      foreach ($zoneRows as $zoneRow) {
+        echo '<li>' . $h($zoneRow['zone_name']) . ': ' . $h($zoneRow['radius_metres']) . ' meter rond ' . $h($zoneRow['latitude']) . ', ' . $h($zoneRow['longitude']) . '</li>';
+      }
+      echo '</ul></section>';
+    }
+  } catch (PDOException $zoneError) {
+    error_log('Office buildings: OnSite zones unavailable: ' . $zoneError->getCode());
+  }
   echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
   if ($pdokStorageReady) {
     echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
