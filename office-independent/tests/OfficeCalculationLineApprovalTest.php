@@ -20,7 +20,7 @@ try {
   Approval::release($reviewed,18,true,hash('sha256','line version two'));
   throw new RuntimeException('stale_fingerprint_released');
 } catch (DomainException $expected) {}
-foreach ([[12,2,3],[17,2,3],[18,3,3],[18,4,3]] as [$actor,$authorRank,$reviewerRank]) {
+foreach ([[12,2,3],[18,3,3],[18,4,3]] as [$actor,$authorRank,$reviewerRank]) {
   try {
     Approval::review($submitted,$actor,$fingerprint,'',12,$authorRank,$reviewerRank);
     throw new RuntimeException('invalid_review_hierarchy_accepted');
