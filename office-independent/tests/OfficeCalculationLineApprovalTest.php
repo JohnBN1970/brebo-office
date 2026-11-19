@@ -3,7 +3,8 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApproval.php';
 use Brebo\Office\Calculation\OfficeCalculationLineApproval as Approval;
 $fingerprint=hash('sha256','line version one');
-$reviewed=Approval::review(['status'=>'draft','author_id'=>12],17,$fingerprint,'Hoeveelheden gecontroleerd',12,2,3);
+$submitted=Approval::submit(['status'=>'draft','author_id'=>12],12,$fingerprint);
+$reviewed=Approval::review($submitted,17,$fingerprint,'Hoeveelheden gecontroleerd',12,2,3);
 if ($reviewed['status']!=='reviewed') throw new RuntimeException('review_failed');
 foreach ([[17,true],[18,false],[12,true]] as [$actor,$permission]) {
   try {
@@ -21,12 +22,12 @@ try {
 } catch (DomainException $expected) {}
 foreach ([[12,2,3],[17,2,3],[18,3,3],[18,4,3]] as [$actor,$authorRank,$reviewerRank]) {
   try {
-    Approval::review(['status'=>'draft','author_id'=>12],$actor,$fingerprint,'',12,$authorRank,$reviewerRank);
+    Approval::review($submitted,$actor,$fingerprint,'',12,$authorRank,$reviewerRank);
     throw new RuntimeException('invalid_review_hierarchy_accepted');
   } catch (DomainException $expected) {}
 }
 try {
-  Approval::review(['status'=>'draft','author_id'=>12],18,$fingerprint);
+  Approval::review($submitted,18,$fingerprint);
   throw new RuntimeException('unverified_hierarchy_accepted');
 } catch (DomainException $expected) {}
 echo "Line review, head-sales release, four-eyes and revision invalidation OK\n";
