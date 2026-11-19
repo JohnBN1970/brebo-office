@@ -56,6 +56,19 @@ $selected=in_array($view,['builder','wallboard'],true)?array_values(array_inters
 $updated='Bijgewerkt '.(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('d-m-Y H:i:s');
 $display=[];
 foreach($selected as $id){$w=$widgets[$id];$display[]=['id'=>$id,'label'=>$catalog[$id][0],'value'=>Catalog::format($id,$w['value']),'note'=>$w['note'],'tone'=>$w['tone']];}
+$projectVisual=null;
+$totalProjects=$widgets['projects']['value']??null;
+$criticalProjects=$widgets['critical']['value']??null;
+$waitingProjects=$widgets['waiting']['value']??null;
+if(is_int($totalProjects)&&$totalProjects>0&&is_int($criticalProjects)&&is_int($waitingProjects)&&$criticalProjects>=0&&$waitingProjects>=0&&$criticalProjects+$waitingProjects<=$totalProjects){
+  $projectVisual=['kind'=>'project-status','parts'=>[
+    ['label'=>'Overig','count'=>$totalProjects-$criticalProjects,'tone'=>'ontrack'],
+    ['label'=>'In wacht','count'=>$waitingProjects,'tone'=>'waiting'],
+    ['label'=>'Kritiek','count'=>$criticalProjects,'tone'=>'critical']
+  ]];
+}
+foreach($display as &$entry){if($entry['id']==='projects'&&$projectVisual!==null)$entry['visual']=$projectVisual;}
+unset($entry);
 if($json){header('Content-Type: application/json; charset=utf-8');echo json_encode(['widgets'=>$display,'columns'=>$board['columns'],'updated'=>$updated],JSON_THROW_ON_ERROR);exit;}
 $e=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $titles=['projects'=>'Projectcockpit','finance'=>'Financecockpit','quality'=>'Kennis & Kwaliteit','builder'=>'Dashboardbouwer','wallboard'=>'KPI Wallboard'];
