@@ -178,6 +178,25 @@ if ($detail && isset($_GET['pdok_q'])) {
     }
   }
 }
+// Read-only BAG house-number range preview for authorized buildings.
+$bagRangeRows = [];
+$bagRangeNotice = '';
+$bagStreet = trim((string)($_GET['bag_street'] ?? ''));
+$bagFrom = trim((string)($_GET['bag_from'] ?? ''));
+$bagTo = trim((string)($_GET['bag_to'] ?? ''));
+if ($detail && isset($_GET['bag_street'], $_GET['bag_from'], $_GET['bag_to'])) {
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBagAddressRange.php';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBagAddressLookup.php';
+    [$first,$last] = \Brebo\Office\Buildings\OfficeBagAddressRange::parse($bagFrom,$bagTo);
+    $city = trim((string)($selectedBuilding['city'] ?? ''));
+    $bagRangeRows = \Brebo\Office\Buildings\OfficeBagAddressLookup::search($bagStreet,$city,$first,$last);
+    $bagRangeNotice = count($bagRangeRows).' BAG-adressen gevonden (voorbeeld, niet opgeslagen).';
+  } catch (Throwable $bagError) {
+    $bagRangeNotice = 'BAG-reeks niet beschikbaar. Controleer straat, huisnummers en plaats.';
+    error_log('Office buildings BAG range preview: '.get_class($bagError));
+  }
+}
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
@@ -207,6 +226,21 @@ if ($detail) {
       foreach ($demarcationRows as $demarcationRow) echo '<li>'.$h($demarcationRow['name']).' ('.(int)$demarcationRow['address_count'].' adressen)</li>';
       echo '</ul>';
     }
+  }
+  echo '</section>';
+  echo '<section style="margin-top:20px"><h2>BAG-huisnummerreeks zoeken</h2><p>Alleen bestaande BAG-adressen. Zoekresultaten worden nog niet opgeslagen.</p>';
+  echo '<form method="get" action="/office-test/gebouwen"><input type="hidden" name="id" value="'.(int)$buildingId.'">';
+  echo '<label>Straat <input name="bag_street" required maxlength="120" value="'.$h($bagStreet).'"></label> ';
+  echo '<label>Van <input type="number" min="1" max="99999" name="bag_from" required value="'.$h($bagFrom).'"></label> ';
+  echo '<label>Tot <input type="number" min="1" max="99999" name="bag_to" required value="'.$h($bagTo).'"></label> ';
+  echo '<button type="submit">Zoek BAG-adressen</button></form>';
+  if ($bagRangeNotice !== '') echo '<p role="status">'.$h($bagRangeNotice).'</p>';
+  if ($bagRangeRows !== []) {
+    echo '<table><thead><tr><th>Adres</th><th>Postcode</th><th>BAG ID</th></tr></thead><tbody>';
+    foreach ($bagRangeRows as $bagRow) {
+      echo '<tr><td>'.$h(trim($bagRow['street'].' '.$bagRow['house_number'].$bagRow['house_letter'].' '.$bagRow['house_addition'])).'</td><td>'.$h($bagRow['postal_code']).'</td><td>'.$h($bagRow['bag_address_id']).'</td></tr>';
+    }
+    echo '</tbody></table>';
   }
   echo '</section>';
   // Render the saved location on every detail visit, not only after a new PDOK search.
