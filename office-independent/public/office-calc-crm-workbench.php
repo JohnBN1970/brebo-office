@@ -439,6 +439,11 @@ $rowNumber=0;
 foreach($lines as $line) {
     ++$rowNumber;
     $approval=$approvalDisplayEnabled?($approvalStates[(string)($line['id']??'')]??null):null;
+    // Never display a green status for a changed canonical calculation line.
+    $lineFingerprint=hash('sha256',json_encode($line,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    if($approval!==null && !hash_equals((string)$approval['line_fingerprint'],$lineFingerprint)){
+        $approval=null;
+    }
     $approvalStatus=$approval===null?'Niet gecontroleerd':match((string)$approval['status']){
         'reviewed'=>'Gecontroleerd - wacht op vrijgave',
         'released'=>'Vrijgegeven',
@@ -500,7 +505,7 @@ foreach($lines as $line) {
             echo '<form id="'.$approvalForm.'" method="post" action="'.$workbenchUrl.'" style="display:inline"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="approval_line_id" value="'.(int)$line['id'].'">';
             if($approval===null||in_array((string)$approval['status'],['draft','rejected'],true)){
                 if($actor===(int)($approval['author_id']??$draftAuthorId??0))echo '<button type="submit" name="action" value="approval_submit">Ter controle</button>';
-            }elseif((string)$approval['status']==='submitted'){
+            }elseif((string)$approval['status']==='submitted' && $actor!==$draftAuthorId){
                 echo '<button type="submit" name="action" value="approval_green" style="background:#087f42;color:white">✓ Groen</button> ';
                 echo '<details><summary style="color:#b91c1c;cursor:pointer">✕ Rood</summary><label>Opmerking verplicht<textarea name="approval_note" maxlength="1000" required></textarea></label><button type="submit" name="action" value="approval_red">Afkeuren</button></details>';
             }
