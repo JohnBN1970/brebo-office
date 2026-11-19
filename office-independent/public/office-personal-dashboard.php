@@ -53,7 +53,7 @@ catch(InvalidArgumentException){http_response_code(400);exit('Ongeldige dashboar
 catch(Throwable){http_response_code(503);exit('Dashboard tijdelijk niet beschikbaar.');}
 $catalog=Catalog::all();
 $selected=in_array($view,['builder','wallboard'],true)?array_values(array_intersect($board['widgets'],array_keys($widgets))):array_keys(array_filter($widgets,static fn($id)=>$catalog[$id][1]===$view,ARRAY_FILTER_USE_KEY));
-$updated='Bijgewerkt '.(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('d-m-Y H:i:s');
+$updated='Dashboard geopend '.(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('d-m-Y H:i:s').' · brongegevens kunnen een andere peildatum hebben';
 $display=[];
 foreach($selected as $id){$w=$widgets[$id];$value=$w['value'];$state=$value===null?'unavailable':($value===0?'zero':'available');$note=$value===null?'Brongegevens niet beschikbaar · '.$w['note']:($value===0?'Waarde is nul voor deze selectie · '.$w['note']:$w['note']);$display[]=['id'=>$id,'label'=>$catalog[$id][0],'value'=>Catalog::format($id,$value),'note'=>$note,'tone'=>$w['tone'],'state'=>$state];}
 $projectVisual=null;
