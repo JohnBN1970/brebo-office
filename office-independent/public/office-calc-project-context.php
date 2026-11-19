@@ -74,6 +74,14 @@ try {
     foreach ($buildingsQuery->fetchAll(PDO::FETCH_ASSOC) as $building) {
         $buildings[] = ['id' => (int)$building['id'], 'title' => (string)$building['name']];
     }
+    // Optional housing quantity preview, sourced from canonical project scopes.
+    // A missing migration must not break the existing Calc project context.
+    $housingQuantities = [];
+    $schema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_project_housing_types','office_housing_types','office_project_calculation_scopes','office_scope_quantity_lines')");
+    if ((int)$schema->fetchColumn() === 4) {
+        require_once dirname(__DIR__) . '/src/Project/OfficeCalcHousingQuantityReader.php';
+        $housingQuantities = (new \Brebo\Office\Project\OfficeCalcHousingQuantityReader($db))->forProject($projectId)['scopes'];
+    }
     // Only expose verified schema-backed values; unknown customer metadata stays empty.
     echo json_encode([
         'contract' => 'brebo-office-calc-context-v1',
@@ -88,6 +96,7 @@ try {
             'disciplines' => [],
             'description' => '',
             'buildings' => $buildings,
+            'housing_quantities' => $housingQuantities,
         ],
     ], JSON_THROW_ON_ERROR);
 } catch (Throwable) {
