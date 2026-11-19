@@ -104,7 +104,7 @@ if(isset($w['visual'])&&$w['visual']['kind']==='quality-counts'){
   foreach($w['visual']['parts'] as $part)echo '<div><span class="office-dash-status-dot" data-status="'.$e($part['tone']).'"></span><span>'.$e($part['label']).'</span><strong>'.$e($part['count']).'</strong></div>';
   echo '</div>';
 }
-if(!$monitor)echo '<a href="/office-test'.$e($catalog[$w['id']][4]).'">Bekijk details ↗</a>';echo '</article>';}
+if(!$monitor){$destination='/office-test'.$catalog[$w['id']][4];$action=$w['state']==='unavailable'?'Controleer brongegevens':($w['state']==='zero'?'Open module':'Bekijk details');echo '<a href="'.$e($destination).'" aria-label="'.$e($action.' voor '.$w['label']).'">'.$e($action).' ↗</a>';}echo '</article>';}
 echo '</div><p class="office-dash-status" role="status">'.$e($updated).'</p>';
 if(!$display)echo '<p class="office-dash-empty">Geen toegankelijke widgets voor deze weergave. Kies geschikte widgets in de dashboardbouwer.</p>';
 if($monitor)echo '</section>';
