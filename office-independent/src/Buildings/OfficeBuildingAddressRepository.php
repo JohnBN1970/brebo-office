@@ -73,6 +73,48 @@ final class OfficeBuildingAddressRepository {
     }
   }
 
+  /**
+   * Record an actual measured building component. Location, address and
+   * dwelling type are independent optional dimensions, never multipliers.
+   * Caller must enforce operator write permission and CSRF protection.
+   */
+  public function addInventoryItem(int $buildingId,string $code,string $description,string $quantity,string $unit,?int $locationId=null,?int $addressId=null,?int $dwellingTypeId=null): int {
+    $code=trim($code);
+    $description=trim($description);
+    $unit=trim($unit);
+    if ($buildingId<1 || $code==='' || strlen($code)>80 || $description==='' || mb_strlen($description)>255 || $unit==='' || mb_strlen($unit)>32) {
+      throw new InvalidArgumentException('invalid_inventory_item');
+    }
+    if (!preg_match('/^(?:0|[1-9][0-9]{0,10})(?:\\.[0-9]{1,3})?$/D',$quantity) || (float)$quantity<=0) {
+      throw new InvalidArgumentException('invalid_inventory_quantity');
+    }
+    $this->db->beginTransaction();
+    try {
+      $building=$this->db->prepare('SELECT id FROM office_buildings WHERE id=? FOR UPDATE');
+      $building->execute([$buildingId]);
+      if (!$building->fetchColumn()) throw new RuntimeException('building_not_found');
+      foreach ([
+        [$locationId,'office_building_demarcations'],
+        [$addressId,'office_building_addresses'],
+        [$dwellingTypeId,'office_building_dwelling_types']
+      ] as [$id,$table]) {
+        if ($id===null) continue;
+        if ($id<1) throw new InvalidArgumentException('invalid_inventory_dimension');
+        $check=$this->db->prepare("SELECT id FROM $table WHERE id=? AND building_id=?");
+        $check->execute([$id,$buildingId]);
+        if (!$check->fetchColumn()) throw new RuntimeException('inventory_dimension_not_in_building');
+      }
+      $insert=$this->db->prepare('INSERT INTO office_building_inventory_items (building_id,demarcation_id,address_id,dwelling_type_id,component_code,description,quantity,unit) VALUES (?,?,?,?,?,?,?,?)');
+      $insert->execute([$buildingId,$locationId,$addressId,$dwellingTypeId,$code,$description,$quantity,$unit]);
+      $id=(int)$this->db->lastInsertId();
+      $this->db->commit();
+      return $id;
+    } catch (\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
+  }
+
   /** Insert only validated BAG documents. Duplicate BAG IDs are ignored, never overwritten. */
   public function importBagDocuments(int $buildingId, array $docs, int $first, int $last): int {
     if ($buildingId<1) throw new InvalidArgumentException('invalid_building');
