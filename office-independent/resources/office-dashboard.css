@@ -36,3 +36,28 @@
 .office-dash-mini-chart span[data-status=waiting]{background:#e5b45e}
 .office-dash-mini-chart span[data-status=critical]{background:#e57c7c}
 .office-dash-monitor:fullscreen .office-dash-mini-chart{height:24px}
+
+
+/* Dashboard polish: shared visual hierarchy, no changes to Office data or permissions. */
+.office-dash-heading{padding:22px 26px;border:1px solid var(--office-line);border-radius:18px;background:linear-gradient(125deg,var(--office-surface) 0%,var(--office-raised) 100%);box-shadow:0 8px 28px rgba(25,35,82,.055)}
+.office-dash-heading h1{margin:0;font-size:clamp(26px,2.5vw,38px);letter-spacing:-.035em}
+.office-dash-tabs{padding:5px;background:var(--office-raised);border:1px solid var(--office-line);border-radius:13px;width:fit-content;max-width:100%}
+.office-dash-tabs a{transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease}
+.office-dash-tabs a[aria-current=page]{background:linear-gradient(110deg,#305ca7,#6c56ba);border-color:transparent;box-shadow:0 3px 10px rgba(55,70,150,.18)}
+.office-dash-card,.office-dash-panel{box-shadow:0 6px 22px rgba(25,35,82,.045)}
+.office-dash-card{position:relative;border-top:0;border-left:4px solid #7063c9;transition:box-shadow .18s ease,transform .18s ease}
+.office-dash-card[data-tone=red]{border-left-color:#e57c7c}
+.office-dash-card[data-tone=yellow]{border-left-color:#e5b45e}
+.office-dash-card[data-tone=green]{border-left-color:#36b98b}
+.office-dash-card>span:first-child{font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--office-muted)}
+.office-dash-card strong{line-height:1.12}
+.office-dash-card a{color:var(--office-accent,#5575ce);font-weight:650;text-decoration:none}
+.office-dash-card a:hover{text-decoration:underline}
+.office-dash-status-track,.office-dash-mini-chart{outline:1px solid var(--office-line);outline-offset:1px}
+.office-dash-visual-heading h2{letter-spacing:-.025em}
+.office-dash-status-key{flex-wrap:wrap}
+.office-dash-status-key strong{white-space:nowrap}
+.office-dash-monitor:fullscreen .office-dash-heading{margin-top:0}
+@media(hover:hover) and (prefers-reduced-motion:no-preference){.office-dash-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(25,35,82,.1)}}
+@media(max-width:650px){.office-dash-heading{padding:18px}.office-dash-tabs{width:100%;box-sizing:border-box}.office-dash-tabs a{flex:1;text-align:center}.office-dash-status-key{padding:10px}}
+@media(prefers-reduced-motion:reduce){.office-dash-card,.office-dash-tabs a{transition:none}}
