@@ -38,6 +38,8 @@ jobs:
           set -euo pipefail
           find office-independent scripts/deployment -type f -name '*.php' -print0 | xargs -0 -r -n 1 -P 4 php -l > /tmp/php-lint.log || { grep -v 'No syntax errors' /tmp/php-lint.log; exit 1; }
           echo OFFICE_SOURCE_LINT_PASS
+      - name: Verify canonical Calc building truth reader
+        run: php office-independent/tests/OfficeCalcBuildingTruthReaderTest.php
       - name: Validate calculation arithmetic contracts
         run: |
           set -euo pipefail
