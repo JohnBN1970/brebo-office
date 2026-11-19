@@ -574,13 +574,13 @@ if (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
 }
 // Read-only quantity preview: existing canonical housing scopes, never Calc price writes.
 $housingQuantityHtml = '';
-if ($activeTab === 'werkvoorbereiding' && \\Brebo\\Office\\Intake\\OfficeMount::isTest()
+if ($activeTab === 'werkvoorbereiding' && \Brebo\Office\Intake\OfficeMount::isTest()
     && $housingTypes !== null && $calculationScopes !== null) {
   try {
     $quantitySchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_scope_quantity_lines'");
     if ((int)$quantitySchema->fetchColumn() === 1) {
       require_once dirname(__DIR__) . '/src/Project/OfficeCalcHousingQuantityReader.php';
-      $quantityPreview = (new \\Brebo\\Office\\Project\\OfficeCalcHousingQuantityReader($db))->forProject($projectId);
+      $quantityPreview = (new \Brebo\Office\Project\OfficeCalcHousingQuantityReader($db))->forProject($projectId);
       $housingQuantityHtml = '<section><h3>Onderdelen per woningtype</h3><p>Hoeveelheden per woning vanuit de gebouwinventarisatie; geen automatische prijswijzigingen.</p>';
       foreach ($quantityPreview['scopes'] as $quantityScope) {
         $housingQuantityHtml .= '<h4>' . $escape($quantityScope['housing_name']) . ' (' . $escape($quantityScope['housing_code']) . ')</h4>'
@@ -601,7 +601,7 @@ if ($activeTab === 'werkvoorbereiding' && \\Brebo\\Office\\Intake\\OfficeMount::
       if ($quantityPreview['scopes'] === []) $housingQuantityHtml .= '<p>Nog geen woningtype-deelcalculaties voorbereid.</p>';
       $housingQuantityHtml .= '</section>';
     }
-  } catch (\\Throwable $quantityPreviewError) {
+  } catch (\Throwable $quantityPreviewError) {
     $housingQuantityHtml = '<section><h3>Onderdelen per woningtype</h3><p>Onderdelenoverzicht tijdelijk niet beschikbaar.</p></section>';
   }
 }
