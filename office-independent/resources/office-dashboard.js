@@ -42,6 +42,25 @@
       for (const widget of data.widgets) {
         const article = document.createElement('article'); article.className = 'office-dash-card'; article.dataset.tone = widget.tone;
         for (const [tag, text] of [['span', widget.label], ['strong', widget.value], ['small', widget.note]]) { const el = document.createElement(tag); el.textContent = text; article.append(el); }
+        if (widget.visual?.kind === 'project-status' && Array.isArray(widget.visual.parts)) {
+          const parts = widget.visual.parts;
+          const valid = parts.length === 3 && parts.every(part => Number.isInteger(part.count) && part.count >= 0 && ['ontrack','waiting','critical'].includes(part.tone));
+          const total = valid ? parts.reduce((sum, part) => sum + part.count, 0) : 0;
+          if (total > 0) {
+            const graphic = document.createElement('div');
+            graphic.className = 'office-dash-mini-chart';
+            graphic.setAttribute('role', 'img');
+            graphic.setAttribute('aria-label', parts.map(part => part.label + ': ' + part.count).join(', '));
+            for (const part of parts) {
+              if (!part.count) continue;
+              const segment = document.createElement('span');
+              segment.dataset.status = part.tone;
+              segment.style.width = (100 * part.count / total) + '%';
+              graphic.append(segment);
+            }
+            article.append(graphic);
+          }
+        }
         grid.append(article);
       }
       grid.dataset.columns = String(data.columns);
