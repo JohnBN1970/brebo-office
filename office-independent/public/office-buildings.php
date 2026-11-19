@@ -214,6 +214,36 @@ if ($detail && isset($_GET['bag_street'], $_GET['bag_from'], $_GET['bag_to'])) {
     error_log('Office buildings BAG range preview: '.get_class($bagError));
   }
 }
+// Read-only integration endpoint for the existing calculation workbench.
+// Uses the same authenticated project membership as the building detail.
+if ($detail && isset($_GET['calculation_source'])) {
+  if ($_GET['calculation_source']!=='json' || !$addressSchemaReady) {
+    http_response_code(400);
+    exit('Inventarisatiebron niet beschikbaar.');
+  }
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCalculationBridge.php';
+    $scope=(string)($_GET['source_scope']??'building');
+    $scopeId=null;
+    if ($scope!=='building') {
+      $scopeId=filter_input(INPUT_GET,'source_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if (!is_int($scopeId)) throw new InvalidArgumentException('invalid_scope_id');
+    }
+    $bridge=new \Brebo\Office\Buildings\OfficeBuildingCalculationBridge($db);
+    $source=$bridge->inventoryForCalculation($buildingId,$scope,$scopeId);
+    $source['fingerprint']=\Brebo\Office\Buildings\OfficeBuildingCalculationBridge::fingerprint($source);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($source,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+    exit;
+  } catch (InvalidArgumentException $error) {
+    http_response_code(400);
+    exit('Ongeldige inventarisatieselectie.');
+  } catch (Throwable $error) {
+    error_log('Office buildings calculation source failed: '.get_class($error));
+    http_response_code(503);
+    exit('Inventarisatiebron tijdelijk niet beschikbaar.');
+  }
+}
 // Download only after the authenticated building-access check above.
 $quantityLevel = trim((string)($_GET['quantity_level'] ?? 'building'));
 if ($detail && isset($_GET['quantity_export']) && !isset($_GET['quantity_print'])) {
