@@ -14,6 +14,37 @@ require_once __DIR__.'/OfficeBagAddressRange.php';
 final class OfficeBuildingAddressRepository {
   public function __construct(private PDO $db) {}
 
+  /** Define a reusable dwelling-type template before assigning it to addresses. */
+  public function createDwellingType(int $buildingId,string $code,string $description,?string $area=null,?array $layout=null): int {
+    $code=trim($code);
+    $description=trim($description);
+    if ($buildingId<1 || $code==='' || mb_strlen($code)>40 || $description==='' || mb_strlen($description)>255) {
+      throw new InvalidArgumentException('invalid_dwelling_type');
+    }
+    if ($area!==null && (!preg_match('/^(?:0|[1-9][0-9]{0,7})(?:\\.[0-9]{1,2})?$/D',$area) || (float)$area>99999999.99)) {
+      throw new InvalidArgumentException('invalid_dwelling_area');
+    }
+    $layoutJson=null;
+    if ($layout!==null) {
+      $layoutJson=json_encode($layout,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+      if (strlen($layoutJson)>65535) throw new InvalidArgumentException('dwelling_layout_too_large');
+    }
+    $this->db->beginTransaction();
+    try {
+      $check=$this->db->prepare('SELECT id FROM office_buildings WHERE id=? FOR UPDATE');
+      $check->execute([$buildingId]);
+      if (!$check->fetchColumn()) throw new RuntimeException('building_not_found');
+      $insert=$this->db->prepare('INSERT INTO office_building_dwelling_types (building_id,type_code,description,usable_area_m2,layout_json) VALUES (?,?,?,?,?)');
+      $insert->execute([$buildingId,$code,$description,$area,$layoutJson]);
+      $id=(int)$this->db->lastInsertId();
+      $this->db->commit();
+      return $id;
+    } catch (\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
+  }
+
   /** Insert only validated BAG documents. Duplicate BAG IDs are ignored, never overwritten. */
   public function importBagDocuments(int $buildingId, array $docs, int $first, int $last): int {
     if ($buildingId<1) throw new InvalidArgumentException('invalid_building');
