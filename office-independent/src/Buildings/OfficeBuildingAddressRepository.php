@@ -70,6 +70,34 @@ final class OfficeBuildingAddressRepository {
     }
   }
 
+  /** Replaces all levels for a maisonette or other multi-floor dwelling. */
+  public function setAddressFloors(int $buildingId,int $addressId,array $floors): void {
+    if ($buildingId<1 || $addressId<1 || count($floors)>30) {
+      throw new InvalidArgumentException('invalid_address_floors');
+    }
+    $validated=[];
+    foreach ($floors as $floor) {
+      if (!is_int($floor)) throw new InvalidArgumentException('floor_must_be_integer');
+      OfficeBuildingAddressSchema::floor($floor);
+      $validated[$floor]=$floor;
+    }
+    sort($validated,SORT_NUMERIC);
+    $this->db->beginTransaction();
+    try {
+      $check=$this->db->prepare('SELECT id FROM office_building_addresses WHERE id=? AND building_id=? FOR UPDATE');
+      $check->execute([$addressId,$buildingId]);
+      if (!$check->fetchColumn()) throw new RuntimeException('address_not_in_building');
+      $delete=$this->db->prepare('DELETE FROM office_building_address_floors WHERE address_id=?');
+      $delete->execute([$addressId]);
+      $insert=$this->db->prepare('INSERT INTO office_building_address_floors (address_id,floor_number) VALUES (?,?)');
+      foreach ($validated as $floor) $insert->execute([$addressId,$floor]);
+      $this->db->commit();
+    } catch (\\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
+  }
+
   public function assignDemarcation(int $buildingId,int $demarcationId,int $addressId): void {
     if (min($buildingId,$demarcationId,$addressId)<1) throw new InvalidArgumentException('invalid_assignment');
     $sql="INSERT IGNORE INTO office_building_demarcation_addresses (demarcation_id,address_id)
