@@ -24,6 +24,7 @@ final class OfficeBagAddressLookup {
     $data=json_decode($response,true,64,JSON_THROW_ON_ERROR);
     $docs=$data['response']['docs']??null;
     if (!is_array($docs)) throw new \RuntimeException('invalid_pdok_response');
+    if ((int)($data['response']['numFound']??0)>count($docs)) throw new \RuntimeException('pdok_results_truncated');
     $matches=OfficeBagAddressRange::select($docs,$from,$to);
     return array_values(array_filter($matches,static fn(array $row):bool=>
       mb_strtolower($row['street'])===mb_strtolower($street)
