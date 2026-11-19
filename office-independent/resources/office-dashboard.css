@@ -18,3 +18,13 @@
 .office-dash-status-key strong{margin-left:auto;font-variant-numeric:tabular-nums}
 .office-dash-status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0}
 @media(max-width:650px){.office-dash-visual-heading{display:block}.office-dash-status-keys{grid-template-columns:1fr}}
+
+
+.office-dash-bars{display:grid;gap:20px}
+.office-dash-bar-row{display:grid;gap:8px}
+.office-dash-bar-label{display:flex;justify-content:space-between;gap:16px}
+.office-dash-bar-label strong{font-variant-numeric:tabular-nums}
+.office-dash-bar-track{height:18px;background:var(--office-raised);border-radius:6px;overflow:hidden}
+.office-dash-bar-track span{display:block;height:100%;border-radius:6px}
+.office-dash-bar-track span[data-status=waiting]{background:#e5b45e}
+.office-dash-bar-track span[data-status=critical]{background:#e57c7c}

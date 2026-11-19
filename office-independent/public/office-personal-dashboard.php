@@ -140,5 +140,22 @@ if($view==='finance'){
   require_once __DIR__.'/../src/Finance/OfficeFinanceDashboard.php';
   echo \Brebo\Office\Finance\OfficeFinanceDashboard::render($suite['finance_data'],static fn(string $path,array $query=[]):string=>'/office-test/'.$path.($query?'?'.http_build_query($query):''));
 }
+if($view==='quality'){
+  // These are independent, authorized counts: they are deliberately not
+  // represented as percentages of one another or as a fabricated trend.
+  $qualityCounts=[];
+  foreach([['quality','Open kwaliteitsacties','waiting'],['deviations','Geregistreerde afwijkingen','critical'],['risks','Open projectrisico’s','critical']] as [$id,$label,$kind]){
+    $value=$widgets[$id]['value']??null;
+    if(is_int($value)&&$value>=0)$qualityCounts[]=[$label,$value,$kind];
+  }
+  if($qualityCounts){
+    $maximum=max(1,...array_column($qualityCounts,1));
+    echo '<section class="office-dash-panel office-dash-visual"><div class="office-dash-visual-heading"><div><h2>Kwaliteit & risico’s</h2><p>Actuele aantallen uit toegankelijke Office-dossiers. Geen onderlinge percentages of fictieve historie.</p></div></div><div class="office-dash-bars">';
+    foreach($qualityCounts as [$label,$value,$kind]){
+      echo '<div class="office-dash-bar-row"><div class="office-dash-bar-label"><span>'.$e($label).'</span><strong>'.$e($value).'</strong></div><div class="office-dash-bar-track" role="img" aria-label="'.$e($label).': '.$e($value).'"><span data-status="'.$kind.'" style="width:'.number_format($value/$maximum*100,4,'.','').'%"></span></div></div>';
+    }
+    echo '</div></section>';
+  }else echo '<section class="office-dash-panel"><h2>Kwaliteit & risico’s</h2><p>Grafische aantallen niet beschikbaar: de geautoriseerde bronnen leveren geen betrouwbare tellingen.</p></section>';
+}
 if($view==='quality')echo '<section class="office-dash-panel"><h2>Kennis en documenten</h2><p>Geaggregeerde inspectie- en proceshandboekstatus: niet beschikbaar. Projectdocumenten staan hierboven; documenten met meerdere contexten vereisen afzonderlijke autorisatie.</p><a href="/office-test/gebouwen">Gebouwen en inspecties ↗</a> · <a href="/office-test/documenten">Documenten ↗</a></section>';
 echo '<script>'.$script.'</script></main></body></html>';
