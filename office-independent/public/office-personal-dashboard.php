@@ -55,7 +55,7 @@ $catalog=Catalog::all();
 $selected=in_array($view,['builder','wallboard'],true)?array_values(array_intersect($board['widgets'],array_keys($widgets))):array_keys(array_filter($widgets,static fn($id)=>$catalog[$id][1]===$view,ARRAY_FILTER_USE_KEY));
 $updated='Bijgewerkt '.(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('d-m-Y H:i:s');
 $display=[];
-foreach($selected as $id){$w=$widgets[$id];$display[]=['id'=>$id,'label'=>$catalog[$id][0],'value'=>Catalog::format($id,$w['value']),'note'=>$w['note'],'tone'=>$w['tone']];}
+foreach($selected as $id){$w=$widgets[$id];$value=$w['value'];$state=$value===null?'unavailable':($value===0?'zero':'available');$note=$value===null?'Brongegevens niet beschikbaar · '.$w['note']:($value===0?'Geen registraties in deze selectie · '.$w['note']:$w['note']);$display[]=['id'=>$id,'label'=>$catalog[$id][0],'value'=>Catalog::format($id,$value),'note'=>$note,'tone'=>$w['tone'],'state'=>$state];}
 $projectVisual=null;
 $totalProjects=$widgets['projects']['value']??null;
 $criticalProjects=$widgets['critical']['value']??null;
@@ -93,7 +93,7 @@ if($monitor){
   echo '<section class="office-dash-monitor" data-wallboard data-boards="'.$e(implode(',',array_keys($state['boards']))).'"><h2>Kantooroverzicht</h2><p>Alleen vrijgegeven soorten tellingen. Geen namen, bedragen of individuele uren.</p><div class="office-dash-toolbar"><button type="button" data-fullscreen>Volledig scherm</button><button type="button" data-present aria-pressed="false">Presentatiemodus</button><span>Verversing elke minuut</span></div>';
 }
 echo '<div class="office-dash-grid" data-columns="'.(in_array($view,['builder','wallboard'],true)?(int)$board['columns']:3).'">';
-foreach($display as $w){echo '<article class="office-dash-card" data-tone="'.$e($w['tone']).'"><span>'.$e($w['label']).'</span><strong>'.$e($w['value']).'</strong><small>'.$e($w['note']).'</small>';if(isset($w['visual'])&&$w['visual']['kind']==='project-status'){
+foreach($display as $w){echo '<article class="office-dash-card" data-tone="'.$e($w['tone']).'" data-data-state="'.$e($w['state']).'"><span>'.$e($w['label']).'</span><strong>'.$e($w['value']).'</strong><small>'.$e($w['note']).'</small>';if(isset($w['visual'])&&$w['visual']['kind']==='project-status'){
   $parts=$w['visual']['parts'];$sum=array_sum(array_column($parts,'count'));
   echo '<div class="office-dash-mini-chart" role="img" aria-label="'.$e(implode(', ',array_map(static fn($p)=>$p['label'].': '.$p['count'],$parts))).'">';
   foreach($parts as $part){if($part['count']>0)echo '<span data-status="'.$e($part['tone']).'" style="width:'.number_format($part['count']/$sum*100,4,'.','').'%"></span>';}
