@@ -68,3 +68,11 @@
 .office-dash-mini-quality strong{font-size:14px;letter-spacing:0;margin-left:auto;color:var(--office-text);font-variant-numeric:tabular-nums}
 .office-dash-monitor:fullscreen .office-dash-mini-quality>div{font-size:clamp(14px,1.3vw,22px)}
 .office-dash-monitor:fullscreen .office-dash-mini-quality strong{font-size:clamp(18px,2vw,32px)}
+
+/* Dashboard acceptance polish: consistent card sizing on wide and narrow workspaces. */
+.office-dash-grid{align-items:stretch}
+.office-dash-card{min-height:164px;box-sizing:border-box}
+.office-dash-panel{box-sizing:border-box}
+@media(min-width:1500px){.office-dash-grid{gap:22px}.office-dash-card{padding:26px}}
+@media(max-width:1150px){.office-dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.office-dash-grid,.office-dash-grid[data-columns]{grid-template-columns:1fr}.office-dash-card{min-height:0}.office-dash-panel{padding:18px}}
