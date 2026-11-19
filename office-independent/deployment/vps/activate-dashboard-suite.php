@@ -51,7 +51,7 @@ if($workspace){
     'office_project_memberships'=>'project_id,operator_id,permission',
     'office_operator_accounts'=>'id,active',
     'office_project_buildings'=>'project_id,building_id',
-    'office_buildings'=>'id',
+    'office_buildings'=>'id,name,address_line,postal_code,city',
   ] as $table=>$fields){
     try{$db->query('SELECT '.$fields.' FROM '.$table.' LIMIT 0');}
     catch(Throwable){throw new RuntimeException('WORKSPACE_SCHEMA_MISSING_'.$table);}
@@ -62,14 +62,16 @@ if($workspace){
   echo "CRM_CALC_INSPECTION_WRITES=UNCHANGED\n";
 }
 if(in_array($mode,['--plan','--workspace-plan'],true)){echo "PLAN_ONLY_NO_WRITES\n";exit;}
-// Only this previously reviewed presentation table; no user or business data writes.
-$db->exec($sql);$db->query('SELECT operator_id,layout_json,updated_at FROM office_dashboard_preferences LIMIT 0');
-$record=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
-$record->execute(['vps-dashboard-preferences-v1',$checksum]);
+if(!$workspace){
+  // Dashboard-only schema changes must never run during workspace activation.
+  $db->exec($sql);$db->query('SELECT operator_id,layout_json,updated_at FROM office_dashboard_preferences LIMIT 0');
+  $record=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
+  $record->execute(['vps-dashboard-preferences-v1',$checksum]);
+}
 $new=$original;
 $flags=['OFFICE_PERSONAL_DASHBOARD_ENABLED'=>'enabled','OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED'=>'enabled','OFFICE_TEST_NAV_V2_ENABLED'=>'enabled','OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED'=>'enabled'];
-$flags=array_merge($flags,$workspaceFlags);
-if(!preg_match('/^env\[OFFICE_DASHBOARD_CSRF_SECRET\]\s*=\s*["\x27]?[a-f0-9]{64}["\x27]?\s*$/m',$original))$flags['OFFICE_DASHBOARD_CSRF_SECRET']=bin2hex(random_bytes(32));
+$flags=$workspace?$workspaceFlags:$flags;
+if(!$workspace && !preg_match('/^env\[OFFICE_DASHBOARD_CSRF_SECRET\]\s*=\s*["\x27]?[a-f0-9]{64}["\x27]?\s*$/m',$original))$flags['OFFICE_DASHBOARD_CSRF_SECRET']=bin2hex(random_bytes(32));
 foreach($flags as $key=>$value){
   $pattern='/^env\['.preg_quote($key,'/').'\]\s*=.*$/m';$line='env['.$key.'] = '.$value;
   if(preg_match($pattern,$new))$new=preg_replace($pattern,$line,$new);else $new=rtrim($new)."\n".$line."\n";
