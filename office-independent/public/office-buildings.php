@@ -267,7 +267,20 @@ if ($detail) {
     foreach (['building'=>'Hele gebouw','demarcation'=>'Demarcatie','dwelling_type'=>'Woningtype','address'=>'Adres'] as $scopeValue=>$scopeLabel) {
       echo '<option value="'.$h($scopeValue).'"'.($inventoryScope===$scopeValue?' selected':'').'>'.$h($scopeLabel).'</option>';
     }
-    echo '</select></label> <label>Bron-ID (leeg bij gebouw) <input type="number" name="inventory_scope_id" min="1" value="'.(is_int($inventoryScopeId)?$inventoryScopeId:'').'"></label> <button type="submit">Toon hoeveelheden</button></form>';
+    echo '</select></label> <label>Gekoppelde bron <select name="inventory_scope_id"><option value="">Hele gebouw / kies bron</option>';
+    foreach ($demarcationRows as $entry) {
+      $entryId=(int)$entry['id'];
+      echo '<option value="'.$entryId.'"'.($inventoryScope==='demarcation' && $inventoryScopeId===$entryId?' selected':'').'>Demarcatie: '.$h($entry['name']).'</option>';
+    }
+    foreach ($dwellingTypes as $entry) {
+      $entryId=(int)$entry['id'];
+      echo '<option value="'.$entryId.'"'.($inventoryScope==='dwelling_type' && $inventoryScopeId===$entryId?' selected':'').'>Woningtype: '.$h($entry['type_code']).'</option>';
+    }
+    foreach ($addressRows as $entry) {
+      $entryId=(int)$entry['id'];
+      echo '<option value="'.$entryId.'"'.($inventoryScope==='address' && $inventoryScopeId===$entryId?' selected':'').'>Adres: '.$h(trim($entry['street'].' '.$entry['house_number'].$entry['house_letter'].' '.$entry['house_addition'])).'</option>';
+    }
+    echo '</select></label> <button type="submit">Toon hoeveelheden</button></form>';
     if ($inventoryNotice !== '') echo '<p role="status">'.$h($inventoryNotice).'</p>';
     if ($inventoryPreview !== []) {
       echo '<table><thead><tr><th>Code</th><th>Onderdeel</th><th>Hoeveelheid</th><th>Eenheid</th></tr></thead><tbody>';
