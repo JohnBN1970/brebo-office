@@ -125,6 +125,23 @@ if ($detail) {
     error_log('Office buildings: address inventory unavailable: '.$addressError->getCode());
   }
 }
+// Read-only inventory source preview; no calculation is created here.
+$inventoryPreview = [];
+$inventoryNotice = '';
+$inventoryScope = trim((string)($_GET['inventory_scope'] ?? ''));
+$inventoryScopeId = filter_input(INPUT_GET,'inventory_scope_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+if ($detail && $addressSchemaReady && $inventoryScope !== '') {
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCalculationSource.php';
+    $inventoryPreview = (new \Brebo\Office\Buildings\OfficeBuildingCalculationSource($db))->preview(
+      $buildingId,$inventoryScope,$inventoryScope==='building' ? null : (is_int($inventoryScopeId)?$inventoryScopeId:null)
+    );
+    $inventoryNotice = count($inventoryPreview).' gegroepeerde inventarisatieregels gevonden.';
+  } catch (Throwable $inventoryError) {
+    $inventoryNotice = 'Inventarisatiebron niet beschikbaar of niet gekoppeld aan dit gebouw.';
+    error_log('Office buildings inventory preview: '.get_class($inventoryError));
+  }
+}
 // PDOK persistence readiness is advisory only; never block the building page.
 $pdokStorageReady = false;
 $pdokStorageMissing = [];
@@ -243,6 +260,24 @@ if ($detail) {
     echo '</tbody></table>';
   }
   echo '</section>';
+  if ($addressSchemaReady) {
+    echo '<section style="margin-top:20px"><h2>Inventarisatie voor Calculatie</h2><p>Controleer hoeveelheden per gebouw, demarcatie, woningtype of adres. Dit maakt nog geen calculatie aan.</p>';
+    echo '<form method="get" action="/office-test/gebouwen"><input type="hidden" name="id" value="'.(int)$buildingId.'">';
+    echo '<label>Bron <select name="inventory_scope">';
+    foreach (['building'=>'Hele gebouw','demarcation'=>'Demarcatie','dwelling_type'=>'Woningtype','address'=>'Adres'] as $scopeValue=>$scopeLabel) {
+      echo '<option value="'.$h($scopeValue).'"'.($inventoryScope===$scopeValue?' selected':'').'>'.$h($scopeLabel).'</option>';
+    }
+    echo '</select></label> <label>Bron-ID (leeg bij gebouw) <input type="number" name="inventory_scope_id" min="1" value="'.(is_int($inventoryScopeId)?$inventoryScopeId:'').'"></label> <button type="submit">Toon hoeveelheden</button></form>';
+    if ($inventoryNotice !== '') echo '<p role="status">'.$h($inventoryNotice).'</p>';
+    if ($inventoryPreview !== []) {
+      echo '<table><thead><tr><th>Code</th><th>Onderdeel</th><th>Hoeveelheid</th><th>Eenheid</th></tr></thead><tbody>';
+      foreach ($inventoryPreview as $item) {
+        echo '<tr><td>'.$h($item['component_code']).'</td><td>'.$h($item['description']).'</td><td>'.$h($item['quantity']).'</td><td>'.$h($item['unit']).'</td></tr>';
+      }
+      echo '</tbody></table>';
+    }
+    echo '</section>';
+  }
   // Render the saved location on every detail visit, not only after a new PDOK search.
   if (is_numeric($selectedBuilding['latitude'] ?? null) && is_numeric($selectedBuilding['longitude'] ?? null)) {
     $savedLat = (float)$selectedBuilding['latitude'];
