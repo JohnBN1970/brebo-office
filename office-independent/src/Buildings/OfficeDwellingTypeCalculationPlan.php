@@ -82,6 +82,53 @@ final class OfficeDwellingTypeCalculationPlan {
     return $result;
   }
 
+  /**
+   * Summarize expanded address proposals into purchasing/work-package quantities.
+   * Distinct recipe identifiers remain separate even for identical component codes.
+   * This is not a priced calculation; recipe pricing stays in the workbench.
+   */
+  public static function aggregate(array $expandedLines): array {
+    $groups=[];
+    foreach ($expandedLines as $line) {
+      $typeId=(int)($line['dwelling_type_id']??0);
+      $addressId=(int)($line['address_id']??0);
+      $key=trim((string)($line['line_key']??''));
+      $unit=trim((string)($line['unit']??''));
+      $recipe=$line['recipe_id']??null;
+      if ($typeId<1 || $addressId<1 || $key==='' || $unit==='') {
+        throw new InvalidArgumentException('invalid_expanded_calculation_line');
+      }
+      $quantity=self::quantity($line['quantity']??null);
+      $signature=json_encode([$typeId,$key,$unit,$recipe,$line['component_code']??'',$line['description']??''],JSON_THROW_ON_ERROR);
+      if (!isset($groups[$signature])) {
+        $groups[$signature]=[
+          'dwelling_type_id'=>$typeId,
+          'line_key'=>$key,
+          'component_code'=>(string)($line['component_code']??''),
+          'description'=>(string)($line['description']??''),
+          'unit'=>$unit,
+          'recipe_id'=>$recipe,
+          'quantity'=>0.0,
+          'address_ids'=>[],
+          'requires_recipe'=>$recipe===null,
+        ];
+      }
+      if (isset($groups[$signature]['address_ids'][$addressId])) {
+        throw new InvalidArgumentException('duplicate_address_line');
+      }
+      $groups[$signature]['quantity']+=$quantity;
+      $groups[$signature]['address_ids'][$addressId]=true;
+    }
+    $result=[];
+    foreach ($groups as $group) {
+      $group['address_count']=count($group['address_ids']);
+      $group['address_ids']=array_map('intval',array_keys($group['address_ids']));
+      sort($group['address_ids'],SORT_NUMERIC);
+      $result[]=$group;
+    }
+    return $result;
+  }
+
   private static function quantity(mixed $value): float {
     if (!is_numeric($value) || !is_finite((float)$value) || (float)$value<0) {
       throw new InvalidArgumentException('invalid_quantity');
