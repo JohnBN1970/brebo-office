@@ -48,8 +48,8 @@ final class OfficeCalculationLineApprovalRepository {
   public function save(int $draftId,int $lineId,int $actorId,array $state,string $event,string $note=''): void {
     if (!$this->db->inTransaction()) throw new DomainException('approval_requires_locked_transaction');
     if ($draftId<1 || $lineId<1 || $actorId<1
-      || !in_array($event,['reviewed','released','revision_invalidated'],true)
-      || !in_array($state['status']??'', ['draft','reviewed','released'],true)
+      || !in_array($event,['submitted','reviewed','rejected','released','revision_invalidated'],true)
+      || !in_array($state['status']??'', ['draft','submitted','reviewed','rejected','released'],true)
       || !preg_match('/^[a-f0-9]{64}$/D',(string)($state['fingerprint']??''))
       || (int)($state['author_id']??0)<1
       || mb_strlen($note)>1000) throw new DomainException('invalid_approval_event');
