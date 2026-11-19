@@ -12,8 +12,44 @@ use DomainException;
  */
 final class OfficeCalculationLineApproval {
   public const DRAFT='draft';
+  public const SUBMITTED='submitted';
+  public const REJECTED='rejected';
   public const REVIEWED='reviewed';
   public const RELEASED='released';
+
+  /** Calculator submits an editable draft line for independent review. */
+  public static function submit(array $line,int $actorId,string $currentFingerprint): array {
+    self::assertActor($actorId);
+    self::assertFingerprint($currentFingerprint);
+    if ((int)($line['author_id']??0)!==$actorId) throw new DomainException('only_author_can_submit');
+    if (($line['status']??self::DRAFT)===self::RELEASED) throw new DomainException('released_line_requires_new_revision');
+    $line['status']=self::SUBMITTED;
+    $line['fingerprint']=$currentFingerprint;
+    $line['submitted_by']=$actorId;
+    $line['submitted_at']=gmdate('c');
+    unset($line['reviewed_by'],$line['reviewed_at'],$line['review_note'],$line['released_by'],$line['released_at'],$line['release_note'],$line['rejected_by'],$line['rejected_at'],$line['rejection_note']);
+    return $line;
+  }
+
+  /** A red decision must explain what the calculator needs to correct. */
+  public static function reject(array $line,int $actorId,string $currentFingerprint,string $note,int $authorId,int $verifiedAuthorRank,int $verifiedReviewerRank): array {
+    self::assertIndependentReviewer($line,$actorId,$authorId,$verifiedAuthorRank,$verifiedReviewerRank);
+    self::assertFingerprint($currentFingerprint);
+    if (($line['status']??null)!==self::SUBMITTED || !hash_equals((string)($line['fingerprint']??''),$currentFingerprint)) throw new DomainException('line_submission_outdated');
+    $note=trim($note);
+    if ($note==='' || mb_strlen($note)>1000) throw new DomainException('rejection_note_required');
+    $line['status']=self::REJECTED;
+    $line['rejected_by']=$actorId;
+    $line['rejected_at']=gmdate('c');
+    $line['rejection_note']=$note;
+    unset($line['reviewed_by'],$line['reviewed_at'],$line['review_note'],$line['released_by'],$line['released_at'],$line['release_note'],$line['rejected_by'],$line['rejected_at'],$line['rejection_note'],$line['submitted_by'],$line['submitted_at']);
+    return $line;
+  }
+
+  private static function assertIndependentReviewer(array $line,int $actorId,int $authorId,int $authorRank,int $reviewerRank): void {
+    self::assertActor($actorId);
+    if ($authorId<1 || $actorId===$authorId || $reviewerRank<=$authorRank || (int)($line['author_id']??0)!==$authorId) throw new DomainException('higher_independent_reviewer_required');
+  }
 
   public static function review(array $line,int $actorId,string $currentFingerprint,string $note='',?int $authorId=null,?int $verifiedAuthorRank=null,?int $verifiedReviewerRank=null): array {
     self::assertActor($actorId);
@@ -28,6 +64,7 @@ final class OfficeCalculationLineApproval {
       throw new DomainException('line_author_mismatch');
     }
     $line['author_id']=$authorId;
+    if (($line['status']??null)!==self::SUBMITTED || !hash_equals((string)($line['fingerprint']??''),$currentFingerprint)) throw new DomainException('line_submission_outdated');
     if (($line['status']??self::DRAFT)===self::RELEASED) {
       throw new DomainException('released_line_requires_new_revision');
     }
@@ -36,7 +73,7 @@ final class OfficeCalculationLineApproval {
     $line['reviewed_by']=$actorId;
     $line['reviewed_at']=gmdate('c');
     $line['review_note']=trim($note);
-    unset($line['released_by'],$line['released_at'],$line['release_note']);
+    unset($line['released_by'],$line['released_at'],$line['release_note'],$line['rejected_by'],$line['rejected_at'],$line['rejection_note']);
     return $line;
   }
 
