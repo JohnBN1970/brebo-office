@@ -216,7 +216,7 @@ if ($detail && isset($_GET['bag_street'], $_GET['bag_from'], $_GET['bag_to'])) {
 }
 // Download only after the authenticated building-access check above.
 $quantityLevel = trim((string)($_GET['quantity_level'] ?? 'building'));
-if ($detail && isset($_GET['quantity_export'])) {
+if ($detail && isset($_GET['quantity_export']) && !isset($_GET['quantity_print'])) {
   if ($_GET['quantity_export'] !== 'csv' || !$addressSchemaReady) {
     http_response_code(400);
     exit('Rapportage niet beschikbaar.');
@@ -259,7 +259,7 @@ if ($detail && isset($_GET['quantity_print'])) {
   $levels=['building'=>'Gebouw','location'=>'Fysieke locatie','dwelling_type'=>'Woningtype','floor'=>'Bouwlaag','address'=>'Adres','component'=>'Bouwdeel'];
   header('Content-Type: text/html; charset=utf-8');
   echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hoeveelhedenstaat BREBO</title><style>body{font:14px Arial,sans-serif;margin:24px;color:#1b2634}h1{color:#243d7c}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #bbb;padding:8px;text-align:left}th{background:#edf0f7}@media print{.actions{display:none}body{margin:10mm}thead{display:table-header-group}tr{break-inside:avoid}}</style></head><body>';
-  echo '<div class="actions"><button type="button" onclick="window.print()">Afdrukken / opslaan als PDF</button> <a href="/office-test/gebouwen?id='.(int)$buildingId.'">Terug</a></div>';
+  echo '<div class="actions"><span>Gebruik de afdrukfunctie van je browser om af te drukken of als PDF op te slaan.</span> <a href="/office-test/gebouwen?id='.(int)$buildingId.'">Terug</a></div>';
   echo '<h1>BREBO — Hoeveelhedenstaat</h1><p>Gebouw: '.$escape($selectedBuilding['building_name']).' · Niveau: '.$escape($levels[$quantityLevel]).' · Datum: '.date('d-m-Y').'</p>';
   echo '<table><thead><tr><th>Groep</th><th>Code</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Eenheid</th></tr></thead><tbody>';
   foreach ($printRows as $item) {
