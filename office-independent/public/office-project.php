@@ -572,8 +572,41 @@ if (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
   }
   $inspectionActions .= '</div>';
 }
+// Read-only quantity preview: existing canonical housing scopes, never Calc price writes.
+$housingQuantityHtml = '';
+if ($activeTab === 'werkvoorbereiding' && \Brebo\Office\Intake\OfficeMount::isTest()
+    && $housingTypes !== null && $calculationScopes !== null) {
+  try {
+    $quantitySchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_scope_quantity_lines'");
+    if ((int)$quantitySchema->fetchColumn() === 1) {
+      require_once dirname(__DIR__) . '/src/Project/OfficeCalcHousingQuantityReader.php';
+      $quantityPreview = (new \Brebo\Office\Project\OfficeCalcHousingQuantityReader($db))->forProject($projectId);
+      $housingQuantityHtml = '<section><h3>Onderdelen per woningtype</h3><p>Hoeveelheden per woning vanuit de gebouwinventarisatie; geen automatische prijswijzigingen.</p>';
+      foreach ($quantityPreview['scopes'] as $quantityScope) {
+        $housingQuantityHtml .= '<h4>' . $escape($quantityScope['housing_name']) . ' (' . $escape($quantityScope['housing_code']) . ')</h4>'
+          . '<p>Woningen: ' . (int)$quantityScope['dwelling_count'] . ' · '
+          . ($quantityScope['calculation_id'] === null ? 'Calculatie nog niet gekoppeld' : $calcOpenLink((int)$quantityScope['calculation_id'])) . '</p>';
+        if ($quantityScope['lines'] === []) {
+          $housingQuantityHtml .= '<p>Nog geen onderdelenregels geïnventariseerd.</p>';
+          continue;
+        }
+        $housingQuantityHtml .= '<table><thead><tr><th>Code</th><th>Onderdeel</th><th>Eenheid</th><th>Per woning</th></tr></thead><tbody>';
+        foreach ($quantityScope['lines'] as $quantityLine) {
+          $housingQuantityHtml .= '<tr><td>' . $escape($quantityLine['code']) . '</td><td>'
+            . $escape($quantityLine['description']) . '</td><td>' . $escape($quantityLine['unit'])
+            . '</td><td>' . $escape($quantityLine['quantity_per_dwelling']) . '</td></tr>';
+        }
+        $housingQuantityHtml .= '</tbody></table>';
+      }
+      if ($quantityPreview['scopes'] === []) $housingQuantityHtml .= '<p>Nog geen woningtype-deelcalculaties voorbereid.</p>';
+      $housingQuantityHtml .= '</section>';
+    }
+  } catch (\Throwable $quantityPreviewError) {
+    $housingQuantityHtml = '<section><h3>Onderdelen per woningtype</h3><p>Onderdelenoverzicht tijdelijk niet beschikbaar.</p></section>';
+  }
+}
 $workbenchHtml = '<div id="project-werkbank"><h2>Werkvoorbereiding</h2>'
-  . $calcBuildingTruthHtml . $calcLinkHtml . $scopeHtml
+  . $calcBuildingTruthHtml . $calcLinkHtml . $housingQuantityHtml . $scopeHtml
   . '</div>'
 ;
 // The native project controller owns the complete authenticated kickstart flow.
