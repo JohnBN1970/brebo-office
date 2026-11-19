@@ -87,6 +87,27 @@ if($view==='builder'){
   echo '</section>';
 }
 if($view==='projects'){
+  // A real, scope-aware project-status visualization. Never infer status from an
+  // eight-hour reference or substitute sample values for missing Office data.
+  $total=$widgets['projects']['value']??null;
+  $critical=$widgets['critical']['value']??null;
+  $waiting=$widgets['waiting']['value']??null;
+  if(is_int($total)&&is_int($critical)&&is_int($waiting)&&$total>0&&$critical>=0&&$waiting>=0&&$critical+$waiting<=$total){
+    $onTrack=$total-$critical-$waiting;
+    echo '<section class="office-dash-panel office-dash-visual"><div class="office-dash-visual-heading"><div><h2>Projectstatus</h2><p>Verdeling van toegankelijke projecten op basis van de actuele Office-statussen.</p></div><a href="/office-test/projecten?view=gantt">Bekijk projectplanning ↗</a></div>';
+    echo '<div class="office-dash-status-track" role="img" aria-label="'.$e($onTrack).' overige projecten, '.$e($waiting).' in wacht en '.$e($critical).' kritiek">';
+    foreach([['ontrack',$onTrack],['waiting',$waiting],['critical',$critical]] as [$kind,$count]){
+      if($count===0)continue;
+      echo '<span class="office-dash-status-segment" data-status="'.$kind.'" style="width:'.number_format($count/$total*100,4,'.','').'%"></span>';
+    }
+    echo '</div><div class="office-dash-status-keys">';
+    foreach([['ontrack','Overige projecten',$onTrack],['waiting','In wacht',$waiting],['critical','Kritiek',$critical]] as [$kind,$label,$count]){
+      echo '<div class="office-dash-status-key"><span class="office-dash-status-dot" data-status="'.$kind.'"></span><span>'.$e($label).'</span><strong>'.$e($count).'</strong></div>';
+    }
+    echo '</div></section>';
+  }else{
+    echo '<section class="office-dash-panel"><h2>Projectstatus</h2><p>Verdeling niet beschikbaar: de actuele projectstatussen zijn niet volledig beschikbaar.</p></section>';
+  }
   if($suite['finance']){
     echo '<section class="office-dash-panel"><h2>Werkbegroting versus realisatie</h2><table><thead><tr><th>Project</th><th>Vergrendelde begroting</th><th>Gereconcilieerde realisatie</th></tr></thead><tbody>';
     foreach($suite['budget_rows'] as $row)echo '<tr><td><a href="/office-test/projecten/detail?id='.(int)$row['id'].'&amp;tab=werkbegroting">'.$e($row['title']).'</a></td><td>'.$e(Catalog::format('budget',$row['data']['kpis']['baseline_cents']??null)).'</td><td>'.$e(Catalog::format('budget',$row['data']['kpis']['actual_cents']??null)).'</td></tr>';
