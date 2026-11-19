@@ -71,12 +71,14 @@ foreach($display as &$entry){if($entry['id']==='projects'&&$projectVisual!==null
 unset($entry);
 // Independent quality counts, never a percentage or invented total.
 // Monitor-visible values are restricted by the existing catalog allowlist.
-$qualityParts=[];
+$qualityParts=[];$qualityComplete=true;
 foreach([['quality','Acties','waiting'],['deviations','Afwijkingen','critical'],['risks','Risico’s','critical']] as [$id,$label,$tone]){
   $value=$widgets[$id]['value']??null;
-  if(is_int($value)&&$value>=0)$qualityParts[]=['label'=>$label,'count'=>$value,'tone'=>$tone];
+  if(!is_int($value)||$value<0){$qualityComplete=false;break;}
+  $qualityParts[]=['label'=>$label,'count'=>$value,'tone'=>$tone];
 }
-if($qualityParts){
+// A partial chart would silently present missing governance sources as zero.
+if($qualityComplete&&count($qualityParts)===3){
   foreach($display as &$entry){
     if($entry['id']==='quality')$entry['visual']=['kind'=>'quality-counts','parts'=>$qualityParts];
   }
