@@ -160,6 +160,43 @@ foreach (array_merge(\Brebo\Office\Finance\Center\Schema::statements(),\Brebo\Of
 $db->query('SELECT invoice_email,offer_email,billing_street,billing_postal_code,billing_city,billing_country_code FROM office_crm_relations WHERE 1=0');
 echo "OFFICE_TEST_NATIVE_FINANCE_SCHEMA_PASS\n";
 
+// Register the reviewed native purchase schema from PR #1973. Never alter existing invoice data.
+$purchaseSchemaFile=$candidate.'/deployment/sql/20261118_native_purchase_invoices.sql';
+if (!is_file($purchaseSchemaFile)) throw new RuntimeException('FINANCE_PURCHASE_SCHEMA_SOURCE_MISSING');
+$purchaseSql=(string)file_get_contents($purchaseSchemaFile);
+$purchaseSql=preg_replace('/^\\s*--[^\\n]*$/m','',$purchaseSql);
+$purchaseStatements=array_values(array_filter(array_map('trim',explode(';',$purchaseSql))));
+$purchaseTables=['office_finance_invoices','office_finance_invoice_lines','office_finance_invoice_events','office_finance_invoice_documents'];
+if (count($purchaseStatements)!==count($purchaseTables)) throw new RuntimeException('FINANCE_PURCHASE_MIGRATION_SCOPE_INVALID');
+foreach ($purchaseStatements as $i=>$statement) {
+    if (!preg_match('/^CREATE TABLE IF NOT EXISTS '.preg_quote($purchaseTables[$i],'/').'\\s*\\(/D',$statement)) throw new RuntimeException('UNREVIEWED_FINANCE_PURCHASE_MIGRATION');
+}
+$purchaseId='finance-native-purchase-invoices-v1';
+$purchaseHash=hash_file('sha256',$purchaseSchemaFile);
+$purchasePrior=budgetMigrationChecksum($db,$purchaseId);
+if ($purchasePrior!==false && !hash_equals((string)$purchasePrior,$purchaseHash)) throw new RuntimeException('FINANCE_PURCHASE_MIGRATION_CHECKSUM_CHANGED');
+// CREATE TABLE IF NOT EXISTS cannot validate an existing table; reject partial or incompatible schemas.
+$purchaseExpected=[
+ 'office_finance_invoices'=>['id','supplier_id','supplier_name','invoice_number','invoice_date','due_date','currency','subtotal','vat_total','total','status','created_by','created_at'],
+ 'office_finance_invoice_lines'=>['id','invoice_id','line_number','description','quantity','unit','unit_price','net_amount','vat_rate','vat_amount','office_project_id'],
+ 'office_finance_invoice_events'=>['id','invoice_id','event_type','operator_id','event_data','created_at'],
+ 'office_finance_invoice_documents'=>['id','invoice_id','document_id','document_reference','created_at'],
+];
+$purchaseColumns=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION');
+foreach ($purchaseExpected as $table=>$expected) {
+    $purchaseColumns->execute([$table]);
+    $existing=$purchaseColumns->fetchAll(PDO::FETCH_COLUMN);
+    if ($existing!==[] && $existing!==$expected) throw new RuntimeException('FINANCE_PURCHASE_SCHEMA_MISMATCH='.$table);
+}
+foreach ($purchaseStatements as $statement) $db->exec($statement);
+foreach ($purchaseExpected as $table=>$expected) {
+    $purchaseColumns->execute([$table]);
+    if ($purchaseColumns->fetchAll(PDO::FETCH_COLUMN)!==$expected) throw new RuntimeException('FINANCE_PURCHASE_SCHEMA_UNVERIFIED='.$table);
+}
+$q=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
+$q->execute([$purchaseId,$purchaseHash]);
+echo "OFFICE_TEST_FINANCE_PURCHASE_SCHEMA_PASS\\n";
+
 // Presentation preferences reuse the existing dashboard table; no business records are changed.
 require_once $candidate.'/src/Dashboard/OfficeDashboardPreferences.php';
 $dashboardSql=\Brebo\Office\Dashboard\OfficeDashboardPreferences::schema();
