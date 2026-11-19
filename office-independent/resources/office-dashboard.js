@@ -61,6 +61,27 @@
             article.append(graphic);
           }
         }
+        if (widget.visual?.kind === 'quality-counts' && Array.isArray(widget.visual.parts)) {
+          const parts = widget.visual.parts;
+          if (parts.length > 0 && parts.length <= 3 && parts.every(part => Number.isInteger(part.count) && part.count >= 0 && ['waiting', 'critical'].includes(part.tone) && typeof part.label === 'string')) {
+            const summary = document.createElement('div');
+            summary.className = 'office-dash-mini-quality';
+            summary.setAttribute('aria-label', 'Kwaliteitsstatus');
+            for (const part of parts) {
+              const line = document.createElement('div');
+              const dot = document.createElement('span');
+              dot.className = 'office-dash-status-dot';
+              dot.dataset.status = part.tone;
+              const label = document.createElement('span');
+              label.textContent = part.label;
+              const count = document.createElement('strong');
+              count.textContent = String(part.count);
+              line.append(dot, label, count);
+              summary.append(line);
+            }
+            article.append(summary);
+          }
+        }
         grid.append(article);
       }
       grid.dataset.columns = String(data.columns);
