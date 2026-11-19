@@ -240,6 +240,34 @@ if ($detail && isset($_GET['quantity_export'])) {
     exit('Rapportage tijdelijk niet beschikbaar.');
   }
 }
+// Printable quantity statement: authenticated, building-scoped, and unpriced.
+if ($detail && isset($_GET['quantity_print'])) {
+  if ($_GET['quantity_print'] !== '1' || !$addressSchemaReady) {
+    http_response_code(400);
+    exit('Rapportage niet beschikbaar.');
+  }
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingQuantityReport.php';
+    $printRows=(new \Brebo\Office\Buildings\OfficeBuildingQuantityReport($db))->rows($buildingId,$quantityLevel);
+  } catch (InvalidArgumentException $error) {
+    http_response_code(400); exit('Ongeldig rapportageniveau.');
+  } catch (Throwable $error) {
+    error_log('Office buildings print failed: '.get_class($error));
+    http_response_code(503); exit('Rapportage tijdelijk niet beschikbaar.');
+  }
+  $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+  $levels=['building'=>'Gebouw','location'=>'Fysieke locatie','dwelling_type'=>'Woningtype','floor'=>'Bouwlaag','address'=>'Adres','component'=>'Bouwdeel'];
+  header('Content-Type: text/html; charset=utf-8');
+  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hoeveelhedenstaat BREBO</title><style>body{font:14px Arial,sans-serif;margin:24px;color:#1b2634}h1{color:#243d7c}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #bbb;padding:8px;text-align:left}th{background:#edf0f7}@media print{.actions{display:none}body{margin:10mm}thead{display:table-header-group}tr{break-inside:avoid}}</style></head><body>';
+  echo '<div class="actions"><button type="button" onclick="window.print()">Afdrukken / opslaan als PDF</button> <a href="/office-test/gebouwen?id='.(int)$buildingId.'">Terug</a></div>';
+  echo '<h1>BREBO — Hoeveelhedenstaat</h1><p>Gebouw: '.$escape($selectedBuilding['building_name']).' · Niveau: '.$escape($levels[$quantityLevel]).' · Datum: '.date('d-m-Y').'</p>';
+  echo '<table><thead><tr><th>Groep</th><th>Code</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Eenheid</th></tr></thead><tbody>';
+  foreach ($printRows as $item) {
+    echo '<tr><td>'.$escape($item['group_label']).'</td><td>'.$escape($item['component_code']).'</td><td>'.$escape($item['description']).'</td><td>'.$escape($item['quantity']).'</td><td>'.$escape($item['unit']).'</td></tr>';
+  }
+  echo '</tbody></table><p>Ongeprijsde inventarisatiestaat. Geen vastgelegde calculatie of werkbegroting.</p></body></html>';
+  exit;
+}
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
@@ -324,7 +352,7 @@ if ($detail) {
     foreach (['building'=>'Gebouw','location'=>'Fysieke locatie','dwelling_type'=>'Woningtype','floor'=>'Bouwlaag','address'=>'Adres','component'=>'Bouwdeel'] as $key=>$label) {
       echo '<option value="'.$h($key).'">'.$h($label).'</option>';
     }
-    echo '</select></label> <button type="submit">Download Excel-compatibele CSV</button></form></section>';
+    echo '</select></label> <button type="submit">Download Excel-compatibele CSV</button> <button type="submit" name="quantity_print" value="1" formaction="/office-test/gebouwen" formmethod="get">Afdrukken / PDF</button></form></section>';
   }
   // Render the saved location on every detail visit, not only after a new PDOK search.
   if (is_numeric($selectedBuilding['latitude'] ?? null) && is_numeric($selectedBuilding['longitude'] ?? null)) {
