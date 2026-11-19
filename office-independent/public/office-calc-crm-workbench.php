@@ -132,8 +132,10 @@ try {
         $reviewerRank=filter_var($ranks[(string)$actor]??null,FILTER_VALIDATE_INT);
         // Organogram position alone is never an approval mandate (BMS O-007).
         // Until the canonical BMS mandate adapter is connected, keep review writes disabled.
-        if(getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')!=='enabled')$deny(403,'MANDATE_NOT_VERIFIED');
-        if(!is_int($authorRank)||!is_int($reviewerRank))$deny(403,'RANK_UNVERIFIED');
+        if($action!=='approval_submit'){
+            if(getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')!=='enabled')$deny(403,'MANDATE_NOT_VERIFIED');
+            if(!is_int($authorRank)||!is_int($reviewerRank))$deny(403,'RANK_UNVERIFIED');
+        }
         $note=trim((string)($_POST['approval_note']??''));
         if(mb_strlen($note)>1000)$deny(400,'NOTE_TOO_LONG');
         $db->beginTransaction();
