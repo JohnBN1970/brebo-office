@@ -45,6 +45,34 @@ final class OfficeBuildingAddressRepository {
     }
   }
 
+  /** Register a physical location such as a facade, roof or stairwell. */
+  public function createPhysicalLocation(int $buildingId,string $category,string $name,string $description=''): int {
+    require_once __DIR__.'/OfficeBuildingPhysicalLocation.php';
+    OfficeBuildingPhysicalLocation::category($category);
+    $name=trim($name);
+    $description=trim($description);
+    if ($buildingId<1 || $name==='' || mb_strlen($name)>160 || mb_strlen($description)>5000) {
+      throw new InvalidArgumentException('invalid_physical_location');
+    }
+    $this->db->beginTransaction();
+    try {
+      $check=$this->db->prepare('SELECT id FROM office_buildings WHERE id=? FOR UPDATE');
+      $check->execute([$buildingId]);
+      if (!$check->fetchColumn()) throw new RuntimeException('building_not_found');
+      // Store the category as a machine-readable prefix until a dedicated
+      // category column is introduced through an explicit test migration.
+      $storedDescription='['.$category.']'.($description!==''?' '.$description:'');
+      $insert=$this->db->prepare('INSERT INTO office_building_demarcations (building_id,name,description) VALUES (?,?,?)');
+      $insert->execute([$buildingId,$name,$storedDescription]);
+      $id=(int)$this->db->lastInsertId();
+      $this->db->commit();
+      return $id;
+    } catch (\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
+  }
+
   /** Insert only validated BAG documents. Duplicate BAG IDs are ignored, never overwritten. */
   public function importBagDocuments(int $buildingId, array $docs, int $first, int $last): int {
     if ($buildingId<1) throw new InvalidArgumentException('invalid_building');
