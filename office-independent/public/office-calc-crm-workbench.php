@@ -279,6 +279,18 @@ if($materialSource!==null){
     try{if($materialQuery!=='')$materialRows=$catalog->search($materialQuery,null,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'),0,null,true);}catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
     $materialRows=array_slice($materialRows,0,50);
 }
+// Approval status is read-only until verified Office hierarchy and write ACL are wired.
+$approvalStates=[];
+$approvalDisplayEnabled=getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')==='enabled' && getenv('OFFICE_CALC_LINE_APPROVAL_SCHEMA_VERIFIED')==='enabled';
+if($approvalDisplayEnabled){
+    try{
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApprovalRepository.php';
+        $approvalRepo=new \Brebo\Office\Calculation\OfficeCalculationLineApprovalRepository($db);
+        foreach($approvalRepo->listForDraft($draft) as $approval){
+            $approvalStates[(string)$approval['calculation_line_id']]=$approval;
+        }
+    }catch(Throwable){$approvalDisplayEnabled=false;$approvalStates=[];}
+}
 $editId=filter_input(INPUT_GET,'edit_line_id',FILTER_UNSAFE_RAW);
 $edit=null;
 if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
@@ -373,12 +385,18 @@ if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
     }
     echo '</section>';
 }
-echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Calculatieregels</strong> <button type="button" id="calc-lines-expand" class="calc-grid-action">Alle details tonen</button> <button type="button" id="calc-lines-collapse" class="calc-grid-action">Alle details verbergen</button> <span class="calc-grid-hint">Omschrijving en totaal blijven zichtbaar; per regel uitklappen.</span></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Calculatieregels</strong> <button type="button" id="calc-lines-expand" class="calc-grid-action">Alle details tonen</button> <button type="button" id="calc-lines-collapse" class="calc-grid-action">Alle details verbergen</button> <span class="calc-grid-hint">Omschrijving en totaal blijven zichtbaar; per regel uitklappen.</span></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Controle</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
 foreach($lines as $line) {
     ++$rowNumber;
+    $approval=$approvalDisplayEnabled?($approvalStates[(string)($line['id']??'')]??null):null;
+    $approvalStatus=$approval===null?'Niet gecontroleerd':match((string)$approval['status']){
+        'reviewed'=>'Gecontroleerd - wacht op vrijgave',
+        'released'=>'Vrijgegeven',
+        default=>'Niet gecontroleerd'
+    };
     $unitSum='0.0000';
     foreach(['labor','material','equipment','subcontract','other'] as $componentKind){
         $unitSum=bcadd($unitSum,(string)($line['cost_components'][$componentKind]??((string)$line['cost_type']===$componentKind?(string)$line['unit_cost_decimal']:'0')),4);
@@ -421,7 +439,7 @@ foreach($lines as $line) {
             echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" min="0" step="0.0001" name="component_'.$kind.'" value="'.$h($amount).'" aria-label="'.$h($typeLabels[$kind]).' per eenheid"'.(!$collaborationEnabled?' disabled':'').'></td>';
         }
         echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
-        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
+        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).'</td>';
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
     }else{
         echo '<tr class="calc-collapsible-line" data-calc-row="'.$rowNumber.'"><td><button type="button" class="calc-line-toggle" aria-expanded="false" aria-controls="calc-line-detail-'.$rowNumber.'" aria-label="Kostenopbouw regel '.$rowNumber.' tonen">▸</button> '.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td>'.$h((string)($line['labor_rate_code']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
@@ -429,8 +447,8 @@ foreach($lines as $line) {
             $component=(string)($line['cost_components'][$kind]??'0');
             echo '<td class="numeric">€ '.number_format((float)$component,$collaborationEnabled?4:2,',','.').'</td>';
         }
-        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
-        echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="19"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+        echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="20"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
         foreach($costCells as $kind){
             $component=(string)($line['cost_components'][$kind]??((string)$line['cost_type']===$kind?(string)$line['unit_cost_decimal']:'0'));
             $componentDisplay=number_format((float)$component,$collaborationEnabled?4:2,',','.');
