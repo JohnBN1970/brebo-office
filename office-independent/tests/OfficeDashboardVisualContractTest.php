@@ -17,6 +17,7 @@ $requiredPhp=[
   "is_int(\$totalProjects)",
   "is_int(\$criticalProjects)",
   "is_int(\$waitingProjects)",
+  "'count'=>\$totalProjects-\$criticalProjects-\$waitingProjects,'tone'=>'ontrack'",
   "if(is_int(\$value)&&\$value>=0)",
 ];
 foreach($requiredPhp as $needle)if(!str_contains($php,$needle))throw new RuntimeException("Visual KPI source contract missing: $needle");

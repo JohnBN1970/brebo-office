@@ -62,7 +62,7 @@ $criticalProjects=$widgets['critical']['value']??null;
 $waitingProjects=$widgets['waiting']['value']??null;
 if(is_int($totalProjects)&&$totalProjects>0&&is_int($criticalProjects)&&is_int($waitingProjects)&&$criticalProjects>=0&&$waitingProjects>=0&&$criticalProjects+$waitingProjects<=$totalProjects){
   $projectVisual=['kind'=>'project-status','parts'=>[
-    ['label'=>'Overig','count'=>$totalProjects-$criticalProjects,'tone'=>'ontrack'],
+    ['label'=>'Overig','count'=>$totalProjects-$criticalProjects-$waitingProjects,'tone'=>'ontrack'],
     ['label'=>'In wacht','count'=>$waitingProjects,'tone'=>'waiting'],
     ['label'=>'Kritiek','count'=>$criticalProjects,'tone'=>'critical']
   ]];
