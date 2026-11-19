@@ -40,6 +40,8 @@ jobs:
           echo OFFICE_SOURCE_LINT_PASS
       - name: Verify canonical Calc building truth reader
         run: php office-independent/tests/OfficeCalcBuildingTruthReaderTest.php
+      - name: Verify Calc housing quantity read contract
+        run: php office-independent/tests/OfficeCalcHousingQuantityReaderTest.php
       - name: Validate calculation arithmetic contracts
         run: |
           set -euo pipefail
