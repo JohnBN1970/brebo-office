@@ -3,7 +3,8 @@ declare(strict_types=1);
 /** Explicit privileged activation for the existing isolated VPS PHP-FPM pool. */
 if(PHP_SAPI!=='cli'||!function_exists('posix_geteuid')||posix_geteuid()!==0){fwrite(STDERR,"ROOT_CLI_REQUIRED\n");exit(10);}
 $mode=$argv[1]??'';
-if(!in_array($mode,['--plan','--apply'],true)){fwrite(STDERR,"Use --plan or --apply\n");exit(11);}
+if(!in_array($mode,['--plan','--apply','--workspace-plan','--workspace-apply'],true)){fwrite(STDERR,"Use --plan, --apply, --workspace-plan or --workspace-apply\n");exit(11);}
+$workspace=str_starts_with($mode,'--workspace-');
 set_exception_handler(static function(Throwable $e):void{fwrite(STDERR,'DASHBOARD_ACTIVATION_FAILED='.($e instanceof RuntimeException?$e->getMessage():get_class($e))."\n");exit(1);});
 function demandDashboard(bool $ok,string $reason):void{if(!$ok)throw new RuntimeException($reason);}
 function rootDashboardFile(string $path):string{
@@ -41,13 +42,33 @@ if($columns!==[])demandDashboard(array_keys($columns)===['operator_id','layout_j
 echo 'VPS_DASHBOARD_RELEASE='.basename($release)."\n";
 echo 'VPS_DASHBOARD_SCHEMA='.($columns===[]?'CREATE_ADDITIVE':'PRESENT')."\n";
 echo "VPS_DASHBOARD_FLAGS=PERSONAL_DASHBOARD,PREFERENCES_SCHEMA,NAV_V2,UI_V2\n";
-if($mode==='--plan'){echo "PLAN_ONLY_NO_WRITES\n";exit;}
+$workspaceFlags=[];
+if($workspace){
+  // Verify the existing project foundation before exposing its routes. No grants,
+  // schema, accounts or business records are created by workspace activation.
+  foreach([
+    'office_projects'=>'id,code,title,status',
+    'office_project_memberships'=>'project_id,operator_id,permission',
+    'office_operator_accounts'=>'id,active',
+    'office_project_buildings'=>'project_id,building_id',
+    'office_buildings'=>'id',
+  ] as $table=>$fields){
+    try{$db->query('SELECT '.$fields.' FROM '.$table.' LIMIT 0');}
+    catch(Throwable){throw new RuntimeException('WORKSPACE_SCHEMA_MISSING_'.$table);}
+  }
+  $workspaceFlags=['OFFICE_NATIVE_PROJECTS_ENABLED'=>'enabled','OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED'=>'enabled'];
+  echo "VPS_WORKSPACE_PROJECT_SCHEMA=VERIFIED\n";
+  echo "VPS_WORKSPACE_FLAGS=NATIVE_PROJECTS,NATIVE_PROJECTS_SCHEMA\n";
+  echo "CRM_CALC_INSPECTION_WRITES=UNCHANGED\n";
+}
+if(in_array($mode,['--plan','--workspace-plan'],true)){echo "PLAN_ONLY_NO_WRITES\n";exit;}
 // Only this previously reviewed presentation table; no user or business data writes.
 $db->exec($sql);$db->query('SELECT operator_id,layout_json,updated_at FROM office_dashboard_preferences LIMIT 0');
 $record=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
 $record->execute(['vps-dashboard-preferences-v1',$checksum]);
 $new=$original;
 $flags=['OFFICE_PERSONAL_DASHBOARD_ENABLED'=>'enabled','OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED'=>'enabled','OFFICE_TEST_NAV_V2_ENABLED'=>'enabled','OFFICE_TEST_UI_V2_ROLLOUT_ALLOWED'=>'enabled'];
+$flags=array_merge($flags,$workspaceFlags);
 if(!preg_match('/^env\[OFFICE_DASHBOARD_CSRF_SECRET\]\s*=\s*["\x27]?[a-f0-9]{64}["\x27]?\s*$/m',$original))$flags['OFFICE_DASHBOARD_CSRF_SECRET']=bin2hex(random_bytes(32));
 foreach($flags as $key=>$value){
   $pattern='/^env\['.preg_quote($key,'/').'\]\s*=.*$/m';$line='env['.$key.'] = '.$value;
@@ -63,4 +84,5 @@ if($code!==0){copy($backup,$pool);chmod($pool,0600);throw new RuntimeException('
 exec('systemctl reload php8.3-fpm >/dev/null 2>&1',$output,$code);
 if($code!==0){copy($backup,$pool);chmod($pool,0600);exec('systemctl reload php8.3-fpm >/dev/null 2>&1');throw new RuntimeException('FPM_RELOAD_FAILED_RESTORED');}
 echo "VPS_DASHBOARD_ACTIVATED\n";
+if($workspace)echo "VPS_WORKSPACE_PROJECTS_ACTIVATED\n";
 echo "NEXT=authenticated dashboard, builder and wallboard acceptance on https://office-test.brebobv.nl/office-test/mijn-dashboard\n";

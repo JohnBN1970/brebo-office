@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Brebo\Office\Documents;
 
 require_once __DIR__ . '/OfficeDocumentTypes.php';
+require_once dirname(__DIR__) . '/Intake/OfficeNavigation.php';
 
 /** Reusable document creation dropdown; rendering never grants authorization. */
 final class OfficeNewDocumentMenu
@@ -28,7 +29,10 @@ final class OfficeNewDocumentMenu
         $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $html = '<details class="office-new-document"><summary>+ Nieuw document</summary><ul>';
         foreach ($types as $type => $label) {
-            if ($type === 'bouwkundige-inspectie') {
+            if ($type === 'bouwkundige-inspectie'
+                && getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
+                && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED') === 'enabled'
+                && \Brebo\Office\Intake\OfficeNavigation::runtimeRouteExists('/office-test/inspectie')) {
                 $url = '/office-test/inspectie';
                 if ($query !== []) {
                     $url .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
