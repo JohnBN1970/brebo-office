@@ -450,10 +450,14 @@ foreach($lines as $line) {
         $approval=null;
     }
     $approvalStatus=$approval===null?'Niet gecontroleerd':match((string)$approval['status']){
+        'submitted'=>'Ingediend - wacht op controle',
+        'rejected'=>'Afgekeurd - aanpassen',
         'reviewed'=>'Gecontroleerd - wacht op vrijgave',
         'released'=>'Vrijgegeven',
         default=>'Niet gecontroleerd'
     };
+    $approvalComment=$approval!==null && (string)$approval['status']==='rejected'
+        ?(string)($approval['note']??''):'';
     $unitSum='0.0000';
     foreach(['labor','material','equipment','subcontract','other'] as $componentKind){
         $unitSum=bcadd($unitSum,(string)($line['cost_components'][$componentKind]??((string)$line['cost_type']===$componentKind?(string)$line['unit_cost_decimal']:'0')),4);
@@ -504,13 +508,13 @@ foreach($lines as $line) {
             $component=(string)($line['cost_components'][$kind]??'0');
             echo '<td class="numeric">€ '.number_format((float)$component,$collaborationEnabled?4:2,',','.').'</td>';
         }
-        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus);
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).($approvalComment!==''?'<p class="calc-review-note">Opmerking: '.$h($approvalComment).'</p>':'');
         if($approvalDisplayEnabled){
             $approvalForm='approval-line-'.$rowNumber;
             echo '<form id="'.$approvalForm.'" method="post" action="'.$workbenchUrl.'" style="display:inline"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="approval_line_id" value="'.(int)$line['id'].'">';
             if($approval===null||in_array((string)$approval['status'],['draft','rejected'],true)){
                 if($actor===(int)($approval['author_id']??$draftAuthorId??0))echo '<button type="submit" name="action" value="approval_submit">Ter controle</button>';
-            }elseif((string)$approval['status']==='submitted' && $actor!==$draftAuthorId){
+            }elseif((string)$approval['status']==='submitted' && $actor!==$draftAuthorId && getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')==='enabled'){
                 echo '<button type="submit" name="action" value="approval_green" style="background:#087f42;color:white">✓ Groen</button> ';
                 echo '<details class="calc-review-popup"><summary style="color:#b91c1c;cursor:pointer">✕ Rood</summary><div class="calc-review-dialog"><strong>Regel afkeuren</strong><p>Omschrijf wat de calculator moet aanpassen.</p><label>Opmerking verplicht<textarea name="approval_note" maxlength="1000" required></textarea></label><button type="submit" name="action" value="approval_red">Afkeuren en terugsturen</button></div></details>';
             }
