@@ -53,6 +53,7 @@ final class OfficeBuildingCalculationBridge {
     $base='/office-test/gebouwen?id='.$buildingId;
     return [
       'inventory'=>$base,
+      'calculation_source'=>$base.'&calculation_source=json',
       'quantities_csv'=>$base.'&quantity_export=csv&quantity_level=building',
       'quantities_print'=>$base.'&quantity_print=1&quantity_level=building'
     ];
