@@ -17,6 +17,54 @@ final class RecipeManager {
   ) {}
 
   /**
+   * Explicit, reviewed bridge from Office building inventory into the existing
+   * recipe workbench. No automatic placement from drawings or unreviewed AI.
+   * A caller must authenticate and authorize the Office building selection;
+   * placeRecipe separately enforces calculation edit rights and pins the recipe.
+   *
+   * @param array<string,mixed> $proposal
+   */
+  public function placeReviewedBuildingComponent(
+    int $calculationId,
+    string $calculationVersion,
+    array $proposal,
+    int $actorId,
+  ): int {
+    if (($proposal['review_status'] ?? '') !== 'approved'
+      || !is_int($proposal['building_id'] ?? NULL)
+      || $proposal['building_id'] < 1
+      || !is_int($proposal['recipe_version_id'] ?? NULL)
+      || $proposal['recipe_version_id'] < 1
+      || !is_string($proposal['source_fingerprint'] ?? NULL)
+      || !preg_match('/^[a-f0-9]{64}$/D', $proposal['source_fingerprint'])
+      || !is_string($proposal['paragraph_key'] ?? NULL)
+      || trim($proposal['paragraph_key']) === ''
+      || !is_numeric($proposal['quantity'] ?? NULL)
+      || !is_finite((float) $proposal['quantity'])
+      || (float) $proposal['quantity'] < 0) {
+      throw new \InvalidArgumentException('Building component must be reviewed with a valid pinned source and published recipe version.');
+    }
+    $parameters = $proposal['parameters'] ?? [];
+    if (!is_array($parameters)) {
+      throw new \InvalidArgumentException('Invalid recipe parameters.');
+    }
+    $context = $proposal['context_variables'] ?? [];
+    if (!is_array($context)) {
+      throw new \InvalidArgumentException('Invalid building component context.');
+    }
+    return $this->placeRecipe(
+      $calculationId,
+      $calculationVersion,
+      $proposal['paragraph_key'],
+      $proposal['recipe_version_id'],
+      (float) $proposal['quantity'],
+      $parameters,
+      $actorId,
+      $context,
+    );
+  }
+
+  /**
    * Places a published recipe version into an editable calculation version.
    *
    * Available variables in recipe formulas:
