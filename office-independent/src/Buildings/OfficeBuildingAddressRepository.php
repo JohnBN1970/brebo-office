@@ -92,7 +92,7 @@ final class OfficeBuildingAddressRepository {
       $insert=$this->db->prepare('INSERT INTO office_building_address_floors (address_id,floor_number) VALUES (?,?)');
       foreach ($validated as $floor) $insert->execute([$addressId,$floor]);
       $this->db->commit();
-    } catch (\\Throwable $error) {
+    } catch (\Throwable $error) {
       if ($this->db->inTransaction()) $this->db->rollBack();
       throw $error;
     }
