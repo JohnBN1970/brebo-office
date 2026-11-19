@@ -117,6 +117,26 @@ if($view==='projects'){
   echo '<section class="office-dash-panel"><h2>Planning & projectrisico’s</h2>'.\Brebo\Office\Project\OfficeProjectPortfolioGantt::render($suite['projects'],'/office-test').'</section><p><a href="/office-test/projecten">Open projectbewaking en werkbegrotingen ↗</a></p>';
 }
 if($view==='finance'){
+  // The financial composition is meaningful only when both amounts are sourced
+  // from the authorized Finance reader; never synthesize a trend or cash balance.
+  $debtors=$widgets['debtors']['value']??null;
+  $overdue=$widgets['overdue']['value']??null;
+  if(is_int($debtors)&&is_int($overdue)&&$debtors>0&&$overdue>=0&&$overdue<=$debtors){
+    $current=$debtors-$overdue;
+    echo '<section class="office-dash-panel office-dash-visual"><div class="office-dash-visual-heading"><div><h2>Openstaande verkoopfacturen</h2><p>Verdeling van het openstaande bedrag in niet-vervallen en vervallen posten.</p></div><a href="/office-test/finance/verkoop">Bekijk facturen ↗</a></div>';
+    echo '<div class="office-dash-status-track" role="img" aria-label="'.$e(Catalog::format('debtors',$current)).' niet vervallen en '.$e(Catalog::format('overdue',$overdue)).' vervallen">';
+    foreach([['ontrack',$current],['critical',$overdue]] as [$kind,$amount]){
+      if($amount===0)continue;
+      echo '<span class="office-dash-status-segment" data-status="'.$kind.'" style="width:'.number_format($amount/$debtors*100,4,'.','').'%"></span>';
+    }
+    echo '</div><div class="office-dash-status-keys">';
+    foreach([['ontrack','Niet vervallen',$current],['critical','Vervallen',$overdue]] as [$kind,$label,$amount]){
+      echo '<div class="office-dash-status-key"><span class="office-dash-status-dot" data-status="'.$kind.'"></span><span>'.$e($label).'</span><strong>'.$e(Catalog::format('debtors',$amount)).'</strong></div>';
+    }
+    echo '</div></section>';
+  }else{
+    echo '<section class="office-dash-panel"><h2>Openstaande verkoopfacturen</h2><p>Verdeling niet beschikbaar: openstaande en vervallen bedragen zijn niet volledig vergelijkbaar of er zijn geen openstaande posten.</p></section>';
+  }
   require_once __DIR__.'/../src/Finance/OfficeFinanceDashboard.php';
   echo \Brebo\Office\Finance\OfficeFinanceDashboard::render($suite['finance_data'],static fn(string $path,array $query=[]):string=>'/office-test/'.$path.($query?'?'.http_build_query($query):''));
 }
