@@ -95,6 +95,36 @@ if ($detail) {
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
+// Address inventory is optional until the isolated test migration is applied.
+$addressRows = [];
+$dwellingTypes = [];
+$demarcationRows = [];
+$addressSchemaReady = false;
+if ($detail) {
+  try {
+    $addressColumns = $db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_building_addresses'")->fetchAll(PDO::FETCH_COLUMN);
+    $addressSchemaReady = count(array_intersect(['id','building_id','street','house_number','dwelling_type_id','primary_floor'], $addressColumns)) === 6;
+    if ($addressSchemaReady) {
+      $addressStatement = $db->prepare("SELECT a.id,a.street,a.house_number,a.house_letter,a.house_addition,a.postal_code,a.city,a.primary_floor,a.status,t.type_code,t.description AS type_description
+        FROM office_building_addresses a
+        LEFT JOIN office_building_dwelling_types t ON t.id=a.dwelling_type_id AND t.building_id=a.building_id
+        WHERE a.building_id=? ORDER BY a.street,a.house_number,a.house_letter,a.house_addition LIMIT 500");
+      $addressStatement->execute([$buildingId]);
+      $addressRows = $addressStatement->fetchAll(PDO::FETCH_ASSOC);
+      $typeStatement = $db->prepare('SELECT id,type_code,description,usable_area_m2 FROM office_building_dwelling_types WHERE building_id=? ORDER BY type_code');
+      $typeStatement->execute([$buildingId]);
+      $dwellingTypes = $typeStatement->fetchAll(PDO::FETCH_ASSOC);
+      $demarcationStatement = $db->prepare("SELECT d.id,d.name,COUNT(da.address_id) AS address_count
+        FROM office_building_demarcations d LEFT JOIN office_building_demarcation_addresses da ON da.demarcation_id=d.id
+        WHERE d.building_id=? GROUP BY d.id,d.name ORDER BY d.name");
+      $demarcationStatement->execute([$buildingId]);
+      $demarcationRows = $demarcationStatement->fetchAll(PDO::FETCH_ASSOC);
+    }
+  } catch (PDOException $addressError) {
+    $addressSchemaReady = false;
+    error_log('Office buildings: address inventory unavailable: '.$addressError->getCode());
+  }
+}
 // PDOK persistence readiness is advisory only; never block the building page.
 $pdokStorageReady = false;
 $pdokStorageMissing = [];
@@ -153,6 +183,32 @@ header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
   echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  echo '<section style="margin-top:20px"><h2>Adressen en woningtypes</h2>';
+  if (!$addressSchemaReady) {
+    echo '<p>Adresinventarisatie wordt beschikbaar na de gecontroleerde testdatabasemigratie.</p>';
+  } else {
+    echo '<p>Woningtype en bouwlaag zijn optioneel. Bouwlaag 1 is begane grond; -1 is kelder/souterrain.</p>';
+    if ($addressRows === []) echo '<p>Nog geen afzonderlijke adressen gekoppeld.</p>';
+    else {
+      echo '<table><thead><tr><th>Adres</th><th>Woningtype</th><th>Bouwlaag</th><th>Status</th></tr></thead><tbody>';
+      foreach ($addressRows as $addressRow) {
+        $addressLabel = trim($addressRow['street'].' '.$addressRow['house_number'].$addressRow['house_letter'].' '.$addressRow['house_addition']);
+        echo '<tr><td>'.$h($addressLabel).'</td><td>'.$h($addressRow['type_code'] ?? 'Nog niet ingevuld').'</td><td>'.$h($addressRow['primary_floor'] ?? 'Nog niet ingevuld').'</td><td>'.$h($addressRow['status']).'</td></tr>';
+      }
+      echo '</tbody></table>';
+    }
+    if ($dwellingTypes !== []) {
+      echo '<h3>Woningtypen</h3><ul>';
+      foreach ($dwellingTypes as $dwellingType) echo '<li>'.$h($dwellingType['type_code']).' — '.$h($dwellingType['description']).'</li>';
+      echo '</ul>';
+    }
+    if ($demarcationRows !== []) {
+      echo '<h3>Demarcaties</h3><ul>';
+      foreach ($demarcationRows as $demarcationRow) echo '<li>'.$h($demarcationRow['name']).' ('.(int)$demarcationRow['address_count'].' adressen)</li>';
+      echo '</ul>';
+    }
+  }
+  echo '</section>';
   // Render the saved location on every detail visit, not only after a new PDOK search.
   if (is_numeric($selectedBuilding['latitude'] ?? null) && is_numeric($selectedBuilding['longitude'] ?? null)) {
     $savedLat = (float)$selectedBuilding['latitude'];
