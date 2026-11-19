@@ -5,6 +5,7 @@ namespace Brebo\Office\Buildings;
 
 use InvalidArgumentException;
 use PDO;
+use RuntimeException;
 
 /**
  * Read-only calculation source preview. This never creates a calculation or
@@ -51,9 +52,12 @@ final class OfficeBuildingCalculationSource {
       FROM office_building_inventory_items i
       WHERE $where
       GROUP BY i.component_code,i.description,i.unit
-      ORDER BY i.component_code,i.description,i.unit LIMIT 500";
+      ORDER BY i.component_code,i.description,i.unit LIMIT 501";
     $query=$this->db->prepare($sql);
     $query->execute($params);
-    return $query->fetchAll(PDO::FETCH_ASSOC);
+    $rows=$query->fetchAll(PDO::FETCH_ASSOC);
+    // A partial inventory must never be silently transferred to a priced calculation.
+    if (count($rows)>500) throw new RuntimeException('inventory_source_too_large');
+    return $rows;
   }
 }
