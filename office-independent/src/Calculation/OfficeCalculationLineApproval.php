@@ -15,9 +15,19 @@ final class OfficeCalculationLineApproval {
   public const REVIEWED='reviewed';
   public const RELEASED='released';
 
-  public static function review(array $line,int $actorId,string $currentFingerprint,string $note=''): array {
+  public static function review(array $line,int $actorId,string $currentFingerprint,string $note='',?int $authorId=null,?int $verifiedAuthorRank=null,?int $verifiedReviewerRank=null): array {
     self::assertActor($actorId);
     self::assertFingerprint($currentFingerprint);
+    // Fail closed: a review requires verified hierarchy, not browser-supplied ranks.
+    if ($authorId===null || $authorId<1 || $verifiedAuthorRank===null
+      || $verifiedReviewerRank===null || $actorId===$authorId
+      || $verifiedReviewerRank<=$verifiedAuthorRank) {
+      throw new DomainException('higher_independent_reviewer_required');
+    }
+    if (($line['author_id']??$authorId)!==$authorId) {
+      throw new DomainException('line_author_mismatch');
+    }
+    $line['author_id']=$authorId;
     if (($line['status']??self::DRAFT)===self::RELEASED) {
       throw new DomainException('released_line_requires_new_revision');
     }
@@ -38,7 +48,7 @@ final class OfficeCalculationLineApproval {
       || !hash_equals((string)($line['fingerprint']??''),$currentFingerprint)) {
       throw new DomainException('line_review_outdated');
     }
-    if ((int)($line['reviewed_by']??0)===$actorId) {
+    if ((int)($line['reviewed_by']??0)===$actorId || (int)($line['author_id']??0)===$actorId) {
       throw new DomainException('four_eyes_release_required');
     }
     $line['status']=self::RELEASED;
