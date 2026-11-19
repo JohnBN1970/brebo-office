@@ -117,6 +117,48 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+    if(in_array($action,['approval_submit','approval_green','approval_red'],true)){
+        if(getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')!=='enabled'
+            ||getenv('OFFICE_CALC_LINE_APPROVAL_SCHEMA_VERIFIED')!=='enabled')$deny(403,'APPROVAL_DISABLED');
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApproval.php';
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApprovalRepository.php';
+        $lineId=filter_var($_POST['approval_line_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if(!is_int($lineId))$deny(400,'INVALID_LINE_ID');
+        $q=$db->prepare('SELECT created_by FROM office_calc_crm_drafts WHERE id=?');
+        $q->execute([$draft]);$authorId=(int)$q->fetchColumn();
+        $ranks=json_decode(getenv('OFFICE_CALC_VERIFIED_OPERATOR_RANKS')?:'{}',true);
+        if(!is_array($ranks))$deny(403,'RANK_CONFIG_INVALID');
+        $authorRank=filter_var($ranks[(string)$authorId]??null,FILTER_VALIDATE_INT);
+        $reviewerRank=filter_var($ranks[(string)$actor]??null,FILTER_VALIDATE_INT);
+        if(!is_int($authorRank)||!is_int($reviewerRank))$deny(403,'RANK_UNVERIFIED');
+        $note=trim((string)($_POST['approval_note']??''));
+        if(mb_strlen($note)>1000)$deny(400,'NOTE_TOO_LONG');
+        $db->beginTransaction();
+        try{
+            $lock=$db->prepare('SELECT id FROM office_calc_crm_drafts WHERE id=? FOR UPDATE');
+            $lock->execute([$draft]);if($lock->fetchColumn()===false)throw new DomainException('missing_draft');
+            $current=$repo->list($draft,$actor,$rights);
+            $match=null;
+            foreach($current as $item)if((int)($item['id']??0)===$lineId){$match=$item;break;}
+            if($match===null)throw new DomainException('missing_line');
+            $fingerprint=hash('sha256',json_encode($match,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+            $approvals=new \\Brebo\\Office\\Calculation\\OfficeCalculationLineApprovalRepository($db);
+            $existing=null;
+            foreach($approvals->listForDraft($draft) as $record)if((int)$record['calculation_line_id']===$lineId){$existing=$record;break;}
+            $state=$existing===null?['author_id'=>$authorId,'status'=>'draft','fingerprint'=>$fingerprint]:[
+                'author_id'=>(int)$existing['author_id'],'status'=>$existing['status'],
+                'fingerprint'=>$existing['line_fingerprint'],
+                'reviewed_by'=>$existing['reviewed_by'],'released_by'=>$existing['released_by']
+            ];
+            $policy=\\Brebo\\Office\\Calculation\\OfficeCalculationLineApproval::class;
+            if($action==='approval_submit')$next=$policy::submit($state,$actor,$fingerprint);
+            elseif($action==='approval_green')$next=$policy::review($state,$actor,$fingerprint,'',$authorId,$authorRank,$reviewerRank);
+            else $next=$policy::reject($state,$actor,$fingerprint,$note,$authorId,$authorRank,$reviewerRank);
+            $approvals->save($draft,$lineId,$actor,$next,substr($action,9)==='green'?'reviewed':(substr($action,9)==='red'?'rejected':'submitted'),$note);
+            $db->commit();
+        }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
+    }
     if($method==='POST'&&$action==='save_labor_rate'){
         if($laborRateCatalog===null)$deny(503,'LABOR_RATE_CATALOG_DISABLED');
         if($collaboration===null||!$collaboration->owns($actor,$draft))$deny(403,'LABOR_RATE_ADMIN_REQUIRED');
@@ -280,6 +322,11 @@ if($materialSource!==null){
     $materialRows=array_slice($materialRows,0,50);
 }
 // Approval status is read-only until verified Office hierarchy and write ACL are wired.
+$draftAuthorId=0;
+if(getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')==='enabled'){
+    $authorQuery=$db->prepare('SELECT created_by FROM office_calc_crm_drafts WHERE id=?');
+    $authorQuery->execute([$draft]);$draftAuthorId=(int)$authorQuery->fetchColumn();
+}
 $approvalStates=[];
 $approvalDisplayEnabled=getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')==='enabled' && getenv('OFFICE_CALC_LINE_APPROVAL_SCHEMA_VERIFIED')==='enabled';
 if($approvalDisplayEnabled){
@@ -447,7 +494,19 @@ foreach($lines as $line) {
             $component=(string)($line['cost_components'][$kind]??'0');
             echo '<td class="numeric">€ '.number_format((float)$component,$collaborationEnabled?4:2,',','.').'</td>';
         }
-        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus);
+        if($approvalDisplayEnabled){
+            $approvalForm='approval-line-'.$rowNumber;
+            echo '<form id="'.$approvalForm.'" method="post" action="'.$workbenchUrl.'" style="display:inline"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="approval_line_id" value="'.(int)$line['id'].'">';
+            if($approval===null||in_array((string)$approval['status'],['draft','rejected'],true)){
+                if($actor===(int)($approval['author_id']??$draftAuthorId??0))echo '<button type="submit" name="action" value="approval_submit">Ter controle</button>';
+            }elseif((string)$approval['status']==='submitted'){
+                echo '<button type="submit" name="action" value="approval_green" style="background:#087f42;color:white">✓ Groen</button> ';
+                echo '<details><summary style="color:#b91c1c;cursor:pointer">✕ Rood</summary><label>Opmerking verplicht<textarea name="approval_note" maxlength="1000" required></textarea></label><button type="submit" name="action" value="approval_red">Afkeuren</button></details>';
+            }
+            echo '</form>';
+        }
+        echo '</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
         echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="20"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
         foreach($costCells as $kind){
             $component=(string)($line['cost_components'][$kind]??((string)$line['cost_type']===$kind?(string)$line['unit_cost_decimal']:'0'));
