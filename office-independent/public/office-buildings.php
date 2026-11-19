@@ -214,6 +214,32 @@ if ($detail && isset($_GET['bag_street'], $_GET['bag_from'], $_GET['bag_to'])) {
     error_log('Office buildings BAG range preview: '.get_class($bagError));
   }
 }
+// Download only after the authenticated building-access check above.
+$quantityLevel = trim((string)($_GET['quantity_level'] ?? 'building'));
+if ($detail && isset($_GET['quantity_export'])) {
+  if ($_GET['quantity_export'] !== 'csv' || !$addressSchemaReady) {
+    http_response_code(400);
+    exit('Rapportage niet beschikbaar.');
+  }
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingQuantityReport.php';
+    $quantityReport = new \Brebo\Office\Buildings\OfficeBuildingQuantityReport($db);
+    $quantityRows = $quantityReport->rows($buildingId,$quantityLevel);
+    $csv = \Brebo\Office\Buildings\OfficeBuildingQuantityReport::csv($quantityRows);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="brebo-gebouw-'.(int)$buildingId.'-hoeveelheden.csv"');
+    header('X-Content-Type-Options: nosniff');
+    echo $csv;
+    exit;
+  } catch (InvalidArgumentException $exportError) {
+    http_response_code(400);
+    exit('Ongeldig rapportageniveau.');
+  } catch (Throwable $exportError) {
+    error_log('Office buildings CSV export failed: '.get_class($exportError));
+    http_response_code(503);
+    exit('Rapportage tijdelijk niet beschikbaar.');
+  }
+}
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
@@ -290,6 +316,15 @@ if ($detail) {
       echo '</tbody></table>';
     }
     echo '</section>';
+  }
+  if ($addressSchemaReady) {
+    echo '<section style="margin-top:20px"><h2>Hoeveelhedenstaat downloaden</h2><p>Groepeer de gebouwinventarisatie naar het gewenste niveau. Export bevat geen kost- of verkoopprijzen.</p>';
+    echo '<form method="get" action="/office-test/gebouwen"><input type="hidden" name="id" value="'.(int)$buildingId.'"><input type="hidden" name="quantity_export" value="csv">';
+    echo '<label>Niveau <select name="quantity_level">';
+    foreach (['building'=>'Gebouw','location'=>'Fysieke locatie','dwelling_type'=>'Woningtype','floor'=>'Bouwlaag','address'=>'Adres','component'=>'Bouwdeel'] as $key=>$label) {
+      echo '<option value="'.$h($key).'">'.$h($label).'</option>';
+    }
+    echo '</select></label> <button type="submit">Download Excel-compatibele CSV</button></form></section>';
   }
   // Render the saved location on every detail visit, not only after a new PDOK search.
   if (is_numeric($selectedBuilding['latitude'] ?? null) && is_numeric($selectedBuilding['longitude'] ?? null)) {
