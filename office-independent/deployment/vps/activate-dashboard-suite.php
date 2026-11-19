@@ -51,7 +51,7 @@ if($workspace){
     'office_project_memberships'=>'project_id,operator_id,permission',
     'office_operator_accounts'=>'id,active',
     'office_project_buildings'=>'project_id,building_id',
-    'office_buildings'=>'id,name,address_line,postal_code,city',
+    'office_buildings'=>'id,building_name,street_address,postal_code,city,active',
   ] as $table=>$fields){
     try{$db->query('SELECT '.$fields.' FROM '.$table.' LIMIT 0');}
     catch(Throwable){throw new RuntimeException('WORKSPACE_SCHEMA_MISSING_'.$table);}
