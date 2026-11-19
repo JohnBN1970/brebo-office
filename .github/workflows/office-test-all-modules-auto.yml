@@ -271,4 +271,4 @@ jobs:
             'bash -s --' "$GITHUB_SHA" < scripts/deployment/deploy_office_test_vps.sh
           echo "VPS_READINESS_DIAGNOSTICS_START"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
-            'bash -s' < scripts/deployment/check_office_test_vps_readiness.sh
+            'bash -s --' "$GITHUB_SHA" < scripts/deployment/check_office_test_vps_readiness.sh
