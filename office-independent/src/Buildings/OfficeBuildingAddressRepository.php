@@ -99,6 +99,71 @@ final class OfficeBuildingAddressRepository {
   }
 
   /**
+   * Assign a centrally managed dwelling type to selected addresses.
+   * Optional demarcation IDs replace target memberships only when supplied.
+   * Existing floors and address-specific inventory remain untouched.
+   * Caller must enforce authentication, write authorization and CSRF.
+   */
+  public function assignDwellingTypeBulk(int $buildingId,int $typeId,array $addressIds,?array $demarcationIds=null): int {
+    if ($buildingId<1 || $typeId<1 || count($addressIds)<1 || count($addressIds)>500) {
+      throw new InvalidArgumentException('invalid_bulk_selection');
+    }
+    $ids=[];
+    foreach ($addressIds as $id) {
+      if (!is_int($id) || $id<1) throw new InvalidArgumentException('invalid_bulk_address');
+      $ids[$id]=$id;
+    }
+    $ids=array_values($ids);
+    sort($ids,SORT_NUMERIC);
+    $demarcations=null;
+    if ($demarcationIds!==null) {
+      if (count($demarcationIds)>100) throw new InvalidArgumentException('too_many_demarcations');
+      $demarcations=[];
+      foreach ($demarcationIds as $id) {
+        if (!is_int($id) || $id<1) throw new InvalidArgumentException('invalid_demarcation');
+        $demarcations[$id]=$id;
+      }
+      $demarcations=array_values($demarcations);
+      sort($demarcations,SORT_NUMERIC);
+    }
+    $this->db->beginTransaction();
+    try {
+      $type=$this->db->prepare('SELECT id FROM office_building_dwelling_types WHERE id=? AND building_id=?');
+      $type->execute([$typeId,$buildingId]);
+      if (!$type->fetchColumn()) throw new RuntimeException('dwelling_type_not_in_building');
+      if ($demarcations!==null && $demarcations!==[]) {
+        $placeholders=implode(',',array_fill(0,count($demarcations),'?'));
+        $query=$this->db->prepare("SELECT id FROM office_building_demarcations WHERE building_id=? AND id IN ($placeholders)");
+        $query->execute(array_merge([$buildingId],$demarcations));
+        $found=array_map('intval',$query->fetchAll(PDO::FETCH_COLUMN));
+        sort($found,SORT_NUMERIC);
+        if ($found!==$demarcations) throw new RuntimeException('demarcation_not_in_building');
+      }
+      $placeholders=implode(',',array_fill(0,count($ids),'?'));
+      $lock=$this->db->prepare("SELECT id FROM office_building_addresses WHERE building_id=? AND id IN ($placeholders) FOR UPDATE");
+      $lock->execute(array_merge([$buildingId],$ids));
+      $found=array_map('intval',$lock->fetchAll(PDO::FETCH_COLUMN));
+      sort($found,SORT_NUMERIC);
+      if ($found!==$ids) throw new RuntimeException('address_not_in_building');
+      $update=$this->db->prepare('UPDATE office_building_addresses SET dwelling_type_id=? WHERE id=? AND building_id=?');
+      $delete=$demarcations!==null?$this->db->prepare('DELETE FROM office_building_demarcation_addresses WHERE address_id=?'):null;
+      $insert=$demarcations!==null?$this->db->prepare('INSERT INTO office_building_demarcation_addresses (demarcation_id,address_id) VALUES (?,?)'):null;
+      foreach ($ids as $id) {
+        $update->execute([$typeId,$id,$buildingId]);
+        if ($delete!==null) {
+          $delete->execute([$id]);
+          foreach ($demarcations as $demarcationId) $insert->execute([$demarcationId,$id]);
+        }
+      }
+      $this->db->commit();
+      return count($ids);
+    } catch (\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
+  }
+
+  /**
    * Copy dwelling type and demarcation membership from one address to selected
    * addresses in the same building. Floors remain address-specific.
    * All-or-nothing; replaces target demarcation memberships, not inventory rows.
