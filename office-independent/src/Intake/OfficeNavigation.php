@@ -94,12 +94,15 @@ final class OfficeNavigation {
       ['Projecten','projecten',$projectsAvailable?[
         ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
       ]:[]],
-      ['Personeel','personeel',$projectsAvailable?[
-        ['Medewerkers','/office-test/personeel/medewerkers'],
-        ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
-        ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
-        ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
-      ]:[]],
+      ['Personeel','personeel',$projectsAvailable?array_merge(
+        (getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED')==='enabled' && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED')==='enabled')
+          ? [['Medewerkers','/office-test/personeel/medewerkers']] : [],
+        [
+          ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
+          ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
+          ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
+        ]
+      ):[]],
       ['Gebouwen','gebouwen',$projectsAvailable?array_merge(
         [['Gebouwenoverzicht','/office-test/gebouwen']],
         (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled'
