@@ -15,6 +15,10 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 if (!in_array($path, [$base.'/crm/aanvragen', $base.'/crm/aanvragen/detail'], true)) {
     http_response_code(404); exit;
 }
+if (getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED') !== 'enabled') {
+    require __DIR__.'/crm-requests-legacy-view.php';
+    exit;
+}
 if (getenv('OFFICE_TEST_CRM_ENABLED') !== 'enabled'
     || getenv('OFFICE_CRM_AUTH_MODE') !== 'session_only'
     || getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled'
