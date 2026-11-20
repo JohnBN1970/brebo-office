@@ -17,6 +17,7 @@ on:
       - 'office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php'
       - 'office-independent/tests/OfficeMailCommunicationBlocksTest.php'
       - 'office-independent/src/Mail/OfficeMailCommunicationBlockView.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationPanel.php'
       - 'office-independent/tests/OfficeMailCommunicationBlockViewTest.php'
       - 'office-independent/tests/OfficeMailCommunicationBlockRepositoryTest.php'
       - 'office-independent/database/office_mail_communication_links.sql'
@@ -50,6 +51,7 @@ jobs:
           php -l office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php
           php office-independent/tests/OfficeMailCommunicationBlocksTest.php
           php -l office-independent/src/Mail/OfficeMailCommunicationBlockView.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationPanel.php
           php office-independent/tests/OfficeMailCommunicationBlockViewTest.php
           php office-independent/tests/OfficeMailCommunicationBlockRepositoryTest.php
       - name: Routing smoke tests
