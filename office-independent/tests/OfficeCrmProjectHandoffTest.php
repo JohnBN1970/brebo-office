@@ -33,11 +33,11 @@ $db->exec("INSERT INTO office_crm_opportunities VALUES
   (1,5,'Gegunde calc','won','closed',NULL,NULL),
   (2,5,'Zonder bevestiging','won','closed',NULL,NULL),
   (3,5,'Gegunde directe opdracht','won','closed',NULL,NULL)");
-$rows=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))->listForViews();
+$rows=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
 $byId=[]; foreach($rows as $row) $byId[(int)$row['id']]=$row;
 $assert((int)$byId[3]['project_id'],12,'repository resolves direct transfer');
 if (isset($byId[1]['project_id']) || isset($byId[2]['project_id'])) throw new RuntimeException('Ambiguous or orphan transfer leaked into CRM list');
-$html=\\Brebo\\Office\\Crm\\OfficeCrmFunnelViews::render($rows,'list');
+$html=\Brebo\Office\Crm\OfficeCrmFunnelViews::render($rows,'list');
 if (!str_contains($html,'projecten/detail?id=12') || !str_contains($html,'Projectoverdracht nog niet bevestigd')) {
     throw new RuntimeException('CRM list lacks project link or pending indicator');
 }
