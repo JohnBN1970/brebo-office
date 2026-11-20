@@ -20,7 +20,7 @@ final class OfficeCrmLeadConversion
         }
         $this->db->beginTransaction();
         try {
-            $select = $this->db->prepare("SELECT id,title,status,converted_opportunity_id
+            $select = $this->db->prepare("SELECT id,title,stage,status,converted_opportunity_id
                 FROM office_crm_leads WHERE id=? FOR UPDATE");
             $select->execute([$leadId]);
             $lead = $select->fetch(PDO::FETCH_ASSOC);
@@ -46,7 +46,7 @@ final class OfficeCrmLeadConversion
             $event = $this->db->prepare("INSERT INTO office_crm_lead_events
                 (lead_id,actor_operator_id,event_type,old_stage,new_stage,note)
                 VALUES (?,?,'converted',?,'converted',?)");
-            $event->execute([$leadId,$actorId,'active','Opportunity #'.$opportunityId]);
+            $event->execute([$leadId,$actorId,$lead['stage'],'Opportunity #'.$opportunityId]);
             $this->db->commit();
             return $opportunityId;
         } catch (\Throwable $error) {
