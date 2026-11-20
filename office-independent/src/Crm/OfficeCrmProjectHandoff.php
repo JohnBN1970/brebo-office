@@ -19,20 +19,21 @@ final class OfficeCrmProjectHandoff
 
         $ids = [];
         $mappingCount = 0;
+        $orphan = false;
         foreach ([
             ['office_calc_crm_acceptance_transfers', 'crm_opportunity_id', 'office_project_id'],
             ['office_crm_direct_project_transfers', 'opportunity_id', 'project_id'],
         ] as [$table, $key, $projectKey]) {
             try {
                 // Static SQL identifiers only; verify that a mapped project still exists.
-                $sql = "SELECT p.id FROM {$table} t JOIN office_projects p ON p.id=t.{$projectKey} WHERE t.{$key}=? LIMIT 2";
+                $sql = "SELECT t.{$projectKey} AS mapped_id, p.id AS existing_id FROM {$table} t LEFT JOIN office_projects p ON p.id=t.{$projectKey} WHERE t.{$key}=? LIMIT 2";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$opportunityId]);
-                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
-                    if ((int)$id > 0) {
-                        $mappingCount++;
-                        $ids[(int)$id] = true;
-                    }
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $mappingCount++;
+                    $id = (int)($row['existing_id'] ?? 0);
+                    if ($id > 0) $ids[$id] = true;
+                    else $orphan = true;
                 }
             } catch (PDOException $e) {
                 // Optional mapping may not yet be installed. Never invent a link.
@@ -44,6 +45,6 @@ final class OfficeCrmProjectHandoff
         }
         // A single opportunity must never have both a Calc and direct transfer,
         // even when they point to the same project. Fail closed on duplicates.
-        return $mappingCount === 1 && count($ids) === 1 ? (int)array_key_first($ids) : null;
+        return !$orphan && $mappingCount === 1 && count($ids) === 1 ? (int)array_key_first($ids) : null;
     }
 }
