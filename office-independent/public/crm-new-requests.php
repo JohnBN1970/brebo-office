@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET'); http_response_code(405); exit;
 }
@@ -97,6 +97,12 @@ try {
 } catch (Throwable $e) {
     http_response_code(503); exit('Aanvragen tijdelijk niet beschikbaar.');
 }
+if (session_status()!==PHP_SESSION_ACTIVE) {
+    session_name('BREBO_CRM_LEAD_BOARD');
+    session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+    session_start();
+}
+if (!isset($_SESSION['crm_lead_board_csrf'])) $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
@@ -175,12 +181,12 @@ if (isset($item)) {
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } elseif ($view === 'kanban') {
-        echo '<div class="lead-kanban">';
+        echo '<div class="lead-kanban" id="lead-board" data-csrf="'.$h($_SESSION['crm_lead_board_csrf']).'">';
         foreach ($stages as $stageCode => $stageLabel) {
-            echo '<section><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
+            echo '<section data-stage="'.$h($stageCode).'"><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
                 if ($row['stage'] !== $stageCode) continue;
-                echo '<article class="lead-kanban-card"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
+                echo '<article class="lead-kanban-card" draggable="true" data-lead-id="'.(int)$row['id'].'" data-stage="'.$h($row['stage']).'"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
             }
             echo '</section>';
         }
@@ -194,4 +200,29 @@ if (isset($item)) {
     }
     echo '</div>';
 }
+echo <<<'JS'
+<script>
+(()=>{
+ const board=document.getElementById('lead-board'); if(!board)return;
+ const allowed={new:['contacted'],contacted:['new','qualified'],qualified:['contacted','accepted'],accepted:['qualified']};
+ let moving=null;
+ board.querySelectorAll('[draggable="true"]').forEach(card=>{
+  card.addEventListener('dragstart',e=>{moving=card; e.dataTransfer.effectAllowed='move';
+   board.querySelectorAll('[data-stage]').forEach(zone=>{if(zone.tagName==='SECTION' && allowed[card.dataset.stage]?.includes(zone.dataset.stage)){zone.style.outline='3px solid #16a34a';}});
+  });
+  card.addEventListener('dragend',()=>{moving=null;board.querySelectorAll('section').forEach(z=>z.style.outline='');});
+ });
+ board.querySelectorAll('section[data-stage]').forEach(zone=>{
+  zone.addEventListener('dragover',e=>{if(moving && allowed[moving.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.dataTransfer.dropEffect='move';}});
+  zone.addEventListener('drop',async e=>{
+   e.preventDefault();if(!moving || !allowed[moving.dataset.stage]?.includes(zone.dataset.stage))return;
+   const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:moving.dataset.leadId,stage:zone.dataset.stage});
+   try {const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
+    if(!response.ok)throw new Error('Fasewijziging geweigerd ('+response.status+')');location.reload();
+   }catch(err){alert(err.message);}
+  });
+ });
+})();
+</script>
+JS;
 echo '</main></body></html>';
