@@ -41,6 +41,13 @@ final class OfficeCrmDirectProjectTransfer
                 throw new DomainException('Calculation project transfer already exists');
             }
             if ($projectId!==false) {
+                // An idempotent retry may only confirm a project that still exists.
+                // Never return an orphaned mapping as a successful transfer.
+                $verifyExisting=$this->db->prepare('SELECT id FROM office_projects WHERE id=?');
+                $verifyExisting->execute([(int)$projectId]);
+                if ((int)$verifyExisting->fetchColumn() !== (int)$projectId || (int)$projectId < 1) {
+                    throw new DomainException('Direct transfer mapping references a missing project');
+                }
                 $this->db->commit();
                 return (int)$projectId;
             }
