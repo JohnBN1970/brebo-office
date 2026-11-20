@@ -166,6 +166,24 @@ foreach ([
     if ($a!=='' && $a===$b) $pass($key); else $fail($key);
 }
 
+$indexStmt=$db->query(
+    "SELECT INDEX_NAME,COLUMN_NAME,NON_UNIQUE
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_crm_direct_project_transfers'"
+);
+$indexes = [];
+foreach ($indexStmt->fetchAll(PDO::FETCH_ASSOC) as $index) {
+    if ((int)$index['NON_UNIQUE']===0) {
+        $indexes[$index['INDEX_NAME']][]=$index['COLUMN_NAME'];
+    }
+}
+foreach (['opportunity_id','project_id'] as $column) {
+    $unique=false;
+    foreach ($indexes as $parts) if ($parts===[$column]) $unique=true;
+    if ($unique) $pass('UNIQUE_DIRECT_TRANSFER_'.$column);
+    else $fail('UNIQUE_DIRECT_TRANSFER_'.$column);
+}
+
 $foreignStmt=$db->query(
     "SELECT COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME
      FROM information_schema.KEY_COLUMN_USAGE
