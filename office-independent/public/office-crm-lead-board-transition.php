@@ -5,7 +5,9 @@ header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 if (($_SERVER['REQUEST_METHOD']??'')!=='POST') { http_response_code(405); exit; }
 if (getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled' || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
- || getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')!=='enabled' || getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')!=='enabled') { http_response_code(503); exit; }
+ || getenv('OFFICE_CRM_SESSION_MODE')!=='enabled' || getenv('OFFICE_LOGIN_ENABLED')!=='enabled'
+ || getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')!=='enabled') { http_response_code(503); echo json_encode(['error'=>'CRM is niet beschikbaar']); exit; }
+if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')!=='enabled') { http_response_code(403); echo json_encode(['error'=>'Leads wijzigen is niet geactiveerd op de server']); exit; }
 $host=$_SERVER['HTTP_HOST']??'';
 if (!is_string($host) || !hash_equals((string)getenv('OFFICE_PUBLIC_HOST'),$host)
  || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS']==='off') { http_response_code(403); exit; }
@@ -20,10 +22,10 @@ try {
  if (session_status()!==PHP_SESSION_ACTIVE) {
   session_name('BREBO_CRM_LEAD_BOARD');
   session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
-  session_start();
+  if (!session_start()) { http_response_code(503); echo json_encode(['error'=>'Sessie niet beschikbaar']); exit; }
  }
  $csrf=$_POST['csrf']??null;
- if (!is_string($csrf) || !isset($_SESSION['crm_lead_board_csrf']) || !hash_equals($_SESSION['crm_lead_board_csrf'],$csrf)) { http_response_code(403); exit; }
+ if (!is_string($csrf) || !isset($_SESSION['crm_lead_board_csrf']) || !hash_equals($_SESSION['crm_lead_board_csrf'],$csrf)) { http_response_code(403); echo json_encode(['error'=>'Sessie verlopen; vernieuw de pagina']); exit; }
  $id=filter_var($_POST['lead_id']??null,FILTER_VALIDATE_INT);
  $target=$_POST['stage']??null;
  $next=['new'=>['contacted'],'contacted'=>['qualified','new'],'qualified'=>['contacted','accepted'],'accepted'=>['qualified']];
@@ -38,4 +40,4 @@ try {
  $stmt=$db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,old_stage,new_stage) VALUES (?,?,'stage_changed',?,?)");
  $stmt->execute([$id,(string)$operator->operatorId,$lead['stage'],$target]);
  $db->commit(); echo json_encode(['ok'=>true]);
-} catch (Throwable $e) { if (isset($db) && $db->inTransaction()) $db->rollBack(); http_response_code(503); echo json_encode(['error'=>'Opslaan mislukt']); }
+} catch (Throwable $e) { if (isset($db) && $db->inTransaction()) $db->rollBack(); error_log('CRM lead board transition failed: '.$e->getMessage()); http_response_code(503); echo json_encode(['error'=>'Opslaan mislukt; controleer serverlog']); }
