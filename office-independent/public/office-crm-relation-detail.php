@@ -32,6 +32,29 @@ try {
     $stmt=$db->prepare("SELECT manager.display_name,rep.valid_from,rep.valid_until FROM office_crm_relation_representations rep JOIN office_crm_relations manager ON manager.id=rep.representative_relation_id WHERE rep.principal_relation_id=? AND rep.representation_type='property_management' AND (rep.valid_from IS NULL OR rep.valid_from<=CURRENT_DATE()) AND (rep.valid_until IS NULL OR rep.valid_until>=CURRENT_DATE()) ORDER BY manager.display_name");
     $stmt->execute([$id]); $managers=$stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { http_response_code(503); exit('Relatiedetail tijdelijk niet beschikbaar.'); }
+// Optional read-only mail context block; never exposes mail without BOTH ACL checks.
+$mailContextRows = [];
+if (getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
+    try {
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextLinksRepository.php';
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextAccess.php';
+        $mailAccess = new \Brebo\Office\Mail\OfficeMailContextAccess($db);
+        $mailLinks = new \Brebo\Office\Mail\OfficeMailContextLinksRepository($db);
+        $operatorId = (string)$operator->operatorId;
+        $ids = $mailLinks->forEntity('crm', $id, $operatorId,
+            [$mailAccess, 'canAccessEntity'], [$mailAccess, 'canReadMessage']);
+        if ($ids) {
+            $sql = 'SELECT id,subject,sender,received_at FROM office_mail_messages WHERE id IN ('
+                . implode(',', array_fill(0,count($ids),'?')) . ') ORDER BY received_at DESC LIMIT 100';
+            $stmt = $db->prepare($sql);
+            $stmt->execute($ids);
+            $mailContextRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        }
+    } catch (Throwable $ignored) {
+        // Fail closed: mail integration is optional and never breaks CRM detail.
+        $mailContextRows = [];
+    }
+}
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
 $roleLabels=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
@@ -60,4 +83,11 @@ else {
 echo '</section><section><h2>Vastgoedbeheerder</h2>';
 if (!$managers) echo '<p>Geen actieve vertegenwoordiging vastgelegd.</p>';
 else foreach ($managers as $manager) echo '<p>'.$h($manager['display_name']).'</p>';
+echo '</section><section><h2>Gerelateerde e-mails</h2>';
+if (!$mailContextRows) echo '<p>Geen toegankelijke gekoppelde e-mails.</p>';
+else {
+    echo '<ul>';
+    foreach ($mailContextRows as $mailRow) echo '<li><strong>'.$h($mailRow['subject']??'').'</strong> — '.$h($mailRow['sender']??'').' ('.$h($mailRow['received_at']??'').')</li>';
+    echo '</ul>';
+}
 echo '</section></main></body></html>';
