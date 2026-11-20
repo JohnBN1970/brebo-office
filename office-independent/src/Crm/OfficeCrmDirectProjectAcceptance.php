@@ -32,9 +32,23 @@ final class OfficeCrmDirectProjectAcceptance
         if ($actor->fetchColumn()===false) {
             throw new \DomainException('Native project creation permission required');
         }
-        return (new OfficeCrmDirectProjectTransfer($this->db))->transfer(
+        $projectId = (new OfficeCrmDirectProjectTransfer($this->db))->transfer(
             $opportunityId,
             new OfficeCrmNativeProjectAdapter($operatorId)
         );
+        // A second creator may be authorized to create projects but not to
+        // view an existing project created by another operator. Do not leak
+        // its ID through the idempotent direct-transfer response.
+        $membership=$this->db->prepare(
+            "SELECT 1 FROM office_project_memberships m
+             JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
+             WHERE m.project_id=? AND m.operator_id=?
+               AND m.permission IN ('read','manage') LIMIT 1"
+        );
+        $membership->execute([$projectId,$operatorId]);
+        if ($membership->fetchColumn()===false) {
+            throw new \DomainException('Project membership required to open transferred project');
+        }
+        return $projectId;
     }
 }
