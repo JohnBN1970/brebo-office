@@ -38,8 +38,8 @@ if (getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
     try {
         require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextLinksRepository.php';
         require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextAccess.php';
-        $mailAccess = new \\Brebo\\Office\\Mail\\OfficeMailContextAccess($db);
-        $mailLinks = new \\Brebo\\Office\\Mail\\OfficeMailContextLinksRepository($db);
+        $mailAccess = new \Brebo\Office\Mail\OfficeMailContextAccess($db);
+        $mailLinks = new \Brebo\Office\Mail\OfficeMailContextLinksRepository($db);
         $operatorId = (string)$operator->operatorId;
         $ids = $mailLinks->forEntity('crm', $id, $operatorId,
             [$mailAccess, 'canAccessEntity'], [$mailAccess, 'canReadMessage']);
