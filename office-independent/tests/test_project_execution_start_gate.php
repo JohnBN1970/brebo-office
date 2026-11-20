@@ -40,6 +40,10 @@ $db->exec("INSERT INTO office_project_start_approvals VALUES (3,1,2,7,'approved_
 $mustBlock('same reviewer approving twice');
 $db->exec("UPDATE office_project_start_approvals SET actor_user_id=8 WHERE id=3");
 $gate->authorizeStart(42,'project',0,true,true);
+$db->exec("UPDATE office_project_start_approvals SET actor_user_id=9 WHERE id=1");
+$mustBlock('first approval by someone other than the assigned project leader');
+$db->exec("UPDATE office_project_start_approvals SET actor_user_id=7 WHERE id=1");
+$gate->authorizeStart(42,'project',0,true,true);
 $db->exec("UPDATE office_project_start_dossiers SET revision=3 WHERE id=1");
 $mustBlock('stale approval revision');
 $db->exec("UPDATE office_project_start_dossiers SET revision=2 WHERE id=1");
