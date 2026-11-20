@@ -44,7 +44,7 @@ final class OfficeCrmOpportunityRepository {
     public function correctUntransferredWon(int $id, string $to, int $operatorId, string $reason): bool {
         $reason=trim($reason);
         if ($id<1 || $operatorId<1 || !in_array($to,['opportunity','proposal','negotiation'],true)
-            || mb_strlen($reason)<10 || mb_strlen($reason)>500) return false;
+            || mb_strlen($reason)<10 || mb_strlen($reason)>160) return false;
         $this->db->beginTransaction();
         try {
             $lock=$this->db->prepare("SELECT stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE");
@@ -60,12 +60,12 @@ final class OfficeCrmOpportunityRepository {
                 if ($check->fetchColumn()!==false) { $this->db->rollBack(); return false; }
             }
             $audit=$this->db->prepare("INSERT INTO office_crm_opportunity_activities (opportunity_id,activity_type,title) VALUES (?,'correction',?)");
-            $audit->execute([$id,'Akkoord gecorrigeerd naar '.$to.' door operator #'.$operatorId.': '.$reason]);
+            $audit->execute([$id,'Correctie akkoord naar '.$to.' (#'.$operatorId.'): '.$reason]);
             $update=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status='open' WHERE id=? AND stage='won' AND status='closed'");
             $update->execute([$to,$id]);
             if ($update->rowCount()!==1) { $this->db->rollBack(); return false; }
             $this->db->commit(); return true;
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $e;
         }
