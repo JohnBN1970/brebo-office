@@ -10,6 +10,18 @@ $db->exec('CREATE TABLE office_mail_context_links (id INTEGER PRIMARY KEY AUTOIN
 $repo = new OfficeMailContextLinksRepository($db);
 $read = static fn(int $messageId, string $actor): bool => $messageId === 10 && $actor === 'alice';
 $entity = static fn(string $module, int $entityId, string $actor): bool => $actor === 'alice' && in_array($module, ['crm','projects'], true) && $entityId === 3;
+// A lead is a separate context; never infer its access from the related CRM relation.
+$leadEntity = static fn(string $module, int $entityId, string $actor): bool =>
+  $module === 'leads' && $entityId === 77 && $actor === 'alice';
+$repo->link(10,'leads',77,'alice',$read,$leadEntity);
+check($repo->forEntity('leads',77,'alice',$leadEntity,$read) === [10], 'Lead link missing');
+check($repo->forEntity('leads',77,'alice',$leadEntity,static fn(): bool => false) === [], 'Lead mailbox ACL leaked');
+$leadDenied = false;
+try { $repo->link(10,'leads',77,'bob',$read,$leadEntity); }
+catch (RuntimeException $e) { $leadDenied = true; }
+check($leadDenied, 'Unauthorized lead link permitted');
+$repo->unlink(10,'leads',77,'alice',$read,$leadEntity);
+check($repo->forEntity('leads',77,'alice',$leadEntity,$read) === [], 'Lead unlink failed');
 $repo->link(10,'crm',3,'alice',$read,$entity);
 $repo->link(10,'projects',3,'alice',$read,$entity);
 $repo->link(10,'crm',3,'alice',$read,$entity);
