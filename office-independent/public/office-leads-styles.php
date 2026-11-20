@@ -35,3 +35,39 @@ a{color:#83baff}
 th,td{border-color:#35465d}
 }
 @media(max-width:640px){main{padding:12px;margin:12px auto}section{padding:14px}.lead-funnel__step{min-height:72px}.lead-funnel__step span{padding:8px 30px;font-size:.85rem}}
+
+/* Dashboard surfaces inherit the active Office shell theme, not browser color preference. */
+body:has(.leads-dashboard) .leads-dashboard{display:grid;gap:16px;max-width:100%;background:transparent!important;border:0!important;padding:0!important;color:inherit}
+body:has(.leads-dashboard) .leads-dashboard>section{background:#172334!important;color:#f1f6ff!important;border:1px solid #35465d!important;border-radius:14px!important;padding:22px!important;box-shadow:none!important}
+body:has(.leads-dashboard) .leads-dashboard>section h2,
+body:has(.leads-dashboard) .leads-dashboard>section p,
+body:has(.leads-dashboard) .leads-dashboard>section strong,
+body:has(.leads-dashboard) .leads-dashboard>section small{color:inherit}
+body:has(.leads-dashboard) .leads-dashboard>section h2{color:#f1f6ff!important;font-weight:750}
+body:has(.leads-dashboard) .leads-dashboard>section p{color:#d4e2f3!important}
+body:has(.leads-dashboard) .leads-dashboard>section a:not(.lead-funnel__step):not(.lead-source-card){color:#a5ceff!important}
+body:has(.leads-dashboard) .lead-funnel{max-width:690px;margin:18px auto}
+body:has(.leads-dashboard) .lead-funnel__step{min-height:68px;color:#fff!important}
+body:has(.leads-dashboard) .lead-funnel__step strong{color:#fff!important}
+body:has(.leads-dashboard) .lead-funnel__step small{color:#e9f4ff!important}
+.lead-source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+body:has(.leads-dashboard) .lead-source-card{display:block;background:#23354b!important;border:1px solid #47617c!important;border-radius:10px;padding:15px;color:#f1f6ff!important;text-decoration:none}
+body:has(.leads-dashboard) .lead-source-card strong{color:#fff!important}
+body:has(.leads-dashboard) .lead-source-card p{color:#fff!important}
+body:has(.leads-dashboard) .lead-source-card small{color:#d4e2f3!important}
+.lead-source-count{font-size:26px;margin:8px 0}
+.lead-owner-grid{display:flex;flex-wrap:wrap;gap:10px}
+.lead-owner-link{padding:12px;border:1px solid #47617c;border-radius:8px}
+.lead-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px;margin-top:16px}
+.lead-kanban-card{background:#23354b;border:1px solid #47617c;padding:12px;border-radius:8px;margin:10px 0}
+body:has(.leads-dashboard) .lead-kanban-card{color:#f1f6ff}
+body:has(.leads-dashboard) .lead-kanban-card p,body:has(.leads-dashboard) .lead-kanban-card small{color:#d4e2f3}
+body:has(.leads-dashboard) .lead-funnel__step:hover,body:has(.leads-dashboard) .lead-source-card:hover{filter:brightness(1.13)}
+@media(max-width:640px){body:has(.leads-dashboard) .leads-dashboard>section{padding:14px!important}.lead-source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lead-funnel__step strong{font-size:.85rem}}
+/* Office's explicit light mode wins over system dark mode. */
+html[data-theme="light"] body:has(.leads-dashboard) .leads-dashboard>section,
+body[data-theme="light"]:has(.leads-dashboard) .leads-dashboard>section{background:#fff!important;color:#182b40!important;border-color:#dbe1e8!important}
+html[data-theme="light"] body:has(.leads-dashboard) .leads-dashboard>section h2,
+body[data-theme="light"]:has(.leads-dashboard) .leads-dashboard>section h2{color:#182b40!important}
+html[data-theme="light"] body:has(.leads-dashboard) .leads-dashboard>section p,
+body[data-theme="light"]:has(.leads-dashboard) .leads-dashboard>section p{color:#334b63!important}
