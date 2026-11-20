@@ -1035,6 +1035,26 @@ if ($activeTab === 'wbs-rbs') {
         $breakdownHtml .= \Brebo\Office\Project\OfficeProjectBreakdownView::render(
           $breakdownModel, (int)$projectId, \Brebo\Office\Intake\OfficeMount::basePath()
         );
+        if ($canManage) {
+          $breakdownFormAction = $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=wbs-rbs');
+          $breakdownCsrf = $escape($csrfToken);
+          foreach (['wbs'=>'Werkpakket toevoegen','rbs'=>'Risicocategorie toevoegen'] as $kind=>$label) {
+            $breakdownHtml .= '<form method="post" action="' . $breakdownFormAction . '"><h3>' . $escape($label) . '</h3>'
+              . '<input type="hidden" name="csrf" value="' . $breakdownCsrf . '">'
+              . '<input type="hidden" name="breakdown_action" value="create_' . $kind . '">'
+              . '<label>Code <input name="code" maxlength="64" required></label> '
+              . '<label>Omschrijving <input name="title" maxlength="200" required></label> '
+              . '<label>Bovenliggend ID (optioneel) <input type="number" name="parent_id" min="1"></label> '
+              . ($kind === 'wbs' ? '<label>Toelichting <textarea name="description"></textarea></label> ' : '')
+              . '<button type="submit">Toevoegen</button></form>';
+          }
+          $breakdownHtml .= '<form method="post" action="' . $breakdownFormAction . '"><h3>Bestaand risico koppelen aan RBS</h3>'
+            . '<input type="hidden" name="csrf" value="' . $breakdownCsrf . '">'
+            . '<input type="hidden" name="breakdown_action" value="assign_risk">'
+            . '<label>RBS-categorie ID <input type="number" name="category_id" min="1" required></label> '
+            . '<label>Risico-ID <input type="number" name="risk_id" min="1" required></label> '
+            . '<button type="submit">Risico koppelen</button></form>';
+        }
       }
     } catch (\Throwable $breakdownError) {
       error_log('Office project breakdown read unavailable: ' . get_class($breakdownError));
