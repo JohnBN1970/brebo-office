@@ -62,6 +62,17 @@ final class OfficeCrmLeadSchema
         ];
     }
 
+    public static function seedStatements(): array
+    {
+        $statements = [];
+        foreach (self::sourceCodes() as $code => $label) {
+            $codeSql = str_replace("'", "''", $code);
+            $labelSql = str_replace("'", "''", $label);
+            $statements[] = "INSERT INTO office_crm_lead_sources (code,label,active) VALUES ('".$codeSql."','".$labelSql."',1) ON DUPLICATE KEY UPDATE code=code";
+        }
+        return $statements;
+    }
+
     public static function sourceCodes(): array
     {
         return [
