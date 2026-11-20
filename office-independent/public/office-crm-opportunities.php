@@ -6,7 +6,7 @@ header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { header('Allow: GET'); http_response_code(405); exit; }
 if (getenv('OFFICE_TEST_CRM_ENABLED') !== 'enabled' || getenv('OFFICE_CRM_AUTH_MODE') !== 'session_only' || getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED') !== 'enabled') {
-    http_response_code(503); exit('Verkoopkansen zijn nog niet beschikbaar.');
+    http_response_code(503); exit('Deals zijn nog niet beschikbaar.');
 }
 $host=$_SERVER['HTTP_HOST']??'';
 $allowed=getenv('OFFICE_PUBLIC_HOST');
@@ -28,9 +28,9 @@ try {
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmFunnelViews.php';
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
     $items=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
-} catch (Throwable $e) { http_response_code(503); exit('Verkoopkansen tijdelijk niet beschikbaar.'); }
+} catch (Throwable $e) { http_response_code(503); exit('Deals tijdelijk niet beschikbaar.'); }
 $view=\Brebo\Office\Crm\OfficeCrmFunnel::normalizeView((string)($_GET['view']??'kanban'));
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verkoopkansen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1400px;margin:32px auto;padding:20px}a{color:#175a91}table{width:100%;border-collapse:collapse;background:#fff}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left}.crm-view-switch{display:flex;gap:16px;margin:20px 0}</style></head><body><main><h1>Verkoopkansen</h1><p><a href="/office-test/crm/verkoopkansen/nieuw">Nieuwe verkoopkans</a></p><p>Van prospect naar offerte en opdracht. Opnamen zijn optioneel.</p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deals · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1400px;margin:32px auto;padding:20px}a{color:#175a91}table{width:100%;border-collapse:collapse;background:#fff}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left}.crm-view-switch{display:flex;gap:16px;margin:20px 0}</style></head><body><main><h1>Deals</h1><p><a href="/office-test/crm/verkoopkansen/nieuw">Nieuwe verkoopkans</a></p><p>Van prospect naar offerte en opdracht. Opnamen zijn optioneel.</p>';
 echo \Brebo\Office\Crm\OfficeCrmFunnelViews::render($items,$view,'/office-test/crm/verkoopkansen');
 echo '</main></body></html>';
