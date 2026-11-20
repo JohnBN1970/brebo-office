@@ -18,23 +18,28 @@ final class OfficeCrmDirectProjectTransfer
         if ($opportunityId < 1 || $this->db->inTransaction()) {
             throw new DomainException('Invalid direct transfer transaction');
         }
+        $driver=(string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if (!in_array($driver,['mysql','sqlite'],true)) {
+            throw new DomainException('Unsupported transfer database driver');
+        }
+        $lock=$driver==='mysql' ? ' FOR UPDATE' : '';
         $this->db->beginTransaction();
         try {
-            $q=$this->db->prepare('SELECT id,relation_id,title,stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $q=$this->db->prepare('SELECT id,relation_id,title,stage,status FROM office_crm_opportunities WHERE id=?'.$lock);
             $q->execute([$opportunityId]);
             $opportunity=$q->fetch(PDO::FETCH_ASSOC);
             if (!is_array($opportunity) || $opportunity['stage']!=='won'
                 || !in_array($opportunity['status'],['won','closed'],true)) {
                 throw new DomainException('Opportunity is not accepted');
             }
-            $existing=$this->db->prepare('SELECT project_id FROM office_crm_direct_project_transfers WHERE opportunity_id=? FOR UPDATE');
+            $existing=$this->db->prepare('SELECT project_id FROM office_crm_direct_project_transfers WHERE opportunity_id=?'.$lock);
             $existing->execute([$opportunityId]);
             $projectId=$existing->fetchColumn();
             if ($projectId!==false) {
                 $this->db->commit();
                 return (int)$projectId;
             }
-            $calc=$this->db->prepare('SELECT office_project_id FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=? LIMIT 1 FOR UPDATE');
+            $calc=$this->db->prepare('SELECT office_project_id FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=? LIMIT 1'.$lock);
             $calc->execute([(string)$opportunityId]);
             if ($calc->fetchColumn()!==false) {
                 throw new DomainException('Calculation project transfer already exists');
