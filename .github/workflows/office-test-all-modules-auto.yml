@@ -111,6 +111,7 @@ jobs:
       - name: Validate native CRM direct project adapter
         run: |
           php office-independent/tests/OfficeCrmNativeProjectAdapterTest.php
+          php office-independent/tests/OfficeCrmDirectNativeTransferRoundTripTest.php
           php -l office-independent/src/Crm/OfficeCrmDirectProjectAcceptance.php
       - name: Validate existing core contracts
         run: |
