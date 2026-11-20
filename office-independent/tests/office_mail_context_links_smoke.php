@@ -7,6 +7,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) { fwrite(STDERR, "SKI
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_mail_context_links (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, module_key TEXT NOT NULL, entity_id INTEGER NOT NULL, linked_by TEXT NOT NULL, linked_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(message_id,module_key,entity_id))');
+$db->exec('CREATE TABLE office_mail_context_link_events (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, module_key TEXT NOT NULL, entity_id INTEGER NOT NULL, actor_id TEXT NOT NULL, action TEXT NOT NULL, occurred_at TEXT DEFAULT CURRENT_TIMESTAMP)');
 $repo = new OfficeMailContextLinksRepository($db);
 $read = static fn(int $messageId, string $actor): bool => $messageId === 10 && $actor === 'alice';
 $entity = static fn(string $module, int $entityId, string $actor): bool => $actor === 'alice' && in_array($module, ['crm','projects'], true) && $entityId === 3;
@@ -42,4 +43,8 @@ foreach ([
 $repo->unlink(10,'crm',3,'alice',$read,$entity);
 check($repo->forEntity('crm',3,'alice',$entity,$read) === [], 'CRM unlink failed');
 check($repo->forEntity('projects',3,'alice',$entity,$read) === [10], 'Unlink deleted other context');
-echo "PASS office_mail_context_links_smoke\n";
+$events=$db->query('SELECT module_key,actor_id,action FROM office_mail_context_link_events ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+check(count($events) === 6, 'Expected audit for 4 links and 2 unlinks, excluding duplicate');
+check($events[0]['module_key']==='leads' && $events[0]['actor_id']==='alice' && $events[0]['action']==='linked','Lead audit incorrect');
+check($events[1]['action']==='unlinked' && $events[5]['action']==='unlinked','Unlink audit missing');
+echo "PASS office_mail_context_links_smoke\\n";
