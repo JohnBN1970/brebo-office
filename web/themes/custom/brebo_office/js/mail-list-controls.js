@@ -55,7 +55,11 @@
     search.autocomplete = 'off';
     searchWrap.append(searchLabel, search);
 
-    const view = makeSelect('Weergave', {\n      inbox: 'Slimme inbox',\n      tasks: 'Actielijst',\n    });\n    const filter = makeSelect('Filter', {
+    const view = makeSelect('Weergave', {
+      inbox: 'Slimme inbox',
+      tasks: 'Actielijst',
+    });
+    const filter = makeSelect('Filter', {
       all: 'Alles',
       unread: 'Ongelezen',
       starred: 'Met ster',
@@ -93,7 +97,8 @@
     function matches(row) {
       const query = normalize(search.value.trim());
       if (query && !normalize(row.from + ' ' + row.subject + ' ' + row.text).includes(query)) return false;
-      if (view.select.value === 'tasks' && !row.needsAction) return false;\n      if (filter.select.value === 'unread' && !row.unread) return false;
+      if (view.select.value === 'tasks' && !row.needsAction) return false;
+      if (filter.select.value === 'unread' && !row.unread) return false;
       if (filter.select.value === 'starred' && !row.starred) return false;
       if (filter.select.value === 'action' && !row.needsAction) return false;
       return true;
@@ -165,7 +170,14 @@
       });
     }
 
-    view.select.addEventListener('change', () => {\n      if (view.select.value === 'tasks') {\n        sort.select.value = 'action';\n        group.select.value = 'none';\n      }\n      render();\n    });\n    search.addEventListener('input', render);
+    view.select.addEventListener('change', () => {
+      if (view.select.value === 'tasks') {
+        sort.select.value = 'action';
+        group.select.value = 'none';
+      }
+      render();
+    });
+    search.addEventListener('input', render);
     filter.select.addEventListener('change', render);
     group.select.addEventListener('change', render);
     sort.select.addEventListener('change', render);
