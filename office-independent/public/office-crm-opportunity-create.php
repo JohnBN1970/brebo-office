@@ -7,7 +7,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; 
 $method=$_SERVER['REQUEST_METHOD']??'GET';
 if (!in_array($method,['GET','POST'],true)) { header('Allow: GET, POST'); http_response_code(405); exit; }
 if (getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled' || getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'
-    || getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')!=='enabled') { http_response_code(503); exit('Verkoopkansen niet beschikbaar.'); }
+    || getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')!=='enabled') { http_response_code(503); exit('Deals niet beschikbaar.'); }
 $host=$_SERVER['HTTP_HOST']??'';
 $allowed=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($allowed) || $allowed==='' || !hash_equals($allowed,(string)$host) || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS']==='off') { http_response_code(403); exit; }
@@ -20,7 +20,7 @@ try {
     $active=$db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1 LIMIT 1');
     $active->execute([$operator->operatorId]);
     if (!$active->fetchColumn()) { http_response_code(403); exit('Geen CRM-toegang.'); }
-    if (getenv('OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Verkoopkansen invoeren niet ingeschakeld.'); }
+    if (getenv('OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Deals invoeren niet ingeschakeld.'); }
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmFunnel.php';
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
     $relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
@@ -46,12 +46,12 @@ if ($method==='POST') {
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
             $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
             header('Location: /office-test/crm/verkoopkansen?created='.$id,true,303); exit;
-        } catch (Throwable $e) { $error='Verkoopkans opslaan mislukt.'; }
+        } catch (Throwable $e) { $error='Deal opslaan mislukt.'; }
     }
 }
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nieuwe verkoopkans · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select,input{padding:10px;width:100%;box-sizing:border-box}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar verkoopkansen</a></p><h1>Nieuwe verkoopkans</h1><section>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nieuwe deal · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select,input{padding:10px;width:100%;box-sizing:border-box}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>Nieuwe deal</h1><section>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
 echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><label>Relatie<select name="relation_id" required><option value="">Kies een relatie</option>';
 foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)$relation['id']===$relationId?' selected':'').'>'.$h($relation['display_name']).'</option>';
-echo '</select></label><label>Naam verkoopkans<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Verkoopkans aanmaken</button></form></section></main></body></html>';
+echo '</select></label><label>Naam deal<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Deal aanmaken</button></form></section></main></body></html>';

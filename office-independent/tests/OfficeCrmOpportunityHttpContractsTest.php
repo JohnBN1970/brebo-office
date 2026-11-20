@@ -38,7 +38,7 @@ foreach (['URLSearchParams','credentials:\'same-origin\'','/office-test/crm/verk
     if (!str_contains($drag,$check)) throw new RuntimeException('Kanban drag missing '.$check);
 }
 if (str_contains($nav,"[['Aanvragen','/office-test/crm/aanvragen']]")) throw new RuntimeException('Legacy requests advertised');
-if (!str_contains($nav,"[['Verkoopkansen','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Verkoopkansen missing from navigation');
+if (!str_contains($nav,"[['Deals','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Deals missing from navigation');
 $installer=file_get_contents($root.'/deployment/hostinger/install-office-crm-opportunities-test.php');
 foreach (['OFFICE_CRM_OPPORTUNITIES_SCHEMA_INSTALL','u213420663_office_test','PHP_SAPI','target_exists_inspect_first'] as $gate)
     if (!str_contains($installer,$gate)) throw new RuntimeException('Installer safety gate missing: '.$gate);
