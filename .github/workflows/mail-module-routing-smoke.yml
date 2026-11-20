@@ -16,6 +16,8 @@ on:
       - 'office-independent/src/Mail/OfficeMailCommunicationBlocks.php'
       - 'office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php'
       - 'office-independent/tests/OfficeMailCommunicationBlocksTest.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlockView.php'
+      - 'office-independent/tests/OfficeMailCommunicationBlockViewTest.php'
   workflow_dispatch:
 
 permissions:
@@ -45,5 +47,7 @@ jobs:
           php -l office-independent/src/Mail/OfficeMailCommunicationBlocks.php
           php -l office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php
           php office-independent/tests/OfficeMailCommunicationBlocksTest.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlockView.php
+          php office-independent/tests/OfficeMailCommunicationBlockViewTest.php
       - name: Routing smoke tests
         run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
