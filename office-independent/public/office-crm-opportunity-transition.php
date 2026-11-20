@@ -82,6 +82,19 @@ if ($method==='POST') {
             http_response_code(503); exit('Projectoverdracht nog niet beschikbaar; geen project bevestigd.');
         }
     }
+    if ($action==='correct_won') {
+        $target=is_string($_POST['stage']??null)?$_POST['stage']:'';
+        $reason=is_string($_POST['reason']??null)?trim($_POST['reason']):'';
+        try {
+            $corrected=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))
+                ->correctUntransferredWon($id,$target,(int)$operator->operatorId,$reason);
+            if (!$corrected) { http_response_code(409); exit('Correctie geblokkeerd. Controleer reden, fase en projectoverdracht.'); }
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/verkoopkansen?corrected='.$id,true,303); exit;
+        } catch (Throwable $e) {
+            http_response_code(409); exit('Correctie niet beschikbaar. Projectkoppelingen en auditopslag moeten gecontroleerd worden.');
+        }
+    }
     if ($action!=='') { http_response_code(400); exit('Ongeldige opdracht.'); }
     if ($item['status'] !== 'open') { http_response_code(409); exit('Afgesloten verkoopkans kan niet worden gewijzigd.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
@@ -100,6 +113,8 @@ if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
 // A won CRM stage alone is not proof of a created Office project.
 // Show only a persisted transfer; never invent a project link.
 if ($item['stage']==='won') {
+    echo '<h2>Foutief akkoord corrigeren</h2><p>Alleen mogelijk zolang er geen project is overgedragen. Een gekoppeld project wordt nooit automatisch verwijderd.</p>';
+    echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="action" value="correct_won"><label>Terug naar<select name="stage" required><option value="negotiation">Onderhandeling</option><option value="proposal">Offerte</option><option value="opportunity">Verkoopkans</option></select></label><label>Reden (minimaal 10 tekens)<textarea name="reason" minlength="10" maxlength="160" required style="display:block;width:100%;min-height:90px"></textarea></label><button type="submit">Akkoord corrigeren</button></form>';
     try {
         require_once dirname(__DIR__).'/src/Crm/OfficeCrmProjectHandoff.php';
         $linkedProject=(new \Brebo\Office\Crm\OfficeCrmProjectHandoff($db))->projectId($id);
