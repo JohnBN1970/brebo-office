@@ -1,0 +1,36 @@
+name: CRM unified project handoff contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmProjectHandoff.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/tests/OfficeCrmProjectHandoffTest.php'
+      - '.github/workflows/office-crm-unified-project-handoff.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmProjectHandoff.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/tests/OfficeCrmProjectHandoffTest.php'
+      - '.github/workflows/office-crm-unified-project-handoff.yml'
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql, mbstring
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmProjectHandoff.php
+          php -l office-independent/src/Crm/OfficeCrmOpportunityRepository.php
+          php -l office-independent/public/office-crm-opportunity-transition.php
+          php -l office-independent/tests/OfficeCrmProjectHandoffTest.php
+      - name: Verified direct and calculation handoff
+        run: php office-independent/tests/OfficeCrmProjectHandoffTest.php
