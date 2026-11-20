@@ -32,7 +32,7 @@ final class OfficeMailCommunicationBlockRepository
     }
 
     /** Persist only human-verified links; no mail content or attachments. */
-    public function saveConfirmed(array $prepared): int
+    public function saveConfirmed(array $prepared, callable $canReadMail, callable $canLinkTarget): int
     {
         if (($prepared['requires_destination_acl'] ?? null) !== true
             || ($prepared['requires_source_mail_acl'] ?? null) !== true
@@ -46,6 +46,9 @@ final class OfficeMailCommunicationBlockRepository
         $links = $prepared['links'] ?? null;
         if (!is_array($links)) {
             throw new DomainException('invalid_mail_links');
+        }
+        if ($canReadMail($messageId) !== true) {
+            throw new DomainException('mail_access_denied');
         }
         $this->db->beginTransaction();
         try {
@@ -63,6 +66,9 @@ final class OfficeMailCommunicationBlockRepository
                     || !is_string($type) || !preg_match('/^[a-z][a-z0-9_]{0,47}$/D', $type)
                     || !is_int($id) || $id < 1 || !is_int($reviewer) || $reviewer < 1) {
                     throw new DomainException('invalid_confirmed_mail_link');
+                }
+                if ($canLinkTarget($module, $type, $id, $reviewer) !== true) {
+                    throw new DomainException('mail_target_access_denied');
                 }
                 $stmt->execute([
                     'message' => $messageId, 'module' => $module,
