@@ -37,7 +37,8 @@ final class OfficeProjectBreakdownView
         }
         $html .= '</tbody></table><p>Open risico’s: '
             . array_sum($matrix['totals']) . ' · Hoog: ' . (int)$matrix['totals']['high']
-            . ' · Kritiek: ' . (int)$matrix['totals']['critical'] . '</p>'
+            . ' · Kritiek: ' . (int)$matrix['totals']['critical']
+            . ' · Nog niet beoordeeld: ' . (int)($matrix['totals']['unscored'] ?? 0) . '</p>'
             . '<p><a href="' . $e(rtrim($basePath, '/') . '/risicos?project_id=' . $projectId)
             . '">Risicoregister openen</a></p></section>';
         return $html;
