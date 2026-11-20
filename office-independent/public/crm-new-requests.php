@@ -103,7 +103,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
-    echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><section>';
+    echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
     foreach (array_keys($counts) as $stageCode) {
         if (!isset($stages[$stageCode])) $stages[$stageCode] = ucfirst(str_replace('_',' ',(string)$stageCode));
@@ -122,33 +122,33 @@ if (isset($item)) {
             : ($previousCount === 0 ? 'Geen voorgaande leads' : 'Instroom');
         $url = $base.'/crm/aanvragen?fase='.rawurlencode((string)$stageCode);
         $clip = 'polygon('.((100-$topWidth)/2).'% 0, '.((100+$topWidth)/2).'% 0, '.((100+$bottomWidth)/2).'% 100%, '.((100-$bottomWidth)/2).'% 100%)';
-        echo '<a class="lead-funnel__step" href="'.$h($url).'" style="clip-path:'.$clip.';"'.($stageFilter===$stageCode?' aria-current="true"':'').'><span><strong>'.$h($stageLabel).' · '.$amount.'</strong><small>'.$h($retention).'</small></span></a>';
+        echo '<a class="lead-funnel__step" href="'.$h($url).'"'.($stageFilter===$stageCode?' aria-current="true"':'').'><span><strong>'.$h($stageLabel).' · '.$amount.'</strong><small>'.$h($retention).'</small></span></a>';
         $previousCount = $amount;
         ++$stageIndex;
     }
     $convertedClip = 'polygon(28% 0,72% 0,65% 100%,35% 100%)';
-    echo '<div class="lead-funnel__step lead-funnel__step--converted" style="clip-path:'.$convertedClip.'"><span><strong>Omgezet naar verkoopkans · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
+    echo '<div class="lead-funnel__step lead-funnel__step--converted"><span><strong>Omgezet naar verkoopkans · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
     $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
-    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px">';
+    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div class="lead-source-grid">';
     foreach ($sourceStats as $source) {
         $total = (int)$source['total'];
         $converted = (int)$source['converted'];
         $share = $sourceTotal > 0 ? round(100 * $total / $sourceTotal, 1) : 0;
         $rate = $total > 0 ? round(100 * $converted / $total, 1) : 0;
         $url = $base.'/crm/aanvragen?bron='.rawurlencode((string)$source['code']);
-        echo '<a href="'.$h($url).'" style="color:inherit;text-decoration:none;border:1px solid #35465d;border-radius:10px;padding:14px;background:#223248"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p style="font-size:26px;margin:8px 0">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
+        echo '<a href="'.$h($url).'" class="lead-source-card"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p class="lead-source-count">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
     }
     echo '</div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
     $filters = [];
     if ($stageFilter !== '') $filters['fase'] = $stageFilter;
     if ($sourceFilter !== '') $filters['bron'] = $sourceFilter;
     if ($ownerFilterActive) $filters['eigenaar'] = $ownerFilter;
-    echo '<section aria-label="Leads per eigenaar"><h2>KPI · Leadverantwoordelijke</h2><div style="display:flex;flex-wrap:wrap;gap:10px">';
+    echo '<section aria-label="Leads per eigenaar"><h2>KPI · Leadverantwoordelijke</h2><div class="lead-owner-grid">';
     foreach ($ownerStats as $ownerRow) {
         $ownerId = (string)$ownerRow['owner'];
         $ownerName = $ownerId === '' ? 'Niet toegewezen' : $ownerId;
         $ownerUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['eigenaar'=>$ownerId,'weergave'=>$view]));
-        echo '<a style="padding:12px;border:1px solid #35465d;border-radius:8px" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
+        echo '<a class="lead-owner-link" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
     }
     echo '</div></section>';
     $listUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'lijst']));
@@ -157,12 +157,12 @@ if (isset($item)) {
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } elseif ($view === 'kanban') {
-        echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px;margin-top:16px">';
+        echo '<div class="lead-kanban">';
         foreach ($stages as $stageCode => $stageLabel) {
             echo '<section><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
                 if ($row['stage'] !== $stageCode) continue;
-                echo '<article style="background:#223248;border:1px solid #35465d;padding:12px;border-radius:8px;margin:10px 0"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
+                echo '<article class="lead-kanban-card"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
             }
             echo '</section>';
         }
@@ -174,6 +174,6 @@ if (isset($item)) {
         }
         echo '</tbody></table>';
     }
-    echo '</section>';
+    echo '</div>';
 }
 echo '</main></body></html>';
