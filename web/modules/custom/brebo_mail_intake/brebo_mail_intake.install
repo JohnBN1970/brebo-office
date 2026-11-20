@@ -453,3 +453,42 @@ function brebo_mail_intake_update_11005(): string {
 
   return 'DKIM selector/public-key state toegevoegd aan BREBO Mail domeinen.';
 }
+
+
+/**
+ * Stores references to one canonical communication in multiple Office modules.
+ *
+ * Links are proposals until explicitly confirmed. No message content is copied.
+ */
+function brebo_mail_intake_update_11006(): string {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_mail_communication_context_link')) {
+    return 'Communicatie-contextkoppelingen bestaan al.';
+  }
+
+  $schema->createTable('brebo_mail_communication_context_link', [
+    'description' => 'Module-specific references to canonical BREBO communications.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'communication_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'module' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'object_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'object_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'state' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'proposed'],
+      'basis' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE, 'default' => ''],
+      'confirmed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'brebo_mail_context_unique' => ['communication_id', 'module', 'object_type', 'object_id'],
+    ],
+    'indexes' => [
+      'brebo_mail_context_object' => ['module', 'object_type', 'object_id', 'state'],
+      'brebo_mail_context_communication' => ['communication_id', 'state'],
+    ],
+  ]);
+
+  return 'Communicatie-contextkoppelingen aangemaakt (voorstellen standaard niet bevestigd).';
+}
