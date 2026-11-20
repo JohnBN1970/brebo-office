@@ -218,7 +218,7 @@ echo <<<'JS'
    e.preventDefault();if(!moving || !allowed[moving.dataset.stage]?.includes(zone.dataset.stage))return;
    const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:moving.dataset.leadId,stage:zone.dataset.stage});
    try {const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
-    if(!response.ok)throw new Error('Fasewijziging geweigerd ('+response.status+')');location.reload();
+    const result=await response.json().catch(()=>({}));if(!response.ok || !result.ok)throw new Error(result.error || 'Fasewijziging geweigerd ('+response.status+')');location.reload();
    }catch(err){alert(err.message);}
   });
  });
