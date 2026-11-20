@@ -97,12 +97,15 @@ final class OfficeNavigation {
       ['Projecten','projecten',$projectsAvailable?[
         ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
       ]:[]],
-      ['Personeel','personeel',$projectsAvailable?[
-        ['Medewerkers','/office-test/personeel/medewerkers'],
-        ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
-        ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
-        ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
-      ]:[]],
+      ['Personeel','personeel',$projectsAvailable?array_merge(
+        (getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED')==='enabled' && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED')==='enabled')
+          ? [['Medewerkers','/office-test/personeel/medewerkers']] : [],
+        [
+          ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
+          ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
+          ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
+        ]
+      ):[]],
       ['Gebouwen','gebouwen',$projectsAvailable?array_merge(
         [['Gebouwenoverzicht','/office-test/gebouwen']],
         (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled'
@@ -151,11 +154,18 @@ final class OfficeNavigation {
     return $html.'</nav>';
   }
   /** Inspect only declared routes in the isolated test router; never advertise guessed URLs. */
-  private static function runtimeRouteExists(string $route):bool {
+  public static function runtimeRouteExists(string $route):bool {
     $private=realpath(getenv('OFFICE_PRIVATE_ROOT')?:'');
-    if (!$private || !str_contains($private,'/office_calc_test/release-') || !str_ends_with($private,'/private')) return false;
-    $base=dirname($private,2);
-    $files=array_merge([dirname($base).'/public_html/office-test/index.php'],glob($private.'/modules/*/routes.php')?:[]);
+    if (!$private) return false;
+    if (preg_match('~^/srv/brebo/office-test/releases/[a-f0-9]{40}$~D',$private)===1) {
+      if (getenv('OFFICE_VPS_TEST_ROUTER_ENABLED')!=='enabled'
+        || trim((string)@file_get_contents($private.'/.office-source-sha'))!==basename($private)) return false;
+      // Only the active VPS router is authoritative; unmounted modules are not routes.
+      $files=[$private.'/public/index.php'];
+    } elseif (str_contains($private,'/office_calc_test/release-') && str_ends_with($private,'/private')) {
+      $base=dirname($private,2);
+      $files=array_merge([dirname($base).'/public_html/office-test/index.php'],glob($private.'/modules/*/routes.php')?:[]);
+    } else return false;
     foreach ($files as $file) {
       if (is_link($file)||!is_file($file)) continue;
       $source=file_get_contents($file);

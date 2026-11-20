@@ -28,3 +28,19 @@ php /srv/brebo/office-test/current/deployment/vps/activate-dashboard-suite.php -
 It requires the already-active VPS test router, the exact `brebo_office_test` database/user, the existing root-private database environment and dedicated PHP 8.3 test pool. It creates only the existing preference table if absent, preserves business data, makes a private pool backup, validates PHP-FPM before reload and restores the old pool if validation/reload fails. Credentials are never printed. The unprivileged GitHub deploy account cannot run this activation.
 
 After activation, verify `/office-test/mijn-dashboard?view=projects`, `finance`, `quality`, `builder`, and `wallboard` at `https://office-test.brebobv.nl`, including authenticated saving and monitor privacy. A release health check or anonymous login redirect is not functional acceptance.
+
+## Existing project workspace activation
+
+The dashboard activation does not activate project modules. If the menu says
+`Nog niet aangesloten`, the root-only helper can verify the existing project
+tables and enable only their existing two feature flags:
+
+```sh
+php /srv/brebo/office-test/current/deployment/vps/activate-dashboard-suite.php --workspace-plan
+php /srv/brebo/office-test/current/deployment/vps/activate-dashboard-suite.php --workspace-apply
+```
+
+Missing prerequisite columns stop activation before any writes. Account and project
+permissions, CRM, calculation, inspections and write flags remain unchanged. The
+existing private backup, FPM validation and rollback apply. The `brebo-deploy`
+pipeline account cannot change the root-owned FPM configuration.

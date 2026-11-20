@@ -228,6 +228,7 @@ final class OfficeCalcCrmDraftLineRepository
             $type=array_search($prefix,self::TYPES,true);
             if ($type===false || substr($code,1,1)!==':') continue;
             $results[]=[
+                'id'=>(int)$row['id'],
                 'line_id'=>substr($code,2),
                 'cost_type'=>$type,
                 'description'=>$row['description'],

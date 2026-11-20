@@ -20,7 +20,7 @@ final class OfficeBuildingPdokLocationRepository {
       WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_buildings'");
     $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $result = [];
-    foreach (['id', 'name', 'address_line', 'postal_code', 'city', 'latitude', 'longitude', 'bag_id'] as $name) {
+    foreach (['id', 'building_name', 'street_address', 'postal_code', 'city', 'latitude', 'longitude', 'bag_id'] as $name) {
       $result[$name] = in_array($name, $columns, true);
     }
     return $result;
@@ -62,7 +62,7 @@ final class OfficeBuildingPdokLocationRepository {
         throw new RuntimeException('building_manage_permission_required');
       }
       $stmt = $this->db->prepare("UPDATE office_buildings
-        SET bag_id=?, address_line=?, postal_code=?, city=?, latitude=?, longitude=?
+        SET bag_id=?, street_address=?, postal_code=?, city=?, latitude=?, longitude=?
         WHERE id=?");
       $stmt->execute([$bagId, trim($address), trim($postalCode), trim($city),
         $latitude, $longitude, $buildingId]);

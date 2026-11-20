@@ -81,6 +81,9 @@ if (is_int($projectId)) {
 $documentScope = is_int($projectId) ? ['project_id' => $projectId] : [];
 $inspectionUrl = '/office-test/inspecties' . (is_int($projectId) ? '?project_id=' . $projectId : '');
 require_once dirname(__DIR__) . '/src/Documents/OfficeNewDocumentMenu.php';
+$inspectionAvailable = getenv('OFFICE_TEST_INSPECTION_UI_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED') === 'enabled'
+    && \Brebo\Office\Intake\OfficeNavigation::runtimeRouteExists('/office-test/inspecties');
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html>
@@ -116,7 +119,11 @@ try {
 <a href="/office-test/finance">Bedrijfsvoering</a>
 </nav></section>
 <section><h2>Documentenoverzicht</h2>
-<p>De bestaande inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.<?= is_int($projectId) ? " Projectfilter: " . (int) $projectId . "." : "" ?></p>
+<?php if ($inspectionAvailable): ?>
+<p>De inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.<?= is_int($projectId) ? " Projectfilter: " . (int) $projectId . "." : "" ?></p>
 <p><a href="<?= htmlspecialchars($inspectionUrl, ENT_QUOTES, "UTF-8") ?>">Inspectierapporten bekijken</a></p>
+<?php else: ?>
+<p>Inspectierapporten zijn in deze testomgeving nog niet aangesloten.</p>
+<?php endif; ?>
 <p class="muted">Andere documentsoorten worden hier zichtbaar zodra hun centrale registratie en autorisatie zijn aangesloten.</p>
 </section></main></body></html>

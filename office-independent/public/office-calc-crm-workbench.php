@@ -68,7 +68,7 @@ try {
         echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}.calc-inline-material-picker{background:#fff;border:1px solid #cbd4df;border-radius:4px;margin:7px 0;padding:8px 10px}.calc-inline-material-picker>summary{cursor:pointer;color:#205a98;font-weight:700}.calc-inline-material-picker>.panel{margin:9px 0 0}.calc-inline-material-picker form{background:#f4f6f9}
 .calc-topbar{position:relative;top:auto}.calc-inline-material-picker{margin-bottom:7px}.calc-data-secondary{margin-top:7px}.calc-data-secondary>summary{cursor:pointer;padding:9px 12px;background:#f4f7fb;border:1px solid #cbd4df;font-weight:700}.calc-data-secondary>.panel{margin:0;border-top:0}.table-scroll th:nth-child(2),.table-scroll td:nth-child(2){position:sticky;left:30px;z-index:2;background:#fff;box-shadow:2px 0 3px #142a4314}.table-scroll th:first-child,.table-scroll td:first-child{position:sticky;left:0;z-index:3;background:#edf1f7;min-width:30px}.table-scroll thead th:nth-child(-n+2){z-index:5}.table-scroll .calc-inline-row td:nth-child(2){background:#edf5ff}.table-scroll{scrollbar-gutter:stable}
 .calc-material-row>td{padding:4px 7px;background:#edf5ff!important}.calc-material-row .calc-inline-material-picker{margin:0}.calc-material-row .panel{margin:6px 0}.calc-material-row table{width:100%}.calc-material-row table th,.calc-material-row table td{position:static!important;box-shadow:none!important}.calc-material-row form{white-space:normal}.calc-material-row summary{white-space:normal}
-</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
+</style></head><body><main><h1>Gezamenlijke calculaties</h1><p>Je eigen concepten en calculaties waarvoor je expliciet bewerkrecht hebt gekregen.</p><p><a href="/office-test/crm/verkoopkansen">Verkoopkansen</a> · <a href="/office-test/materialen">Materialenprijslijst</a> · <a href="/office-test/gebouwen">Gebouwinventarisatie</a></p><table><thead><tr><th>Calculatie</th><th>Verkoopkans</th><th>Maker</th></tr></thead><tbody>';
         foreach($drafts as$item)echo '<tr><td><a href="'.$workbenchUrl.'?draft_id='.(int)$item['id'].'">Calculatie #'.(int)$item['id'].'</a></td><td>#'.(int)$item['opportunity_id'].'</td><td>'.$escape($item['username']).'</td></tr>';
         if($drafts===[])echo '<tr><td colspan="3">Geen toegankelijke conceptcalculaties. Een calculatie start vanuit de verkoopkans in CRM.</td></tr>';
         echo '</tbody></table></main></body></html>';exit;
@@ -117,6 +117,53 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+    if(in_array($action,['approval_submit','approval_green','approval_red'],true)){
+        if(getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')!=='enabled'
+            ||getenv('OFFICE_CALC_LINE_APPROVAL_SCHEMA_VERIFIED')!=='enabled')$deny(403,'APPROVAL_DISABLED');
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApproval.php';
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApprovalRepository.php';
+        $lineId=filter_var($_POST['approval_line_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if(!is_int($lineId))$deny(400,'INVALID_LINE_ID');
+        $q=$db->prepare('SELECT created_by FROM office_calc_crm_drafts WHERE id=?');
+        $q->execute([$draft]);$authorId=(int)$q->fetchColumn();
+        $ranks=json_decode(getenv('OFFICE_CALC_VERIFIED_OPERATOR_RANKS')?:'{}',true);
+        if(!is_array($ranks))$deny(403,'RANK_CONFIG_INVALID');
+        $authorRank=filter_var($ranks[(string)$authorId]??null,FILTER_VALIDATE_INT);
+        $reviewerRank=filter_var($ranks[(string)$actor]??null,FILTER_VALIDATE_INT);
+        // Organogram position alone is never an approval mandate (BMS O-007).
+        // Until the canonical BMS mandate adapter is connected, keep review writes disabled.
+        if($action!=='approval_submit'){
+            if(getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')!=='enabled')$deny(403,'MANDATE_NOT_VERIFIED');
+            if(!is_int($authorRank)||!is_int($reviewerRank))$deny(403,'RANK_UNVERIFIED');
+        }
+        $note=trim((string)($_POST['approval_note']??''));
+        if(mb_strlen($note)>1000)$deny(400,'NOTE_TOO_LONG');
+        $db->beginTransaction();
+        try{
+            $lock=$db->prepare('SELECT id FROM office_calc_crm_drafts WHERE id=? FOR UPDATE');
+            $lock->execute([$draft]);if($lock->fetchColumn()===false)throw new DomainException('missing_draft');
+            $current=$repo->list($draft,$actor,$rights);
+            $match=null;
+            foreach($current as $item)if((int)($item['id']??0)===$lineId){$match=$item;break;}
+            if($match===null)throw new DomainException('missing_line');
+            $fingerprint=hash('sha256',json_encode($match,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+            $approvals=new \\Brebo\\Office\\Calculation\\OfficeCalculationLineApprovalRepository($db);
+            $existing=null;
+            foreach($approvals->listForDraft($draft) as $record)if((int)$record['calculation_line_id']===$lineId){$existing=$record;break;}
+            $state=$existing===null?['author_id'=>$authorId,'status'=>'draft','fingerprint'=>$fingerprint]:[
+                'author_id'=>(int)$existing['author_id'],'status'=>$existing['status'],
+                'fingerprint'=>$existing['line_fingerprint'],
+                'reviewed_by'=>$existing['reviewed_by'],'released_by'=>$existing['released_by']
+            ];
+            $policy=\\Brebo\\Office\\Calculation\\OfficeCalculationLineApproval::class;
+            if($action==='approval_submit')$next=$policy::submit($state,$actor,$fingerprint);
+            elseif($action==='approval_green')$next=$policy::review($state,$actor,$fingerprint,'',$authorId,$authorRank,$reviewerRank);
+            else $next=$policy::reject($state,$actor,$fingerprint,$note,$authorId,$authorRank,$reviewerRank);
+            $approvals->save($draft,$lineId,$actor,$next,substr($action,9)==='green'?'reviewed':(substr($action,9)==='red'?'rejected':'submitted'),$note);
+            $db->commit();
+        }catch(Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
+    }
     if($method==='POST'&&$action==='save_labor_rate'){
         if($laborRateCatalog===null)$deny(503,'LABOR_RATE_CATALOG_DISABLED');
         if($collaboration===null||!$collaboration->owns($actor,$draft))$deny(403,'LABOR_RATE_ADMIN_REQUIRED');
@@ -279,6 +326,23 @@ if($materialSource!==null){
     try{if($materialQuery!=='')$materialRows=$catalog->search($materialQuery,null,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'),0,null,true);}catch(Throwable){$materialWarning='De prijslijst is tijdelijk niet beschikbaar. Probeer de materiaalkeuze later opnieuw.';}
     $materialRows=array_slice($materialRows,0,50);
 }
+// Approval status is read-only until verified Office hierarchy and write ACL are wired.
+$draftAuthorId=0;
+if(getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')==='enabled'){
+    $authorQuery=$db->prepare('SELECT created_by FROM office_calc_crm_drafts WHERE id=?');
+    $authorQuery->execute([$draft]);$draftAuthorId=(int)$authorQuery->fetchColumn();
+}
+$approvalStates=[];
+$approvalDisplayEnabled=getenv('OFFICE_CALC_LINE_APPROVAL_ENABLED')==='enabled' && getenv('OFFICE_CALC_LINE_APPROVAL_SCHEMA_VERIFIED')==='enabled';
+if($approvalDisplayEnabled){
+    try{
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalculationLineApprovalRepository.php';
+        $approvalRepo=new \Brebo\Office\Calculation\OfficeCalculationLineApprovalRepository($db);
+        foreach($approvalRepo->listForDraft($draft) as $approval){
+            $approvalStates[(string)$approval['calculation_line_id']]=$approval;
+        }
+    }catch(Throwable){$approvalDisplayEnabled=false;$approvalStates=[];}
+}
 $editId=filter_input(INPUT_GET,'edit_line_id',FILTER_UNSAFE_RAW);
 $edit=null;
 if (is_string($editId) && preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$editId)) {
@@ -339,7 +403,8 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
-.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}</style></head><body><main><nav class="calc-topbar" aria-label="Werkbalk calculatie"><a href="/office-test/">← Terug naar hoofdmenu</a><div class="calc-topbar-right"><details class="calc-account-menu"><summary aria-label="Profiel en account">👤 Profiel ▾</summary><div class="calc-account-dropdown"><span class="unavailable" aria-disabled="true">Mijn profiel · binnenkort</span><a href="/office-test/inloggen">Inloggen</a><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details><span class="calc-topbar-settings" title="Instellingen worden later ingericht" aria-disabled="true">⚙ Instellingen</span></div></nav><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-review-popup{display:inline-block;position:relative}.calc-review-popup[open] .calc-review-dialog{position:fixed;z-index:1000;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,90vw);background:#fff;border:2px solid #b91c1c;border-radius:12px;padding:22px;box-shadow:0 0 0 100vmax #10283b99,0 18px 55px #10283b55;white-space:normal}.calc-review-dialog textarea{display:block;width:100%;min-height:100px;box-sizing:border-box;margin:8px 0 16px}.calc-review-dialog button{background:#b91c1c;color:#fff}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}</style></head><body><main><nav class="calc-topbar" aria-label="Werkbalk calculatie"><a href="/office-test/">← Terug naar hoofdmenu</a><div class="calc-topbar-right"><details class="calc-account-menu"><summary aria-label="Profiel en account">👤 Profiel ▾</summary><div class="calc-account-dropdown"><span class="unavailable" aria-disabled="true">Mijn profiel · binnenkort</span><a href="/office-test/inloggen">Inloggen</a><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details><span class="calc-topbar-settings" title="Instellingen worden later ingericht" aria-disabled="true">⚙ Instellingen</span></div></nav><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+echo '<section aria-label="Gebouwinventarisatie en recepten" style="margin:12px 0;padding:14px;border:1px solid #cbd8e8;border-radius:10px;background:#edf3fb"><strong>Gebouwinventarisatie en recepten</strong><p>Inventariseer onderdelen per woningtype met NL-SfB, STABU of vrije code. Selecteer bouwdelen en controleer recepten voordat ze in de calculatie worden opgenomen.</p><p><a href="/office-test/gebouwen">Gebouwen en inventarisatie openen</a> · <a href="/office-test/materialen">Materialen en prijzen</a> · <a href="/office-test/crm/verkoopkansen">Verkoopkans bekijken</a></p><small>Automatisch overnemen wordt actief na controle van recept- en revisiekoppeling.</small></section>';
 echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
 echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
@@ -372,12 +437,27 @@ if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
     }
     echo '</section>';
 }
-echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Calculatieregels</strong> <button type="button" id="calc-lines-expand" class="calc-grid-action">Alle details tonen</button> <button type="button" id="calc-lines-collapse" class="calc-grid-action">Alle details verbergen</button> <span class="calc-grid-hint">Omschrijving en totaal blijven zichtbaar; per regel uitklappen.</span></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Actie</th></tr></thead><tbody>';
+echo '<div class="gridlayout"><section class="panel"><div class="grid-toolbar"><strong>Calculatieregels</strong> <button type="button" id="calc-lines-expand" class="calc-grid-action">Alle details tonen</button> <button type="button" id="calc-lines-collapse" class="calc-grid-action">Alle details verbergen</button> <span class="calc-grid-hint">Omschrijving en totaal blijven zichtbaar; per regel uitklappen.</span></div><div class="table-scroll"><table><thead><tr><th>Nr.</th><th>Omschrijving</th><th>Type</th><th class="numeric">Hoeveelheid</th><th>Eenheid</th><th class="numeric">Verliesfactor %</th><th class="numeric">Norm</th><th class="numeric">Uren</th><th title="Discipline">Disc.</th><th class="numeric">Tarief</th><th class="numeric">Loon</th><th class="numeric">Materiaal</th><th class="numeric">Materieel</th><th class="numeric">Overig</th><th class="numeric">Ond.aann.</th><th class="numeric">Kosten/eh</th><th class="numeric">Subtotaal</th><th>Prijsbron</th><th>Controle</th><th>Actie</th></tr></thead><tbody>';
 
 $total=0;
 $rowNumber=0;
 foreach($lines as $line) {
     ++$rowNumber;
+    $approval=$approvalDisplayEnabled?($approvalStates[(string)($line['id']??'')]??null):null;
+    // Never display a green status for a changed canonical calculation line.
+    $lineFingerprint=hash('sha256',json_encode($line,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+    if($approval!==null && !hash_equals((string)$approval['line_fingerprint'],$lineFingerprint)){
+        $approval=null;
+    }
+    $approvalStatus=$approval===null?'Niet gecontroleerd':match((string)$approval['status']){
+        'submitted'=>'Ingediend - wacht op controle',
+        'rejected'=>'Afgekeurd - aanpassen',
+        'reviewed'=>'Gecontroleerd - wacht op vrijgave',
+        'released'=>'Vrijgegeven',
+        default=>'Niet gecontroleerd'
+    };
+    $approvalComment=$approval!==null && (string)$approval['status']==='rejected'
+        ?(string)($approval['note']??''):'';
     $unitSum='0.0000';
     foreach(['labor','material','equipment','subcontract','other'] as $componentKind){
         $unitSum=bcadd($unitSum,(string)($line['cost_components'][$componentKind]??((string)$line['cost_type']===$componentKind?(string)$line['unit_cost_decimal']:'0')),4);
@@ -420,7 +500,7 @@ foreach($lines as $line) {
             echo '<td><input form="'.$formId.'" class="calc-inline-input" type="number" min="0" step="0.0001" name="component_'.$kind.'" value="'.$h($amount).'" aria-label="'.$h($typeLabels[$kind]).' per eenheid"'.(!$collaborationEnabled?' disabled':'').'></td>';
         }
         echo '<td><input form="'.$formId.'" class="calc-inline-input" name="unit_price_eur" inputmode="decimal" value="'.$h((string)($line['unit_cost_decimal']??str_replace(',','.',$unitCost))).'" required></td>';
-        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td>';
+        echo '<td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).'</td>';
         echo '<td><button form="'.$formId.'" type="submit">Opslaan</button> <a href="'.$workbenchUrl.'?draft_id='.$draft.'">Annuleren</a></td></tr>';
     }else{
         echo '<tr class="calc-collapsible-line" data-calc-row="'.$rowNumber.'"><td><button type="button" class="calc-line-toggle" aria-expanded="false" aria-controls="calc-line-detail-'.$rowNumber.'" aria-label="Kostenopbouw regel '.$rowNumber.' tonen">▸</button> '.$rowNumber.'</td><td>'.$h((string)$line['description']).'</td><td>'.$h($typeLabels[(string)$line['cost_type']]??(string)$line['cost_type']).'</td><td class="numeric">'.$h((string)($line['quantity_decimal']??$line['quantity'])).'</td><td>'.$h((string)($line['unit']??'')).'</td><td class="numeric">'.$h((string)($line['material_loss_percent']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_norm']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hours']??'—')).'</td><td>'.$h((string)($line['labor_rate_code']??'—')).'</td><td class="numeric">'.$h((string)($line['labor_hourly_rate']??'—')).'</td>';
@@ -428,8 +508,20 @@ foreach($lines as $line) {
             $component=(string)($line['cost_components'][$kind]??'0');
             echo '<td class="numeric">€ '.number_format((float)$component,$collaborationEnabled?4:2,',','.').'</td>';
         }
-        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
-        echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="19"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
+        echo '<td class="numeric">€ '.$unitCost.'</td><td class="numeric">€ '.$rowTotal.'</td><td>'.$h($sourceLabel).'</td><td>'.$h($approvalStatus).($approvalComment!==''?'<p class="calc-review-note">Opmerking: '.$h($approvalComment).'</p>':'');
+        if($approvalDisplayEnabled){
+            $approvalForm='approval-line-'.$rowNumber;
+            echo '<form id="'.$approvalForm.'" method="post" action="'.$workbenchUrl.'" style="display:inline"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="approval_line_id" value="'.(int)$line['id'].'">';
+            if($approval===null||in_array((string)$approval['status'],['draft','rejected'],true)){
+                if($actor===(int)($approval['author_id']??$draftAuthorId??0))echo '<button type="submit" name="action" value="approval_submit">Ter controle</button>';
+            }elseif((string)$approval['status']==='submitted' && $actor!==$draftAuthorId && getenv('OFFICE_CALC_BMS_MANDATE_ADAPTER_VERIFIED')==='enabled'){
+                echo '<button type="submit" name="action" value="approval_green" formnovalidate style="background:#087f42;color:white">✓ Groen</button> ';
+                echo '<details class="calc-review-popup"><summary style="color:#b91c1c;cursor:pointer">✕ Rood</summary><div class="calc-review-dialog"><strong>Regel afkeuren</strong><p>Omschrijf wat de calculator moet aanpassen.</p><label>Opmerking verplicht<textarea name="approval_note" maxlength="1000" required></textarea></label><button type="submit" name="action" value="approval_red">Afkeuren en terugsturen</button></div></details>';
+            }
+            echo '</form>';
+        }
+        echo '</td><td><a href="'.$workbenchUrl.'?draft_id='.$draft.'&amp;edit_line_id='.rawurlencode((string)$line['line_id']).'">Wijzigen</a></td></tr>';
+        echo '<tr id="calc-line-detail-'.$rowNumber.'" class="calc-line-detail" hidden><td colspan="20"><div class="calc-line-costs" aria-label="Kostenopbouw regel '.$rowNumber.'">';
         foreach($costCells as $kind){
             $component=(string)($line['cost_components'][$kind]??((string)$line['cost_type']===$kind?(string)$line['unit_cost_decimal']:'0'));
             $componentDisplay=number_format((float)$component,$collaborationEnabled?4:2,',','.');

@@ -47,6 +47,7 @@ $routes = [
   '/office-test/inloggen' => 'office-login.php',
   '/office-test/uitloggen' => 'office-logout.php',
   '/office-test/mijn-dashboard' => 'office-personal-dashboard.php',
+  '/office-test/documenten' => 'office-documents.php',
   '/office-test/crm/relaties' => 'office-crm-relations.php',
   '/office-test/crm/relaties/nieuw' => 'office-crm-relation-create.php',
   '/office-test/crm/relaties/detail' => 'office-crm-relation-detail.php',
