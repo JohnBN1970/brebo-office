@@ -88,6 +88,10 @@ final class OfficeNavigation {
     foreach (['/office-test/email','/office-test/mail','/office-test/communicatie'] as $mailPath) {
       if (self::runtimeRouteExists($mailPath)) {$informationLinks[]=['E-mail',$mailPath];break;}
     }
+    if (getenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED') === 'enabled'
+        && self::runtimeRouteExists('/office-test/mail/controle')) {
+      $informationLinks[] = ['Mailcontrole', '/office-test/mail/controle'];
+    }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
       ['Marketing','marketing',getenv('OFFICE_TEST_MARKETING_ENABLED')==='enabled' ? [['Marketingoverzicht','/office-test/marketing']] : []],

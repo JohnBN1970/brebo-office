@@ -112,6 +112,35 @@ if (isset($item)) {
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
     echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    // Read-only linked messages: require both lead and message ACL checks.
+    if ($base === '/office-test' && getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
+        try {
+            require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextLinksRepository.php';
+            require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextAccess.php';
+            $mailAccess = new \Brebo\Office\Mail\OfficeMailContextAccess($db);
+            $mailLinks = new \Brebo\Office\Mail\OfficeMailContextLinksRepository($db);
+            $ids = $mailLinks->forEntity('leads', (int)$item['id'], (string)$operator->operatorId,
+                [$mailAccess, 'canAccessEntity'], [$mailAccess, 'canReadMessage']);
+            $mailRows = [];
+            if ($ids) {
+                $sql = 'SELECT id,subject,sender,received_at FROM office_mail_messages WHERE id IN ('
+                    . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY received_at DESC LIMIT 100';
+                $stmt = $db->prepare($sql);
+                $stmt->execute($ids);
+                $mailRows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            }
+            echo '<section aria-label="Gerelateerde e-mails"><h2>Gerelateerde e-mails</h2>';
+            if (!$mailRows) echo '<p>Geen toegankelijke gekoppelde e-mails.</p>';
+            else {
+                echo '<ul>';
+                foreach ($mailRows as $mailRow) echo '<li><strong>'.$h($mailRow['subject'] ?? '').'</strong> — '.$h($mailRow['sender'] ?? '').' ('.$h($mailRow['received_at'] ?? '').')</li>';
+                echo '</ul>';
+            }
+            echo '</section>';
+        } catch (Throwable $ignored) {
+            // Fail closed: unavailable mail data must never break lead details.
+        }
+    }
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Deals.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
