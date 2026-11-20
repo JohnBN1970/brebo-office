@@ -68,6 +68,22 @@ if ($method === 'POST') {
         $error = 'Controleer de verplichte bron, titel en overige invoervelden.';
     } else {
         try {
+            // Match only an exact CRM email. Ambiguous identities require manual review.
+            $matches = [];
+            if ($values['contact_email'] !== '') {
+                $match = $db->prepare("SELECT id,display_name FROM office_crm_relations
+                    WHERE status='active' AND LOWER(email)=LOWER(?) LIMIT 2");
+                $match->execute([$values['contact_email']]);
+                $matches = $match->fetchAll(PDO::FETCH_ASSOC);
+            }
+            if (count($matches) > 1) {
+                $error = 'Meerdere relaties gevonden. Controleer de klant handmatig via Relaties.';
+            } elseif (count($matches) === 1) {
+                $error = 'Bestaande relatie gevonden: '.$matches[0]['display_name'].'. Maak hiervoor rechtstreeks een verkoopkans aan via Relaties.';
+            }
+            if ($error !== '') {
+                // No lead is created for an existing or ambiguous CRM relation.
+            } else {
             $db->beginTransaction();
             $insert = $db->prepare("INSERT INTO office_crm_leads
                 (source_id,title,source_detail,campaign,contact_name,contact_email,description,stage,status)
@@ -85,6 +101,7 @@ if ($method === 'POST') {
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
             $error = 'Lead opslaan mislukt.';
+        }
         }
     }
 }
