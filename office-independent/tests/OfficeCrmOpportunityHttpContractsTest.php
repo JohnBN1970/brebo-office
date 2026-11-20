@@ -18,6 +18,25 @@ foreach ($expected as $url=>$file) {
             if (!str_contains($source,$gate)) throw new RuntimeException('Missing write protection '.$gate.' in '.$file);
     }
 }
+foreach (['public/index.php','deployment/hostinger/office-test-index.php'] as $router) {
+    $source=file_get_contents($root.'/'.$router);
+    if (!str_contains($source,"'/office-test/crm/verkoopkansen/drag.js' => 'office-crm-kanban-drag.php'")) {
+        throw new RuntimeException('Kanban script route missing: '.$router);
+    }
+}
+$board=file_get_contents($root.'/public/office-crm-opportunities.php');
+$views=file_get_contents($root.'/src/Crm/OfficeCrmFunnelViews.php');
+$drag=file_get_contents($root.'/public/office-crm-kanban-drag.js');
+foreach (['script-src \'self\'','crm_opportunity_csrf','office-crm-kanban-drag.php'] as $check) {
+    if ($check==='office-crm-kanban-drag.php') continue;
+    if (!str_contains($board,$check)) throw new RuntimeException('Kanban board missing '.$check);
+}
+foreach (['data-crm-id','data-crm-stage','draggable='] as $check) {
+    if (!str_contains($views,$check)) throw new RuntimeException('Kanban markup missing '.$check);
+}
+foreach (['URLSearchParams','credentials:\'same-origin\'','/office-test/crm/verkoopkansen/fase','window.location.reload()'] as $check) {
+    if (!str_contains($drag,$check)) throw new RuntimeException('Kanban drag missing '.$check);
+}
 if (str_contains($nav,"[['Aanvragen','/office-test/crm/aanvragen']]")) throw new RuntimeException('Legacy requests advertised');
 if (!str_contains($nav,"[['Verkoopkansen','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Verkoopkansen missing from navigation');
 $installer=file_get_contents($root.'/deployment/hostinger/install-office-crm-opportunities-test.php');
