@@ -24,8 +24,8 @@ CREATE TABLE office_crm_direct_project_transfers(
     FOREIGN KEY (project_id) REFERENCES office_projects(id),
     FOREIGN KEY (relation_id) REFERENCES office_crm_relations(id)
 );
-INSERT INTO office_operator_accounts VALUES (7,1),(8,0);
-INSERT INTO office_module_permissions VALUES (7,'projects','create'),(8,'projects','create');
+INSERT INTO office_operator_accounts VALUES (7,1),(8,0),(9,1);
+INSERT INTO office_module_permissions VALUES (7,'projects','create'),(8,'projects','create'),(9,'projects','create');
 INSERT INTO office_crm_relations VALUES (5);
 INSERT INTO office_crm_opportunities VALUES
     (101,5,'FICTIEF direct gegund','won','closed'),
@@ -46,6 +46,10 @@ expectReject(fn()=>$accept->transferForOperator(8,104),'inactive operator');
 expectReject(fn()=>$accept->transferForOperator(99,104),'unprivileged operator');
 $first=$accept->transferForOperator(7,101);
 $second=$accept->transferForOperator(7,101);
+expectReject(fn()=>$accept->transferForOperator(9,101),'authorized creator cannot view other project');
+$db->exec("INSERT INTO office_project_memberships VALUES ({$first},9,'read')");
+if ($accept->transferForOperator(9,101)!==$first) throw new RuntimeException('Read-only member cannot access idempotent handoff');
+$db->exec("DELETE FROM office_project_memberships WHERE operator_id=9");
 $db->exec('INSERT INTO office_calc_crm_acceptance_transfers VALUES (101,77)');
 expectReject(fn()=>$accept->transferForOperator(7,101),'conflicting Calc mapping on repeat');
 $db->exec('DELETE FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=101');
