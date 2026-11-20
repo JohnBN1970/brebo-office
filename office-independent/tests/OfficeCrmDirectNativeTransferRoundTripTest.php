@@ -24,13 +24,13 @@ CREATE TABLE office_crm_direct_project_transfers(
     FOREIGN KEY (relation_id) REFERENCES office_crm_relations(id)
 );
 INSERT INTO office_operator_accounts VALUES (7,1),(8,0);
-INSERT INTO office_module_permissions VALUES (7,"projects","create"),(8,"projects","create");
+INSERT INTO office_module_permissions VALUES (7,'projects','create'),(8,'projects','create');
 INSERT INTO office_crm_relations VALUES (5);
 INSERT INTO office_crm_opportunities VALUES
-    (101,5,"FICTIEF direct gegund","won","closed"),
-    (102,5,"FICTIEF niet gegund","prospect","open"),
-    (103,5,"FICTIEF via calc gegund","won","closed"),
-    (104,5,"FICTIEF zonder bevoegdheid","won","closed");
+    (101,5,'FICTIEF direct gegund','won','closed'),
+    (102,5,'FICTIEF niet gegund','prospect','open'),
+    (103,5,'FICTIEF via calc gegund','won','closed'),
+    (104,5,'FICTIEF zonder bevoegdheid','won','closed');
 INSERT INTO office_calc_crm_acceptance_transfers VALUES (103,77);');
 $accept=new OfficeCrmDirectProjectAcceptance($db);
 function expectReject(callable $f,string $label): void {
