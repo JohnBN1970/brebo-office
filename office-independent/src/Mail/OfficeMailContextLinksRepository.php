@@ -6,7 +6,7 @@ use RuntimeException;
 
 /** Context links never grant access: caller must enforce mailbox AND entity ACL. */
 final class OfficeMailContextLinksRepository {
-  private const MODULES = ['crm', 'projects', 'calculations', 'quotes', 'finance'];
+  private const MODULES = ['crm', 'leads', 'projects', 'calculations', 'quotes', 'finance'];
   public function __construct(private readonly PDO $db) {}
 
   /** Only call after authorization for BOTH message and target entity. */
