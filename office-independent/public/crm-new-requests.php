@@ -1,133 +1,87 @@
 <?php
-
 declare(strict_types=1);
 
-/**
- * Independent, read-only Office CRM route.
- * Deployment: proxy-plus-session remains the default. Explicit shared-hosting
- * session_only mode requires HTTPS, the configured Office host and a current
- * Office-owned database session with CRM permission.
- * Not enabled by any existing production router.
- */
-header('Content-Type: text/html; charset=utf-8');
+/** Native read-only CRM requests view for the isolated Office test router. */
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
-
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
-  http_response_code(405);
-  exit;
+    header('Allow: GET'); http_response_code(405); exit;
 }
-$route = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-$isTest = getenv('OFFICE_BASE_PATH') === '/office-test';
-$base = $isTest ? '/office-test' : '/office';
-if ($route !== $base . '/crm/aanvragen' && $route !== $base . '/crm/aanvragen/detail') {
-  http_response_code(404);
-  exit;
+$base = getenv('OFFICE_BASE_PATH') === '/office-test' ? '/office-test' : '/office';
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+if (!in_array($path, [$base.'/crm/aanvragen', $base.'/crm/aanvragen/detail'], true)) {
+    http_response_code(404); exit;
 }
-// On shared hosting, the independent Office login and DB-backed operator
-// session can be the only gate when explicitly configured for that mode.
-// Never infer this mode from missing proxy headers or missing tokens.
-$authMode = getenv('OFFICE_CRM_AUTH_MODE');
-if ($authMode === 'session_only') {
-  if (getenv('OFFICE_LOGIN_ENABLED') !== 'enabled') {
-    http_response_code(503);
-    exit;
-  }
-  $host = $_SERVER['HTTP_HOST'] ?? null;
-  $allowedHost = getenv('OFFICE_PUBLIC_HOST');
-  if (!is_string($host) || !is_string($allowedHost) || $allowedHost === ''
-    || !hash_equals($allowedHost, $host)
+if (getenv('OFFICE_TEST_CRM_ENABLED') !== 'enabled'
+    || getenv('OFFICE_CRM_AUTH_MODE') !== 'session_only'
+    || getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled'
+    || getenv('OFFICE_LOGIN_ENABLED') !== 'enabled'
+    || getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED') !== 'enabled') {
+    http_response_code(503); exit('Aanvragen niet beschikbaar.');
+}
+$host = $_SERVER['HTTP_HOST'] ?? '';
+$allowed = getenv('OFFICE_PUBLIC_HOST');
+if (!is_string($allowed) || $allowed === '' || !hash_equals($allowed, (string)$host)
     || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
-    http_response_code(403);
-    exit;
-  }
-}
-elseif ($authMode === false || $authMode === '' || $authMode === 'proxy_and_session') {
-  $expected = getenv('OFFICE_CRM_WORKBENCH_TOKEN');
-  $provided = $_SERVER['HTTP_X_OFFICE_CRM_WORKBENCH_TOKEN'] ?? null;
-  if (!is_string($expected) || strlen($expected) < 32 || !is_string($provided) || !hash_equals($expected, $provided)) {
-    http_response_code(403);
-    exit;
-  }
-}
-else {
-  http_response_code(503);
-  exit;
-}
-// An Office-owned session is mandatory in addition to the trusted proxy gate.
-// Do not activate this mode until Office manages the session table and login.
-$sessionMode = getenv('OFFICE_CRM_SESSION_MODE');
-if ($sessionMode !== 'enabled') {
-  http_response_code(503);
-  exit;
-}
-$dsn = getenv('OFFICE_INTAKE_PDO_DSN');
-$user = getenv('OFFICE_INTAKE_DB_USER');
-$password = getenv('OFFICE_INTAKE_DB_PASSWORD');
-if (!is_string($dsn) || $dsn === '' || !is_string($user) || !is_string($password)) {
-  http_response_code(503);
-  exit;
+    http_response_code(403); exit;
 }
 try {
-  require_once dirname(__DIR__) . '/src/Intake/OfficeMount.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityReadRepository.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityListRenderer.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityDetailRenderer.php';
-  $db = new PDO($dsn, $user, $password, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_EMULATE_PREPARES => false,
-  ]);
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteCrmOperatorContext.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmSessionRepository.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php';
-  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmAccessPolicy.php';
-  $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
-    new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db),
-    $_COOKIE,
-    time(),
-  );
-  try {
-    (new \Brebo\Office\Intake\WebsiteOfficeCrmAccessPolicy($provider))->requireReader();
-  }
-  catch (DomainException) {
-    http_response_code(403);
-    exit;
-  }
-  $repository = new \Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository($db);
-  if ($route === $base . '/crm/aanvragen/detail') {
-    $rawId = $_GET['id'] ?? null;
-    if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int) $rawId < 1) {
-      http_response_code(400);
-      echo 'Ongeldig verkoopkansnummer.';
-      exit;
+    foreach (['OfficeMount.php', 'WebsiteCrmOperatorContext.php',
+              'WebsiteCrmOperatorSessionProviderInterface.php',
+              'WebsiteOfficeCrmSessionRepository.php',
+              'WebsiteOfficeCrmCookieSessionProvider.php'] as $file) {
+        require_once dirname(__DIR__).'/src/Intake/'.$file;
     }
-    $opportunity = $repository->find((int) $rawId);
-    if ($opportunity === null) {
-      http_response_code(404);
-      echo 'Verkoopkans niet gevonden.';
-      exit;
+    $db = new PDO(getenv('OFFICE_INTAKE_PDO_DSN') ?: '',
+        getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
+    $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
+        new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time());
+    $operator = $provider->currentOperator();
+    if ($operator === null) {
+        header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302); exit;
     }
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity, $base);
-  }
-  else {
-    $pageRaw = $_GET['page'] ?? '1';
-    if (!is_string($pageRaw) || !ctype_digit($pageRaw) || strlen($pageRaw) > 5 || (int) $pageRaw < 1 || (int) $pageRaw > 20001) {
-      http_response_code(400);
-      echo 'Ongeldig paginanummer.';
-      exit;
+    $active = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1 LIMIT 1');
+    $active->execute([$operator->operatorId]);
+    if ($active->fetchColumn() === false) {
+        http_response_code(403); exit('Geen CRM-toegang.');
     }
-    $page = (int) $pageRaw;
-    $rows = $repository->recent(51, ($page - 1) * 50);
-    $hasNextPage = count($rows) > 50;
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render(array_slice($rows, 0, 50), $page, $hasNextPage, $base);
-  }
+    if ($path === $base.'/crm/aanvragen/detail') {
+        $rawId = $_GET['id'] ?? null;
+        if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
+            http_response_code(400); exit('Ongeldig aanvraagnummer.');
+        }
+        $stmt = $db->prepare('SELECT o.id,o.title,o.stage,o.status,o.description,o.next_action,o.next_action_at,r.display_name AS relation_name
+            FROM office_crm_opportunities o JOIN office_crm_relations r ON r.id=o.relation_id WHERE o.id=? LIMIT 1');
+        $stmt->execute([(int)$rawId]);
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$item) { http_response_code(404); exit('Aanvraag niet gevonden.'); }
+    } else {
+        require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
+        $items = (new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
+    }
+} catch (Throwable $e) {
+    http_response_code(503); exit('Aanvragen tijdelijk niet beschikbaar.');
 }
-catch (Throwable) {
-  http_response_code(503);
-  echo 'Het overzicht van nieuwe aanvragen is tijdelijk niet beschikbaar.';
+$h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+header('Content-Type: text/html; charset=utf-8');
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;border:1px solid #dbe1e8}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+if (isset($item)) {
+    echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Volgende actie:</strong> '.$h($item['next_action']).'</p><p><strong>Opvolgdatum:</strong> '.$h($item['next_action_at']).'</p></section>';
+} else {
+    echo '<h1>Aanvragen</h1><p>Actuele verkoopkansen en hun opvolging.</p><section>';
+    if ($items === []) {
+        echo '<p>Geen aanvragen gevonden.</p>';
+    } else {
+        echo '<table><thead><tr><th>Aanvraag</th><th>Relatie</th><th>Fase</th><th>Volgende actie</th><th>Opvolgdatum</th></tr></thead><tbody>';
+        foreach ($items as $row) {
+            echo '<tr><td><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'">'.$h($row['name']).'</a></td><td>'.$h($row['relation_name']).'</td><td>'.$h($row['stage']).'</td><td>'.$h($row['next_action']).'</td><td>'.$h($row['due_date']).'</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+    echo '</section>';
 }
+echo '</main></body></html>';
