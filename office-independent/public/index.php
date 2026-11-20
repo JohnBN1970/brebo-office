@@ -22,6 +22,14 @@ if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED')==='enabled'
 putenv('OFFICE_PUBLIC_HOST='.$expectedHost);
 putenv('OFFICE_BASE_PATH=/office-test');
 putenv('OFFICE_PRIVATE_ROOT='.$release);
+// The VPS deployment archives office-independent only; the shared-host
+// activation script does not run here. Enable CRM writes for the isolated
+// test router only after the existing CRM and schema gates are verified.
+if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled'
+    && getenv('OFFICE_CRM_AUTH_MODE')==='session_only'
+    && getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled') {
+  putenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED=enabled');
+}
 $private = $release; // Existing isolated module handlers use this root.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 // Preserve the existing /office-test URL and cookie namespace on the new subdomain.
@@ -31,6 +39,7 @@ if ($path === '/') {
 }
 $routes = [
   '/office-test/materialen' => 'office-materials.php',
+  '/office-test/marketing' => 'office-marketing.php',
   '/office-test/calculatie' => 'office-calc-crm-workbench.php',
   '/office-test/calculatie/samenwerken' => 'office-calc-crm-workbench.php',
   '/office-test' => 'office-home.php',

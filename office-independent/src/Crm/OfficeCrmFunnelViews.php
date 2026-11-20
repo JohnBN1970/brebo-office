@@ -52,7 +52,14 @@ final class OfficeCrmFunnelViews {
     }
     private static function action(array $item): string {
         $id=filter_var($item['id']??null,FILTER_VALIDATE_INT);
-        if ($id===false || $id<1 || in_array((string)($item['stage']??''),['won','lost'],true)) return '';
+        if ($id===false || $id<1) return '';
+        if ((string)($item['stage']??'')==='won') {
+            $projectId=filter_var($item['project_id']??null,FILTER_VALIDATE_INT);
+            return $projectId!==false && $projectId>0
+                ? ' <a href="/office-test/projecten/detail?id='.$projectId.'">Open project</a>'
+                : ' <span class="crm-project-handoff-pending">Projectoverdracht nog niet bevestigd</span>';
+        }
+        if ((string)($item['stage']??'')==='lost') return '';
         return ' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Fase wijzigen</a>';
     }
     private static function card(array $item): string {

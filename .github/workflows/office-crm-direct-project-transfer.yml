@@ -1,0 +1,31 @@
+name: CRM direct project transfer contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php'
+      - 'office-independent/deployment/hostinger/sql/office-crm-direct-project-transfer.sql'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php'
+      - '.github/workflows/office-crm-direct-project-transfer.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php'
+      - 'office-independent/deployment/hostinger/sql/office-crm-direct-project-transfer.sql'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php'
+      - '.github/workflows/office-crm-direct-project-transfer.yml'
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php
+          php -l office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php
+          php -l office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php
+      - name: Transfer contract
+        run: php office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php
+      - name: Transfer SQLite round-trip
+        run: php office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php
