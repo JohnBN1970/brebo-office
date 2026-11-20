@@ -5,6 +5,7 @@ on:
       - 'office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-direct-project-transfer.sql'
       - 'office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php'
       - '.github/workflows/office-crm-direct-project-transfer.yml'
   push:
     branches: [develop]
@@ -12,6 +13,7 @@ on:
       - 'office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php'
       - 'office-independent/deployment/hostinger/sql/office-crm-direct-project-transfer.sql'
       - 'office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php'
+      - 'office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php'
       - '.github/workflows/office-crm-direct-project-transfer.yml'
 jobs:
   contracts:
@@ -22,5 +24,8 @@ jobs:
         run: |
           php -l office-independent/src/Crm/OfficeCrmDirectProjectTransfer.php
           php -l office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php
+          php -l office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php
       - name: Transfer contract
         run: php office-independent/tests/OfficeCrmDirectProjectTransferContractTest.php
+      - name: Transfer SQLite round-trip
+        run: php office-independent/tests/OfficeCrmDirectProjectTransferRoundTripTest.php
