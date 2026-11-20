@@ -1,13 +1,6 @@
 name: Startdossier VPS acceptance evidence
 on:
   workflow_dispatch:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/startdossier-vps-acceptance.yml'
-      - 'scripts/deployment/check_office_test_vps_readiness.sh'
-      - 'office-independent/src/Project/**'
-      - 'office-independent/schema/office-project-kickstart.sql'
 permissions:
   contents: read
 jobs:
@@ -28,6 +21,7 @@ jobs:
           done
           python3 office-independent/tests/test_project_kickstart_mount.py
   vps-evidence:
+    environment: office-test
     needs: contracts
     runs-on: ubuntu-latest
     steps:
