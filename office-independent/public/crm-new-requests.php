@@ -129,16 +129,30 @@ if (isset($item)) {
     $convertedClip = 'polygon(28% 0,72% 0,65% 100%,35% 100%)';
     echo '<div class="lead-funnel__step lead-funnel__step--converted"><span><strong>Omgezet naar verkoopkans · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
     $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
-    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div class="lead-source-grid">';
-    foreach ($sourceStats as $source) {
+    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. De grafiek toont het aandeel per bron; klik op een bron in de legenda om open leads te filteren.</p>';
+    $sourceColors = ['#5b8def','#21b6a8','#f2b84b','#a78bfa','#f17e75','#57c5e5','#92bb64','#df86bf','#ed9955','#8395ab'];
+    $pieStops = [];
+    $pieOffset = 0.0;
+    foreach ($sourceStats as $sourceIndex => $source) {
+        $total = (int)$source['total'];
+        if ($total < 1 || $sourceTotal < 1) continue;
+        $nextOffset = $pieOffset + (100.0 * $total / $sourceTotal);
+        $color = $sourceColors[$sourceIndex % count($sourceColors)];
+        $pieStops[] = $color.' '.number_format($pieOffset, 4, '.', '').'% '.number_format($nextOffset, 4, '.', '').'%';
+        $pieOffset = $nextOffset;
+    }
+    $pieBackground = $pieStops === [] ? '#47617c' : 'conic-gradient('.implode(', ', $pieStops).')';
+    echo '<div class="lead-source-summary"><div class="lead-source-pie" role="img" aria-label="Verdeling van '.$sourceTotal.' leads over de herkomstbronnen" style="background:'.$h($pieBackground).'"><div class="lead-source-pie__center"><strong>'.$sourceTotal.'</strong><small>Leads totaal</small></div></div><div class="lead-source-legend">';
+    foreach ($sourceStats as $sourceIndex => $source) {
         $total = (int)$source['total'];
         $converted = (int)$source['converted'];
         $share = $sourceTotal > 0 ? round(100 * $total / $sourceTotal, 1) : 0;
         $rate = $total > 0 ? round(100 * $converted / $total, 1) : 0;
         $url = $base.'/crm/aanvragen?bron='.rawurlencode((string)$source['code']);
-        echo '<a href="'.$h($url).'" class="lead-source-card"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p class="lead-source-count">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
+        $color = $sourceColors[$sourceIndex % count($sourceColors)];
+        echo '<a href="'.$h($url).'" class="lead-source-legend__item"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><span class="lead-source-legend__swatch" style="background:'.$h($color).'"></span><span class="lead-source-legend__name">'.$h($source['label']).'</span><strong>'.$total.'</strong><small>'.$share.'% · '.$rate.'% conversie</small></a>';
     }
-    echo '</div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
+    echo '</div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
     $filters = [];
     if ($stageFilter !== '') $filters['fase'] = $stageFilter;
     if ($sourceFilter !== '') $filters['bron'] = $sourceFilter;
