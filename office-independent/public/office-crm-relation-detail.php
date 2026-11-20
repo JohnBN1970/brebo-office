@@ -31,6 +31,19 @@ try {
     $stmt->execute([$id,'active']); $contacts=$stmt->fetchAll(PDO::FETCH_ASSOC);
     $stmt=$db->prepare("SELECT manager.display_name,rep.valid_from,rep.valid_until FROM office_crm_relation_representations rep JOIN office_crm_relations manager ON manager.id=rep.representative_relation_id WHERE rep.principal_relation_id=? AND rep.representation_type='property_management' AND (rep.valid_from IS NULL OR rep.valid_from<=CURRENT_DATE()) AND (rep.valid_until IS NULL OR rep.valid_until>=CURRENT_DATE()) ORDER BY manager.display_name");
     $stmt->execute([$id]); $managers=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Optional hierarchy: older Office-test databases do not yet have this table.
+    $organizationLinks = [];
+    $hierarchyTable = $db->query("SHOW TABLES LIKE 'office_crm_organization_links'")->fetchColumn();
+    if ($hierarchyTable) {
+        $stmt = $db->prepare("SELECT l.parent_relation_id,l.child_relation_id,l.link_type,
+            r.id AS related_id,r.display_name AS related_name
+            FROM office_crm_organization_links l
+            JOIN office_crm_relations r ON r.id=CASE WHEN l.parent_relation_id=? THEN l.child_relation_id ELSE l.parent_relation_id END
+            WHERE l.parent_relation_id=? OR l.child_relation_id=?
+            ORDER BY l.link_type,r.display_name");
+        $stmt->execute([$id,$id,$id]);
+        $organizationLinks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (Throwable $e) { http_response_code(503); exit('Relatiedetail tijdelijk niet beschikbaar.'); }
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
@@ -55,6 +68,18 @@ if (!$contacts) echo '<p>Geen contactpersonen vastgelegd.</p>';
 else {
     echo '<table><thead><tr><th>Naam</th><th>Functie</th><th>E-mail</th><th>Telefoon</th><th>Primair</th></tr></thead><tbody>';
     foreach ($contacts as $person) echo '<tr><td>'.$h(trim($person['given_name'].' '.$person['family_name'])).'</td><td>'.$h($person['job_title']??'').'</td><td>'.$h($person['email']??'').'</td><td>'.$h($person['phone']??'').'</td><td>'.($person['is_primary']?'Ja':'').'</td></tr>';
+    echo '</tbody></table>';
+}
+echo '</section><section><h2>Organisatiestructuur</h2>';
+if (!$organizationLinks) echo '<p>Geen gekoppelde hoofd- of dochterbedrijven en vestigingen vastgelegd.</p>';
+else {
+    $linkLabels=['subsidiary'=>'Dochterbedrijf','branch'=>'Vestiging','group_member'=>'Groepslid'];
+    echo '<table><thead><tr><th>Relatie</th><th>Verband</th><th>Positie</th></tr></thead><tbody>';
+    foreach ($organizationLinks as $link) {
+        $isParent=(int)$link['parent_relation_id']===$id;
+        $direction=$isParent?'Onderliggend':'Bovenliggend';
+        echo '<tr><td><a href="/office-test/crm/relaties/detail?id='.(int)$link['related_id'].'">'.$h($link['related_name']).'</a></td><td>'.$h($linkLabels[$link['link_type']]??$link['link_type']).'</td><td>'.$direction.'</td></tr>';
+    }
     echo '</tbody></table>';
 }
 echo '</section><section><h2>Vastgoedbeheerder</h2>';
