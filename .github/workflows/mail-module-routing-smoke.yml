@@ -13,6 +13,8 @@ on:
       - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.install'
       - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
       - 'web/modules/custom/brebo_mail_intake/tests/mail-communication-block-smoke.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlocks.php'
+      - 'office-independent/tests/OfficeMailCommunicationBlocksTest.php'
   workflow_dispatch:
 
 permissions:
@@ -37,5 +39,9 @@ jobs:
           php web/modules/custom/brebo_mail_intake/tests/mail-communication-block-smoke.php
       - name: Mail inbox JavaScript syntax
         run: node --check web/themes/custom/brebo_office/js/mail-list-controls.js
+      - name: Native Office mail communication blocks
+        run: |
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlocks.php
+          php office-independent/tests/OfficeMailCommunicationBlocksTest.php
       - name: Routing smoke tests
         run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
