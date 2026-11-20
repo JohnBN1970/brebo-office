@@ -152,6 +152,31 @@ try {
         fclose($handle);
         exit;
       }
+      if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && in_array(($_POST['action'] ?? ''), ['context_link','context_unlink'], true)) {
+        if (getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') !== 'enabled') { http_response_code(404); exit; }
+        $origin=(string)($_SERVER['HTTP_ORIGIN']??'');
+        $referer=(string)($_SERVER['HTTP_REFERER']??'');
+        if (($origin!=='' && !hash_equals('https://'.$allowedHost,$origin))
+          || ($origin==='' && !str_starts_with($referer,'https://'.$allowedHost.'/'))
+          || !is_string($_POST['csrf']??null) || !hash_equals($csrfToken,$_POST['csrf'])) {
+          http_response_code(403); exit('Ongeldige aanvraag.');
+        }
+        $messageId=filter_var($_POST['message_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $entityId=filter_var($_POST['entity_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $module=$_POST['module']??null;
+        if (!is_int($messageId) || !is_int($entityId) || !is_string($module)
+          || !in_array($module,['leads','crm','projects'],true)) { http_response_code(400); exit('Ongeldige koppeling.'); }
+        require_once dirname(__DIR__).'/src/Mail/OfficeMailContextAccess.php';
+        require_once dirname(__DIR__).'/src/Mail/OfficeMailContextLinksRepository.php';
+        $access=new \Brebo\Office\Mail\OfficeMailContextAccess($db);
+        $links=new \Brebo\Office\Mail\OfficeMailContextLinksRepository($db);
+        try {
+          if ($_POST['action']==='context_link') $links->link($messageId,$module,$entityId,$operatorId,[$access,'canReadMessage'],[$access,'canAccessEntity']);
+          else $links->unlink($messageId,$module,$entityId,$operatorId,[$access,'canReadMessage'],[$access,'canAccessEntity']);
+        } catch (RuntimeException $e) { http_response_code(403); exit('Geen toegang tot bericht of dossier.'); }
+        header('Location: /office-test/email?message_id='.$messageId.'&context_saved=1',true,303);
+        exit;
+      }
       if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'mail_state') {
         if (!$mailStatesEnabled) { http_response_code(503); exit('Mailmappen nog niet geactiveerd.'); }
         $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -980,20 +1005,11 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <?php endif; ?>
 
 <?php if (getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled' && $openedMessage !== null && is_int($selectedMailId)): ?>
-<?php
-$contextCsrf = $_COOKIE['office_mail_context_csrf'] ?? '';
-if (!is_string($contextCsrf) || strlen($contextCsrf)!==64 || !ctype_xdigit($contextCsrf)) {
-  $contextCsrf = bin2hex(random_bytes(32));
-  setcookie('office_mail_context_csrf',$contextCsrf,[
-    'expires'=>0,'path'=>'/office-test/','secure'=>true,'httponly'=>true,'samesite'=>'Strict'
-  ]);
-}
-?>
 <section aria-label="E-mail koppelen aan dossier">
 <h2>Koppel deze e-mail aan een dossier</h2>
 <p>Het bericht blijft in de oorspronkelijke mailbox. Een koppeling geeft geen extra leesrechten.</p>
-<form method="post" action="/office-test/email/context-koppeling">
-<input type="hidden" name="csrf" value="<?= htmlspecialchars($contextCsrf,ENT_QUOTES,'UTF-8') ?>">
+<form method="post" action="/office-test/email">
+<input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfToken,ENT_QUOTES,'UTF-8') ?>">
 <input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
 <label for="mail-context-module">Module</label>
 <select id="mail-context-module" name="module" required>
@@ -1001,8 +1017,8 @@ if (!is_string($contextCsrf) || strlen($contextCsrf)!==64 || !ctype_xdigit($cont
 </select>
 <label for="mail-context-entity">Dossiernummer</label>
 <input id="mail-context-entity" name="entity_id" type="number" min="1" step="1" required>
-<button type="submit" name="action" value="link">Koppelen</button>
-<button type="submit" name="action" value="unlink">Ontkoppelen</button>
+<button type="submit" name="action" value="context_link">Koppelen</button>
+<button type="submit" name="action" value="context_unlink">Ontkoppelen</button>
 </form>
 </section>
 <?php endif; ?>
