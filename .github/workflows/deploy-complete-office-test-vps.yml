@@ -1,0 +1,87 @@
+name: Deploy complete BREBO Office-test (VPS)
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DEPLOY-OFFICE-TEST to deploy current develop to test VPS only'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-vps-release
+  cancel-in-progress: false
+jobs:
+  preflight:
+    name: Verify exact develop release
+    if: github.ref == 'refs/heads/develop' && inputs.confirmation == 'DEPLOY-OFFICE-TEST'
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.identity.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: identity
+        name: Verify release identity and essential modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/develop)"
+          for path in \
+            office-independent/public/index.php \
+            office-independent/public/office-login.php \
+            office-independent/public/crm-new-requests.php \
+            office-independent/public/office-crm-relation-detail.php \
+            office-independent/deployment/hostinger/office-test-index.php \
+            office-independent/src/Intake/OfficeNavigation.php \
+            packages/brebo-finance-core/bootstrap.php \
+            scripts/deployment/deploy_office_test_vps.sh \
+            scripts/deployment/check_office_test_vps_readiness.sh; do
+            test -f "$path" || { echo "::error::Missing critical source: $path"; exit 1; }
+          done
+          bash -n scripts/deployment/deploy_office_test_vps.sh
+          bash -n scripts/deployment/check_office_test_vps_readiness.sh
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+  deploy:
+    name: Deploy isolated Office-test and verify readiness
+    needs: preflight
+    environment: office-test-vps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy immutable release with automatic rollback on failed health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY RELEASE_SHA; do
+            test -n "${!key}" || { echo "::error::Missing VPS configuration: $key"; exit 1; }
+          done
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$VPS_USER" = brebo-deploy
+          install -d -m 700 ~/.ssh
+          keyfile="$(mktemp ~/.ssh/office-test.XXXXXXXX)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$VPS_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -y -f "$keyfile" >/dev/null
+          ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts >/dev/null
+          options=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -i "$keyfile" -p "$VPS_PORT")
+          ssh "${options[@]}" "$VPS_USER@$VPS_HOST" 'bash -s --' "$RELEASE_SHA" < scripts/deployment/deploy_office_test_vps.sh
+          ssh "${options[@]}" "$VPS_USER@$VPS_HOST" 'bash -s --' "$RELEASE_SHA" < scripts/deployment/check_office_test_vps_readiness.sh
+          echo "### Office-test VPS release: $RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment script and readiness checks completed. Production was not targeted." >> "$GITHUB_STEP_SUMMARY"
