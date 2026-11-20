@@ -15,4 +15,15 @@ if (!OfficeCrmFunnel::canTransition('prospect','opportunity')) throw new Runtime
 if (OfficeCrmFunnel::canTransition('lead','won')) throw new RuntimeException('Invalid shortcut');
 $ref = new ReflectionClass(OfficeCrmOpportunityRepository::class);
 foreach (['listForViews','create','transition'] as $method) if (!$ref->hasMethod($method)) throw new RuntimeException('Missing '.$method);
+// Prevent an INSERT referencing columns not defined by the canonical opportunity schema.
+$schemaSql=$statements[0];
+$repositorySource=file_get_contents(dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php');
+if ($repositorySource===false || !preg_match('/INSERT INTO office_crm_opportunities \\(([^)]+)\\)/', $repositorySource, $columnsMatch)) {
+    throw new RuntimeException('Missing opportunity create INSERT');
+}
+foreach (array_map('trim', explode(',', $columnsMatch[1])) as $column) {
+    if (!preg_match('/\\b'.preg_quote($column, '/').'\\s+[A-Z]+\\b/i', $schemaSql)) {
+        throw new RuntimeException('Opportunity create INSERT column missing from schema: '.$column);
+    }
+}
 echo "CRM_OPPORTUNITY_CONTRACT_OK\n";
