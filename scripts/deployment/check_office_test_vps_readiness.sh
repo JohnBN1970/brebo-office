@@ -8,6 +8,26 @@ case "$release" in "$BASE"/releases/*) ;; *) echo "::error::VPS_CURRENT_RELEASE_
 for file in public/index.php public/office-login.php public/office-personal-dashboard.php .office-source-sha; do
   if test -f "$release/$file"; then echo "VPS_FILE_PRESENT=$file"; else echo "::error::VPS_FILE_MISSING=$file"; exit 1; fi
 done
+# Confirm the direct CRM handoff release payload exists before any privileged
+# schema/feature-flag activation. This check is strictly read-only.
+for file in \
+  src/Crm/OfficeCrmDirectProjectAcceptance.php \
+  src/Crm/OfficeCrmDirectProjectTransfer.php \
+  src/Crm/OfficeCrmNativeProjectAdapter.php \
+  src/Crm/OfficeCrmProjectHandoff.php \
+  public/office-crm-opportunity-transition.php \
+  deployment/vps/crm-direct-project-preflight.php; do
+  if test ! -f "$release/$file"; then
+    echo "::error::VPS_CRM_DIRECT_RELEASE_FILE_MISSING=$file"
+    exit 1
+  fi
+  php -l "$release/$file" > /dev/null || {
+    echo "::error::VPS_CRM_DIRECT_PHP_SYNTAX_INVALID=$file"
+    exit 1
+  }
+done
+echo "VPS_CRM_DIRECT_RELEASE_FILES=PASS"
+echo "VPS_CRM_DIRECT_SCHEMA_AND_FLAGS=PRIVILEGED_PREFLIGHT_REQUIRED"
 active_sha="$(cat "$release/.office-source-sha")"
 echo "VPS_ACTIVE_RELEASE_SHA=$active_sha"
 if [ "${1:-}" != "" ]; then
