@@ -26,6 +26,9 @@ assert "OfficeProjectKickstartFormView" in replacement, "Authorized form missing
 assert "'office_project_start_events'" in replacement, "Forms require audit event schema"
 assert "fetchColumn() !== 4" in replacement, "Incomplete schema must fail closed"
 assert "$canManage" in replacement, "Forms must be restricted to project managers"
+assert "awaiting_first_approval" in replacement and "awaiting_second_approval" in replacement
+assert "!== (int)$operator->operatorId" in replacement, "Independent reviewer guard missing from V3 mount"
+
 
 source = (root / "public/office-project.php").read_text()
 assert "OfficeNativeProjectAccess($db))->canRead" in source, "Missing project ACL"
@@ -50,6 +53,9 @@ assert "INSERT INTO office_project_start_dossiers" in repository, "Dossier inser
 assert "INSERT INTO office_project_start_events" in repository, "Creation audit insert missing"
 assert "createForAuthorizedProject($projectId, (int)$operator->operatorId, (int)$operator->operatorId, $canManage)" in source, "Only authenticated manager may claim leadership"
 assert "hash_equals($token, $_POST['csrf_token'])" in source, "Creation requires CSRF"
+assert "'can_approve'=>$canManage &&" in source, "Reviewer guard missing from native controller"
+assert "!== (int)$operator->operatorId" in source, "Independent reviewer guard missing from native controller"
+
 assert 'value="create_dossier"' in replacement, "Creation form missing"
 # A synthetic V2 controller exercises the deploy mount without assuming
 # the repository's unmounted controller contains prior V2 deployment markers.
