@@ -287,7 +287,7 @@ try {
   }
   // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
   $buildingQuery = $db->prepare(
-    'SELECT b.id, b.code, b.name, b.address_line, b.postal_code, b.city
+    'SELECT b.id, b.name, b.address_line, b.postal_code, b.city
      FROM office_project_buildings pb
      INNER JOIN office_buildings b ON b.id = pb.building_id
      WHERE pb.project_id = :project_id
@@ -354,7 +354,7 @@ if ($buildings === []) {
   $buildingHtml .= '<div class="project-building-list">';
   foreach ($buildings as $building) {
     $address = trim(implode(' ', array_filter([$building['address_line'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''], static fn($part): bool => is_string($part) && $part !== '')));
-    $buildingHtml .= '<article class="project-building-item"><strong><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . (int) $building['id']) . '">' . $escape((string) $building['name']) . '</a></strong> (' . $escape((string) $building['code']) . ')' . ($address !== '' ? ' — ' . $escape($address) : '') . '</article>';
+    $buildingHtml .= '<article class="project-building-item"><strong><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . (int) $building['id']) . '">' . $escape((string) $building['name']) . '</a></strong>' . ($address !== '' ? ' — ' . $escape($address) : '') . '</article>';
   }
   $buildingHtml .= '</div>';
 }
