@@ -8,6 +8,7 @@ final class OfficeNavigation {
   public const AREAS=[
     'bedrijf'=>['Bedrijfsoverzicht','/'],
     'crm'=>['CRM','/crm/bedrijven'],
+    'marketing'=>['Marketing','/marketing'],
     'projecten'=>['Projecten','/projecten'],
     'gebouwen'=>['Gebouwen & inspecties','/gebouwen'],
     'personeel'=>['Personeel','/projecten?view=inzet'],
@@ -22,7 +23,7 @@ final class OfficeNavigation {
   private static function h(string $value):string{return htmlspecialchars($value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
   public static function current(string $path):string {
     if(str_starts_with($path,'/office-test/calc-')||str_starts_with($path,'/office-test/calculatie')||str_starts_with($path,'/office-test/crm/offertes')||str_starts_with($path,'/office-test/offertes'))return 'calculatie-offertes';
-    foreach(['crm','calculatie-offertes','finance','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
+    foreach(['marketing','crm','calculatie-offertes','finance','informatie','kwaliteit','risicos','inkoop']as$area)if($path==='/office-test/'.$area||str_starts_with($path,'/office-test/'.$area.'/'))return $area;
     if(str_starts_with($path,'/office-test/documenten')||str_starts_with($path,'/office-test/email')||str_starts_with($path,'/office-test/mail'))return 'informatie';
     if(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))return 'gebouwen';
     if(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel'))return 'personeel';
@@ -89,6 +90,7 @@ final class OfficeNavigation {
     }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
+      ['Marketing','marketing',getenv('OFFICE_TEST_MARKETING_ENABLED')==='enabled' ? [['Marketingoverzicht','/office-test/marketing']] : []],
       ['Leads','leads',$crmAvailable && getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Leadoverzicht','/office-test/crm/aanvragen'],['Nieuwe lead','/office-test/crm/aanvragen/nieuw']] : []],
       ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
       ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
@@ -122,6 +124,7 @@ final class OfficeNavigation {
     $selected='werkplek';
     if (str_starts_with($path,'/office-test/calculatie') || str_starts_with($path,'/office-test/crm/offertes') || str_starts_with($path,'/office-test/offertes'))$selected='calculatie';
     elseif(str_starts_with($path,'/office-test/documenten') || str_starts_with($path,'/office-test/email') || str_starts_with($path,'/office-test/mail') || str_starts_with($path,'/office-test/communicatie'))$selected='informatie';
+    elseif(str_starts_with($path,'/office-test/marketing'))$selected='marketing';
     elseif(str_starts_with($path,'/office-test/crm/aanvragen'))$selected='leads';
     elseif(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
