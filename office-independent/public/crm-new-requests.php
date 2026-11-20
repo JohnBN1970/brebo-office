@@ -99,7 +99,7 @@ try {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;border:1px solid #dbe1e8}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:#182334;color:#e9f1fa;padding:24px;border-radius:12px;border:1px solid #35465d}section h2,section h3,section p,section small,section strong{color:inherit}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
@@ -125,7 +125,7 @@ if (isset($item)) {
         $share = $sourceTotal > 0 ? round(100 * $total / $sourceTotal, 1) : 0;
         $rate = $total > 0 ? round(100 * $converted / $total, 1) : 0;
         $url = $base.'/crm/aanvragen?bron='.rawurlencode((string)$source['code']);
-        echo '<a href="'.$h($url).'" style="color:inherit;text-decoration:none;border:1px solid #dbe1e8;border-radius:10px;padding:14px;background:#f8fafc"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p style="font-size:26px;margin:8px 0">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
+        echo '<a href="'.$h($url).'" style="color:inherit;text-decoration:none;border:1px solid #35465d;border-radius:10px;padding:14px;background:#223248"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p style="font-size:26px;margin:8px 0">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
     }
     echo '</div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
     $filters = [];
@@ -137,7 +137,7 @@ if (isset($item)) {
         $ownerId = (string)$ownerRow['owner'];
         $ownerName = $ownerId === '' ? 'Niet toegewezen' : $ownerId;
         $ownerUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['eigenaar'=>$ownerId,'weergave'=>$view]));
-        echo '<a style="padding:12px;border:1px solid #dbe1e8;border-radius:8px" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
+        echo '<a style="padding:12px;border:1px solid #35465d;border-radius:8px" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
     }
     echo '</div></section>';
     $listUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'lijst']));
@@ -151,7 +151,7 @@ if (isset($item)) {
             echo '<section><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
                 if ($row['stage'] !== $stageCode) continue;
-                echo '<article style="background:#f4f6f9;border:1px solid #dbe1e8;padding:12px;border-radius:8px;margin:10px 0"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
+                echo '<article style="background:#223248;border:1px solid #35465d;padding:12px;border-radius:8px;margin:10px 0"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
             }
             echo '</section>';
         }
