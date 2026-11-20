@@ -58,7 +58,7 @@ try {
         if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
             http_response_code(400); exit('Ongeldig aanvraagnummer.');
         }
-        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.contact_name,l.contact_email,l.converted_at,
             s.label AS source_name,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id WHERE l.id=? LIMIT 1");
@@ -73,6 +73,7 @@ try {
         $view = $_GET['weergave'] ?? 'lijst';
         if (!is_string($view) || !in_array($view, ['lijst', 'kanban'], true)) { http_response_code(400); exit('Ongeldige weergave.'); }
         $ownerFilter = $_GET['eigenaar'] ?? '';
+        $ownerFilterActive = array_key_exists('eigenaar', $_GET);
         if (!is_string($ownerFilter) || strlen($ownerFilter) > 128 || ($ownerFilter !== '' && !preg_match('/^[a-zA-Z0-9_.@-]+$/D', $ownerFilter))) { http_response_code(400); exit('Ongeldige eigenaar.'); }
         $ownerStats = $db->query("SELECT COALESCE(NULLIF(owner_operator_id,''),'') AS owner, COUNT(*) AS total FROM office_crm_leads WHERE status='active' AND converted_opportunity_id IS NULL GROUP BY owner ORDER BY total DESC")->fetchAll(PDO::FETCH_ASSOC);
         $sourceStats = $db->query("SELECT s.code,s.label,COUNT(l.id) AS total,
@@ -88,9 +89,9 @@ try {
             WHERE l.status='active' AND l.converted_opportunity_id IS NULL
             AND (? = '' OR l.stage = ?)
             AND (? = '' OR s.code = ?)
-            AND (? = '' OR COALESCE(l.owner_operator_id,'') = ?)
+            AND (? = 0 OR COALESCE(l.owner_operator_id,'') = ?)
             ORDER BY l.received_at DESC,l.id DESC LIMIT 500");
-        $stmt->execute([$stageFilter,$stageFilter,$sourceFilter,$sourceFilter,$ownerFilter,$ownerFilter]);
+        $stmt->execute([$stageFilter,$stageFilter,$sourceFilter,$sourceFilter,$ownerFilterActive ? 1 : 0,$ownerFilter]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } catch (Throwable $e) {
@@ -100,7 +101,7 @@ $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''),
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;border:1px solid #dbe1e8}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
-    echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><section>';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
@@ -130,7 +131,7 @@ if (isset($item)) {
     $filters = [];
     if ($stageFilter !== '') $filters['fase'] = $stageFilter;
     if ($sourceFilter !== '') $filters['bron'] = $sourceFilter;
-    if ($ownerFilter !== '') $filters['eigenaar'] = $ownerFilter;
+    if ($ownerFilterActive) $filters['eigenaar'] = $ownerFilter;
     echo '<section aria-label="Leads per eigenaar"><h2>KPI · Leadverantwoordelijke</h2><div style="display:flex;flex-wrap:wrap;gap:10px">';
     foreach ($ownerStats as $ownerRow) {
         $ownerId = (string)$ownerRow['owner'];
