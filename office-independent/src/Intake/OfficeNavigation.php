@@ -89,7 +89,8 @@ final class OfficeNavigation {
     }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
-      ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Aanvragen / Leads','/office-test/crm/aanvragen']] : []), (getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
+      ['Leads','leads',$crmAvailable && getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Leadoverzicht','/office-test/crm/aanvragen'],['Nieuwe lead','/office-test/crm/aanvragen/nieuw']] : []],
+      ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
       ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
       ['Projecten','projecten',$projectsAvailable?[
         ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
@@ -121,6 +122,7 @@ final class OfficeNavigation {
     $selected='werkplek';
     if (str_starts_with($path,'/office-test/calculatie') || str_starts_with($path,'/office-test/crm/offertes') || str_starts_with($path,'/office-test/offertes'))$selected='calculatie';
     elseif(str_starts_with($path,'/office-test/documenten') || str_starts_with($path,'/office-test/email') || str_starts_with($path,'/office-test/mail') || str_starts_with($path,'/office-test/communicatie'))$selected='informatie';
+    elseif(str_starts_with($path,'/office-test/crm/aanvragen'))$selected='leads';
     elseif(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
     elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
     elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
