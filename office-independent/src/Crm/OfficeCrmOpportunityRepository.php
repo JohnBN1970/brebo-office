@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Brebo\Office\Crm;
 use PDO;
 use InvalidArgumentException;
+require_once __DIR__.'/OfficeCrmProjectHandoff.php';
 
 final class OfficeCrmOpportunityRepository {
     public function __construct(private PDO $db) {}
