@@ -112,7 +112,40 @@ try {
       echo 'Verkoopkans niet gevonden.';
       exit;
     }
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity, $base);
+    $detailHtml = (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity, $base);
+    // Read-only linked mail block. Never render mail unless both ACL domains pass.
+    if ($isTest && getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
+      try {
+        $operator = $provider->currentOperator();
+        if ($operator === null) throw new RuntimeException('Office session unavailable');
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextLinksRepository.php';
+        require_once dirname(__DIR__) . '/src/Mail/OfficeMailContextAccess.php';
+        $access = new \Brebo\Office\Mail\OfficeMailContextAccess($db);
+        $links = new \Brebo\Office\Mail\OfficeMailContextLinksRepository($db);
+        $ids = $links->forEntity('leads', (int)$rawId, (string)$operator->operatorId,
+          [$access, 'canAccessEntity'], [$access, 'canReadMessage']);
+        $html = '<section aria-label="Gerelateerde e-mails"><h2>Gerelateerde e-mails</h2>';
+        if (!$ids) $html .= '<p>Geen toegankelijke gekoppelde e-mails.</p>';
+        else {
+          $stmt = $db->prepare('SELECT id,subject,sender,received_at FROM office_mail_messages WHERE id IN ('
+            . implode(',', array_fill(0,count($ids),'?')) . ') ORDER BY received_at DESC LIMIT 100');
+          $stmt->execute($ids);
+          $html .= '<ul>';
+          foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $mail) {
+            $esc = static fn($v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $html .= '<li><strong>'.$esc($mail['subject']).'</strong> — '.$esc($mail['sender'])
+              .' ('.$esc($mail['received_at']).')</li>';
+          }
+          $html .= '</ul>';
+        }
+        $html .= '</section>';
+        $pos = strripos($detailHtml, '</main>');
+        if ($pos !== false) $detailHtml = substr_replace($detailHtml, $html, $pos, 0);
+      } catch (Throwable $ignored) {
+        // Missing schema, denied access or failed query must not leak mail data.
+      }
+    }
+    echo $detailHtml;
   }
   else {
     $pageRaw = $_GET['page'] ?? '1';

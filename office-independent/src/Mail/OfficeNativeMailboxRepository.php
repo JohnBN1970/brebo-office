@@ -11,8 +11,8 @@ final class OfficeNativeMailboxRepository {
   public function __construct(private readonly PDO $db) {}
 
   /** @return list<array<string,mixed>> */
-  public function visibleMailboxes(int $operatorId): array {
-    if ($operatorId <= 0) throw new RuntimeException('Office-sessie ontbreekt.');
+  public function visibleMailboxes(string $operatorId): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-sessie ontbreekt.');
     $sql = "SELECT id, address, label, mailbox_type FROM office_mail_mailboxes
       WHERE active = 1 AND ((mailbox_type = 'functional' AND EXISTS
         (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id = office_mail_mailboxes.id
@@ -25,8 +25,8 @@ final class OfficeNativeMailboxRepository {
   }
 
   /** @return list<array<string,mixed>> */
-  public function inbox(int $mailboxId, int $operatorId, int $limit = 50): array {
-    if ($mailboxId <= 0 || $operatorId <= 0) throw new RuntimeException('Ongeldige mailboxselectie.');
+  public function inbox(int $mailboxId, string $operatorId, int $limit = 50): array {
+    if ($mailboxId <= 0 || $operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Ongeldige mailboxselectie.');
     $limit = max(1, min(100, $limit));
     $sql = "SELECT m.id, m.sender, m.subject, m.received_at, m.classification_status
       FROM office_mail_messages m

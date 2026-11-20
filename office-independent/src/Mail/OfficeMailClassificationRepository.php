@@ -29,8 +29,8 @@ final class OfficeMailClassificationRepository {
   }
 
   /** Review a proposal only when the operator still has mailbox access. */
-  public function review(int $proposalId, int $operatorId, string $decision): bool {
-    if ($proposalId <= 0 || $operatorId <= 0 || !in_array($decision, ['approved', 'rejected'], true)) {
+  public function review(int $proposalId, string $operatorId, string $decision): bool {
+    if ($proposalId <= 0 || $operatorId === '' || strlen($operatorId) > 128 || !in_array($decision, ['approved', 'rejected'], true)) {
       throw new RuntimeException('Ongeldige beoordeling.');
     }
     $sql = "UPDATE office_mail_classification_proposals p
@@ -52,8 +52,8 @@ final class OfficeMailClassificationRepository {
   }
 
   /** @return list<array<string,mixed>> */
-  public function pendingForOperator(int $operatorId, int $limit=50): array {
-    if ($operatorId <= 0) throw new RuntimeException('Office-gebruiker ontbreekt.');
+  public function pendingForOperator(string $operatorId, int $limit=50): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Office-gebruiker ontbreekt.');
     $limit = max(1,min(100,$limit));
     $sql = "SELECT p.id,p.message_id,p.proposed_module,p.proposed_target_id,p.reason,
       m.subject,m.sender,m.received_at,b.label AS mailbox_label

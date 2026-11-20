@@ -13,6 +13,7 @@ final class PostfixSendmailTransport implements SmtpTransportInterface {
   public function __construct(
     private readonly StdinCommandRunnerInterface $runner,
     private readonly bool $enabled,
+    private readonly string $sendmailCommand = 'sendmail',
   ) {}
 
   public function send(array $message): string {
@@ -26,7 +27,8 @@ final class PostfixSendmailTransport implements SmtpTransportInterface {
 "], '', (string) ($message['subject'] ?? ''));
     $text = (string) ($message['text'] ?? '');
 
-    if (filter_var($from, FILTER_VALIDATE_EMAIL) === FALSE || filter_var($to, FILTER_VALIDATE_EMAIL) === FALSE) {
+    if (filter_var($from, FILTER_VALIDATE_EMAIL) === FALSE || filter_var($to, FILTER_VALIDATE_EMAIL) === FALSE ||
+        preg_match('/[\r\n\x00-\x1F\x7F]/', $from . $to)) {
       throw new RuntimeException('Ongeldig SMTP adres.');
     }
 
@@ -36,7 +38,7 @@ Subject: {$subject}
 
 {$text}
 ";
-    $result = $this->runner->runWithInput('sendmail', ['-f', $from, '--', $to], $raw);
+    $result = $this->runner->runWithInput($this->sendmailCommand, ['-f', $from, '--', $to], $raw);
     if ($result['exit_code'] !== 0) {
       throw new RuntimeException('Postfix sendmail transport failed: ' . trim($result['stderr']));
     }
