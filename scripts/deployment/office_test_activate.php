@@ -19,6 +19,17 @@ $config['OFFICE_FINANCE_CENTER_ENABLED']='enabled';
 $config['OFFICE_SALES_SEND_ENABLED']='disabled';
 $config['OFFICE_SALES_REMINDERS_ENABLED']='disabled';
 $config['OFFICE_TEST_PROJECT_KICKSTART_ENABLED']='enabled';
+// CRM relation writes are permitted only in the isolated test environment after
+// the existing relations schema has been explicitly verified.
+if (($config['OFFICE_TEST_CRM_ENABLED']??'')==='enabled'
+    && ($config['OFFICE_CRM_AUTH_MODE']??'')==='session_only'
+    && ($config['OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED']??'')==='enabled') {
+    $config['OFFICE_CRM_RELATIONS_WRITE_ENABLED']='enabled';
+    echo "CRM_RELATIONS_TEST_WRITE=ENABLED\n";
+} else {
+    $config['OFFICE_CRM_RELATIONS_WRITE_ENABLED']='disabled';
+    echo "CRM_RELATIONS_TEST_WRITE=BLOCKED_UNVERIFIED\n";
+}
 // Read-only native work budget; monetary postings retain their separate rollout gate.
 $config['OFFICE_TEST_WORK_BUDGET_PANEL_ENABLED']='enabled';
 $config['OFFICE_TEST_WORK_BUDGET_KPIS_ENABLED']='enabled';
