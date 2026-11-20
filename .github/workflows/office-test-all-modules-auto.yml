@@ -112,6 +112,7 @@ jobs:
         run: |
           php office-independent/tests/OfficeCrmNativeProjectAdapterTest.php
           php office-independent/tests/OfficeCrmDirectNativeTransferRoundTripTest.php
+          php office-independent/tests/OfficeCrmDirectProjectHttpContractTest.php
           php -l office-independent/src/Crm/OfficeCrmDirectProjectAcceptance.php
       - name: Validate existing core contracts
         run: |
