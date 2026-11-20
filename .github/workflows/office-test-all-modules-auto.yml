@@ -66,6 +66,8 @@ jobs:
           php office-independent/tests/OfficeCalcDraftCollaborationTest.php
           php -l office-independent/src/Calculation/OfficeCalcDraftPriceSourceSchema.php
           php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
+      - name: Validate project WBS and RBS projections
+        run: php office-independent/tests/OfficeProjectBreakdownTest.php
       - name: Validate native work budget and costs
         run: |
           set -euo pipefail

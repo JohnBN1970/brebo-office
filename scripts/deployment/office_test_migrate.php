@@ -172,3 +172,37 @@ $db->query('SELECT operator_id,layout_json,updated_at FROM office_dashboard_pref
 $q=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
 $q->execute(['dashboard-preferences-v1',$dashboardHash]);
 echo "DASHBOARD_PREFERENCES_SCHEMA_VERIFIED\n";
+
+// Native WBS/RBS: additive structures only, installed exclusively in OFFICE-TEST.
+require_once $candidate.'/src/Project/OfficeProjectBreakdownSchemaPreflight.php';
+\Brebo\Office\Project\OfficeProjectBreakdownSchemaPreflight::assertReady($db);
+$breakdownSqlFile=$candidate.'/deployment/hostinger/sql/office-project-wbs-rbs.sql';
+if (!is_file($breakdownSqlFile)) throw new RuntimeException('WBS_RBS_SCHEMA_SOURCE_MISSING');
+$breakdownSql=file_get_contents($breakdownSqlFile);
+$breakdownStatements=array_values(array_filter(array_map('trim',explode(';',preg_replace('/--[^\n]*/','',$breakdownSql)))));
+$breakdownTables=['office_project_wbs_nodes','office_project_wbs_links','office_project_rbs_categories','office_project_rbs_risk_links'];
+if (count($breakdownStatements)!==count($breakdownTables)) throw new RuntimeException('UNREVIEWED_WBS_RBS_MIGRATION');
+foreach ($breakdownStatements as $index=>$statement) {
+    if (!str_starts_with($statement,'CREATE TABLE IF NOT EXISTS '.$breakdownTables[$index].' (')) {
+        throw new RuntimeException('UNREVIEWED_WBS_RBS_TABLE');
+    }
+}
+$breakdownMigrationId='project-wbs-rbs-v1';
+$breakdownChecksum=hash_file('sha256',$breakdownSqlFile);
+$breakdownLookup=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$breakdownLookup->execute([$breakdownMigrationId]);
+$breakdownPrior=$breakdownLookup->fetchColumn();
+if ($breakdownPrior!==false && !hash_equals((string)$breakdownPrior,$breakdownChecksum)) {
+    throw new RuntimeException('WBS_RBS_MIGRATION_CHECKSUM_CHANGED');
+}
+// Avoid a partially installed schema if a previous attempt left only some tables.
+$breakdownExisting=$db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_project_wbs_nodes','office_project_wbs_links','office_project_rbs_categories','office_project_rbs_risk_links')")->fetchAll(PDO::FETCH_COLUMN);
+if ($breakdownExisting!==[] && count($breakdownExisting)!==count($breakdownTables)) {
+    throw new RuntimeException('WBS_RBS_PARTIAL_SCHEMA_REQUIRES_REVIEW');
+}
+foreach ($breakdownStatements as $statement) $db->exec($statement);
+foreach ($breakdownTables as $table) $db->query('SELECT 1 FROM `'.$table.'` LIMIT 0');
+$breakdownRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
+$breakdownRecord->execute([$breakdownMigrationId,$breakdownChecksum]);
+echo "OFFICE_TEST_WBS_RBS_SCHEMA_PASS\n";
+
