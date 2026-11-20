@@ -52,6 +52,24 @@ if ($method==='POST') {
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verkoopkans wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select{padding:10px;width:100%}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar verkoopkansen</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
+
+// A won CRM stage alone is not proof of a created Office project.
+// Show only a persisted transfer; never invent a project link.
+if ($item['stage']==='won') {
+    try {
+        $transfer=$db->prepare('SELECT office_project_id FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=? LIMIT 1');
+        $transfer->execute([(string)$id]);
+        $linkedProject=(int)($transfer->fetchColumn()?:0);
+        if ($linkedProject>0) {
+            echo '<p>Office-project gekoppeld: <a href="/office-test/projecten/detail?id='.$linkedProject.'">Open project #'.$linkedProject.'</a></p>';
+        } else {
+            echo '<p>Deze verkoopkans is gegund, maar er is nog geen bevestigde projectoverdracht. Projectaanmaak moet afzonderlijk worden afgerond.</p>';
+        }
+    } catch (Throwable $e) {
+        echo '<p>Projectoverdracht nog niet beschikbaar; de CRM-status is geen bevestiging van projectaanmaak.</p>';
+    }
+}
+
 if ($next===[]) echo '<p>Geen volgende fase beschikbaar.</p>';
 else {
     echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><label>Volgende fase<select name="stage">';
