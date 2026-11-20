@@ -37,7 +37,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $error='';
-$next=\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[];
+$next=$item['status']==='open' ? (\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[]) : [];
 $directEnabled=\Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_CRM_DIRECT_PROJECT_TRANSFER_ENABLED')==='enabled'
     && getenv('OFFICE_TEST_CRM_DIRECT_PROJECT_TRANSFER_SCHEMA_VERIFIED')==='enabled';
