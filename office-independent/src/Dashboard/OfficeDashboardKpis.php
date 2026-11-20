@@ -88,7 +88,11 @@ final class OfficeDashboardKpis {
       if(isset($sales['center']['postings'])){$creditors=0;foreach($sales['center']['postings'] as $posting)if($posting['source_kind']==='purchase'&&$posting['status']==='booked'&&(int)$posting['cash_due']===1)$creditors+=max(0,(int)$posting['gross_cents']-(int)$posting['paid_cents']);}
       $put('creditors',$creditors,'Geboekte leveranciersfacturen minus geregistreerde betalingen · incl. btw');
       $financeData=['sales_overview'=>$sales??['available'=>false],'bank_read_allowed'=>$bank,'finance_unlinked_project'=>true];
-      foreach(['revenue'=>'ytd_net_cents','debtors'=>'outstanding_gross_cents','overdue'=>'overdue_gross_cents','drafts'=>'draft_count'] as $id=>$key)$put($id,$sales[$key]??null,$id==='revenue'?'Verzonden facturen · exclusief btw':'Office-verkoopadministratie', $id==='overdue'&&($sales[$key]??0)>0?'yellow':'neutral');
+      $salesAvailable=is_array($sales)&&($sales['available']??false)===true;
+      foreach(['revenue'=>'ytd_net_cents','debtors'=>'outstanding_gross_cents','overdue'=>'overdue_gross_cents','drafts'=>'draft_count'] as $id=>$key){
+        $value=$salesAvailable&&isset($sales[$key])&&is_int($sales[$key])&&$sales[$key]>=0?$sales[$key]:null;
+        $put($id,$value,$id==='revenue'?'Verzonden facturen · exclusief btw':'Office-verkoopadministratie',$id==='overdue'&&$value!==null&&$value>0?'yellow':'neutral');
+      }
     }
     require_once __DIR__.'/../Governance/bootstrap.php';
     $store=new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($this->db);
