@@ -268,6 +268,12 @@ final class OfficeProjectKickstartRepository
         if (!$first || !$second || $first === $second || $first !== (int)$row['project_leader_user_id']) {
             throw new DomainException('Execution blocked: independent approvals missing');
         }
+        // The independent reviewer must still be an active project manager at execution time.
+        $access = $this->db->prepare("SELECT 1 FROM office_project_memberships m JOIN office_operator_accounts a ON a.id = m.operator_id WHERE m.project_id = ? AND m.operator_id = ? AND m.permission = 'manage' AND a.active = 1 LIMIT 1");
+        $access->execute([$projectId, (string)$second]);
+        if (!$access->fetchColumn()) {
+            throw new DomainException('Execution blocked: second reviewer no longer authorized');
+        }
     }
 
     /** Unresolved critical kickstart decisions cannot be bypassed by a manual counter. */

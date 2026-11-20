@@ -164,7 +164,7 @@ try {
         'csrf_token'=>$token,
         'can_edit'=>$canManage,
         'can_submit'=>$canManage && (int)$dossier['project_leader_user_id'] === (int)$operator->operatorId,
-        'can_approve'=>$canManage,
+        'can_approve'=>$canManage && ((string)$dossier['status'] === 'awaiting_first_approval' ? (int)$dossier['project_leader_user_id'] === (int)$operator->operatorId : ((string)$dossier['status'] === 'awaiting_second_approval' && (int)$dossier['project_leader_user_id'] !== (int)$operator->operatorId)),
       ]);
     } catch (\DomainException $error) {
       http_response_code(409);
@@ -683,7 +683,9 @@ if ($activeTab === 'werkvoorbereiding'
           require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartFormView.php';
           $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
             $kickstart, $kickstartAction, $csrfToken, true,
-            (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId, true
+            (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId,
+            ((string)$kickstart['status'] === 'awaiting_first_approval' && (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId)
+              || ((string)$kickstart['status'] === 'awaiting_second_approval' && (int)$kickstart['project_leader_user_id'] !== (int)$operator->operatorId)
           );
         }
       }
