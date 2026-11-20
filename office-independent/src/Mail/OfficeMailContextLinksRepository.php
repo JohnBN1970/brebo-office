@@ -17,7 +17,12 @@ final class OfficeMailContextLinksRepository {
     }
     $insert = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
     $stmt = $this->db->prepare($insert . ' INTO office_mail_context_links (message_id,module_key,entity_id,linked_by) VALUES (:m,:k,:e,:a)');
-    $stmt->execute([':m'=>$messageId, ':k'=>$module, ':e'=>$entityId, ':a'=>$actor]);
+    $this->db->beginTransaction();
+    try {
+      $stmt->execute([':m'=>$messageId, ':k'=>$module, ':e'=>$entityId, ':a'=>$actor]);
+      if ($stmt->rowCount() > 0) $this->audit($messageId,$module,$entityId,$actor,'linked');
+      $this->db->commit();
+    } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
   }
 
   /** Filter both access domains BEFORE returning any mail metadata. */
@@ -39,7 +44,16 @@ final class OfficeMailContextLinksRepository {
     $this->validate($messageId, $module, $entityId);
     if ($actor === '' || !$canReadMessage($messageId, $actor) || !$canAccessEntity($module, $entityId, $actor)) throw new RuntimeException('Geen toegang.');
     $stmt = $this->db->prepare('DELETE FROM office_mail_context_links WHERE message_id=:m AND module_key=:k AND entity_id=:e');
-    $stmt->execute([':m'=>$messageId, ':k'=>$module, ':e'=>$entityId]);
+    $this->db->beginTransaction();
+    try {
+      $stmt->execute([':m'=>$messageId, ':k'=>$module, ':e'=>$entityId]);
+      if ($stmt->rowCount() > 0) $this->audit($messageId,$module,$entityId,$actor,'unlinked');
+      $this->db->commit();
+    } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+  }
+  private function audit(int $messageId,string $module,int $entityId,string $actor,string $action): void {
+    $stmt=$this->db->prepare('INSERT INTO office_mail_context_link_events (message_id,module_key,entity_id,actor_id,action) VALUES (:m,:k,:e,:a,:action)');
+    $stmt->execute([':m'=>$messageId,':k'=>$module,':e'=>$entityId,':a'=>$actor,':action'=>$action]);
   }
   private function validate(int $messageId, string $module, int $entityId): void {
     if ($messageId < 1 || $entityId < 1 || !in_array($module, self::MODULES, true)) throw new RuntimeException('Ongeldige mailkoppeling.');
