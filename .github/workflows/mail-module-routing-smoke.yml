@@ -6,7 +6,7 @@ on:
       - 'web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php'
       - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
       - 'web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php'
-      - '.github/workflows/mail-module-routing-smoke.yml'
+      - '.github/workflows/mail-module-routing-smoke.yml'\n      - 'web/themes/custom/brebo_office/js/mail-list-controls.js'
   workflow_dispatch:
 
 permissions:
@@ -23,5 +23,5 @@ jobs:
           php -l web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php
           php -l web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php
           php -l web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
-      - name: Routing smoke tests
+      - name: Mail inbox JavaScript syntax\n        run: node --check web/themes/custom/brebo_office/js/mail-list-controls.js\n      - name: Routing smoke tests
         run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
