@@ -18,7 +18,7 @@ $assert($handoff->projectId(2),null,'orphan mapping cannot be shown');
 $db->exec('CREATE TABLE office_crm_direct_project_transfers (opportunity_id INTEGER, project_id INTEGER)');
 $db->exec('INSERT INTO office_crm_direct_project_transfers VALUES (3,12),(1,11)');
 $assert($handoff->projectId(3),12,'direct-order link');
-$assert($handoff->projectId(1),11,'same project in both mappings');
+$assert($handoff->projectId(1),null,'duplicated Calc and direct mapping must be hidden');
 $db->exec('INSERT INTO office_crm_direct_project_transfers VALUES (1,12)');
 $assert($handoff->projectId(1),null,'ambiguous mappings must be hidden');
 $assert($handoff->projectId(0),null,'invalid opportunity id');
