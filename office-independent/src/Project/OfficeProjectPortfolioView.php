@@ -122,6 +122,22 @@ final class OfficeProjectPortfolioView
             . '.office-portfolio-search-label{font-size:13px;color:#526278}.office-portfolio-list-header form{display:flex;align-items:center;flex-wrap:wrap;gap:8px}.office-portfolio-list-header button{background:#24567c;color:white;border:0;border-radius:8px;padding:9px 12px;cursor:pointer}.office-portfolio-list-header input{border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;min-width:250px}'
             . '.office-portfolio-table-wrap{overflow-x:auto}.office-portfolio-table-wrap table{width:100%;border-collapse:collapse}.office-portfolio-table-wrap th,.office-portfolio-table-wrap td{text-align:left;padding:13px 12px;border-bottom:1px solid #e2e8f0}.office-portfolio-table-wrap thead{background:#f5f7fa}'
             . '.office-portfolio-table-wrap tbody tr:hover{background:#f6f9fc}.office-portfolio-table-wrap tr[hidden]{display:none}'
+            . '.office-project-portfolio{background:#172334!important;color:#eef5ff!important;border-color:#35465d!important;padding:18px!important}'
+            . '.office-project-portfolio h2,.office-project-portfolio h3{color:#f1f6ff!important}'
+            . '.office-project-portfolio .office-portfolio-header p,.office-project-portfolio .office-portfolio-attention p,.office-project-portfolio .office-portfolio-search-label{color:#c7d6e9!important}'
+            . '.office-project-portfolio .office-portfolio-kpi{background:#23354b!important;color:#f1f6ff!important;border-color:#47617c!important}'
+            . '.office-project-portfolio .office-portfolio-kpi small{color:#aebfd5!important}.office-project-portfolio .office-portfolio-kpi strong{color:#fff!important}'
+            . '.office-project-portfolio .office-portfolio-attention{background:#223148!important;color:#f1f6ff!important;border-color:#d5a14d!important}'
+            . '.office-project-portfolio .office-portfolio-attention-counts span{background:#30425a!important;color:#f1f6ff!important;border-color:#47617c!important}'
+            . '.office-project-portfolio .office-portfolio-attention-list li span{color:#c7d6e9!important}'
+            . '.office-project-portfolio .office-portfolio-table-wrap thead{background:#30425a!important;color:#eef5ff!important}'
+            . '.office-project-portfolio .office-portfolio-table-wrap td,.office-project-portfolio .office-portfolio-table-wrap th{color:#e9f2ff!important;border-color:#35465d!important}'
+            . '.office-project-portfolio .office-portfolio-table-wrap tbody tr:hover{background:#30425a!important}'
+            . '.office-project-portfolio .office-portfolio-list-header input{background:#23354b;color:#fff;border-color:#47617c}'
+            . '.office-project-portfolio a{color:#a5ceff!important}'
+            . 'html[data-theme="light"] .office-project-portfolio,body[data-theme="light"] .office-project-portfolio{background:#fff!important;color:#182b40!important;border-color:#dbe1e8!important}'
+            . 'html[data-theme="light"] .office-project-portfolio h2,body[data-theme="light"] .office-project-portfolio h2{color:#182b40!important}'
+            . 'html[data-theme="light"] .office-project-portfolio .office-portfolio-attention,body[data-theme="light"] .office-project-portfolio .office-portfolio-attention{background:#f6f8fb!important;color:#182b40!important}'
             . '@media(max-width:700px){.office-portfolio-kpis{grid-template-columns:1fr 1fr}.office-portfolio-list-header input{width:100%}}';
     }
 }
