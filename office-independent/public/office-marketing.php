@@ -41,7 +41,7 @@ $base = \Brebo\Office\Intake\OfficeMount::route('crm');
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Marketing | BREBO Office</title>
 <style>body{font:16px system-ui,sans-serif;max-width:960px;margin:40px auto;padding:0 20px;color:#20253a}a{color:#344c9d}section{border:1px solid #d9dce7;border-radius:12px;padding:20px;margin:16px 0}h1{margin-bottom:8px}</style></head>
-<body><main><h1>BREBO Marketing</h1><p>Interne werkruimte voor externe marketing. CRM blijft eigenaar van relaties, leads en verkoopkansen.</p>
+<body><main><h1>BREBO Marketing</h1><p>Interne werkruimte voor externe marketing. CRM blijft eigenaar van relaties, leads en deals.</p>
 <section><h2>Campagnes en acquisitie</h2><p>Campagnebeheer wordt in de volgende fase aangesloten.</p></section>
 <section><h2>Websiteaanvragen en leads</h2><p>Registratie en opvolging verlopen via de bestaande CRM-werkstroom.</p><a href="<?= $h($base) ?>">Open CRM</a></section>
 <section><h2>Marketingmateriaal</h2><p>Folders, publicaties en referentieprojecten worden hier beheerd na aansluiting van de documentmodule.</p></section>
