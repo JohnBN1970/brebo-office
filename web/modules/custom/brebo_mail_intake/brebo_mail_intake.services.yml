@@ -419,3 +419,8 @@ services:
     class: Drupal\brebo_mail_intake\Service\MailHtmlRenderer
     arguments:
       - '@brebo_mail_intake.html_sanitizer'
+
+  brebo_mail_intake.communication_context_links:
+    class: Drupal\brebo_mail_intake\Service\MailCommunicationContextLinks
+    arguments:
+      - '@database'

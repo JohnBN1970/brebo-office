@@ -143,7 +143,7 @@ final class MailIntakePipeline {
     ));
     $result['purchase_invoice_route_state'] = $invoiceRoute['state'] ?? 'unknown';
     $result['purchase_invoice_id'] = $invoiceRoute['invoice_id'] ?? NULL;
-    $result['requires_human_review'] = TRUE;
+    // A category alone does not prove a dossier match. Only expose a\n    // routing recommendation; do not mutate formal dossier relations here.\n    $route = (new MailModuleRoutingAdvisor())->advise(\n      (string) $mail['classification'],\n      (float) $classification['confidence'],\n      $meaning['signals'] ?? [],\n      $canonicalContext,\n      $crmContext,\n    );\n    $result['module_route'] = $route['module'];\n    $result['module_route_state'] = $route['state'];\n    $result['module_route_basis'] = $route['basis'];\n    $result['requires_human_review'] = $route['state'] !== 'suggested';
     return $result;
   }
 

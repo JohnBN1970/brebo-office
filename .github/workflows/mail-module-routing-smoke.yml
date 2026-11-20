@@ -1,0 +1,60 @@
+name: Mail module routing smoke
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - 'web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php'
+      - '.github/workflows/mail-module-routing-smoke.yml'
+      - 'web/themes/custom/brebo_office/js/mail-list-controls.js'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailCommunicationBlockProjector.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailCommunicationContextLinks.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.install'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - 'web/modules/custom/brebo_mail_intake/tests/mail-communication-block-smoke.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlocks.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php'
+      - 'office-independent/tests/OfficeMailCommunicationBlocksTest.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlockView.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationPanel.php'
+      - 'office-independent/tests/OfficeMailCommunicationPanelTest.php'
+      - 'office-independent/tests/OfficeMailCommunicationBlockViewTest.php'
+      - 'office-independent/tests/OfficeMailCommunicationBlockRepositoryTest.php'
+      - 'office-independent/database/office_mail_communication_links.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php
+          php -l web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
+      - name: Communication block projection tests
+        run: |
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailCommunicationBlockProjector.php
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailCommunicationContextLinks.php
+          php -l web/modules/custom/brebo_mail_intake/brebo_mail_intake.install
+          php web/modules/custom/brebo_mail_intake/tests/mail-communication-block-smoke.php
+      - name: Mail inbox JavaScript syntax
+        run: node --check web/themes/custom/brebo_office/js/mail-list-controls.js
+      - name: Native Office mail communication blocks
+        run: |
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlocks.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php
+          php office-independent/tests/OfficeMailCommunicationBlocksTest.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlockView.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationPanel.php
+          php office-independent/tests/OfficeMailCommunicationPanelTest.php
+          php office-independent/tests/OfficeMailCommunicationBlockViewTest.php
+          php office-independent/tests/OfficeMailCommunicationBlockRepositoryTest.php
+      - name: Routing smoke tests
+        run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
