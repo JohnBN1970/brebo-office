@@ -681,7 +681,9 @@ if ($activeTab === 'werkvoorbereiding'
           require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartFormView.php';
           $workbenchHtml .= \Brebo\Office\Project\OfficeProjectKickstartFormView::render(
             $kickstart, $kickstartAction, $csrfToken, true,
-            (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId, true
+            (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId,
+            ((string)$kickstart['status'] === 'awaiting_first_approval' && (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId)
+              || ((string)$kickstart['status'] === 'awaiting_second_approval' && (int)$kickstart['project_leader_user_id'] !== (int)$operator->operatorId)
           );
         }
       }
