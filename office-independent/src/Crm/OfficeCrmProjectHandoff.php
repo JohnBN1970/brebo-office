@@ -18,6 +18,7 @@ final class OfficeCrmProjectHandoff
         if ($opportunityId < 1) return null;
 
         $ids = [];
+        $mappingCount = 0;
         foreach ([
             ['office_calc_crm_acceptance_transfers', 'crm_opportunity_id', 'office_project_id'],
             ['office_crm_direct_project_transfers', 'opportunity_id', 'project_id'],
@@ -28,7 +29,10 @@ final class OfficeCrmProjectHandoff
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$opportunityId]);
                 foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
-                    if ((int)$id > 0) $ids[(int)$id] = true;
+                    if ((int)$id > 0) {
+                        $mappingCount++;
+                        $ids[(int)$id] = true;
+                    }
                 }
             } catch (PDOException $e) {
                 // Optional mapping may not yet be installed. Never invent a link.
@@ -38,7 +42,8 @@ final class OfficeCrmProjectHandoff
                 if (!$missing) throw $e;
             }
         }
-        // Ambiguous mappings are unsafe to display as a confirmed handoff.
-        return count($ids) === 1 ? (int)array_key_first($ids) : null;
+        // A single opportunity must never have both a Calc and direct transfer,
+        // even when they point to the same project. Fail closed on duplicates.
+        return $mappingCount === 1 && count($ids) === 1 ? (int)array_key_first($ids) : null;
     }
 }
