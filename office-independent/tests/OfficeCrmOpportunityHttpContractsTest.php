@@ -37,6 +37,11 @@ foreach (['data-crm-id','data-crm-stage','draggable='] as $check) {
 foreach (['URLSearchParams','credentials:\'same-origin\'','/office-test/crm/verkoopkansen/fase','window.location.reload()'] as $check) {
     if (!str_contains($drag,$check)) throw new RuntimeException('Kanban drag missing '.$check);
 }
+// A closed Deal must remain readable but cannot offer phase transitions; project handoff stays separate.
+$transition=file_get_contents($root.'/public/office-crm-opportunity-transition.php');
+foreach (["status']==='open'", "item['status'] !== 'open'", "create_direct_project", "transferForOperator", "OfficeCrmProjectHandoff", "crm_opportunity_csrf"] as $check) {
+    if (!str_contains($transition,$check)) throw new RuntimeException('Closed Deal / project handoff contract missing: '.$check);
+}
 if (str_contains($nav,"[['Aanvragen','/office-test/crm/aanvragen']]")) throw new RuntimeException('Legacy requests advertised');
 if (!str_contains($nav,"[['Deals','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Deals missing from navigation');
 $installer=file_get_contents($root.'/deployment/hostinger/install-office-crm-opportunities-test.php');
