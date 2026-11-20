@@ -99,11 +99,11 @@ try {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
-    echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
+    echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Deals.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
     foreach (array_keys($counts) as $stageCode) {
         if (!isset($stages[$stageCode])) $stages[$stageCode] = ucfirst(str_replace('_',' ',(string)$stageCode));
@@ -127,7 +127,7 @@ if (isset($item)) {
         ++$stageIndex;
     }
     $convertedClip = 'polygon(28% 0,72% 0,65% 100%,35% 100%)';
-    echo '<div class="lead-funnel__step lead-funnel__step--converted"><span><strong>Omgezet naar verkoopkans · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
+    echo '<div class="lead-funnel__step lead-funnel__step--converted"><span><strong>Omgezet naar deal · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
     $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
     echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. De grafiek toont het aandeel per bron; klik op een bron in de legenda om open leads te filteren.</p>';
     $sourceColors = ['#5b8def','#21b6a8','#f2b84b','#a78bfa','#f17e75','#57c5e5','#92bb64','#df86bf','#ed9955','#8395ab'];
