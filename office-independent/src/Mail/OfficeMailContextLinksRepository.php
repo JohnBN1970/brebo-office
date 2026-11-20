@@ -15,7 +15,8 @@ final class OfficeMailContextLinksRepository {
     if ($actor === '' || strlen($actor) > 128 || !$canReadMessage($messageId, $actor) || !$canAccessEntity($module, $entityId, $actor)) {
       throw new RuntimeException('Geen toegang tot bericht of module.');
     }
-    $stmt = $this->db->prepare('INSERT INTO office_mail_context_links (message_id,module_key,entity_id,linked_by) VALUES (:m,:k,:e,:a) ON DUPLICATE KEY UPDATE id=id');
+    $insert = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'INSERT OR IGNORE' : 'INSERT IGNORE';
+    $stmt = $this->db->prepare($insert . ' INTO office_mail_context_links (message_id,module_key,entity_id,linked_by) VALUES (:m,:k,:e,:a)');
     $stmt->execute([':m'=>$messageId, ':k'=>$module, ':e'=>$entityId, ':a'=>$actor]);
   }
 
