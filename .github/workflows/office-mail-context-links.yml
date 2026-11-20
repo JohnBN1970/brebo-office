@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Mail/OfficeMailContextLinksRepository.php'
+      - 'office-independent/src/Mail/OfficeMailContextAccess.php'
+      - 'office-independent/tests/office_mail_context_access_smoke.php'
+      - 'office-independent/public/office-email.php'
+      - 'office-independent/public/office-mail-context-action.php'
       - 'office-independent/tests/office_mail_context_links_smoke.php'
       - '.github/workflows/office-mail-context-links.yml'
   workflow_dispatch:
@@ -22,5 +26,12 @@ jobs:
         run: |
           php -l office-independent/src/Mail/OfficeMailContextLinksRepository.php
           php -l office-independent/tests/office_mail_context_links_smoke.php
+          php -l office-independent/src/Mail/OfficeMailContextAccess.php
+          php -l office-independent/tests/office_mail_context_access_smoke.php
+          php -l office-independent/public/office-email.php
+          php -l office-independent/public/office-mail-context-action.php
       - name: ACL and idempotence smoke
         run: php office-independent/tests/office_mail_context_links_smoke.php
+
+      - name: Real mailbox permission smoke
+        run: php office-independent/tests/office_mail_context_access_smoke.php
