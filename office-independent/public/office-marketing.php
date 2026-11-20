@@ -37,7 +37,7 @@ try {
     if (!$active->fetchColumn()) { http_response_code(403); exit('Geen toegang.'); }
 } catch (Throwable $e) { http_response_code(503); exit('Marketing tijdelijk niet beschikbaar.'); }
 require_once dirname(__DIR__).'/src/Crm/OfficeMarketingCampaignLinkRepository.php';
-$repo = new \\Brebo\\Office\\Crm\\OfficeMarketingCampaignLinkRepository($db);
+$repo = new \Brebo\Office\Crm\OfficeMarketingCampaignLinkRepository($db);
 $ready = getenv('OFFICE_TEST_MARKETING_CRM_LINKS_SCHEMA_VERIFIED') === 'enabled';
 $write = $ready && getenv('OFFICE_TEST_MARKETING_CRM_LINKS_WRITE_ENABLED') === 'enabled'
     && getenv('OFFICE_CRM_WRITE_ENABLED') === 'enabled';
