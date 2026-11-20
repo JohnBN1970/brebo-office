@@ -26,6 +26,8 @@ jobs:
         run: python scripts/ci/check_deployment_policy.py
       - name: Verify Hostinger deployment shell syntax
         run: bash -n scripts/deployment/deploy_office_test.sh
+      - name: Verify VPS CRM readiness diagnostics shell syntax
+        run: bash -n scripts/deployment/check_office_test_vps_readiness.sh
       - name: Verify Office-test migration statement parameter contracts
         run: python3 scripts/ci/test_office_test_migration_contract.py
       - run: python scripts/ci/test_release_reconciliation.py
@@ -106,6 +108,15 @@ jobs:
           php office-independent/tests/OfficePersonalDashboardIntegrationTest.php
           php office-independent/tests/OfficePersonalDashboardRouteTest.php
           SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeDashboardDomTest.cjs
+      - name: Validate CRM project handoff against both persisted mapping paths
+        run: php office-independent/tests/OfficeCrmProjectHandoffTest.php
+      - name: Validate native CRM direct project adapter
+        run: |
+          php office-independent/tests/OfficeCrmNativeProjectAdapterTest.php
+          php office-independent/tests/OfficeCrmDirectNativeTransferRoundTripTest.php
+          php office-independent/tests/OfficeCrmDirectProjectHttpContractTest.php
+          php office-independent/tests/OfficeCrmDirectVpsPreflightContractTest.php
+          php -l office-independent/src/Crm/OfficeCrmDirectProjectAcceptance.php
       - name: Validate existing core contracts
         run: |
           set -euo pipefail

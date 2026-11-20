@@ -35,14 +35,9 @@ try {
   ] as $file) {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
-  foreach ([
-    'OfficeProjectIdentity.php',
-    'OfficeCanonicalProjectContext.php',
-    'OfficeNativeProjectRepository.php',
-    'OfficeNativeProjectAccess.php',
-  ] as $file) {
-    require_once dirname(__DIR__) . '/src/Project/' . $file;
-  }
+  // Project detail uses the same native project schema as the portfolio.
+  // Do not require legacy project classes absent from the VPS release.
+  require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
   if (!is_string($dsn) || $dsn === '') throw new RuntimeException('Office database unavailable.');
   $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [
@@ -67,7 +62,9 @@ try {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
-  $project = (new \Brebo\Office\Project\OfficeNativeProjectRepository($db))->find($projectId);
+  $projectQuery = $db->prepare('SELECT id, code, title, status FROM office_projects WHERE id = :project_id LIMIT 1');
+  $projectQuery->execute([':project_id' => $projectId]);
+  $project = $projectQuery->fetch(PDO::FETCH_ASSOC) ?: null;
   if ($project === null) {
     http_response_code(404);
     exit('Project niet gevonden.');
@@ -290,7 +287,7 @@ try {
   }
   // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
   $buildingQuery = $db->prepare(
-    'SELECT b.id, b.code, b.name, b.address_line, b.postal_code, b.city
+    'SELECT b.id, b.name, b.address_line, b.postal_code, b.city
      FROM office_project_buildings pb
      INNER JOIN office_buildings b ON b.id = pb.building_id
      WHERE pb.project_id = :project_id
@@ -339,10 +336,15 @@ try {
     $calculationScopes = $scopeQuery->fetchAll(PDO::FETCH_ASSOC);
   }
 } catch (Throwable $exception) {
+  // Keep details out of the HTTP response; log only class and source location.
+  // Do not log exception messages: they may contain SQL or sensitive values.
+  error_log('[BREBO_PROJECT_DATA] ' . get_class($exception)
+    . ' at ' . basename($exception->getFile()) . ':' . $exception->getLine());
   http_response_code(503);
   exit('Projectgegevens tijdelijk niet beschikbaar.');
 }
-$escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+// Native project code/title may be NULL in existing Office-test records.
+$escape = static fn(?string $value): string => htmlspecialchars($value ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $homeUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home');
 header('Content-Type: text/html; charset=utf-8');
@@ -353,7 +355,7 @@ if ($buildings === []) {
   $buildingHtml .= '<div class="project-building-list">';
   foreach ($buildings as $building) {
     $address = trim(implode(' ', array_filter([$building['address_line'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''], static fn($part): bool => is_string($part) && $part !== '')));
-    $buildingHtml .= '<article class="project-building-item"><strong><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . (int) $building['id']) . '">' . $escape((string) $building['name']) . '</a></strong> (' . $escape((string) $building['code']) . ')' . ($address !== '' ? ' — ' . $escape($address) : '') . '</article>';
+    $buildingHtml .= '<article class="project-building-item"><strong><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/gebouwen?id=' . (int) $building['id']) . '">' . $escape((string) $building['name']) . '</a></strong>' . ($address !== '' ? ' — ' . $escape($address) : '') . '</article>';
   }
   $buildingHtml .= '</div>';
 }
@@ -1132,8 +1134,8 @@ $demoDashboardHtml = '';
 // The planning below is read from Office-test; all other illustrative figures
 // remain explicitly fictional and are never persisted.
 $is232Demo = $isDashboardDemo
-  && (string) $project->identity->projectCode === 'TEST-2026-001'
-  && (string) $project->title === 'TEST - Renovatie 232 woningen';
+  && (string) $project['code'] === 'TEST-2026-001'
+  && (string) $project['title'] === 'TEST - Renovatie 232 woningen';
 $demoPlanHtml = '';
 if ($is232Demo) {
   $demoPlanHtml = '<article class="project-panel"><h3>Planning uit Office-test</h3>';
@@ -1202,5 +1204,5 @@ if (\Brebo\Office\Intake\OfficeNavigation::financeVisible()) {
 }
 $financialSectionHtml .= '</div>';
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}.office-shell{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:100vh}.office-sidebar{background:#162639;color:#fff;padding:24px 14px}.office-brand{font-size:20px;font-weight:750;margin:0 10px 25px}.office-side-item{display:block;padding:12px 14px;border-radius:8px;color:#e7edf5;text-decoration:none;margin:3px 0}.office-side-item[aria-current]{background:#30516d;color:white}.office-shell main{max-width:none;margin:0;min-width:0;padding:28px clamp(18px,4vw,55px)}.project-buildings-panel{padding:20px;margin:0 0 18px;background:#fff;border:1px solid #dbe1e8;border-radius:12px}.project-buildings-panel h2{margin:0 0 16px;font-size:20px}.project-building-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.project-building-item{border:1px solid #dbe1e8;border-radius:10px;padding:16px;background:#f8fafc;line-height:1.7}.project-building-item strong{display:block}.project-buildings-panel table{display:table}.project-buildings-panel table th{background:#f8fafc}.project-identity{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center;padding:14px 18px;background:#f8fafc;border:1px solid #dbe1e8;border-radius:10px;margin:16px 0 22px}.project-identity div{display:grid;gap:3px}.project-identity small{font-size:12px;color:#63748a}.project-identity strong{font-size:15px}.project-related-actions{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 20px}.project-related-actions a{color:#175a91;font-weight:650}.project-demo-banner{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:15px 18px;border:1px solid #cba74b;border-radius:12px;background:#fff8e6;margin:16px 0}.project-demo-banner span{flex:1}.project-demo-banner a,.project-demo-link{color:#175a91;font-weight:700}.project-demo-bar{height:15px;background:#edf2f7;border-radius:10px;margin:12px 0;overflow:hidden}.project-demo-bar span{display:block;height:100%;border-radius:10px}.project-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0 28px}.project-metric,.project-panel{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;min-width:0}.project-metric span,.project-metric small{display:block;color:#64748b;font-size:13px}.project-metric strong{display:block;font-size:clamp(23px,2vw,32px);margin:8px 0;color:#162639}.project-dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.project-panel h3{margin-top:0}.project-muted{color:#63748a;line-height:1.6}.project-progress{height:13px;border-radius:30px;background:#e8eef4;overflow:hidden;margin:18px 0}.project-progress-fill{height:100%;background:#175a91;border-radius:30px}.office-dossier-nav a[aria-current]{background:#30516d;color:white}.office-shell>main>section{max-width:none}.project-dashboard h2{margin:18px 0}@media(max-width:1000px){.project-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:650px){.project-metrics,.project-dashboard-grid{grid-template-columns:1fr}}.office-dossier-nav{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;padding-bottom:14px;border-bottom:1px solid #dbe1e8}.office-dossier-nav a{padding:9px 12px;background:#edf3f8;border-radius:8px;text-decoration:none;color:#234a68;font-weight:650}.office-dossier-nav a:focus-visible{outline:3px solid #e9a72c}.office-tabs{display:flex;gap:20px;border-bottom:1px solid #dbe1e8;margin-bottom:20px}.office-tab{padding:12px 2px;text-decoration:none;color:#34465a}.office-tab[aria-current]{border-bottom:3px solid #2e688e;font-weight:700}@media(max-width:700px){.office-shell{grid-template-columns:1fr}.office-sidebar{padding:12px}.office-brand{margin:0 0 10px}.office-sidebar nav{display:flex;gap:6px}.office-shell main{padding:18px}}
-</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($homeUrl) . '">Overzicht</a><a class="office-side-item" aria-current="page" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten') . '">Projecten</a><a class="office-side-item" href="' . $escape($projectUrl . '&tab=arbeid-inzet') . '">Arbeid &amp; Inzet</a></nav></aside><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section>' . $dossierNav . '<div id="project-gegevens"><h1>' . $escape($project->title) . '</h1><div class="project-identity"><div><small>Projectnummer</small><strong>' . (int) $project->identity->projectId . '</strong></div><div><small>Code</small><strong>' . $escape($project->identity->projectCode) . '</strong></div><div><small>Status</small><strong>' . $escape((string) ($statusLabel ?? 'Onbekend')) . '</strong></div></div></div>' . $inspectionActions . '<div class="project-related-actions"><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId])) . '">Projectdocumenten</a> <a href="' . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten/nieuw', ['project_id' => (int)$projectId])) . '">Nieuw document</a></div>' . ($activeTab === 'overzicht' ? $demoNotice . ($isDashboardDemo ? $demoDashboardHtml : $dashboardHtml) : '') . ($activeTab === 'gebouwen' ? '<div id="project-gebouwen">' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . '</div>' : '') . ($activeTab === 'werkvoorbereiding' ? $workbenchHtml : '') . ($activeTab === 'uitvoering' ? $executionHtml : '') . ($activeTab === 'arbeid-inzet' ? $arbeidInzetHtml : '') . ($activeTab === 'werkbegroting' ? $workBudgetTabHtml . $financialSectionHtml : '') . ($activeTab === 'wbs-rbs' ? $breakdownHtml : '')
+</style></head><body><div class="office-shell"><aside class="office-sidebar"><div class="office-brand">BREBO Office</div><nav aria-label="Hoofdnavigatie"><a class="office-side-item" href="' . $escape($homeUrl) . '">Overzicht</a><a class="office-side-item" aria-current="page" href="' . $escape(\Brebo\Office\Intake\OfficeMount::basePath() . '/projecten') . '">Projecten</a><a class="office-side-item" href="' . $escape($projectUrl . '&tab=arbeid-inzet') . '">Arbeid &amp; Inzet</a></nav></aside><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section>' . $dossierNav . '<div id="project-gegevens"><h1>' . $escape((string) ($project['title'] ?? 'Project ' . $projectId)) . '</h1><div class="project-identity"><div><small>Projectnummer</small><strong>' . (int) $project['id'] . '</strong></div><div><small>Code</small><strong>' . $escape((string) ($project['code'] ?? '')) . '</strong></div><div><small>Status</small><strong>' . $escape((string) ($statusLabel ?? 'Onbekend')) . '</strong></div></div></div>' . $inspectionActions . '<div class="project-related-actions"><a href="' . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten', ['project_id' => (int)$projectId])) . '">Projectdocumenten</a> <a href="' . $escape(\Brebo\Office\Intake\OfficeMount::route('documenten/nieuw', ['project_id' => (int)$projectId])) . '">Nieuw document</a></div>' . ($activeTab === 'overzicht' ? $demoNotice . ($isDashboardDemo ? $demoDashboardHtml : $dashboardHtml) : '') . ($activeTab === 'gebouwen' ? '<div id="project-gebouwen">' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . '</div>' : '') . ($activeTab === 'werkvoorbereiding' ? $workbenchHtml : '') . ($activeTab === 'uitvoering' ? $executionHtml : '') . ($activeTab === 'arbeid-inzet' ? $arbeidInzetHtml : '') . ($activeTab === 'werkbegroting' ? $workBudgetTabHtml . $financialSectionHtml : '') . ($activeTab === 'wbs-rbs' ? $breakdownHtml : '')
   . '</section></main></div></body></html>';
