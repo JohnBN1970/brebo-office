@@ -66,6 +66,10 @@ try {
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$item) { http_response_code(404); exit('Aanvraag niet gevonden.'); }
     } else {
+        $stageFilter = $_GET['fase'] ?? '';
+        if (!is_string($stageFilter) || strlen($stageFilter) > 32 || ($stageFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $stageFilter))) { http_response_code(400); exit('Ongeldige fase.'); }
+        $counts = $db->query("SELECT stage,COUNT(*) AS total FROM office_crm_leads WHERE status='active' AND converted_opportunity_id IS NULL GROUP BY stage")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $convertedCount = (int)$db->query("SELECT COUNT(*) FROM office_crm_leads WHERE converted_opportunity_id IS NOT NULL")->fetchColumn();
         $stmt = $db->query("SELECT l.id,l.title,l.stage,l.received_at,l.source_detail,l.campaign,
             s.label AS source_name,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
@@ -73,6 +77,7 @@ try {
             WHERE l.status='active' AND l.converted_opportunity_id IS NULL
             ORDER BY l.received_at DESC,l.id DESC LIMIT 500");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($stageFilter !== '') $items = array_values(array_filter($items, static fn(array $row): bool => $row['stage'] === $stageFilter));
     }
 } catch (Throwable $e) {
     http_response_code(503); exit('Aanvragen tijdelijk niet beschikbaar.');
@@ -84,6 +89,19 @@ if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><section>';
+    $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
+    foreach (array_keys($counts) as $stageCode) {
+        if (!isset($stages[$stageCode])) $stages[$stageCode] = ucfirst(str_replace('_',' ',(string)$stageCode));
+    }
+    $maxCount = max(1, ...array_map('intval', array_values($counts)));
+    echo '<section aria-label="Leads trechter"><h2>Leadtrechter</h2><p>Actuele aantallen per fase; klik om het overzicht te filteren.</p><div style="display:flex;flex-direction:column;align-items:center;gap:8px">';
+    foreach ($stages as $stageCode => $stageLabel) {
+        $amount = (int)($counts[$stageCode] ?? 0);
+        $width = 42 + (58 * $amount / $maxCount);
+        $url = $base.'/crm/aanvragen?fase='.rawurlencode((string)$stageCode);
+        echo '<a href="'.$h($url).'" style="display:block;box-sizing:border-box;width:'.$width.'%;min-width:230px;text-align:center;background:#245d99;color:white;padding:13px 8px;border-radius:6px;text-decoration:none"'.($stageFilter===$stageCode?' aria-current="true"':'').'>'.$h($stageLabel).' · '.$amount.'</a>';
+    }
+    echo '<div style="width:42%;min-width:230px;text-align:center;background:#237a65;color:white;padding:13px 8px;border-radius:6px;box-sizing:border-box">Omgezet naar verkoopkans · '.$convertedCount.'</div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } else {
