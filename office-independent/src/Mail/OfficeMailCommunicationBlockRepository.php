@@ -67,6 +67,18 @@ final class OfficeMailCommunicationBlockRepository
                     || !is_int($id) || $id < 1 || !is_int($reviewer) || $reviewer < 1) {
                     throw new DomainException('invalid_confirmed_mail_link');
                 }
+                // Reject forged prepared payloads: only canonical Office dossier types are linkable.
+                $allowedTargets = [
+                    'crm' => ['relation', 'deal'],
+                    'projecten' => ['project'],
+                    'calculatie' => ['calculation'],
+                    'finance' => ['invoice'],
+                    'documenten' => ['document'],
+                    'acties' => ['action'],
+                ];
+                if (!in_array($type, $allowedTargets[$module] ?? [], true)) {
+                    throw new DomainException('unsupported_mail_link_target');
+                }
                 if ($canLinkTarget($module, $type, $id, $reviewer) !== true) {
                     throw new DomainException('mail_target_access_denied');
                 }
