@@ -82,8 +82,9 @@ if ($method === 'POST') {
                 $error = 'Bestaande relatie gevonden: '.$matches[0]['display_name'].'. Maak hiervoor rechtstreeks een verkoopkans aan via Relaties.';
             }
             if ($error !== '') {
-                // No lead is created for an existing or ambiguous CRM relation.
-            } else {
+                // Existing customer must not be recorded as a new lead.
+                throw new \DomainException($error);
+            }
             $db->beginTransaction();
             $insert = $db->prepare("INSERT INTO office_crm_leads
                 (source_id,title,source_detail,campaign,contact_name,contact_email,description,stage,status)
@@ -100,7 +101,7 @@ if ($method === 'POST') {
             header('Location: /office-test/crm/aanvragen/detail?id='.$leadId, true, 303); exit;
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
-            $error = 'Lead opslaan mislukt.';
+            if (!$e instanceof \DomainException) $error = 'Lead opslaan mislukt.';
         }
         }
     }
