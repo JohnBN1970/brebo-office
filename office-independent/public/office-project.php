@@ -35,14 +35,9 @@ try {
   ] as $file) {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
-  foreach ([
-    'OfficeProjectIdentity.php',
-    'OfficeCanonicalProjectContext.php',
-    'OfficeNativeProjectRepository.php',
-    'OfficeNativeProjectAccess.php',
-  ] as $file) {
-    require_once dirname(__DIR__) . '/src/Project/' . $file;
-  }
+  // Project detail uses the same native project schema as the portfolio.
+  // Do not require legacy project classes absent from the VPS release.
+  require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
   if (!is_string($dsn) || $dsn === '') throw new RuntimeException('Office database unavailable.');
   $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [
@@ -67,7 +62,9 @@ try {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
-  $project = (new \Brebo\Office\Project\OfficeNativeProjectRepository($db))->find($projectId);
+  $projectQuery = $db->prepare('SELECT id, code, title, status FROM office_projects WHERE id = :project_id LIMIT 1');
+  $projectQuery->execute([':project_id' => $projectId]);
+  $project = $projectQuery->fetch(PDO::FETCH_ASSOC) ?: null;
   if ($project === null) {
     http_response_code(404);
     exit('Project niet gevonden.');
