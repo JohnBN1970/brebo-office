@@ -122,4 +122,19 @@ if (str_contains(OfficeNavigation::scope(1), 'href="/office-test/finance')
   exit(1);
 }
 
+// Native Mail is a canonical VPS route and must not disappear from the menu.
+putenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED=disabled');
+$mailNav = OfficeNavigation::mainV2('/office-test/email');
+if (!str_contains($mailNav, 'href="/office-test/email"')) {
+  fwrite(STDERR, "Native VPS Mail navigation missing".PHP_EOL); exit(1);
+}
+if (str_contains($mailNav, 'href="/office-test/mail/controle"')) {
+  fwrite(STDERR, "Mail review link exposed while disabled".PHP_EOL); exit(1);
+}
+putenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED=enabled');
+if (!str_contains(OfficeNavigation::mainV2('/office-test/email'), 'href="/office-test/mail/controle"')) {
+  fwrite(STDERR, "Verified Mail review navigation missing".PHP_EOL); exit(1);
+}
+putenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED=disabled');
+
 echo "OfficeNavigationV2Test OK".PHP_EOL;
