@@ -19,7 +19,13 @@ foreach ($expected as $url=>$file) {
     }
 }
 if (str_contains($nav,"[['Aanvragen','/office-test/crm/aanvragen']]")) throw new RuntimeException('Legacy requests advertised');
-if (!str_contains($nav,"[['Verkoopkansen','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Verkoopkansen missing from navigation');
+if (!str_contains($nav,"[['Deals','/office-test/crm/verkoopkansen']]")) throw new RuntimeException('Deals missing from navigation');
+$funnel=file_get_contents($root.'/src/Crm/OfficeCrmFunnel.php');
+if (!str_contains($funnel,"'opportunity' => 'Deal'")) throw new RuntimeException('Deal stage label missing');
+foreach (['office-crm-opportunities.php','office-crm-opportunity-create.php','office-crm-opportunity-transition.php'] as $page) {
+    $source=file_get_contents($root.'/public/'.$page);
+    if (preg_match('/Verkoopkans(?:en)?/u', $source)) throw new RuntimeException('Legacy visible label in '.$page);
+}
 $installer=file_get_contents($root.'/deployment/hostinger/install-office-crm-opportunities-test.php');
 foreach (['OFFICE_CRM_OPPORTUNITIES_SCHEMA_INSTALL','u213420663_office_test','PHP_SAPI','target_exists_inspect_first'] as $gate)
     if (!str_contains($installer,$gate)) throw new RuntimeException('Installer safety gate missing: '.$gate);
