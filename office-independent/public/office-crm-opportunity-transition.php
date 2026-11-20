@@ -26,9 +26,9 @@ try {
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 $id=filter_var($_GET['id']??0,FILTER_VALIDATE_INT)?:0;
 if ($id<1) { http_response_code(400); exit('Ongeldige verkoopkans.'); }
-$stmt=$db->prepare("SELECT id,title,stage FROM office_crm_opportunities WHERE id=? AND status='open' LIMIT 1");
+$stmt=$db->prepare("SELECT id,title,stage,status FROM office_crm_opportunities WHERE id=? AND (status='open' OR (status='closed' AND stage IN ('won','lost'))) LIMIT 1");
 $stmt->execute([$id]); $item=$stmt->fetch(PDO::FETCH_ASSOC);
-if (!$item) { http_response_code(404); exit('Verkoopkans niet gevonden of gesloten.'); }
+if (!$item) { http_response_code(404); exit('Verkoopkans niet gevonden.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
     session_name('BREBO_CRM_OPPORTUNITY_FORM');
     session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
@@ -37,7 +37,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $error='';
-$next=\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[];
+$next=$item['status']==='open' ? (\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[]) : [];
 if ($method==='POST') {
     if (!is_string($_POST['csrf']??null) || !hash_equals((string)$_SESSION['crm_opportunity_csrf'],$_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
@@ -63,7 +63,11 @@ if ($item['stage']==='won') {
         if ($linkedProject>0) {
             echo '<p>Office-project gekoppeld: <a href="/office-test/projecten/detail?id='.$linkedProject.'">Open project #'.$linkedProject.'</a></p>';
         } else {
-            echo '<p>Deze verkoopkans is gegund, maar er is nog geen bevestigde projectoverdracht. Projectaanmaak moet afzonderlijk worden afgerond.</p>';
+            $direct=$db->prepare('SELECT project_id FROM office_crm_direct_project_transfers WHERE opportunity_id=? LIMIT 1');
+            $direct->execute([$id]);
+            $directProject=(int)($direct->fetchColumn()?:0);
+            if ($directProject>0) echo '<p>Office-project gekoppeld: <a href="/office-test/projecten/detail?id='.$directProject.'">Open project #'.$directProject.'</a></p>';
+            else echo '<p>Deze verkoopkans is gegund, maar er is nog geen bevestigde projectoverdracht. Projectaanmaak moet afzonderlijk worden afgerond.</p>';
         }
     } catch (Throwable $e) {
         echo '<p>Projectoverdracht nog niet beschikbaar; de CRM-status is geen bevestiging van projectaanmaak.</p>';
