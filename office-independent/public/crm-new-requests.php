@@ -58,7 +58,7 @@ try {
         if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
             http_response_code(400); exit('Ongeldig aanvraagnummer.');
         }
-        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.contact_name,l.contact_email,l.converted_at,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.contact_name,l.contact_email,l.converted_at,l.converted_opportunity_id,
             s.label AS source_name,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id WHERE l.id=? LIMIT 1");
@@ -101,7 +101,11 @@ $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''),
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
-    echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    echo '<h1>'.$h($item['title']).'</h1>';
+    if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
+    elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
+    elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
+    echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Deals.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
