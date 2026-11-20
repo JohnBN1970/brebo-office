@@ -89,7 +89,7 @@ final class OfficeNavigation {
     }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
-      ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
+      ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Aanvragen / Leads','/office-test/crm/aanvragen']] : []), (getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Verkoopkansen','/office-test/crm/verkoopkansen']] : [])):[]],
       ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
       ['Projecten','projecten',$projectsAvailable?[
         ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
