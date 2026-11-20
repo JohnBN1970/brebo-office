@@ -979,5 +979,32 @@ $folderLabels=['inbox'=>'Postvak IN','unread'=>'Ongelezen','drafts'=>'Concepten'
 <?php endif; ?></section>
 <?php endif; ?>
 
+<?php if (getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled' && $openedMessage !== null && is_int($selectedMailId)): ?>
+<?php
+$contextCsrf = $_COOKIE['office_mail_context_csrf'] ?? '';
+if (!is_string($contextCsrf) || strlen($contextCsrf)!==64 || !ctype_xdigit($contextCsrf)) {
+  $contextCsrf = bin2hex(random_bytes(32));
+  setcookie('office_mail_context_csrf',$contextCsrf,[
+    'expires'=>0,'path'=>'/office-test/','secure'=>true,'httponly'=>true,'samesite'=>'Strict'
+  ]);
+}
+?>
+<section aria-label="E-mail koppelen aan dossier">
+<h2>Koppel deze e-mail aan een dossier</h2>
+<p>Het bericht blijft in de oorspronkelijke mailbox. Een koppeling geeft geen extra leesrechten.</p>
+<form method="post" action="/office-test/email/context-koppeling">
+<input type="hidden" name="csrf" value="<?= htmlspecialchars($contextCsrf,ENT_QUOTES,'UTF-8') ?>">
+<input type="hidden" name="message_id" value="<?= (int)$selectedMailId ?>">
+<label for="mail-context-module">Module</label>
+<select id="mail-context-module" name="module" required>
+<option value="leads">Lead</option><option value="crm">CRM-relatie</option><option value="projects">Project</option>
+</select>
+<label for="mail-context-entity">Dossiernummer</label>
+<input id="mail-context-entity" name="entity_id" type="number" min="1" step="1" required>
+<button type="submit" name="action" value="link">Koppelen</button>
+<button type="submit" name="action" value="unlink">Ontkoppelen</button>
+</form>
+</section>
+<?php endif; ?>
 <p><a href="/office-test/">Terug naar Office</a></p>
 </main></body></html>
