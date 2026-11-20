@@ -35,6 +35,15 @@ final class OfficeMailContextAccess {
       $stmt->execute([':entity'=>$entityId, ':operator'=>$operatorId]);
       return (bool)$stmt->fetchColumn();
     }
+    if ($module === 'leads') {
+      // Lead permissions use the existing Office CRM reader policy and the
+      // canonical opportunity record; never inherit access from a linked relation.
+      if (getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled'
+        || getenv('OFFICE_TEST_CRM_ENABLED') !== 'enabled') return false;
+      $stmt = $this->db->prepare('SELECT 1 FROM office_operator_accounts a JOIN office_crm_opportunities o ON o.id=:entity WHERE a.id=:operator AND a.active=1 LIMIT 1');
+      $stmt->execute([':entity'=>$entityId, ':operator'=>$operatorId]);
+      return (bool)$stmt->fetchColumn();
+    }
     if ($module === 'projects') {
       if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') !== 'enabled'
         || getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled') return false;
