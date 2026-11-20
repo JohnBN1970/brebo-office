@@ -336,6 +336,10 @@ try {
     $calculationScopes = $scopeQuery->fetchAll(PDO::FETCH_ASSOC);
   }
 } catch (Throwable $exception) {
+  // Keep details out of the HTTP response; log only class and source location.
+  // Do not log exception messages: they may contain SQL or sensitive values.
+  error_log('[BREBO_PROJECT_DATA] ' . get_class($exception)
+    . ' at ' . basename($exception->getFile()) . ':' . $exception->getLine());
   http_response_code(503);
   exit('Projectgegevens tijdelijk niet beschikbaar.');
 }
