@@ -2,47 +2,72 @@
   'use strict';
   const root=document.getElementById('crm-kanban-drag');
   if (!root) return;
-  const csrf=root.dataset.csrf;
   const feedback=document.getElementById('crm-drag-feedback');
+  const csrf=root.dataset.csrf;
   const next={lead:['prospect','lost'],prospect:['opportunity','lost'],opportunity:['proposal','lost'],proposal:['negotiation','won','lost'],negotiation:['proposal','won','lost'],won:[],lost:['prospect']};
+  const zones=Array.from(root.querySelectorAll('[data-crm-stage]:not([data-crm-id])'));
   let moving=null, busy=false;
-  root.querySelectorAll('[data-crm-id]').forEach(card=>{
-    if (!(next[card.dataset.crmStage]||[]).length) {card.draggable=false;return;}
-    card.addEventListener('dragstart',e=>{
-      if (busy) {e.preventDefault();return;}
-      moving=card;
-      e.dataTransfer.effectAllowed='move';
-      e.dataTransfer.setData('text/plain',card.dataset.crmId);
-    });
-    card.addEventListener('dragend',()=>{moving=null;});
+  const notify=message=>{if(feedback) feedback.textContent=message;};
+  const clear=()=>zones.forEach(zone=>{
+    zone.style.outline='';
+    zone.style.backgroundColor='';
+    zone.removeAttribute('aria-label');
   });
-  root.querySelectorAll('[data-crm-stage]:not([data-crm-id])').forEach(zone=>{
-    zone.addEventListener('dragover',e=>{
-      if (!moving || !(next[moving.dataset.crmStage]||[]).includes(zone.dataset.crmStage)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect='move';
+  const allowed=zone=>moving && (next[moving.dataset.crmStage]||[]).includes(zone.dataset.crmStage);
+  root.querySelectorAll('[data-crm-id]').forEach(card=>{
+    const targets=next[card.dataset.crmStage]||[];
+    card.draggable=targets.length>0;
+    if (!targets.length) {
+      card.style.cursor='default';
+      card.title='Deze fase heeft geen directe vervolgactie. Gebruik Fase wijzigen voor een correctie.';
+      return;
+    }
+    card.title='Sleep naar een toegestane fase';
+    card.addEventListener('dragstart',event=>{
+      if (busy) {event.preventDefault();return;}
+      moving=card;
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('text/plain',card.dataset.crmId);
+      zones.forEach(zone=>{
+        if (!allowed(zone)) return;
+        zone.style.outline='3px dashed #178057';
+        zone.style.backgroundColor='#e9f8f0';
+        zone.setAttribute('aria-label','Toegestane doelkolom: '+zone.querySelector('h2')?.textContent);
+      });
+      notify('Sleep de kaart naar een groen gemarkeerde kolom.');
     });
-    zone.addEventListener('drop',async e=>{
-      if (!moving || busy) return;
-      const card=moving, from=card.dataset.crmStage, to=zone.dataset.crmStage;
-      if (!(next[from]||[]).includes(to)) return;
-      e.preventDefault();
+    card.addEventListener('dragend',()=>{moving=null;clear();});
+  });
+  zones.forEach(zone=>{
+    zone.addEventListener('dragover',event=>{
+      if (!allowed(zone) || busy) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect='move';
+    });
+    zone.addEventListener('drop',async event=>{
+      if (!allowed(zone) || busy) return;
+      event.preventDefault();
+      const card=moving, target=zone.dataset.crmStage;
       busy=true;
-      feedback.textContent='Fasewijziging wordt opgeslagen...';
+      notify('Fasewijziging wordt opgeslagen...');
       try {
-        const data=new URLSearchParams({csrf,stage:to});
         const response=await fetch('/office-test/crm/verkoopkansen/fase?id='+encodeURIComponent(card.dataset.crmId),{
-          method:'POST',credentials:'same-origin',body:data,redirect:'manual',
-          headers:{'Content-Type':'application/x-www-form-urlencoded'}
+          method:'POST',credentials:'same-origin',
+          body:new URLSearchParams({csrf,stage:target}),
+          headers:{'Content-Type':'application/x-www-form-urlencoded'},
+          redirect:'follow'
         });
-        if (response.type==='opaqueredirect' || response.status===303) {
-          window.location.reload();
-          return;
+        if (response.ok && response.redirected && new URL(response.url).pathname==='/office-test/crm/verkoopkansen') {
+          window.location.reload(); return;
         }
-        feedback.textContent='Fasewijziging geweigerd. Vernieuw de pagina of gebruik Fase wijzigen.';
+        if (response.status===403) notify('Geen wijzigingsrechten of sessie verlopen. Vernieuw de pagina en probeer opnieuw.');
+        else if (response.status===409) notify('De kaart is intussen gewijzigd. Vernieuw de pagina.');
+        else notify('Fasewijziging niet opgeslagen (HTTP '+response.status+'). Gebruik Fase wijzigen.');
       } catch (_) {
-        feedback.textContent='Opslaan niet gelukt. Probeer opnieuw.';
-      } finally {busy=false;moving=null;}
+        notify('Verbindingsfout. Fase is niet bevestigd; vernieuw de pagina.');
+      } finally {
+        busy=false; moving=null; clear();
+      }
     });
   });
 })();
