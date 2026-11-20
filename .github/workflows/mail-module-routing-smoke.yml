@@ -14,6 +14,7 @@ on:
       - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
       - 'web/modules/custom/brebo_mail_intake/tests/mail-communication-block-smoke.php'
       - 'office-independent/src/Mail/OfficeMailCommunicationBlocks.php'
+      - 'office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php'
       - 'office-independent/tests/OfficeMailCommunicationBlocksTest.php'
   workflow_dispatch:
 
@@ -42,6 +43,7 @@ jobs:
       - name: Native Office mail communication blocks
         run: |
           php -l office-independent/src/Mail/OfficeMailCommunicationBlocks.php
+          php -l office-independent/src/Mail/OfficeMailCommunicationBlockRepository.php
           php office-independent/tests/OfficeMailCommunicationBlocksTest.php
       - name: Routing smoke tests
         run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
