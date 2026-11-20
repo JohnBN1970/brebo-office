@@ -68,16 +68,23 @@ try {
     } else {
         $stageFilter = $_GET['fase'] ?? '';
         if (!is_string($stageFilter) || strlen($stageFilter) > 32 || ($stageFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $stageFilter))) { http_response_code(400); exit('Ongeldige fase.'); }
+        $sourceFilter = $_GET['bron'] ?? '';
+        if (!is_string($sourceFilter) || strlen($sourceFilter) > 64 || ($sourceFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $sourceFilter))) { http_response_code(400); exit('Ongeldige bron.'); }
+        $sourceStats = $db->query("SELECT s.code,s.label,COUNT(l.id) AS total,
+            COALESCE(SUM(CASE WHEN l.converted_opportunity_id IS NOT NULL THEN 1 ELSE 0 END),0) AS converted
+            FROM office_crm_lead_sources s LEFT JOIN office_crm_leads l ON l.source_id=s.id
+            GROUP BY s.id,s.code,s.label ORDER BY total DESC,s.label ASC")->fetchAll(PDO::FETCH_ASSOC);
         $counts = $db->query("SELECT stage,COUNT(*) AS total FROM office_crm_leads WHERE status='active' AND converted_opportunity_id IS NULL GROUP BY stage")->fetchAll(PDO::FETCH_KEY_PAIR);
         $convertedCount = (int)$db->query("SELECT COUNT(*) FROM office_crm_leads WHERE converted_opportunity_id IS NOT NULL")->fetchColumn();
         $stmt = $db->query("SELECT l.id,l.title,l.stage,l.received_at,l.source_detail,l.campaign,
-            s.label AS source_name,r.display_name AS relation_name
+            s.label AS source_name,s.code AS source_code,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id
             WHERE l.status='active' AND l.converted_opportunity_id IS NULL
             ORDER BY l.received_at DESC,l.id DESC LIMIT 500");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if ($stageFilter !== '') $items = array_values(array_filter($items, static fn(array $row): bool => $row['stage'] === $stageFilter));
+        if ($sourceFilter !== '') $items = array_values(array_filter($items, static fn(array $row): bool => $row['source_code'] === $sourceFilter));
     }
 } catch (Throwable $e) {
     http_response_code(503); exit('Aanvragen tijdelijk niet beschikbaar.');
@@ -102,6 +109,17 @@ if (isset($item)) {
         echo '<a href="'.$h($url).'" style="display:block;box-sizing:border-box;width:'.$width.'%;min-width:230px;text-align:center;background:#245d99;color:white;padding:13px 8px;border-radius:6px;text-decoration:none"'.($stageFilter===$stageCode?' aria-current="true"':'').'>'.$h($stageLabel).' · '.$amount.'</a>';
     }
     echo '<div style="width:42%;min-width:230px;text-align:center;background:#237a65;color:white;padding:13px 8px;border-radius:6px;box-sizing:border-box">Omgezet naar verkoopkans · '.$convertedCount.'</div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
+    $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
+    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px">';
+    foreach ($sourceStats as $source) {
+        $total = (int)$source['total'];
+        $converted = (int)$source['converted'];
+        $share = $sourceTotal > 0 ? round(100 * $total / $sourceTotal, 1) : 0;
+        $rate = $total > 0 ? round(100 * $converted / $total, 1) : 0;
+        $url = $base.'/crm/aanvragen?bron='.rawurlencode((string)$source['code']);
+        echo '<a href="'.$h($url).'" style="color:inherit;text-decoration:none;border:1px solid #dbe1e8;border-radius:10px;padding:14px;background:#f8fafc"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p style="font-size:26px;margin:8px 0">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
+    }
+    echo '</div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } else {
