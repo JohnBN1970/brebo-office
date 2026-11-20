@@ -28,7 +28,7 @@ final class OfficeProjectBreakdownSchemaPreflight
         }
         $errors = [];
         foreach (self::PARENTS as $table => $column) {
-            if (($found[$table][$column] ?? null) !== 'bigint unsigned') {
+            if (!preg_match('/^bigint(?:\\(\\d+\\))? unsigned$/', $found[$table][$column] ?? '')) {
                 $errors[] = $table . '.' . $column . ': expected bigint unsigned, found ' .
                     ($found[$table][$column] ?? 'missing');
             }
