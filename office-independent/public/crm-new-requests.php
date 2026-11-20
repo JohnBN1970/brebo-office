@@ -186,7 +186,7 @@ if (isset($item)) {
             echo '<section data-stage="'.$h($stageCode).'"><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
                 if ($row['stage'] !== $stageCode) continue;
-                echo '<article class="lead-kanban-card" draggable="true" data-lead-id="'.(int)$row['id'].'" data-stage="'.$h($row['stage']).'"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small><div class="lead-move-actions"><label>Verplaats naar <select class="lead-move-select" aria-label="Verplaats lead naar fase"><option value="">Kies fase</option>'; foreach (['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'] as $moveCode=>$moveLabel) { if ($moveCode!==$stageCode) echo '<option value="'.$h($moveCode).'">'.$h($moveLabel).'</option>'; } echo '</select></label><button type="button" class="lead-move-button">Verplaatsen</button></div></article>';
+                echo '<article class="lead-kanban-card" draggable="true" data-lead-id="'.(int)$row['id'].'" data-stage="'.$h($row['stage']).'"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small><div class="lead-move-actions"><label>Verplaats naar <select class="lead-move-select" aria-label="Verplaats lead naar fase">'; foreach (['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'] as $moveCode=>$moveLabel) { if (in_array($moveCode, ['new'=>['contacted'],'contacted'=>['new','qualified'],'qualified'=>['contacted','accepted'],'accepted'=>['qualified']][$stageCode] ?? [], true)) echo '<option value="'.$h($moveCode).'">'.$h($moveLabel).'</option>'; } echo '</select></label><button type="button" class="lead-move-button">Verplaatsen</button></div></article>';
             }
             echo '</section>';
         }
@@ -219,7 +219,7 @@ echo <<<'JS'
  }
  board.querySelectorAll('.lead-kanban-card[draggable="true"]').forEach(card=>{
   const moveButton=card.querySelector('.lead-move-button');
-  moveButton?.addEventListener('click',()=>{const target=card.querySelector('.lead-move-select')?.value;if(!target)return; if(!allowed[card.dataset.stage]?.includes(target)){alert('Kies een aangrenzende fase.');return;}save(card,target);});
+  moveButton?.addEventListener('click',()=>{const target=card.querySelector('.lead-move-select')?.value;if(!target){alert('Selecteer eerst een fase.');return;} if(!allowed[card.dataset.stage]?.includes(target)){alert('Kies een aangrenzende fase.');return;}save(card,target);});
   card.querySelectorAll('a').forEach(link=>link.setAttribute('draggable','false'));
   card.addEventListener('dragstart',e=>{
    source=card;
