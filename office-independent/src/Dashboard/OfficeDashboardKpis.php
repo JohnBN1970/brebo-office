@@ -49,7 +49,19 @@ final class OfficeDashboardKpis {
     require_once __DIR__.'/../Project/OfficeProjectTrafficLight.php';
     $enriched=$read(fn()=>\Brebo\Office\Project\OfficeProjectPlanReader::enrich($this->db,$projects));
     $critical=null;$waiting=null;
-    if($enriched!==null){$projects=$enriched;$critical=0;$waiting=0;foreach($projects as $p){$color=\Brebo\Office\Project\OfficeProjectTrafficLight::assess($p)['color'];$critical+=(int)($color==='red');$waiting+=(int)($color==='orange');}}
+    if($enriched!==null){
+      $projects=$enriched;
+      // A malformed project status must not break the whole dashboard or yield partial totals.
+      $traffic=$read(static function()use($projects):array {
+        $criticalCount=0;$waitingCount=0;
+        foreach($projects as $p){
+          $color=\Brebo\Office\Project\OfficeProjectTrafficLight::assess($p)['color'];
+          $criticalCount+=(int)($color==='red');$waitingCount+=(int)($color==='orange');
+        }
+        return ['critical'=>$criticalCount,'waiting'=>$waitingCount];
+      });
+      if($traffic!==null){$critical=$traffic['critical'];$waiting=$traffic['waiting'];}
+    }
     $put('critical',$critical,'Volgens bestaande projectbewaking',$critical>0?'red':'neutral');
     $put('waiting',$waiting,'Volgens bestaande projectbewaking',$waiting>0?'yellow':'neutral');
     require_once __DIR__.'/../Project/OfficeProjectPortfolioPlannedHours.php';
@@ -73,10 +85,24 @@ final class OfficeDashboardKpis {
       require_once __DIR__.'/../Finance/OfficeFinanceDashboard.php';
       $bank=$read(fn()=>(new \Brebo\Office\Finance\OfficeFinanceAccess($this->db,$operatorId))->allowsBankRead())===true;
       $creditors=null;
-      if(isset($sales['center']['postings'])){$creditors=0;foreach($sales['center']['postings'] as $posting)if($posting['source_kind']==='purchase'&&$posting['status']==='booked'&&(int)$posting['cash_due']===1)$creditors+=max(0,(int)$posting['gross_cents']-(int)$posting['paid_cents']);}
+      if($salesAvailableForCreditors=is_array($sales)&&($sales['available']??false)===true&&isset($sales['center']['postings'])&&is_array($sales['center']['postings'])){
+        $creditors=0;
+        foreach($sales['center']['postings'] as $posting){
+          if(!is_array($posting)||!isset($posting['source_kind'],$posting['status'],$posting['cash_due'])){$creditors=null;break;}
+          if($posting['source_kind']!=='purchase'||$posting['status']!=='booked')continue;
+          if(!in_array((string)$posting['cash_due'],['0','1'],true)){$creditors=null;break;}
+          if((string)$posting['cash_due']!=='1')continue;
+          if(!isset($posting['gross_cents'],$posting['paid_cents'])||!preg_match('/^\\d+$/D',(string)$posting['gross_cents'])||!preg_match('/^\\d+$/D',(string)$posting['paid_cents'])||((float)$posting['gross_cents'])>PHP_INT_MAX||((float)$posting['paid_cents'])>PHP_INT_MAX){$creditors=null;break;}
+          $creditors+=max(0,(int)$posting['gross_cents']-(int)$posting['paid_cents']);
+        }
+      }
       $put('creditors',$creditors,'Geboekte leveranciersfacturen minus geregistreerde betalingen · incl. btw');
       $financeData=['sales_overview'=>$sales??['available'=>false],'bank_read_allowed'=>$bank,'finance_unlinked_project'=>true];
-      foreach(['revenue'=>'ytd_net_cents','debtors'=>'outstanding_gross_cents','overdue'=>'overdue_gross_cents','drafts'=>'draft_count'] as $id=>$key)$put($id,$sales[$key]??null,$id==='revenue'?'Verzonden facturen · exclusief btw':'Office-verkoopadministratie', $id==='overdue'&&($sales[$key]??0)>0?'yellow':'neutral');
+      $salesAvailable=is_array($sales)&&($sales['available']??false)===true;
+      foreach(['revenue'=>'ytd_net_cents','debtors'=>'outstanding_gross_cents','overdue'=>'overdue_gross_cents','drafts'=>'draft_count'] as $id=>$key){
+        $value=$salesAvailable&&isset($sales[$key])&&is_int($sales[$key])&&$sales[$key]>=0?$sales[$key]:null;
+        $put($id,$value,$id==='revenue'?'Verzonden facturen · exclusief btw':'Office-verkoopadministratie',$id==='overdue'&&$value!==null&&$value>0?'yellow':'neutral');
+      }
     }
     require_once __DIR__.'/../Governance/bootstrap.php';
     $store=new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($this->db);
