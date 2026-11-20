@@ -38,9 +38,33 @@ if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $error='';
 $next=\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[];
+$directEnabled=\Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_CRM_DIRECT_PROJECT_TRANSFER_ENABLED')==='enabled'
+    && getenv('OFFICE_TEST_CRM_DIRECT_PROJECT_TRANSFER_SCHEMA_VERIFIED')==='enabled';
 if ($method==='POST') {
+    if (!is_string($_POST['csrf']??null) || !hash_equals((string)$_SESSION['crm_opportunity_csrf'],$_POST['csrf'])) {
+        http_response_code(403); exit('Ongeldige formulierbeveiliging.');
+    }
+    $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='create_direct_project') {
+        if (!$directEnabled || $item['stage']!=='won' || !in_array($item['status'],['closed','won'],true)) {
+            http_response_code(403); exit('Directe projectoverdracht niet beschikbaar.');
+        }
+        try {
+            require_once dirname(__DIR__).'/src/Crm/OfficeCrmDirectProjectAcceptance.php';
+            $projectId=(new \Brebo\Office\Crm\OfficeCrmDirectProjectAcceptance($db))
+                ->transferForOperator((int)$operator->operatorId,$id);
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: '.\Brebo\Office\Intake\OfficeMount::route('projecten/detail',['id'=>$projectId]),true,303);
+            exit;
+        } catch (DomainException $e) {
+            http_response_code(409); exit('Projectoverdracht geweigerd; controleer rechten en opdrachtstatus.');
+        } catch (Throwable $e) {
+            http_response_code(503); exit('Projectoverdracht nog niet beschikbaar; geen project bevestigd.');
+        }
+    }
+    if ($action!=='') { http_response_code(400); exit('Ongeldige opdracht.'); }
     if ($item['status'] !== 'open') { http_response_code(409); exit('Afgesloten verkoopkans kan niet worden gewijzigd.'); }
-    if (!is_string($_POST['csrf']??null) || !hash_equals((string)$_SESSION['crm_opportunity_csrf'],$_POST['csrf'])) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
     if (!in_array($to,$next,true)) { http_response_code(400); exit('Ongeldige faseovergang.'); }
     try {
@@ -64,6 +88,24 @@ if ($item['stage']==='won') {
             echo '<p>Office-project gekoppeld: <a href="/office-test/projecten/detail?id='.$linkedProject.'">Open project #'.$linkedProject.'</a></p>';
         } else {
             echo '<p>Deze verkoopkans is gegund, maar er is nog geen bevestigde projectoverdracht. Projectaanmaak moet afzonderlijk worden afgerond.</p>';
+            if ($directEnabled) {
+                // Do not offer creation when any direct/Calc mapping already exists,
+                // or if the schema or explicit actor permission is unavailable.
+                $check=$db->prepare(
+                    'SELECT (SELECT COUNT(*) FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=?) AS calc_count,
+                            (SELECT COUNT(*) FROM office_crm_direct_project_transfers WHERE opportunity_id=?) AS direct_count'
+                );
+                $check->execute([$id,$id]);
+                $counts=$check->fetch(PDO::FETCH_ASSOC);
+                $permission=$db->prepare(
+                    "SELECT 1 FROM office_module_permissions WHERE operator_id=? AND module='projects' AND permission='create' LIMIT 1"
+                );
+                $permission->execute([$operator->operatorId]);
+                if ((int)($counts['calc_count']??-1)===0 && (int)($counts['direct_count']??-1)===0
+                    && $permission->fetchColumn()!==false) {
+                    echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="action" value="create_direct_project"><button type="submit">Maak project voor directe opdracht</button></form>';
+                }
+            }
         }
     } catch (Throwable $e) {
         echo '<p>Projectoverdracht nog niet beschikbaar; de CRM-status is geen bevestiging van projectaanmaak.</p>';
