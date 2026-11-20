@@ -61,7 +61,7 @@ if ($method==='POST') {
                     throw new DomainException('Lead is gewijzigd of heeft geen gekoppelde relatie.');
                 }
             }
-            $id=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
+            $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
             if ($leadId>0) {
                 $update=$db->prepare("UPDATE office_crm_leads SET converted_opportunity_id=?,converted_at=NOW(),status='converted' WHERE id=? AND converted_opportunity_id IS NULL");
                 $update->execute([$id,$leadId]);
