@@ -49,7 +49,19 @@ final class OfficeDashboardKpis {
     require_once __DIR__.'/../Project/OfficeProjectTrafficLight.php';
     $enriched=$read(fn()=>\Brebo\Office\Project\OfficeProjectPlanReader::enrich($this->db,$projects));
     $critical=null;$waiting=null;
-    if($enriched!==null){$projects=$enriched;$critical=0;$waiting=0;foreach($projects as $p){$color=\Brebo\Office\Project\OfficeProjectTrafficLight::assess($p)['color'];$critical+=(int)($color==='red');$waiting+=(int)($color==='orange');}}
+    if($enriched!==null){
+      $projects=$enriched;
+      // A malformed project status must not break the whole dashboard or yield partial totals.
+      $traffic=$read(static function()use($projects):array {
+        $criticalCount=0;$waitingCount=0;
+        foreach($projects as $p){
+          $color=\Brebo\Office\Project\OfficeProjectTrafficLight::assess($p)['color'];
+          $criticalCount+=(int)($color==='red');$waitingCount+=(int)($color==='orange');
+        }
+        return ['critical'=>$criticalCount,'waiting'=>$waitingCount];
+      });
+      if($traffic!==null){$critical=$traffic['critical'];$waiting=$traffic['waiting'];}
+    }
     $put('critical',$critical,'Volgens bestaande projectbewaking',$critical>0?'red':'neutral');
     $put('waiting',$waiting,'Volgens bestaande projectbewaking',$waiting>0?'yellow':'neutral');
     require_once __DIR__.'/../Project/OfficeProjectPortfolioPlannedHours.php';
