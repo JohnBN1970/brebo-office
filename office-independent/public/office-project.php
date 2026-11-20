@@ -73,6 +73,45 @@ try {
     exit('Project niet gevonden.');
   }
   $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage((int) $operator->operatorId, $projectId);
+  // WBS/RBS writes: only project managers in Office-test, with double-submit CSRF.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['breakdown_action'])) {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest()
+        || getenv('OFFICE_TEST_WBS_RBS_ENABLED') !== 'enabled' || !$canManage) {
+      http_response_code(403);
+      exit('WBS/RBS bewerken niet toegestaan.');
+    }
+    $csrf = $_POST['csrf'] ?? null;
+    $cookie = $_COOKIE['office_project_csrf'] ?? null;
+    if (!is_string($csrf) || !is_string($cookie) || strlen($csrf) !== 64
+        || !ctype_xdigit($csrf) || !hash_equals($cookie, $csrf)) {
+      http_response_code(403);
+      exit('Ongeldige formulierbeveiliging.');
+    }
+    try {
+      require_once dirname(__DIR__) . '/src/Project/OfficeProjectBreakdownWriter.php';
+      $writer = new \Brebo\Office\Project\OfficeProjectBreakdownWriter($db);
+      $action = (string)$_POST['breakdown_action'];
+      if ($action === 'create_wbs' || $action === 'create_rbs') {
+        $parent = filter_var($_POST['parent_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $writer->create((int)$projectId, (int)$operator->operatorId,
+          $action === 'create_wbs' ? 'wbs' : 'rbs',
+          (string)($_POST['code'] ?? ''), (string)($_POST['title'] ?? ''),
+          $parent === false ? null : $parent, (string)($_POST['description'] ?? ''));
+      } elseif ($action === 'assign_risk') {
+        $category = filter_var($_POST['category_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $risk = filter_var($_POST['risk_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        if ($category === false || $risk === false) throw new \InvalidArgumentException('Categorie en risico verplicht.');
+        $writer->assignRisk((int)$projectId, $category, $risk);
+      } else {
+        throw new \InvalidArgumentException('Onbekende WBS/RBS-actie.');
+      }
+      header('Location: ' . \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=wbs-rbs', true, 303);
+      exit;
+    } catch (\InvalidArgumentException|\DomainException|\PDOException $breakdownWriteError) {
+      http_response_code(422);
+      exit('WBS/RBS kon niet worden opgeslagen: ' . htmlspecialchars($breakdownWriteError->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+  }
   // Startdossier actions use the authenticated Office operator and project ACL.
   // This branch is separate from housing-type writes and remains test-only.
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['kickstart_action'])) {
