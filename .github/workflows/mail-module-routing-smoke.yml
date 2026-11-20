@@ -1,0 +1,27 @@
+name: Mail module routing smoke
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - 'web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php'
+      - '.github/workflows/mail-module-routing-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailModuleRoutingAdvisor.php
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php
+          php -l web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
+      - name: Routing smoke tests
+        run: php web/modules/custom/brebo_mail_intake/tests/mail-module-routing-smoke.php
