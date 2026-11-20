@@ -12,6 +12,12 @@ foreach ([
 ] as $required) {
     if (!str_contains($service,$required)) throw new RuntimeException('Missing direct transfer invariant: '.$required);
 }
+// A retry must not return a stale project ID when the mapped project was deleted.
+// Keep this check alongside the transfer service so the CI contract gate catches regressions.
+foreach (['$verifyExisting=', 'SELECT id FROM office_projects WHERE id=?',
+    'Direct transfer mapping references a missing project'] as $required) {
+    if (!str_contains($service,$required)) throw new RuntimeException('Missing orphaned mapping protection: '.$required);
+}
 foreach (['PRIMARY KEY (opportunity_id)','UNIQUE KEY uq_direct_project (project_id)',
     'FOREIGN KEY (project_id) REFERENCES office_projects(id)',
     'FOREIGN KEY (opportunity_id) REFERENCES office_crm_opportunities(id)'] as $required) {
