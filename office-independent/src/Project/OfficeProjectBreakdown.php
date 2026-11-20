@@ -65,7 +65,10 @@ final class OfficeProjectBreakdown
             $probability = filter_var($payload['probability'] ?? null, FILTER_VALIDATE_INT);
             $impact = filter_var($payload['impact'] ?? null, FILTER_VALIDATE_INT);
             if ($probability === false || $impact === false || $probability < 1 || $probability > 5 || $impact < 1 || $impact > 5) {
-                throw new \InvalidArgumentException('Risicoscore moet tussen 1 en 5 liggen.');
+                // Existing governance risks can be recorded before scoring.
+                // Unscored risks must not make the entire project dossier unavailable.
+                $totals['unscored'] = ($totals['unscored'] ?? 0) + 1;
+                continue;
             }
             $cells[$probability][$impact]++;
             $score = $probability * $impact;
