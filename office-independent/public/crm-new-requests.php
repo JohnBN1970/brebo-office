@@ -99,7 +99,7 @@ try {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:#182334;color:#e9f1fa;padding:24px;border-radius:12px;border:1px solid #35465d}section h2,section h3,section p,section small,section strong{color:inherit}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:#182334;color:#e9f1fa;padding:24px;border-radius:12px;border:1px solid #35465d}section h2,section h3,section p,section small,section strong{color:inherit}.lead-funnel{max-width:860px;margin:22px auto;display:flex;flex-direction:column;gap:0}.lead-funnel__step{min-height:86px;display:flex;align-items:center;justify-content:center;text-align:center;background:#245d99;color:#fff;text-decoration:none;box-sizing:border-box;margin:0}.lead-funnel__step:nth-child(2){background:#2869a4}.lead-funnel__step:nth-child(3){background:#2c779e}.lead-funnel__step:nth-child(4){background:#27898f}.lead-funnel__step--converted{background:#237a65}.lead-funnel__step span{display:flex;flex-direction:column;gap:5px;padding:10px 24px}.lead-funnel__step strong{font-size:1.05rem}.lead-funnel__step small{font-size:.82rem;color:#eaf4ff}.lead-funnel__step[aria-current=true]{filter:brightness(1.3)}.lead-funnel__step:focus-visible{outline:3px solid #fbbf24;outline-offset:-3px}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
@@ -108,15 +108,26 @@ if (isset($item)) {
     foreach (array_keys($counts) as $stageCode) {
         if (!isset($stages[$stageCode])) $stages[$stageCode] = ucfirst(str_replace('_',' ',(string)$stageCode));
     }
-    $maxCount = max(1, ...array_map('intval', array_values($counts)));
-    echo '<section aria-label="Leads trechter"><h2>Leadtrechter</h2><p>Actuele aantallen per fase; klik om het overzicht te filteren.</p><div style="display:flex;flex-direction:column;align-items:center;gap:8px">';
-    foreach ($stages as $stageCode => $stageLabel) {
+    echo '<section aria-label="Leads trechter"><h2>Leadtrechter</h2><p>Fasen van breed naar smal; klik op een segment om leads in die fase te tonen.</p><div class="lead-funnel">';
+    $funnelStages = array_slice($stages, 0, 4, true);
+    $funnelWidths = [100, 86, 72, 58, 44];
+    $previousCount = null;
+    $stageIndex = 0;
+    foreach ($funnelStages as $stageCode => $stageLabel) {
         $amount = (int)($counts[$stageCode] ?? 0);
-        $width = 42 + (58 * $amount / $maxCount);
+        $topWidth = $funnelWidths[$stageIndex];
+        $bottomWidth = $funnelWidths[$stageIndex + 1];
+        $retention = ($previousCount !== null && $previousCount > 0)
+            ? round(100 * $amount / $previousCount) . '% doorstroom'
+            : ($previousCount === 0 ? 'Geen voorgaande leads' : 'Instroom');
         $url = $base.'/crm/aanvragen?fase='.rawurlencode((string)$stageCode);
-        echo '<a href="'.$h($url).'" style="display:block;box-sizing:border-box;width:'.$width.'%;min-width:230px;text-align:center;background:#245d99;color:white;padding:13px 8px;border-radius:6px;text-decoration:none"'.($stageFilter===$stageCode?' aria-current="true"':'').'>'.$h($stageLabel).' · '.$amount.'</a>';
+        $clip = 'polygon('.((100-$topWidth)/2).'% 0, '.((100+$topWidth)/2).'% 0, '.((100+$bottomWidth)/2).'% 100%, '.((100-$bottomWidth)/2).'% 100%)';
+        echo '<a class="lead-funnel__step" href="'.$h($url).'" style="clip-path:'.$clip.';"'.($stageFilter===$stageCode?' aria-current="true"':'').'><span><strong>'.$h($stageLabel).' · '.$amount.'</strong><small>'.$h($retention).'</small></span></a>';
+        $previousCount = $amount;
+        ++$stageIndex;
     }
-    echo '<div style="width:42%;min-width:230px;text-align:center;background:#237a65;color:white;padding:13px 8px;border-radius:6px;box-sizing:border-box">Omgezet naar verkoopkans · '.$convertedCount.'</div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
+    $convertedClip = 'polygon(28% 0,72% 0,65% 100%,35% 100%)';
+    echo '<div class="lead-funnel__step lead-funnel__step--converted" style="clip-path:'.$convertedClip.'"><span><strong>Omgezet naar verkoopkans · '.$convertedCount.'</strong><small>Afgeronde conversies</small></span></div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
     $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
     echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px">';
     foreach ($sourceStats as $source) {
