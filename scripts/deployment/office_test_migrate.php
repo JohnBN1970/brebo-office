@@ -175,11 +175,11 @@ echo "DASHBOARD_PREFERENCES_SCHEMA_VERIFIED\n";
 
 // Native WBS/RBS: additive structures only, installed exclusively in OFFICE-TEST.
 require_once $candidate.'/src/Project/OfficeProjectBreakdownSchemaPreflight.php';
-\\Brebo\\Office\\Project\\OfficeProjectBreakdownSchemaPreflight::assertReady($db);
+\Brebo\Office\Project\OfficeProjectBreakdownSchemaPreflight::assertReady($db);
 $breakdownSqlFile=$candidate.'/deployment/hostinger/sql/office-project-wbs-rbs.sql';
 if (!is_file($breakdownSqlFile)) throw new RuntimeException('WBS_RBS_SCHEMA_SOURCE_MISSING');
 $breakdownSql=file_get_contents($breakdownSqlFile);
-$breakdownStatements=array_values(array_filter(array_map('trim',explode(';',preg_replace('/--[^\\n]*/','',$breakdownSql)))));
+$breakdownStatements=array_values(array_filter(array_map('trim',explode(';',preg_replace('/--[^\n]*/','',$breakdownSql)))));
 $breakdownTables=['office_project_wbs_nodes','office_project_wbs_links','office_project_rbs_categories','office_project_rbs_risk_links'];
 if (count($breakdownStatements)!==count($breakdownTables)) throw new RuntimeException('UNREVIEWED_WBS_RBS_MIGRATION');
 foreach ($breakdownStatements as $index=>$statement) {
@@ -204,5 +204,5 @@ foreach ($breakdownStatements as $statement) $db->exec($statement);
 foreach ($breakdownTables as $table) $db->query('SELECT 1 FROM `'.$table.'` LIMIT 0');
 $breakdownRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
 $breakdownRecord->execute([$breakdownMigrationId,$breakdownChecksum]);
-echo "OFFICE_TEST_WBS_RBS_SCHEMA_PASS\\n";
+echo "OFFICE_TEST_WBS_RBS_SCHEMA_PASS\n";
 
