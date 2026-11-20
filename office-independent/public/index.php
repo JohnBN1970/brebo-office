@@ -134,7 +134,7 @@ if (!is_string($path) || !isset($routes[$path])) {
   exit('Testpagina niet gevonden.');
 }
 // Decorate HTML pages with the shared Office navigation while preserving page-owned module tabs.
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !in_array($path, ['/office-test/inloggen', '/office-test/uitloggen'], true)) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !in_array($path, ['/office-test/inloggen', '/office-test/uitloggen', '/office-test/crm/aanvragen/stijl.css'], true)) {
   require_once $private . '/src/Intake/OfficeNavigation.php';
   \Brebo\Office\Intake\OfficeNavigation::register();
 }
