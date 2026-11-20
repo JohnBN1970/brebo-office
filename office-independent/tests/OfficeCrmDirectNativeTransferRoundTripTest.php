@@ -43,6 +43,8 @@ expectReject(fn()=>$accept->transferForOperator(8,104),'inactive operator');
 expectReject(fn()=>$accept->transferForOperator(99,104),'unprivileged operator');
 $first=$accept->transferForOperator(7,101);
 $second=$accept->transferForOperator(7,101);
+expectReject(fn()=>$accept->transferForOperator(8,101),'idempotent request by inactive actor');
+expectReject(fn()=>$accept->transferForOperator(99,101),'idempotent request by unprivileged actor');
 if ($first!==$second || $first<1) throw new RuntimeException('Direct transfer is not idempotent');
 if ((int)$db->query('SELECT COUNT(*) FROM office_projects')->fetchColumn()!==1) throw new RuntimeException('Duplicate project created');
 $project=$db->query('SELECT status FROM office_projects')->fetchColumn();
