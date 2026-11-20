@@ -11,3 +11,16 @@ CREATE TABLE IF NOT EXISTS office_mail_context_links (
  KEY ix_mail_context_lookup (module_key,entity_id,message_id),
  KEY ix_mail_context_message (message_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- Immutable audit of effective link/unlink changes; no message bodies stored.
+CREATE TABLE IF NOT EXISTS office_mail_context_link_events (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ message_id BIGINT UNSIGNED NOT NULL,
+ module_key VARCHAR(32) NOT NULL,
+ entity_id BIGINT UNSIGNED NOT NULL,
+ actor_id VARCHAR(128) NOT NULL,
+ action VARCHAR(16) NOT NULL,
+ occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ KEY ix_mail_context_event (message_id,occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
