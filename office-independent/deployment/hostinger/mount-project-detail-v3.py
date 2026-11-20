@@ -68,7 +68,8 @@ if ($projectV3Tab === 'werkvoorbereiding'
           \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . (int)$projectId . '&tab=werkvoorbereiding',
           $csrfToken, true,
           (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId,
-          true
+          ((string)$kickstart['status'] === 'awaiting_first_approval' && (int)$kickstart['project_leader_user_id'] === (int)$operator->operatorId)
+            || ((string)$kickstart['status'] === 'awaiting_second_approval' && (int)$kickstart['project_leader_user_id'] !== (int)$operator->operatorId)
         );
       }
 
