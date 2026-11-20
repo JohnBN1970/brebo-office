@@ -39,6 +39,7 @@ if ($path === '/') {
 }
 $routes = [
   '/office-test/materialen' => 'office-materials.php',
+  '/office-test/marketing' => 'office-marketing.php',
   '/office-test/calculatie' => 'office-calc-crm-workbench.php',
   '/office-test/calculatie/samenwerken' => 'office-calc-crm-workbench.php',
   '/office-test' => 'office-home.php',
@@ -53,6 +54,7 @@ $routes = [
   '/office-test/crm/verkoopkansen' => 'office-crm-opportunities.php',
   '/office-test/crm/verkoopkansen/nieuw' => 'office-crm-opportunity-create.php',
   '/office-test/crm/verkoopkansen/fase' => 'office-crm-opportunity-transition.php',
+  '/office-test/crm/verkoopkansen/drag.js' => 'office-crm-kanban-drag.php',
   '/office-test/crm/aanvragen/stijl.css' => 'office-leads-styles.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',

@@ -15,4 +15,8 @@ if (!OfficeCrmFunnel::canTransition('prospect','opportunity')) throw new Runtime
 if (OfficeCrmFunnel::canTransition('lead','won')) throw new RuntimeException('Invalid shortcut');
 $ref = new ReflectionClass(OfficeCrmOpportunityRepository::class);
 foreach (['listForViews','create','transition'] as $method) if (!$ref->hasMethod($method)) throw new RuntimeException('Missing '.$method);
+$repositorySource=file_get_contents(dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php');
+if (!str_contains($repositorySource,"INSERT INTO office_crm_opportunities (relation_id,contact_id,title,stage,currency) VALUES (?,?,?,'prospect','EUR')")) throw new RuntimeException('Deal creation must use canonical opportunity schema');
+if (!str_contains($repositorySource,'new OfficeCrmProjectHandoff($this->db)')) throw new RuntimeException('Unified verified project handoff must remain intact');
+if (OfficeCrmFunnel::label('opportunity')!=='Deal') throw new RuntimeException('Commercial stage must be labelled Deal');
 echo "CRM_OPPORTUNITY_CONTRACT_OK\n";

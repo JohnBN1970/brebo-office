@@ -79,7 +79,7 @@ if ($method === 'POST') {
             if (count($matches) > 1) {
                 $error = 'Meerdere relaties gevonden. Controleer de klant handmatig via Relaties.';
             } elseif (count($matches) === 1) {
-                $error = 'Bestaande relatie gevonden: '.$matches[0]['display_name'].'. Maak hiervoor rechtstreeks een verkoopkans aan via Relaties.';
+                $error = 'Bestaande relatie gevonden: '.$matches[0]['display_name'].'. Maak hiervoor rechtstreeks een deal aan via Relaties.';
             }
             if ($error !== '') {
                 // Existing customer must not be recorded as a new lead.
