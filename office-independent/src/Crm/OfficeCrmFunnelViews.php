@@ -22,7 +22,7 @@ final class OfficeCrmFunnelViews {
             }
             $out .= '<div class="crm-kanban" style="display:flex;gap:12px;overflow-x:auto">';
             foreach ($groups as $stage=>$rows) {
-                $out .= '<section style="min-width:210px;flex:1;border:1px solid #ddd;padding:12px;border-radius:8px"><h2>'.self::h(OfficeCrmFunnel::label($stage)).' ('.count($rows).')</h2>';
+                $out .= '<section data-crm-stage="'.self::h($stage).'" style="min-width:210px;flex:1;border:1px solid #ddd;padding:12px;border-radius:8px"><h2>'.self::h(OfficeCrmFunnel::label($stage)).' ('.count($rows).')</h2>';
                 foreach ($rows as $item) $out .= self::card($item);
                 $out .= '</section>';
             }
@@ -63,6 +63,6 @@ final class OfficeCrmFunnelViews {
         return ' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Fase wijzigen</a>';
     }
     private static function card(array $item): string {
-        return '<article style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
+        return '<article draggable="true" data-crm-id="'.(int)($item['id']??0).'" data-crm-stage="'.self::h($item['stage']??'').'" style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px;cursor:grab"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
     }
 }
