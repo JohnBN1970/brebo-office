@@ -24,4 +24,36 @@ foreach ([[42,'project',0,false,true],[42,'project',0,true,false],[43,'project',
         throw new RuntimeException('Unauthorized execution start accepted');
     } catch (DomainException $expected) {}
 }
+// Regression matrix: release must be tied to one current revision, two distinct actors,
+// complete required evidence and zero unresolved critical questions.
+$mustBlock = static function (string $reason) use ($gate): void {
+    try {
+        $gate->authorizeStart(42, 'project', 0, true, true);
+    } catch (DomainException $expected) {
+        return;
+    }
+    throw new RuntimeException('Execution was permitted despite ' . $reason);
+};
+$db->exec("DELETE FROM office_project_start_approvals WHERE decision = 'approved_second'");
+$mustBlock('missing second approval');
+$db->exec("INSERT INTO office_project_start_approvals VALUES (3,1,2,7,'approved_second')");
+$mustBlock('same reviewer approving twice');
+$db->exec("UPDATE office_project_start_approvals SET actor_user_id=8 WHERE id=3");
+$gate->authorizeStart(42,'project',0,true,true);
+$db->exec("UPDATE office_project_start_dossiers SET revision=3 WHERE id=1");
+$mustBlock('stale approval revision');
+$db->exec("UPDATE office_project_start_dossiers SET revision=2 WHERE id=1");
+$db->exec("INSERT INTO office_project_start_questions VALUES (1,1,1,'')");
+$mustBlock('unresolved critical decision');
+$db->exec("UPDATE office_project_start_questions SET decision_text='Besluit vastgelegd' WHERE id=1");
+$gate->authorizeStart(42,'project',0,true,true);
+$items['bouwplaatsdocumenten']=false;
+$db->prepare("UPDATE office_project_start_dossiers SET items_json=? WHERE id=1")->execute([json_encode($items,JSON_THROW_ON_ERROR)]);
+$mustBlock('missing construction-site documents');
+$items['bouwplaatsdocumenten']=true;
+$db->prepare("UPDATE office_project_start_dossiers SET items_json=? WHERE id=1")->execute([json_encode($items,JSON_THROW_ON_ERROR)]);
+$db->exec("UPDATE office_project_start_dossiers SET critical_open_points=1 WHERE id=1");
+$mustBlock('critical open points');
+$db->exec("UPDATE office_project_start_dossiers SET critical_open_points=0, status='draft' WHERE id=1");
+$mustBlock('revoked dossier release');
 echo "PROJECT_EXECUTION_START_GATE_OK\n";
