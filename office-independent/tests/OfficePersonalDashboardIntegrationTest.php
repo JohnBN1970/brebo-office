@@ -20,7 +20,7 @@ must(str_contains($page,"hash_hmac('sha256'") && str_contains($page,'hash_equals
 must(!str_contains($page,"\$_GET['operator_id']") && !str_contains($page,"\$_POST['operator_id']"),'Client identity accepted');
 must(str_contains($provider,'office_project_memberships') && str_contains($provider,"m.permission IN ('read','manage')"),'Project ACL missing');
 must(!str_contains($provider,'OfficeInzetWeekDemo'),'Demo KPI prohibited');
-must(str_contains($provider,'($sales['available']??false)===true'),'Finance KPI source availability guard missing');
+must(str_contains($provider,'($sales[\'available\']??false)===true'),'Finance KPI source availability guard missing');
 must(str_contains($provider,'is_int($sales[$key])&&$sales[$key]>=0'),'Finance KPI numeric integrity guard missing');
 must(str_contains($provider,'$creditors=null;break;'),'Invalid creditors posting must invalidate entire total');
 must(str_contains($provider,'$traffic=$read('),'Traffic-light calculation must remain isolated from page rendering');
