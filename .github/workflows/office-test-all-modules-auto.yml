@@ -108,6 +108,10 @@ jobs:
           SALES_JSDOM_MODULE="$RUNNER_TEMP/sales-dom/node_modules/jsdom" node office-independent/tests/OfficeDashboardDomTest.cjs
       - name: Validate CRM project handoff against both persisted mapping paths
         run: php office-independent/tests/OfficeCrmProjectHandoffTest.php
+      - name: Validate native CRM direct project adapter
+        run: |
+          php office-independent/tests/OfficeCrmNativeProjectAdapterTest.php
+          php -l office-independent/src/Crm/OfficeCrmDirectProjectAcceptance.php
       - name: Validate existing core contracts
         run: |
           set -euo pipefail
