@@ -24,6 +24,7 @@ final class OfficeProjectBreakdown
             }
             $nodes[$id] = ['id'=>$id, 'parent_id'=>$parent === null ? null : (int)$parent,
                 'code'=>(string)($item['code'] ?? ''), 'title'=>(string)($item['title'] ?? ''),
+                'description'=>(string)($item['description'] ?? ''),
                 'children'=>[]];
             if ($nodes[$id]['title'] === '') throw new \InvalidArgumentException('Omschrijving verplicht.');
         }
