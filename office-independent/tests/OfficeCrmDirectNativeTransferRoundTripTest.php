@@ -50,6 +50,10 @@ expectReject(fn()=>$accept->transferForOperator(9,101),'authorized creator canno
 $db->exec("INSERT INTO office_project_memberships VALUES ({$first},9,'read')");
 if ($accept->transferForOperator(9,101)!==$first) throw new RuntimeException('Read-only member cannot access idempotent handoff');
 $db->exec("DELETE FROM office_project_memberships WHERE operator_id=9");
+$db->exec("DELETE FROM office_project_memberships WHERE operator_id=7");
+expectReject(fn()=>$accept->transferForOperator(7,101),'creator membership revoked');
+$db->exec("INSERT INTO office_project_memberships VALUES ({$first},7,'manage')");
+if ($accept->transferForOperator(7,101)!==$first) throw new RuntimeException('Restored creator access was not honored');
 $db->exec('INSERT INTO office_calc_crm_acceptance_transfers VALUES (101,77)');
 expectReject(fn()=>$accept->transferForOperator(7,101),'conflicting Calc mapping on repeat');
 $db->exec('DELETE FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=101');
