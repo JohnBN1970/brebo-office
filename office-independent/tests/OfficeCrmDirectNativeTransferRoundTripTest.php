@@ -8,7 +8,8 @@ $db=new PDO('sqlite::memory:',null,null,[
     PDO::ATTR_EMULATE_PREPARES=>false,
 ]);
 $db->exec('PRAGMA foreign_keys=ON');
-$db->exec('CREATE TABLE office_operator_accounts(id INTEGER PRIMARY KEY,active INTEGER);
+$db->exec(<<<'SQL'
+CREATE TABLE office_operator_accounts(id INTEGER PRIMARY KEY,active INTEGER);
 CREATE TABLE office_module_permissions(operator_id INTEGER,module TEXT,permission TEXT);
 CREATE TABLE office_crm_relations(id INTEGER PRIMARY KEY);
 CREATE TABLE office_crm_opportunities(id INTEGER PRIMARY KEY,relation_id INTEGER,title TEXT,stage TEXT,status TEXT);
@@ -31,7 +32,9 @@ INSERT INTO office_crm_opportunities VALUES
     (102,5,'FICTIEF niet gegund','prospect','open'),
     (103,5,'FICTIEF via calc gegund','won','closed'),
     (104,5,'FICTIEF zonder bevoegdheid','won','closed');
-INSERT INTO office_calc_crm_acceptance_transfers VALUES (103,77);');
+INSERT INTO office_calc_crm_acceptance_transfers VALUES (103,77);
+SQL
+);
 $accept=new OfficeCrmDirectProjectAcceptance($db);
 function expectReject(callable $f,string $label): void {
     try { $f(); } catch (DomainException|RuntimeException|PDOException $e) { return; }
