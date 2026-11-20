@@ -19,7 +19,7 @@ final class OfficeCrmOpportunityRepository {
                 $check=$this->db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_crm_acceptance_transfers'");
             }
             $transferTable=(bool)$check->fetchColumn();
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             $transferTable=false;
         }
         if ($transferTable) {
