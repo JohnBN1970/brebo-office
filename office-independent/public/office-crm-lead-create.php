@@ -35,6 +35,7 @@ try {
     $active = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1 LIMIT 1');
     $active->execute([$operator->operatorId]);
     if (!$active->fetchColumn()) { http_response_code(403); exit('Geen CRM-toegang.'); }
+    $owners = $db->query('SELECT id FROM office_operator_accounts WHERE active=1 ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
     $sources = $db->query('SELECT id,label FROM office_crm_lead_sources WHERE active=1 ORDER BY label')
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
@@ -46,7 +47,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_lead_csrf'])) $_SESSION['crm_lead_csrf'] = bin2hex(random_bytes(32));
 $h = static fn(mixed $v): string => htmlspecialchars((string)($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $error = '';
-$values = ['source_id'=>'','title'=>'','source_detail'=>'','campaign'=>'','contact_name'=>'','contact_email'=>'','description'=>''];
+$values = ['source_id'=>'','title'=>'','source_detail'=>'','campaign'=>'','contact_name'=>'','contact_email'=>'','description'=>'','owner_operator_id'=>''];
 if ($method === 'POST') {
     if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED') !== 'enabled') {
         http_response_code(403); exit('Leadregistratie schrijven niet ingeschakeld.');
@@ -58,7 +59,7 @@ if ($method === 'POST') {
     $sourceId = filter_var($values['source_id'], FILTER_VALIDATE_INT) ?: 0;
     $validSource = false;
     foreach ($sources as $source) if ((int)$source['id'] === $sourceId) $validSource = true;
-    if (!$validSource || $values['title'] === '' || mb_strlen($values['title'],'UTF-8') > 255
+    if (($values['owner_operator_id'] !== '' && !in_array($values['owner_operator_id'],array_map('strval',$owners),true)) || !$validSource || $values['title'] === '' || mb_strlen($values['title'],'UTF-8') > 255
         || mb_strlen($values['source_detail'],'UTF-8') > 255
         || mb_strlen($values['campaign'],'UTF-8') > 255
         || mb_strlen($values['contact_name'],'UTF-8') > 255
@@ -87,11 +88,11 @@ if ($method === 'POST') {
             }
             $db->beginTransaction();
             $insert = $db->prepare("INSERT INTO office_crm_leads
-                (source_id,title,source_detail,campaign,contact_name,contact_email,description,stage,status)
-                VALUES (?,?,?,?,?,?,?,'new','active')");
+                (source_id,title,source_detail,campaign,contact_name,contact_email,description,owner_operator_id,stage,status)
+                VALUES (?,?,?,?,?,?,?,?,'new','active')");
             $insert->execute([$sourceId,$values['title'],$values['source_detail'] ?: null,
                 $values['campaign'] ?: null,$values['contact_name'] ?: null,
-                $values['contact_email'] ?: null,$values['description'] ?: null]);
+                $values['contact_email'] ?: null,$values['description'] ?: null,$values['owner_operator_id'] ?: null]);
             $leadId = (int)$db->lastInsertId();
             $event = $db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,new_stage)
                 VALUES (?,?,'created','new')");
@@ -115,6 +116,9 @@ foreach (['title'=>'Aanvraag *','source_detail'=>'Specificatie bron','campaign'=
     $type = $key === 'contact_email' ? 'email' : 'text';
     echo '<label>'.$h($label).'<input type="'.$type.'" name="'.$h($key).'" maxlength="'.($key === 'contact_email' ? '254' : '255').'" value="'.$h($values[$key]).'"'.($key === 'title' ? ' required' : '').'></label>';
 }
+echo '<label>Leadverantwoordelijke<select name="owner_operator_id"><option value="">Niet toegewezen</option>';
+foreach ($owners as $ownerId) echo '<option value="'.$h($ownerId).'"'.((string)$ownerId === $values['owner_operator_id'] ? ' selected' : '').'>'.$h($ownerId).'</option>';
+echo '</select></label>';
 echo '<label>Omschrijving<textarea name="description" rows="5" maxlength="10000">'.$h($values['description']).'</textarea></label>';
 if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED') === 'enabled') echo '<button type="submit">Lead registreren</button>';
 else echo '<p>Registratie is nog niet vrijgegeven.</p>';
