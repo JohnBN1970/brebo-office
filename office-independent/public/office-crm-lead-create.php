@@ -103,7 +103,6 @@ if ($method === 'POST') {
             if ($db->inTransaction()) $db->rollBack();
             if (!$e instanceof \DomainException) $error = 'Lead opslaan mislukt.';
         }
-        }
     }
 }
 header('Content-Type: text/html; charset=utf-8');
