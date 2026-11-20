@@ -5,10 +5,10 @@ use Brebo\Office\Intake\OfficeNavigation;
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=enabled');
 putenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED=enabled');
 $nav=OfficeNavigation::mainV2('/office-test/projecten');
-foreach(['Mijn werkplek','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
+foreach(['Mijn werkplek','Leads','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
   if(!str_contains($nav,$name)){fwrite(STDERR,"Missing group: ".$name.PHP_EOL);exit(1);}
 }
-if(substr_count($nav,'<details ')!==10){fwrite(STDERR,"Expected ten collapsible groups".PHP_EOL);exit(1);}
+if(substr_count($nav,'<details ')!==11){fwrite(STDERR,"Expected eleven collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
 if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
@@ -37,6 +37,13 @@ putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=disabled');
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=disabled');
 $unavailable=OfficeNavigation::mainV2('/office-test/projecten');
 if(str_contains($unavailable,'href="/office-test/projecten"')||str_contains($unavailable,'view=inzet')||str_contains($unavailable,'href="/office-test/gebouwen"')){fwrite(STDERR,"Disabled projects must not be linked".PHP_EOL);exit(1);}
+putenv('OFFICE_TEST_CRM_ENABLED=enabled');
+putenv('OFFICE_CRM_AUTH_MODE=session_only');
+putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=enabled');
+$leadsNav=OfficeNavigation::mainV2('/office-test/crm/aanvragen');
+if (!str_contains($leadsNav, 'href="/office-test/crm/aanvragen"') || !str_contains($leadsNav, 'Leadoverzicht') || !str_contains($leadsNav, '<summary aria-current="page">Leads</summary>')) { fwrite(STDERR, "CRM Leads link missing with schema enabled\\n"); exit(1); }
+putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=disabled');
+if (str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'), 'href="/office-test/crm/aanvragen"')) { fwrite(STDERR, "CRM Leads link exposed with schema disabled\\n"); exit(1); }
 putenv('OFFICE_TEST_CRM_ENABLED=disabled');
 if(str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'),'href="/office-test/crm/aanvragen"')){fwrite(STDERR,"Disabled CRM must not be linked".PHP_EOL);exit(1);}
 putenv('OFFICE_TEST_NAV_V2_ENABLED=enabled');

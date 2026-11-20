@@ -66,12 +66,31 @@ try {
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$item) { http_response_code(404); exit('Aanvraag niet gevonden.'); }
     } else {
-        $stmt = $db->query("SELECT l.id,l.title,l.stage,l.received_at,l.source_detail,l.campaign,
-            s.label AS source_name,r.display_name AS relation_name
+        $stageFilter = $_GET['fase'] ?? '';
+        if (!is_string($stageFilter) || strlen($stageFilter) > 32 || ($stageFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $stageFilter))) { http_response_code(400); exit('Ongeldige fase.'); }
+        $sourceFilter = $_GET['bron'] ?? '';
+        if (!is_string($sourceFilter) || strlen($sourceFilter) > 64 || ($sourceFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $sourceFilter))) { http_response_code(400); exit('Ongeldige bron.'); }
+        $view = $_GET['weergave'] ?? 'lijst';
+        if (!is_string($view) || !in_array($view, ['lijst', 'kanban'], true)) { http_response_code(400); exit('Ongeldige weergave.'); }
+        $ownerFilter = $_GET['eigenaar'] ?? '';
+        if (!is_string($ownerFilter) || strlen($ownerFilter) > 128 || ($ownerFilter !== '' && !preg_match('/^[a-zA-Z0-9_.@-]+$/D', $ownerFilter))) { http_response_code(400); exit('Ongeldige eigenaar.'); }
+        $ownerStats = $db->query("SELECT COALESCE(NULLIF(owner_operator_id,''),'') AS owner, COUNT(*) AS total FROM office_crm_leads WHERE status='active' AND converted_opportunity_id IS NULL GROUP BY owner ORDER BY total DESC")->fetchAll(PDO::FETCH_ASSOC);
+        $sourceStats = $db->query("SELECT s.code,s.label,COUNT(l.id) AS total,
+            COALESCE(SUM(CASE WHEN l.converted_opportunity_id IS NOT NULL THEN 1 ELSE 0 END),0) AS converted
+            FROM office_crm_lead_sources s LEFT JOIN office_crm_leads l ON l.source_id=s.id
+            GROUP BY s.id,s.code,s.label ORDER BY total DESC,s.label ASC")->fetchAll(PDO::FETCH_ASSOC);
+        $counts = $db->query("SELECT stage,COUNT(*) AS total FROM office_crm_leads WHERE status='active' AND converted_opportunity_id IS NULL GROUP BY stage")->fetchAll(PDO::FETCH_KEY_PAIR);
+        $convertedCount = (int)$db->query("SELECT COUNT(*) FROM office_crm_leads WHERE converted_opportunity_id IS NOT NULL")->fetchColumn();
+        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.received_at,l.source_detail,l.campaign,l.owner_operator_id,
+            s.label AS source_name,s.code AS source_code,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id
             WHERE l.status='active' AND l.converted_opportunity_id IS NULL
+            AND (? = '' OR l.stage = ?)
+            AND (? = '' OR s.code = ?)
+            AND (? = '' OR COALESCE(l.owner_operator_id,'') = ?)
             ORDER BY l.received_at DESC,l.id DESC LIMIT 500");
+        $stmt->execute([$stageFilter,$stageFilter,$sourceFilter,$sourceFilter,$ownerFilter,$ownerFilter]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } catch (Throwable $e) {
@@ -84,12 +103,62 @@ if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Verkoopkansen.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><section>';
+    $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
+    foreach (array_keys($counts) as $stageCode) {
+        if (!isset($stages[$stageCode])) $stages[$stageCode] = ucfirst(str_replace('_',' ',(string)$stageCode));
+    }
+    $maxCount = max(1, ...array_map('intval', array_values($counts)));
+    echo '<section aria-label="Leads trechter"><h2>Leadtrechter</h2><p>Actuele aantallen per fase; klik om het overzicht te filteren.</p><div style="display:flex;flex-direction:column;align-items:center;gap:8px">';
+    foreach ($stages as $stageCode => $stageLabel) {
+        $amount = (int)($counts[$stageCode] ?? 0);
+        $width = 42 + (58 * $amount / $maxCount);
+        $url = $base.'/crm/aanvragen?fase='.rawurlencode((string)$stageCode);
+        echo '<a href="'.$h($url).'" style="display:block;box-sizing:border-box;width:'.$width.'%;min-width:230px;text-align:center;background:#245d99;color:white;padding:13px 8px;border-radius:6px;text-decoration:none"'.($stageFilter===$stageCode?' aria-current="true"':'').'>'.$h($stageLabel).' · '.$amount.'</a>';
+    }
+    echo '<div style="width:42%;min-width:230px;text-align:center;background:#237a65;color:white;padding:13px 8px;border-radius:6px;box-sizing:border-box">Omgezet naar verkoopkans · '.$convertedCount.'</div></div><p><a href="'.$h($base).'/crm/aanvragen">Alle open leads</a></p></section>';
+    $sourceTotal = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $sourceStats));
+    echo '<section aria-label="Leads per bron"><h2>KPI · Herkomstbronnen</h2><p>Totaal '.$sourceTotal.' geregistreerde leads, inclusief reeds omgezette leads. Klik op een bron om de open leads te filteren.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px">';
+    foreach ($sourceStats as $source) {
+        $total = (int)$source['total'];
+        $converted = (int)$source['converted'];
+        $share = $sourceTotal > 0 ? round(100 * $total / $sourceTotal, 1) : 0;
+        $rate = $total > 0 ? round(100 * $converted / $total, 1) : 0;
+        $url = $base.'/crm/aanvragen?bron='.rawurlencode((string)$source['code']);
+        echo '<a href="'.$h($url).'" style="color:inherit;text-decoration:none;border:1px solid #dbe1e8;border-radius:10px;padding:14px;background:#f8fafc"'.($sourceFilter===$source['code']?' aria-current="true"':'').'><strong>'.$h($source['label']).'</strong><p style="font-size:26px;margin:8px 0">'.$total.'</p><small>'.$share.'% van instroom · '.$rate.'% conversie</small></a>';
+    }
+    echo '</div><p><a href="'.$h($base).'/crm/aanvragen">Alle bronnen tonen</a></p></section>';
+    $filters = [];
+    if ($stageFilter !== '') $filters['fase'] = $stageFilter;
+    if ($sourceFilter !== '') $filters['bron'] = $sourceFilter;
+    if ($ownerFilter !== '') $filters['eigenaar'] = $ownerFilter;
+    echo '<section aria-label="Leads per eigenaar"><h2>KPI · Leadverantwoordelijke</h2><div style="display:flex;flex-wrap:wrap;gap:10px">';
+    foreach ($ownerStats as $ownerRow) {
+        $ownerId = (string)$ownerRow['owner'];
+        $ownerName = $ownerId === '' ? 'Niet toegewezen' : $ownerId;
+        $ownerUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['eigenaar'=>$ownerId,'weergave'=>$view]));
+        echo '<a style="padding:12px;border:1px solid #dbe1e8;border-radius:8px" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
+    }
+    echo '</div></section>';
+    $listUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'lijst']));
+    $boardUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'kanban']));
+    echo '<nav aria-label="Weergave"><a href="'.$h($listUrl).'"'.($view==='lijst'?' aria-current="page"':'').'>Lijst</a> · <a href="'.$h($boardUrl).'"'.($view==='kanban'?' aria-current="page"':'').'>Kanban</a></nav>';
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
+    } elseif ($view === 'kanban') {
+        echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px;margin-top:16px">';
+        foreach ($stages as $stageCode => $stageLabel) {
+            echo '<section><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
+            foreach ($items as $row) {
+                if ($row['stage'] !== $stageCode) continue;
+                echo '<article style="background:#f4f6f9;border:1px solid #dbe1e8;padding:12px;border-radius:8px;margin:10px 0"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
+            }
+            echo '</section>';
+        }
+        echo '</div>';
     } else {
-        echo '<table><thead><tr><th>Aanvraag</th><th>Relatie</th><th>Bron</th><th>Campagne</th><th>Fase</th><th>Ontvangen</th></tr></thead><tbody>';
+        echo '<table><thead><tr><th>Aanvraag</th><th>Relatie</th><th>Bron</th><th>Campagne</th><th>Eigenaar</th><th>Fase</th><th>Ontvangen</th></tr></thead><tbody>';
         foreach ($items as $row) {
-            echo '<tr><td><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'">'.$h($row['title']).'</a></td><td>'.$h($row['relation_name']).'</td><td>'.$h($row['source_name']).' '.$h($row['source_detail']).'</td><td>'.$h($row['campaign']).'</td><td>'.$h($row['stage']).'</td><td>'.$h($row['received_at']).'</td></tr>';
+            echo '<tr><td><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'">'.$h($row['title']).'</a></td><td>'.$h($row['relation_name']).'</td><td>'.$h($row['source_name']).' '.$h($row['source_detail']).'</td><td>'.$h($row['campaign']).'</td><td>'.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</td><td>'.$h($row['stage']).'</td><td>'.$h($row['received_at']).'</td></tr>';
         }
         echo '</tbody></table>';
     }
