@@ -45,6 +45,7 @@ $routes = [
   '/office-test/crm/verkoopkansen' => 'office-crm-opportunities.php',
   '/office-test/crm/verkoopkansen/nieuw' => 'office-crm-opportunity-create.php',
   '/office-test/crm/verkoopkansen/fase' => 'office-crm-opportunity-transition.php',
+  '/office-test/crm/aanvragen/stijl.css' => 'office-leads-styles.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/nieuw' => 'office-crm-lead-create.php',
@@ -133,7 +134,7 @@ if (!is_string($path) || !isset($routes[$path])) {
   exit('Testpagina niet gevonden.');
 }
 // Decorate HTML pages with the shared Office navigation while preserving page-owned module tabs.
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !in_array($path, ['/office-test/inloggen', '/office-test/uitloggen'], true)) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !in_array($path, ['/office-test/inloggen', '/office-test/uitloggen', '/office-test/crm/aanvragen/stijl.css'], true)) {
   require_once $private . '/src/Intake/OfficeNavigation.php';
   \Brebo\Office\Intake\OfficeNavigation::register();
 }
