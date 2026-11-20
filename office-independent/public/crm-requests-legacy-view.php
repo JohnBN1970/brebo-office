@@ -68,11 +68,11 @@ try {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;border:1px solid #dbe1e8}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Verkoopkansen</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:white;padding:24px;border-radius:12px;border:1px solid #dbe1e8}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #ddd}a{color:#175a91}</style></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1><section><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Volgende actie:</strong> '.$h($item['next_action']).'</p><p><strong>Opvolgdatum:</strong> '.$h($item['next_action_at']).'</p></section>';
 } else {
-    echo '<h1>Aanvragen</h1><p>Actuele verkoopkansen en hun opvolging.</p><section>';
+    echo '<h1>Aanvragen</h1><p>Actuele deals en hun opvolging.</p><section>';
     if ($items === []) {
         echo '<p>Geen aanvragen gevonden.</p>';
     } else {
