@@ -35,14 +35,14 @@ final class OfficeCrmDirectProjectTransfer
             $existing=$this->db->prepare('SELECT project_id FROM office_crm_direct_project_transfers WHERE opportunity_id=?'.$lock);
             $existing->execute([$opportunityId]);
             $projectId=$existing->fetchColumn();
-            if ($projectId!==false) {
-                $this->db->commit();
-                return (int)$projectId;
-            }
             $calc=$this->db->prepare('SELECT office_project_id FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=? LIMIT 1'.$lock);
             $calc->execute([(string)$opportunityId]);
             if ($calc->fetchColumn()!==false) {
                 throw new DomainException('Calculation project transfer already exists');
+            }
+            if ($projectId!==false) {
+                $this->db->commit();
+                return (int)$projectId;
             }
             // Adapter must persist a native Office project using this same PDO transaction.
             $projectId=$createProject($this->db,$opportunity);
