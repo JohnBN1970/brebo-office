@@ -85,15 +85,17 @@ final class OfficeDashboardKpis {
       require_once __DIR__.'/../Finance/OfficeFinanceDashboard.php';
       $bank=$read(fn()=>(new \Brebo\Office\Finance\OfficeFinanceAccess($this->db,$operatorId))->allowsBankRead())===true;
       $creditors=null;
-      if($salesAvailableForCreditors=is_array($sales)&&($sales['available']??false)===true&&isset($sales['center']['postings'])&&is_array($sales['center']['postings'])){
+      if(is_array($sales)&&($sales['available']??false)===true&&isset($sales['center']['postings'])&&is_array($sales['center']['postings'])){
         $creditors=0;
         foreach($sales['center']['postings'] as $posting){
-          if(!is_array($posting)||!isset($posting['source_kind'],$posting['status'],$posting['cash_due'])){$creditors=null;break;}
+          if(!is_array($posting)||!isset($posting['source_kind'],$posting['status'])){$creditors=null;break;}
           if($posting['source_kind']!=='purchase'||$posting['status']!=='booked')continue;
-          if(!in_array((string)$posting['cash_due'],['0','1'],true)){$creditors=null;break;}
+          if(!isset($posting['cash_due'])||!in_array((string)$posting['cash_due'],['0','1'],true)){$creditors=null;break;}
           if((string)$posting['cash_due']!=='1')continue;
           if(!isset($posting['gross_cents'],$posting['paid_cents'])||!preg_match('/^\\d+$/D',(string)$posting['gross_cents'])||!preg_match('/^\\d+$/D',(string)$posting['paid_cents'])||((float)$posting['gross_cents'])>PHP_INT_MAX||((float)$posting['paid_cents'])>PHP_INT_MAX){$creditors=null;break;}
-          $creditors+=max(0,(int)$posting['gross_cents']-(int)$posting['paid_cents']);
+          $outstanding=max(0,(int)$posting['gross_cents']-(int)$posting['paid_cents']);
+          if($outstanding>PHP_INT_MAX-$creditors){$creditors=null;break;}
+          $creditors+=$outstanding;
         }
       }
       $put('creditors',$creditors,'Geboekte leveranciersfacturen minus geregistreerde betalingen · incl. btw');
