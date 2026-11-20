@@ -10,8 +10,8 @@ $db->exec('CREATE TABLE office_project_start_questions (id INTEGER PRIMARY KEY, 
 $db->exec('CREATE TABLE office_project_start_approvals (id INTEGER PRIMARY KEY, dossier_id INTEGER, dossier_revision INTEGER, actor_user_id INTEGER, decision TEXT)');
 $db->exec('CREATE TABLE office_operator_accounts (id TEXT PRIMARY KEY, active INTEGER)');
 $db->exec('CREATE TABLE office_project_memberships (project_id INTEGER, operator_id TEXT, permission TEXT)');
-$db->exec("INSERT INTO office_operator_accounts VALUES ('8',1)");
-$db->exec("INSERT INTO office_project_memberships VALUES (42,'8','manage')");
+$db->exec("INSERT INTO office_operator_accounts VALUES ('7',1),('8',1)");
+$db->exec("INSERT INTO office_project_memberships VALUES (42,'7','manage'),(42,'8','manage')");
 $items=[];
 foreach (\Brebo\Office\Project\OfficeProjectKickstartPolicy::REQUIRED_ITEMS as $key) $items[$key]=true;
 $q=$db->prepare('INSERT INTO office_project_start_dossiers VALUES (1,42,?,?,2,7,?,?,0)');

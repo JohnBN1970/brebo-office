@@ -186,7 +186,7 @@ if (isset($item)) {
             echo '<section data-stage="'.$h($stageCode).'"><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
                 if ($row['stage'] !== $stageCode) continue;
-                echo '<article class="lead-kanban-card" draggable="true" data-lead-id="'.(int)$row['id'].'" data-stage="'.$h($row['stage']).'"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small></article>';
+                echo '<article class="lead-kanban-card" draggable="true" data-lead-id="'.(int)$row['id'].'" data-stage="'.$h($row['stage']).'"><a href="'.$h($base).'/crm/aanvragen/detail?id='.(int)$row['id'].'"><strong>'.$h($row['title']).'</strong></a><p>'.$h($row['relation_name']).'</p><small>'.$h($row['source_name']).' · '.($row['owner_operator_id'] ? $h($row['owner_operator_id']) : 'Niet toegewezen').'</small><div class="lead-move-actions"><label>Verplaats naar <select class="lead-move-select" aria-label="Verplaats lead naar fase"><option value="">Kies fase</option>'; foreach (['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'] as $moveCode=>$moveLabel) { if ($moveCode!==$stageCode) echo '<option value="'.$h($moveCode).'">'.$h($moveLabel).'</option>'; } echo '</select></label><button type="button" class="lead-move-button">Verplaatsen</button></div></article>';
             }
             echo '</section>';
         }
@@ -203,23 +203,44 @@ if (isset($item)) {
 echo <<<'JS'
 <script>
 (()=>{
- const board=document.getElementById('lead-board'); if(!board)return;
+ const board=document.getElementById('lead-board');if(!board)return;
  const allowed={new:['contacted'],contacted:['new','qualified'],qualified:['contacted','accepted'],accepted:['qualified']};
- let moving=null;
- board.querySelectorAll('[draggable="true"]').forEach(card=>{
-  card.addEventListener('dragstart',e=>{moving=card; e.dataTransfer.effectAllowed='move';
-   board.querySelectorAll('[data-stage]').forEach(zone=>{if(zone.tagName==='SECTION' && allowed[card.dataset.stage]?.includes(zone.dataset.stage)){zone.style.outline='3px solid #16a34a';}});
+ let source=null;
+ const zones=[...board.querySelectorAll('section[data-stage]')];
+ const reset=()=>{zones.forEach(z=>{z.style.outline='';z.removeAttribute('data-drop-active')});};
+ async function save(card,stage){
+  const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:card.dataset.leadId,stage});
+  try{
+   const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||!result.ok)throw new Error(result.error||'Fasewijziging geweigerd ('+response.status+')');
+   location.reload();
+  }catch(err){alert(err.message);}
+ }
+ board.querySelectorAll('.lead-kanban-card[draggable="true"]').forEach(card=>{
+  const moveButton=card.querySelector('.lead-move-button');
+  moveButton?.addEventListener('click',()=>{const target=card.querySelector('.lead-move-select')?.value;if(!target)return; if(!allowed[card.dataset.stage]?.includes(target)){alert('Kies een aangrenzende fase.');return;}save(card,target);});
+  card.querySelectorAll('a').forEach(link=>link.setAttribute('draggable','false'));
+  card.addEventListener('dragstart',e=>{
+   source=card;
+   e.dataTransfer.effectAllowed='move';
+   e.dataTransfer.setData('text/plain',card.dataset.leadId);
+   zones.forEach(z=>{if(allowed[card.dataset.stage]?.includes(z.dataset.stage))z.style.outline='3px solid #16a34a';});
   });
-  card.addEventListener('dragend',()=>{moving=null;board.querySelectorAll('section').forEach(z=>z.style.outline='');});
+  card.addEventListener('dragend',()=>{source=null;reset();});
  });
- board.querySelectorAll('section[data-stage]').forEach(zone=>{
-  zone.addEventListener('dragover',e=>{if(moving && allowed[moving.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.dataTransfer.dropEffect='move';}});
-  zone.addEventListener('drop',async e=>{
-   e.preventDefault();if(!moving || !allowed[moving.dataset.stage]?.includes(zone.dataset.stage))return;
-   const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:moving.dataset.leadId,stage:zone.dataset.stage});
-   try {const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
-    const result=await response.json().catch(()=>({}));if(!response.ok || !result.ok)throw new Error(result.error || 'Fasewijziging geweigerd ('+response.status+')');location.reload();
-   }catch(err){alert(err.message);}
+ zones.forEach(zone=>{
+  zone.addEventListener('dragenter',e=>{
+   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();zone.dataset.dropActive='true';}
+  });
+  zone.addEventListener('dragover',e=>{
+   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';}
+  });
+  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget))zone.removeAttribute('data-drop-active');});
+  zone.addEventListener('drop',e=>{
+   if(!source||!allowed[source.dataset.stage]?.includes(zone.dataset.stage))return;
+   e.preventDefault();e.stopPropagation();
+   const card=source;source=null;reset();save(card,zone.dataset.stage);
   });
  });
 })();

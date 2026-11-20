@@ -27,6 +27,26 @@ for file in \
   }
 done
 echo "VPS_CRM_DIRECT_RELEASE_FILES=PASS"
+# Verify the Startdossier execution gate is present in the exact active release.
+# This is a source preflight, not proof of database migration or two-user acceptance.
+for file in \
+  src/Project/OfficeProjectKickstartPolicy.php \
+  src/Project/OfficeProjectKickstartRepository.php \
+  src/Project/OfficeProjectKickstartQuestionsRepository.php \
+  src/Project/OfficeProjectKickstartActionHandler.php \
+  src/Project/OfficeProjectExecutionStartGate.php; do
+  if test ! -f "$release/$file"; then
+    echo "::error::VPS_STARTDOSSIER_RELEASE_FILE_MISSING=$file"
+    exit 1
+  fi
+  php -l "$release/$file" > /dev/null || {
+    echo "::error::VPS_STARTDOSSIER_PHP_SYNTAX_INVALID=$file"
+    exit 1
+  }
+done
+echo "VPS_STARTDOSSIER_RELEASE_FILES=PASS"
+echo "VPS_STARTDOSSIER_SCHEMA_AND_TWO_USER_ACCEPTANCE=NOT_VERIFIED"
+
 echo "VPS_CRM_DIRECT_SCHEMA_AND_FLAGS=PRIVILEGED_PREFLIGHT_REQUIRED"
 active_sha="$(cat "$release/.office-source-sha")"
 echo "VPS_ACTIVE_RELEASE_SHA=$active_sha"
