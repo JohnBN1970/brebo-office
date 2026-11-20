@@ -24,6 +24,15 @@ foreach (['public/index.php','deployment/hostinger/office-test-index.php'] as $r
         throw new RuntimeException('Kanban script route missing: '.$router);
     }
 }
+foreach (['public/index.php','deployment/hostinger/office-test-index.php'] as $router) {
+    $source=file_get_contents($root.'/'.$router);
+    foreach (['/office-test/crm/aanvragen/fase', '/office-test/crm/aanvragen/drag.js'] as $route) {
+        if (!str_contains($source,$route)) throw new RuntimeException('Lead Kanban route missing: '.$route.' in '.$router);
+    }
+}
+$leadBoard=file_get_contents($root.'/public/crm-new-requests.php');
+if (!str_contains($leadBoard,"script-src 'self'") || str_contains($leadBoard,"script-src 'unsafe-inline'")) throw new RuntimeException('Lead board CSP must require external scripts');
+if (!str_contains($leadBoard,'/crm/aanvragen/drag.js')) throw new RuntimeException('Lead board script missing');
 $board=file_get_contents($root.'/public/office-crm-opportunities.php');
 $views=file_get_contents($root.'/src/Crm/OfficeCrmFunnelViews.php');
 $drag=file_get_contents($root.'/public/office-crm-kanban-drag.js');

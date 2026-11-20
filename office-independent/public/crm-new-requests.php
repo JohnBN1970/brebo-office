@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET'); http_response_code(405); exit;
 }
@@ -200,29 +200,5 @@ if (isset($item)) {
     }
     echo '</div>';
 }
-echo <<<'JS'
-<script>
-(()=>{
- const board=document.getElementById('lead-board'); if(!board)return;
- const allowed={new:['contacted'],contacted:['new','qualified'],qualified:['contacted','accepted'],accepted:['qualified']};
- let moving=null;
- board.querySelectorAll('[draggable="true"]').forEach(card=>{
-  card.addEventListener('dragstart',e=>{moving=card; e.dataTransfer.effectAllowed='move';
-   board.querySelectorAll('[data-stage]').forEach(zone=>{if(zone.tagName==='SECTION' && allowed[card.dataset.stage]?.includes(zone.dataset.stage)){zone.style.outline='3px solid #16a34a';}});
-  });
-  card.addEventListener('dragend',()=>{moving=null;board.querySelectorAll('section').forEach(z=>z.style.outline='');});
- });
- board.querySelectorAll('section[data-stage]').forEach(zone=>{
-  zone.addEventListener('dragover',e=>{if(moving && allowed[moving.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.dataTransfer.dropEffect='move';}});
-  zone.addEventListener('drop',async e=>{
-   e.preventDefault();if(!moving || !allowed[moving.dataset.stage]?.includes(zone.dataset.stage))return;
-   const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:moving.dataset.leadId,stage:zone.dataset.stage});
-   try {const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
-    if(!response.ok)throw new Error('Fasewijziging geweigerd ('+response.status+')');location.reload();
-   }catch(err){alert(err.message);}
-  });
- });
-})();
-</script>
-JS;
+echo '<script src="'.$h($base).'/crm/aanvragen/drag.js" defer></script>';
 echo '</main></body></html>';
