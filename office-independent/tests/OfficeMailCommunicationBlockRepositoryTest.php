@@ -6,8 +6,7 @@ require_once __DIR__ . '/../src/Mail/OfficeMailCommunicationBlockRepository.php'
 use Brebo\Office\Mail\OfficeMailCommunicationBlockRepository;
 
 if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
-    echo "OFFICE_MAIL_REPOSITORY_SQLITE_UNAVAILABLE\n";
-    exit(0);
+    throw new RuntimeException("SQLite PDO driver required for native mail ACL contract test.");
 }
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $db->exec('CREATE TABLE office_mail_communication_links (
