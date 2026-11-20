@@ -46,6 +46,25 @@ if ($method==='POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='correct_won') {
+        $reason=is_string($_POST['reason']??null)?trim($_POST['reason']):'';
+        $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
+        if ($item['stage']!=='won' || $item['status']!=='closed'
+            || !in_array($to,['opportunity','proposal','negotiation'],true)
+            || mb_strlen($reason)<10 || mb_strlen($reason)>500) {
+            http_response_code(400); exit('Ongeldige correctie of reden (10-500 tekens).');
+        }
+        try {
+            $permission=$db->prepare("SELECT 1 FROM office_module_permissions WHERE operator_id=? AND module='crm' AND permission='write' LIMIT 1");
+            $permission->execute([$operator->operatorId]);
+            if ($permission->fetchColumn()===false) { http_response_code(403); exit('Geen recht om Akkoord te corrigeren.'); }
+            $ok=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))
+                ->correctUntransferredWon($id,$to,(int)$operator->operatorId,$reason);
+            if (!$ok) { http_response_code(409); exit('Correctie geweigerd: mogelijk bestaat al een projectoverdracht.'); }
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/verkoopkansen?corrected='.$id,true,303); exit;
+        } catch (Throwable $e) { http_response_code(503); exit('Correctie niet beschikbaar; status ongewijzigd.'); }
+    }
     if ($action==='create_direct_project') {
         if (!$directEnabled || $item['stage']!=='won' || !in_array($item['status'],['closed','won'],true)) {
             http_response_code(403); exit('Directe projectoverdracht niet beschikbaar.');
@@ -112,6 +131,9 @@ if ($item['stage']==='won') {
     }
 }
 
+if ($item['stage']==='won' && $item['status']==='closed') {
+    echo '<section><h2>Foutief akkoord corrigeren</h2><p>Alleen mogelijk zolang geen projectoverdracht is geregistreerd. De reden wordt vastgelegd.</p><form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="action" value="correct_won"><label>Terug naar <select name="stage" required><option value="negotiation">Onderhandeling</option><option value="proposal">Offerte</option><option value="opportunity">Verkoopkans</option></select></label><label>Reden (minimaal 10 tekens)<textarea name="reason" minlength="10" maxlength="500" required></textarea></label><button type="submit">Akkoord corrigeren</button></form></section>';
+}
 if ($next===[]) echo '<p>Geen volgende fase beschikbaar.</p>';
 else {
     echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><label>Volgende fase<select name="stage">';
