@@ -7,6 +7,7 @@ $root = dirname(__DIR__);
 $schema = file_get_contents($root.'/src/Buildings/OfficeBuildingSchema.php');
 $project = file_get_contents($root.'/public/office-project.php');
 $buildings = file_get_contents($root.'/public/office-buildings.php');
+$calcProjectContext = file_get_contents($root.'/public/office-calc-project-context.php');
 foreach (['building_name VARCHAR(160)', 'street_address VARCHAR(255)', 'office_project_buildings'] as $term) {
     if (!str_contains($schema, $term)) {
         throw new RuntimeException('Canonical building schema changed: '.$term);
@@ -27,7 +28,10 @@ foreach (['b.building_name, b.street_address', 'GROUP BY b.id, b.building_name',
         throw new RuntimeException('Buildings view uses noncanonical columns: '.$term);
     }
 }
-foreach ([$project, $buildings] as $source) {
+if (!str_contains($calcProjectContext, 'b.building_name AS name')) {
+    throw new RuntimeException('Calc project context must read canonical building_name');
+}
+foreach ([$project, $buildings, $calcProjectContext] as $source) {
     foreach (['b.name', 'b.address_line'] as $legacy) {
         if (str_contains($source, $legacy)) {
             throw new RuntimeException('Legacy building column still queried: '.$legacy);
