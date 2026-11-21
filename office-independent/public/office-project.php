@@ -70,6 +70,43 @@ try {
     exit('Project niet gevonden.');
   }
   $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage((int) $operator->operatorId, $projectId);
+  // Explicit existing-building association, reusing the canonical Office building writer.
+  // Project membership is checked above; never accept an operator ID or a new building from POST.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['building_link_action'])) {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest() || !$canManage
+        || $_POST['building_link_action'] !== 'link_existing_building') {
+      http_response_code(403);
+      exit('Gebouw koppelen niet toegestaan.');
+    }
+    $csrf = $_POST['csrf'] ?? null;
+    $cookie = $_COOKIE['office_project_csrf'] ?? null;
+    if (!is_string($csrf) || !is_string($cookie) || strlen($csrf) !== 64
+        || !ctype_xdigit($csrf) || !hash_equals($cookie, $csrf)) {
+      http_response_code(403);
+      exit('Ongeldige formulierbeveiliging.');
+    }
+    $buildingId = filter_var($_POST['building_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+    if (!is_int($buildingId)) {
+      http_response_code(400);
+      exit('Selecteer een bestaand gebouw.');
+    }
+    try {
+      require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingRepository.php';
+      (new \Brebo\Office\Buildings\OfficeBuildingRepository($db))->linkProject(
+        (string)$projectId, (string)$buildingId,
+        static fn(string $authorizedProjectId): bool => $canManage && $authorizedProjectId === (string)$projectId
+      );
+    } catch (\InvalidArgumentException $error) {
+      http_response_code(422);
+      exit('Gebouw niet beschikbaar of koppeling geweigerd.');
+    } catch (\Throwable $error) {
+      error_log('Office project building link failed: '.get_class($error));
+      http_response_code(503);
+      exit('Gebouwkoppeling tijdelijk niet beschikbaar.');
+    }
+    header('Location: '.\Brebo\Office\Intake\OfficeMount::basePath().'/projecten/detail?id='.$projectId.'&tab=gebouwen', true, 303);
+    exit;
+  }
   // WBS/RBS writes: only project managers in Office-test, with double-submit CSRF.
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['breakdown_action'])) {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
@@ -364,6 +401,12 @@ $escape = static fn(?string $value): string => htmlspecialchars($value ?? '', EN
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $homeUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home');
 header('Content-Type: text/html; charset=utf-8');
+$csrfToken = $_COOKIE['office_project_csrf'] ?? null;
+if (!is_string($csrfToken) || strlen($csrfToken) !== 64 || !ctype_xdigit($csrfToken)) {
+  $csrfToken = bin2hex(random_bytes(32));
+  setcookie('office_project_csrf', $csrfToken, ['path' => \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test' : '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+}
+
 $buildingHtml = '<section class="project-buildings-panel"><h2>Gekoppelde gebouwen</h2>';
 if ($buildings === []) {
   $buildingHtml .= '<p>Er zijn nog geen gebouwen gekoppeld.</p>';
@@ -375,12 +418,39 @@ if ($buildings === []) {
   }
   $buildingHtml .= '</div>';
 }
-$buildingHtml .= '</section>';
-$csrfToken = $_COOKIE['office_project_csrf'] ?? null;
-if (!is_string($csrfToken) || strlen($csrfToken) !== 64 || !ctype_xdigit($csrfToken)) {
-  $csrfToken = bin2hex(random_bytes(32));
-  setcookie('office_project_csrf', $csrfToken, ['path' => \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test' : '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  // Selecting an existing active building is explicit; never duplicate building records.
+  try {
+    $availableBuildingQuery = $db->prepare(
+      'SELECT id, building_name, street_address, postal_code, city FROM office_buildings ' .
+      'WHERE active=1 AND id NOT IN (SELECT building_id FROM office_project_buildings WHERE project_id=?) ' .
+      'ORDER BY building_name, id LIMIT 200'
+    );
+    $availableBuildingQuery->execute([$projectId]);
+    $availableBuildings = $availableBuildingQuery->fetchAll(PDO::FETCH_ASSOC);
+    if ($availableBuildings !== []) {
+      $buildingHtml .= '<h3>Een bestaand gebouw koppelen</h3><form method="post">' .
+        '<input type="hidden" name="building_link_action" value="link_existing_building">' .
+        '<input type="hidden" name="csrf" value="'.$escape($csrfToken).'">' .
+        '<label for="project-existing-building">Gebouw<select required name="building_id" id="project-existing-building">' .
+        '<option value="">Kies een bestaand gebouw</option>';
+      foreach ($availableBuildings as $candidate) {
+        $address = trim(implode(' ', array_filter([
+          $candidate['street_address'] ?? '', $candidate['postal_code'] ?? '', $candidate['city'] ?? ''
+        ], static fn($part) => is_string($part) && trim($part) !== '')));
+        $label = (string)$candidate['building_name'].($address !== '' ? ' — '.$address : '');
+        $buildingHtml .= '<option value="'.(int)$candidate['id'].'">'.$escape($label).'</option>';
+      }
+      $buildingHtml .= '</select></label><button type="submit">Gebouw koppelen</button></form>';
+    } else {
+      $buildingHtml .= '<p>Geen ongekoppelde actieve gebouwen beschikbaar.</p>';
+    }
+  } catch (\Throwable $error) {
+    error_log('Office project available buildings unavailable: '.get_class($error));
+    $buildingHtml .= '<p>Gebouwselectie tijdelijk niet beschikbaar.</p>';
+  }
 }
+$buildingHtml .= '</section>';
 $housingHtml = '<section class="project-buildings-panel"><h2>Woningtypen en deelcalculaties</h2>';
 $canPrepareScopes = $canManage && $housingTypes !== null && $calculationScopes !== null
   && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
