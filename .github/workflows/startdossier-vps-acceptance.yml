@@ -1,0 +1,64 @@
+name: Startdossier VPS acceptance evidence
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+      - name: Startdossier policy and integration regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in office-independent/tests/test_project_kickstart_*.php office-independent/tests/test_project_execution_start_gate.php; do
+            php "$test"
+          done
+          python3 office-independent/tests/test_project_kickstart_mount.py
+  vps-evidence:
+    environment: office-test
+    needs: contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect exact active VPS release without changing state
+        shell: bash
+        env:
+          HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        run: |
+          set -euo pipefail
+          for v in HOST PORT USER KEY HOST_KEY; do test -n "${!v}" || { echo "::error::Missing VPS secret $v"; exit 1; }; done
+          [[ "$PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          keyfile="$(mktemp ~/.ssh/vps.XXXXXX)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          ssh -i "$keyfile" -p "$PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes "$USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          test "$(id -un)" = brebo-deploy
+          release="$(readlink -f /srv/brebo/office-test/current)"
+          case "$release" in /srv/brebo/office-test/releases/*) ;; *) exit 1;; esac
+          for file in src/Project/OfficeProjectKickstartPolicy.php src/Project/OfficeProjectKickstartRepository.php src/Project/OfficeProjectKickstartQuestionsRepository.php src/Project/OfficeProjectKickstartActionHandler.php src/Project/OfficeProjectExecutionStartGate.php; do
+            test -f "$release/$file"
+            php -l "$release/$file" >/dev/null
+          done
+          echo "STARTDOSSIER_ACTIVE_RELEASE_FILES=PASS"
+          for table in office_project_start_dossiers office_project_start_approvals office_project_start_events office_project_start_questions; do
+            echo "STARTDOSSIER_DB_TABLE_${table}=NOT_VERIFIED_PRIVILEGED_DB_CHECK_REQUIRED"
+          done
+          echo "STARTDOSSIER_PHP_FPM_FLAGS=NOT_VERIFIED_PRIVILEGED_CHECK_REQUIRED"
+          echo "STARTDOSSIER_TWO_USER_HTTP_ACCEPTANCE=NOT_VERIFIED"
+          echo "STARTDOSSIER_FUNCTIONAL_RELEASE=BLOCKED"
+          REMOTE
