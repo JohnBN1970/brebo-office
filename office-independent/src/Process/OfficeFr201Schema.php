@@ -60,6 +60,18 @@ final class OfficeFr201Schema
                 $missing[] = $table.'.foreign_key(lead_id)';
             }
         }
+        // The lead reference must match the parent key type exactly; mismatched
+        // signedness prevents reliable FK installation on MySQL.
+        try {
+            $stmt = $db->query("SELECT TABLE_NAME,COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_NAME='lead_id' AND TABLE_NAME IN ('office_crm_lead_fr201','office_crm_lead_fr201_events')");
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $column) {
+                if (strtolower((string)$column['COLUMN_TYPE']) !== 'bigint unsigned') {
+                    $missing[] = $column['TABLE_NAME'].'.lead_id.type';
+                }
+            }
+        } catch (\PDOException $e) {
+            $missing[] = 'lead_id.column_types';
+        }
         return ['ready'=>$missing === [],'missing'=>$missing];
     }
 
