@@ -105,7 +105,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_lead_board_csrf'])) $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"><link rel="stylesheet" href="'.$h($base).'/crm/board.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1>';
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
