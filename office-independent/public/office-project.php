@@ -668,7 +668,12 @@ if ($activeTab === 'werkvoorbereiding'
       $kickstartCsrfValid = is_string($csrfToken) && strlen($csrfToken) === 64 && ctype_xdigit($csrfToken);
       if ($kickstart === null) {
         $workbenchHtml .= '<section><h3>Startdossier &amp; Kickstart</h3><p>Voor dit project is nog geen startdossier aangemaakt.</p>';
-        if ($canManage && $kickstartCsrfValid) {
+        if (!$canManage) {
+          // Do not bypass project ACL or silently hide the reason a form is unavailable.
+          $workbenchHtml .= '<p role="status">Startdossier aanmaken is alleen beschikbaar voor een bevoegde projectbeheerder. Laat de projectleider of beheerder uw projectrechten controleren.</p>';
+        } elseif (!$kickstartCsrfValid) {
+          $workbenchHtml .= '<p role="alert">De formulierbeveiliging is niet beschikbaar. Vernieuw de pagina en probeer het opnieuw.</p>';
+        } else {
           $workbenchHtml .= '<form method="post" action="'.$escape($kickstartAction).'">'
             .'<input type="hidden" name="csrf_token" value="'.$escape($csrfToken).'">'
             .'<input type="hidden" name="kickstart_action" value="create_dossier">'

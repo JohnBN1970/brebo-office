@@ -1,0 +1,37 @@
+name: Office native mail board smoke
+on:
+  push:
+    branches:
+      - feature/office-personal-mail-push-1790
+    paths:
+      - 'office-independent/src/Mail/**'
+      - 'office-independent/public/office-email.php'
+      - 'office-independent/tests/office_mail_routing_suggestions_smoke.php'
+      - '.github/workflows/office-native-mail-board-smoke.yml'
+  pull_request:
+    paths:
+      - 'office-independent/src/Mail/**'
+      - 'office-independent/public/office-email.php'
+      - 'office-independent/tests/office_mail_routing_suggestions_smoke.php'
+      - '.github/workflows/office-native-mail-board-smoke.yml'
+  workflow_dispatch:
+jobs:
+  mail-board:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_mysql
+          coverage: none
+      - name: Syntax checks
+        run: |
+          php -l office-independent/public/office-email.php
+          php -l office-independent/src/Mail/OfficeMailBoardRepository.php
+          php -l office-independent/src/Mail/OfficeMailRoutingSuggestions.php
+          php -l office-independent/src/Mail/OfficeFunctionalMailIngest.php
+          php -l office-independent/tests/office_mail_routing_suggestions_smoke.php
+      - name: Routing smoke tests
+        run: php office-independent/tests/office_mail_routing_suggestions_smoke.php

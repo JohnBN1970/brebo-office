@@ -46,8 +46,10 @@ def check(root=ROOT):
     if set(events) != {'workflow_dispatch'}:
         errors.append('Production must only support workflow_dispatch')
     job = production['jobs']['deploy']
-    if job.get('environment') != 'production' or "refs/tags/release-" not in job.get('if', '') or 'RELEASE-PRODUCTION' not in job.get('if', ''):
-        errors.append('Production requires protected environment, release tag and explicit confirmation')
+    if job.get('environment') != 'production' or "github.event_name == 'workflow_dispatch'" not in job.get('if', '') or "github.ref == 'refs/heads/develop'" not in job.get('if', ''):
+        errors.append('Production requires protected environment and explicit develop workflow dispatch')
+    if 'Verify approved develop head and green release checks' not in production_source or 'PRODUCTION_RELEASE_GATES=PASS' not in production_source:
+        errors.append('Production must verify current develop head and green release checks')
     if errors:
         raise SystemExit('\n'.join(errors))
     print(f'DEPLOYMENT_POLICY_PASS workflows={len(paths)}')

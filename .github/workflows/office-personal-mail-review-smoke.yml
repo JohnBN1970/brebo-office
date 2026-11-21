@@ -1,0 +1,29 @@
+name: Office personal mail review smoke
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Mail/**'
+      - 'office-independent/tests/office_personal_mail_review_smoke.php'
+      - 'packages/brebo-mail-core/**'
+      - '.github/workflows/office-personal-mail-review-smoke.yml'
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: Syntax checks
+        run: |
+          php -l office-independent/src/Mail/OfficeMailIdentityMap.php
+          php -l office-independent/src/Mail/OfficeMailPushProposalRepository.php
+          php -l office-independent/public/office-mail-review.php
+          php -l web/modules/custom/brebo_mail_intake/src/Form/MailboxMessageActionForm.php
+          php -l packages/brebo-mail-core/tests/personal_mail_push_smoke.php
+      - name: Native Office privacy smoke
+        run: php office-independent/tests/office_personal_mail_review_smoke.php

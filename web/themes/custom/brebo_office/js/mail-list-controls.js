@@ -55,6 +55,10 @@
     search.autocomplete = 'off';
     searchWrap.append(searchLabel, search);
 
+    const view = makeSelect('Weergave', {
+      inbox: 'Slimme inbox',
+      tasks: 'Actielijst',
+    });
     const filter = makeSelect('Filter', {
       all: 'Alles',
       unread: 'Ongelezen',
@@ -79,7 +83,7 @@
 
     const count = document.createElement('span');
     count.className = 'brebo-mail-list-count';
-    bar.append(searchWrap, filter.wrap, group.wrap, sort.wrap, count);
+    bar.append(view.wrap, searchWrap, filter.wrap, group.wrap, sort.wrap, count);
     if (layout) workspace.insertBefore(bar, layout);
     else workspace.append(bar);
 
@@ -93,6 +97,7 @@
     function matches(row) {
       const query = normalize(search.value.trim());
       if (query && !normalize(row.from + ' ' + row.subject + ' ' + row.text).includes(query)) return false;
+      if (view.select.value === 'tasks' && !row.needsAction) return false;
       if (filter.select.value === 'unread' && !row.unread) return false;
       if (filter.select.value === 'starred' && !row.starred) return false;
       if (filter.select.value === 'action' && !row.needsAction) return false;
@@ -124,7 +129,7 @@
       list.querySelectorAll('.brebo-mail-list-group').forEach((el) => el.remove());
       const visible = rows.filter(matches).sort(sorter);
       rows.forEach((row) => { row.item.hidden = true; });
-      count.textContent = visible.length + (visible.length === 1 ? ' bericht' : ' berichten');
+      count.textContent = visible.length + (visible.length === 1 ? ' bericht' : ' berichten') + ' op deze pagina';
 
       if (group.select.value === 'none') {
         visible.forEach((row) => {
@@ -165,6 +170,13 @@
       });
     }
 
+    view.select.addEventListener('change', () => {
+      if (view.select.value === 'tasks') {
+        sort.select.value = 'action';
+        group.select.value = 'none';
+      }
+      render();
+    });
     search.addEventListener('input', render);
     filter.select.addEventListener('change', render);
     group.select.addEventListener('change', render);
