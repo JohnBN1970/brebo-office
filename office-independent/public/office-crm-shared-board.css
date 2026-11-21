@@ -1,0 +1,18 @@
+/* Shared CRM board surfaces: Leads and Deals */
+.crm-board-shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
+.crm-board-filters{padding:16px;border:1px solid #d5deeb;border-radius:12px;background:var(--crm-surface,#fff)}
+.crm-board-filters label{display:block;font-size:.85rem;font-weight:650;margin:12px 0 5px}
+.crm-board-filters input,.crm-board-filters select{width:100%;box-sizing:border-box;padding:9px;border:1px solid #aebdd0;border-radius:7px;background:var(--crm-surface,#fff);color:inherit}
+.crm-board-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.crm-board-toolbar a{padding:8px 12px;border-radius:8px;border:1px solid #aebdd0}
+.crm-board-columns,.lead-kanban,.crm-kanban{display:flex!important;gap:12px;overflow-x:auto;align-items:stretch;padding-bottom:16px}
+.crm-board-columns>section,.lead-kanban>section,.crm-kanban>section{flex:0 0 240px!important;min-width:240px!important;max-width:300px;box-sizing:border-box;padding:12px!important;border-radius:12px!important;border:1px solid #b9c8da!important;background:var(--crm-lane,#eef3fa)!important}
+.crm-board-columns>section:nth-child(5n+1),.lead-kanban>section:nth-child(5n+1),.crm-kanban>section:nth-child(5n+1){border-top:5px solid #4c7de5!important}
+.crm-board-columns>section:nth-child(5n+2),.lead-kanban>section:nth-child(5n+2),.crm-kanban>section:nth-child(5n+2){border-top:5px solid #16a3a5!important}
+.crm-board-columns>section:nth-child(5n+3),.lead-kanban>section:nth-child(5n+3),.crm-kanban>section:nth-child(5n+3){border-top:5px solid #d49a31!important}
+.crm-board-columns>section:nth-child(5n+4),.lead-kanban>section:nth-child(5n+4),.crm-kanban>section:nth-child(5n+4){border-top:5px solid #8d6ac7!important}
+.crm-board-columns>section:nth-child(5n+5),.lead-kanban>section:nth-child(5n+5),.crm-kanban>section:nth-child(5n+5){border-top:5px solid #37956a!important}
+.crm-board-columns article,.lead-kanban-card,.crm-kanban article{background:var(--crm-surface,#fff)!important;color:var(--crm-text,#182b40)!important;border:1px solid #d5deeb;border-radius:9px;padding:12px!important;margin:8px 0!important;box-shadow:0 2px 7px #162a4512}
+.crm-board-drop-target{outline:3px dashed #168457!important;outline-offset:-3px}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--crm-surface:#1e2b3c;--crm-lane:#142031;--crm-text:#f0f5fc}}
+@media(max-width:760px){.crm-board-shell{grid-template-columns:1fr}.crm-board-filters{display:flex;flex-wrap:wrap;gap:10px}.crm-board-columns>section,.lead-kanban>section,.crm-kanban>section{flex-basis:220px!important}}

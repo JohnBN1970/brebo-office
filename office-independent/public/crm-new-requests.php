@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET'); http_response_code(405); exit;
 }
@@ -105,7 +105,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_lead_board_csrf'])) $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
 $h = static fn(mixed $value): string => htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aanvragen · BREBO Office</title><link rel="stylesheet" href="'.$h($base).'/crm/aanvragen/stijl.css"><link rel="stylesheet" href="'.$h($base).'/crm/board.css"></head><body><main><p><a href="'.$h($base).'/crm/verkoopkansen">Deals</a> · <a href="'.$h($base).'/crm/relaties">Relaties</a></p>';
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1>';
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
@@ -206,11 +206,12 @@ if (isset($item)) {
     echo '</div></section>';
     $listUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'lijst']));
     $boardUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'kanban']));
+    echo '<form method="get" class="crm-board-toolbar" aria-label="Leadfilters"><label>Fase <select name="fase"><option value="">Alle fasen</option>'; foreach ($stages as $code=>$label) echo '<option value="'.$h($code).'"'.($stageFilter===$code?' selected':'').'>'.$h($label).'</option>'; echo '</select></label><label>Bron <select name="bron"><option value="">Alle bronnen</option>'; foreach ($sourceStats as $source) echo '<option value="'.$h($source['code']).'"'.($sourceFilter===$source['code']?' selected':'').'>'.$h($source['label']).'</option>'; echo '</select></label><label>Eigenaar <select name="eigenaar"><option value="">Alle eigenaren</option>'; foreach ($ownerStats as $owner) { $oid=(string)$owner['owner']; echo '<option value="'.$h($oid).'"'.($ownerFilterActive&&$ownerFilter===$oid?' selected':'').'>'.$h($oid===''?'Niet toegewezen':$oid).'</option>'; } echo '</select></label><input type="hidden" name="weergave" value="'.$h($view).'"><button type="submit">Filter toepassen</button><a href="'.$h($base).'/crm/aanvragen?weergave='.$h($view).'">Wis filters</a></form>';
     echo '<nav aria-label="Weergave"><a href="'.$h($listUrl).'"'.($view==='lijst'?' aria-current="page"':'').'>Lijst</a> · <a href="'.$h($boardUrl).'"'.($view==='kanban'?' aria-current="page"':'').'>Kanban</a></nav>';
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } elseif ($view === 'kanban') {
-        echo '<div class="lead-kanban" id="lead-board" data-csrf="'.$h($_SESSION['crm_lead_board_csrf']).'">';
+        echo '<div class="lead-kanban crm-board-columns" id="lead-board" data-csrf="'.$h($_SESSION['crm_lead_board_csrf']).'">';
         foreach ($stages as $stageCode => $stageLabel) {
             echo '<section data-stage="'.$h($stageCode).'"><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
@@ -229,50 +230,5 @@ if (isset($item)) {
     }
     echo '</div>';
 }
-echo <<<'JS'
-<script>
-(()=>{
- const board=document.getElementById('lead-board');if(!board)return;
- const allowed={new:['contacted'],contacted:['new','qualified'],qualified:['contacted','accepted'],accepted:['qualified']};
- let source=null;
- const zones=[...board.querySelectorAll('section[data-stage]')];
- const reset=()=>{zones.forEach(z=>{z.style.outline='';z.removeAttribute('data-drop-active')});};
- async function save(card,stage){
-  const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:card.dataset.leadId,stage});
-  try{
-   const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
-   const result=await response.json().catch(()=>({}));
-   if(!response.ok||!result.ok)throw new Error(result.error||'Fasewijziging geweigerd ('+response.status+')');
-   location.reload();
-  }catch(err){alert(err.message);}
- }
- board.querySelectorAll('.lead-kanban-card[draggable="true"]').forEach(card=>{
-  const moveButton=card.querySelector('.lead-move-button');
-  moveButton?.addEventListener('click',()=>{const target=card.querySelector('.lead-move-select')?.value;if(!target){alert('Selecteer eerst een fase.');return;} if(!allowed[card.dataset.stage]?.includes(target)){alert('Kies een aangrenzende fase.');return;}save(card,target);});
-  card.querySelectorAll('a').forEach(link=>link.setAttribute('draggable','false'));
-  card.addEventListener('dragstart',e=>{
-   source=card;
-   e.dataTransfer.effectAllowed='move';
-   e.dataTransfer.setData('text/plain',card.dataset.leadId);
-   zones.forEach(z=>{if(allowed[card.dataset.stage]?.includes(z.dataset.stage))z.style.outline='3px solid #16a34a';});
-  });
-  card.addEventListener('dragend',()=>{source=null;reset();});
- });
- zones.forEach(zone=>{
-  zone.addEventListener('dragenter',e=>{
-   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();zone.dataset.dropActive='true';}
-  });
-  zone.addEventListener('dragover',e=>{
-   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';}
-  });
-  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget))zone.removeAttribute('data-drop-active');});
-  zone.addEventListener('drop',e=>{
-   if(!source||!allowed[source.dataset.stage]?.includes(zone.dataset.stage))return;
-   e.preventDefault();e.stopPropagation();
-   const card=source;source=null;reset();save(card,zone.dataset.stage);
-  });
- });
-})();
-</script>
-JS;
+echo '<p id="crm-board-feedback" role="status" aria-live="polite"></p><script src="'.$h($base).'/crm/aanvragen/board.js" defer></script>';
 echo '</main></body></html>';
