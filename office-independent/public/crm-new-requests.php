@@ -85,9 +85,13 @@ try {
             || !is_array($values) || count($values) > 40) {
             http_response_code(400); exit('Ongeldige formuliergegevens.');
         }
-        $exists = $db->prepare("SELECT id FROM office_crm_leads WHERE id=? AND status='active' AND converted_opportunity_id IS NULL");
+        $exists = $db->prepare("SELECT owner_operator_id FROM office_crm_leads WHERE id=? AND status='active' AND converted_opportunity_id IS NULL");
         $exists->execute([$id]);
-        if (!$exists->fetchColumn()) { http_response_code(404); exit('Lead niet beschikbaar.'); }
+        $leadOwner = $exists->fetchColumn();
+        if ($leadOwner === false) { http_response_code(404); exit('Lead niet beschikbaar.'); }
+        if (!is_string($leadOwner) || $leadOwner === '' || !hash_equals($leadOwner, (string)$operator->operatorId)) {
+            http_response_code(403); exit('Alleen de toegewezen leadverantwoordelijke mag FR-201 aanvullen.');
+        }
         require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
         try {
             (new \Brebo\Office\Process\OfficeFr201Repository($db))->save(
@@ -202,7 +206,10 @@ if (isset($item)) {
             require_once dirname(__DIR__).'/src/Process/OfficeFr201FormView.php';
             $fr201 = (new \Brebo\Office\Process\OfficeFr201Repository($db))->load((int)$item['id']);
             $fr201CanEdit = getenv('OFFICE_TEST_FR201_WRITE_ENABLED') === 'enabled'
-                && $item['status'] === 'active' && !$item['converted_opportunity_id'];
+                && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled'
+                && $item['status'] === 'active' && !$item['converted_opportunity_id']
+                && is_string($item['owner_operator_id']) && $item['owner_operator_id'] !== ''
+                && hash_equals($item['owner_operator_id'], (string)$operator->operatorId);
             echo \Brebo\Office\Process\OfficeFr201FormView::render(
                 (int)$item['id'], $fr201['data'], $fr201['revision'],
                 $base.'/crm/aanvragen/detail?id='.(int)$item['id'],
