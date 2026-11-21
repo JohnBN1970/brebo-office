@@ -1,0 +1,48 @@
+name: Office-test blueprint approval activation gate
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type BLUEPRINT-ACTIVATION-CHECK'
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: office-test-blueprint-activation
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/develop' && inputs.confirmation == 'BLUEPRINT-ACTIVATION-CHECK'
+    runs-on: ubuntu-latest
+    environment: office-test-vps
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify activation prerequisites (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s office-independent/schema/office-test-site-administrators.sql
+          test -s office-independent/schema/office-test-blueprint-approval-modes.sql
+          php -l office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php
+          php -l office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php
+          php -l office-independent/public/office-blueprint-approval-settings.php
+          echo 'CHECKOUT_GATES=passed'
+          echo 'DB_SCHEMA=unverified'
+          echo 'SITE_ADMIN=unverified'
+          echo 'RUNTIME_FLAGS=unverified'
+          echo 'ACCEPTANCE=unverified'
+          echo 'ACTIVATION=blocked_pending_manual_database_and_identity_verification'
+      - name: Summarize outstanding gates
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Office-test blueprint approval activation
+          Source-level gates passed. **No activation was performed.**
+          - [ ] Existing isolated VPS preflight successful on this release
+          - [ ] Backup verified; install **three tables across two SQL files** on Office-test
+          - [ ] Confirm an existing active Office operator identity and authorize explicitly
+          - [ ] Verify test-only runtime flags and session ACL
+          - [ ] Test four-eyes and single approver modes, CSRF, audit events and rollback
+          Production remains untouched. Four-eyes remains the default.
+          EOF
