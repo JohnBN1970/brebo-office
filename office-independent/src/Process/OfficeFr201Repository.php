@@ -39,9 +39,12 @@ final class OfficeFr201Repository
         }
         require_once __DIR__.'/OfficeFr201Intake.php';
         $allowed = OfficeFr201Intake::fields();
+        // CRM master facts must be edited in CRM, not silently overridden here.
+        $masterFields = ['channel','source_reference','contact_name','contact_email','customer_question','relation_id','owner_user_id'];
         $data = [];
         foreach ($values as $key => $value) {
-            if (!array_key_exists($key, $allowed) || !is_string($value) || mb_strlen($value, 'UTF-8') > 10000) {
+            if (!array_key_exists($key, $allowed) || in_array($key, $masterFields, true)
+                || !is_string($value) || mb_strlen($value, 'UTF-8') > 10000) {
                 throw new InvalidArgumentException('Invalid FR-201 field');
             }
             $data[$key] = trim($value);
