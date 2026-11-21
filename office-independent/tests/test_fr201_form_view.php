@@ -11,5 +11,9 @@ if (str_contains($html,'<script>') || !str_contains($html,'&lt;script&gt;')) thr
 foreach (['expected_revision','csrf_token','change_reason','fr201_action'] as $name) {
     if (!str_contains($html,'name="'.$name.'"')) throw new RuntimeException('Missing '.$name);
 }
-if (str_contains($html,'name="fr201[contact_email]"')) throw new RuntimeException('Master data must not be duplicated');
+foreach (['contact_email','relation_id','owner_user_id','received_at'] as $master) {
+    if (str_contains($html,'name="fr201['.$master.']"')) {
+        throw new RuntimeException('CRM master data must not be editable: '.$master);
+    }
+}
 echo "FR-201 form view OK\n";
