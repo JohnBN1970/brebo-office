@@ -21,6 +21,7 @@ $extra['contact_email']='jan@example.nl';
 $extra['owner_user_id']='1';
 $lead['relation_id']='123';
 $lead['owner_user_id']='1';
+$lead['received_at']='2026-11-21 10:00:00';
 $result = Readiness::assess($lead,$extra);
 if (!$result['complete'] || $result['missing'] !== []) throw new RuntimeException('Completed intake still missing fields');
 echo "FR-201 lead readiness OK\n";
