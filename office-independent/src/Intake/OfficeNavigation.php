@@ -88,6 +88,10 @@ final class OfficeNavigation {
     foreach (['/office-test/email','/office-test/mail','/office-test/communicatie'] as $mailPath) {
       if (self::runtimeRouteExists($mailPath)) {$informationLinks[]=['E-mail',$mailPath];break;}
     }
+    if (getenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED') === 'enabled'
+        && self::runtimeRouteExists('/office-test/mail/controle')) {
+      $informationLinks[] = ['Mailcontrole', '/office-test/mail/controle'];
+    }
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
       ['Marketing','marketing',getenv('OFFICE_TEST_MARKETING_ENABLED')==='enabled' ? [['Marketingoverzicht','/office-test/marketing']] : []],
@@ -152,6 +156,19 @@ final class OfficeNavigation {
   }
   /** Inspect only declared routes in the isolated test router; never advertise guessed URLs. */
   private static function runtimeRouteExists(string $route):bool {
+    // The VPS deploy uses /srv/brebo/office-test/current rather than
+    // Hostinger's /office_calc_test/release-*/private layout.
+    // Only advertise mail routes present in the canonical router AND release.
+    if (in_array($route, ['/office-test/email', '/office-test/mail/controle'], true)) {
+      $router = dirname(__DIR__, 2).'/deployment/hostinger/office-test-index.php';
+      $target = $route === '/office-test/email' ? 'office-email.php' : 'office-mail-review.php';
+      if (is_file($router) && !is_link($router)
+          && is_file(dirname(__DIR__, 2).'/public/'.$target)) {
+        $source = file_get_contents($router);
+        if (is_string($source)
+            && str_contains($source, "'".$route."' => '".$target."'")) return true;
+      }
+    }
     $private=realpath(getenv('OFFICE_PRIVATE_ROOT')?:'');
     if (!$private || !str_contains($private,'/office_calc_test/release-') || !str_ends_with($private,'/private')) return false;
     $base=dirname($private,2);
