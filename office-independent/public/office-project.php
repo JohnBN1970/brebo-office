@@ -133,8 +133,20 @@ try {
     }
     // Test-only server-controlled approval mode. Never read mode from POST,
     // cookies, preview role or browser storage.
-    $kickstartApprovalMode = getenv('OFFICE_TEST_KICKSTART_APPROVAL_MODE') === 'single'
-      ? 'single' : 'four_eyes';
+    $kickstartApprovalMode = 'four_eyes';
+    // Explicit opt-in only: schema and blueprint mode must both be present.
+    // A missing table, invalid setting or disabled feature remains four-eyes.
+    if (getenv('OFFICE_TEST_BLUEPRINT_APPROVAL_MODES_ENABLED') === 'enabled') {
+      require_once dirname(__DIR__) . '/src/Approval/OfficeApprovalPolicy.php';
+      require_once dirname(__DIR__) . '/src/Approval/OfficeBlueprintApprovalModeRepository.php';
+      try {
+        $kickstartApprovalMode = (new \Brebo\Office\Approval\OfficeBlueprintApprovalModeRepository($db))
+          ->get('project_start', 'startdossier_release');
+      } catch (\Throwable $approvalModeError) {
+        $kickstartApprovalMode = 'four_eyes';
+        error_log('Office-test blueprint approval mode unavailable; four-eyes enforced');
+      }
+    }
     $dossier = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope($projectId, 'project', 0);
     if ($dossier === null && ($_POST['kickstart_action'] ?? '') === 'create_dossier') {
       // Explicit self-assignment by the authenticated project manager.
