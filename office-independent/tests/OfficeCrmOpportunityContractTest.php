@@ -8,6 +8,7 @@ use Brebo\Office\Crm\OfficeCrmOpportunityRepository;
 use Brebo\Office\Crm\OfficeCrmFunnel;
 $statements=OfficeCrmOpportunitySchema::statements();
 if (count($statements)!==2) throw new RuntimeException('Expected opportunity and activity tables');
+if (!str_contains($statements[0], 'revision BIGINT UNSIGNED NOT NULL DEFAULT 1,')) throw new RuntimeException('Fresh CRM Deal schema must include revision for projectless Calc');
 foreach (['office_crm_opportunities','office_crm_opportunity_activities','office_crm_relations','office_crm_contact_people','next_action_at','opname_required'] as $marker) {
     if (!str_contains(implode("\n",$statements),$marker)) throw new RuntimeException('Missing '.$marker);
 }
