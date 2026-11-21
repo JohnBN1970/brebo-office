@@ -23,7 +23,7 @@ $checks = [
     'revision-match'=>[$start,"$"."payload['revision']"],
     'draft-unique-context'=>[$start,'WHERE opportunity_id=?'],
     'projectless-insert'=>[$start,'(opportunity_id,crm_revision,created_by,project_id) VALUES (?,?,?,NULL)'],
-    'canonical-redirect'=>[$start,"'/office-test/calculatie?draft_id='"],
+    'canonical-redirect'=>[$start,'Location: /office-test/calculatie?draft_id='],
     'existing-draft-consumer'=>[$workbench,'office_calc_crm_drafts'],
     'canonical-lines'=>[$workbench,'OfficeCalcCrmDraftLineRepository'],
 ];
