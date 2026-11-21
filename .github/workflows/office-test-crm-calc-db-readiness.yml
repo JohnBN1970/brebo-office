@@ -1,53 +1,46 @@
 name: Office-test CRM Calc database readiness (read-only)
-
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 concurrency:
   group: office-test-crm-calc-db-readiness
   cancel-in-progress: false
-
 jobs:
   readiness:
     runs-on: ubuntu-latest
-    environment: office-test-readonly
     timeout-minutes: 5
     steps:
-      - name: Check required connection settings
-        env:
-          VPS_HOST: 77.37.34.160
-          VPS_USER: ${{ secrets.DEPLOY_USER }}
-          VPS_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
-        run: |
-          for value in "$VPS_HOST" "$VPS_USER" "$VPS_KEY" "$VPS_HOST_KEY"; do
-            if [ -z "$value" ]; then
-              echo "::error::Office-test read-only SSH connection is not configured."
-              exit 1
-            fi
-          done
-      - name: Run preinstalled Office-test read-only preflight
-        env:
-          VPS_HOST: 77.37.34.160
-          VPS_USER: ${{ secrets.DEPLOY_USER }}
-          VPS_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
-        run: |
-          set -eu
-          umask 077
-          mkdir -p ~/.ssh
-          printf '%s\n' "$VPS_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
-          # Reject malformed or empty host key material before any SSH connection.
-          ssh-keygen -l -f ~/.ssh/known_hosts >/dev/null
-          # The pinned known_hosts entry must cover the configured SSH port.
-          ssh-keygen -F "[$VPS_HOST]:65002" -f ~/.ssh/known_hosts >/dev/null || { echo "::error::No pinned host key for configured VPS and port 65002."; exit 1; }
-          # Require a parseable private key; never print key material.
-          ssh-keygen -y -P "" -f ~/.ssh/id_ed25519 >/dev/null
-          ssh -p 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
-            -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" \
-            'test -x /usr/local/bin/brebo-office-test-crm-calc-readiness || { echo "CRM_CALC_PREFLIGHT=BLOCKED:REMOTE_COMMAND_MISSING"; exit 2; }; exec /usr/local/bin/brebo-office-test-crm-calc-readiness'
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax check
+        run: php -l office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php
+      - name: Stage read-only audit on isolated Office-test
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.crm-calc-readiness-stage"
+          overwrite: true
+      - name: Execute read-only Office-test schema audit
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            SCRIPT="$ROOT/.crm-calc-readiness-stage/office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php"
+            PHP=/opt/alt/php83/usr/bin/php
+            test -f "$SCRIPT"
+            "$PHP" -l "$SCRIPT"
+            export OFFICE_BASE_PATH=/office-test
+            export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"
+            "$PHP" "$SCRIPT"
