@@ -26,7 +26,7 @@ final class OfficeFr201LeadReadiness
         // Explicit supplementary values are allowed, but never infer REL-ID,
         // contractual identity, project location, scope, or customer authority.
         foreach (OfficeFr201Intake::fields() as $key => $_) {
-            if (in_array($key, ['channel','source_reference','contact_name','contact_email','customer_question','relation_id','owner_user_id'], true)) continue;
+            if (in_array($key, ['channel','source_reference','contact_name','contact_email','customer_question','relation_id','owner_user_id','received_at'], true)) continue;
             if (array_key_exists($key, $supplement) && is_scalar($supplement[$key])) {
                 $known[$key] = trim((string)$supplement[$key]);
             }
@@ -34,6 +34,11 @@ final class OfficeFr201LeadReadiness
         $missing = [];
         foreach (OfficeFr201Intake::fields() as $key => $definition) {
             if ($definition['required'] && trim($known[$key] ?? '') === '') $missing[] = $key;
+        }
+        // A filled field is not necessarily a valid field; apply the source contract.
+        $errors = OfficeFr201Intake::validate($known);
+        foreach (array_keys($errors) as $field) {
+            if (!in_array($field, $missing, true)) $missing[] = $field;
         }
         return [
             'document_code' => OfficeFr201Intake::CODE,
