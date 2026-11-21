@@ -1,0 +1,47 @@
+name: Office-test CRM Calc database readiness (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: office-test-crm-calc-db-readiness
+  cancel-in-progress: false
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    environment: office-test-readonly
+    timeout-minutes: 5
+    steps:
+      - name: Check required connection settings
+        env:
+          VPS_HOST: ${{ secrets.OFFICE_TEST_VPS_HOST }}
+          VPS_USER: ${{ secrets.OFFICE_TEST_VPS_USER }}
+          VPS_KEY: ${{ secrets.OFFICE_TEST_VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
+        run: |
+          for value in "$VPS_HOST" "$VPS_USER" "$VPS_KEY" "$VPS_HOST_KEY"; do
+            if [ -z "$value" ]; then
+              echo "::error::Office-test read-only SSH connection is not configured."
+              exit 1
+            fi
+          done
+      - name: Run preinstalled Office-test read-only preflight
+        env:
+          VPS_HOST: ${{ secrets.OFFICE_TEST_VPS_HOST }}
+          VPS_USER: ${{ secrets.OFFICE_TEST_VPS_USER }}
+          VPS_KEY: ${{ secrets.OFFICE_TEST_VPS_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
+        run: |
+          set -eu
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+            -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" \
+            'exec /usr/local/bin/brebo-office-test-crm-calc-readiness'
