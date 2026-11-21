@@ -1,0 +1,37 @@
+<?php
+declare(strict_types=1);
+
+// Canonical building columns must agree across schema, project and buildings views.
+// Static regression check: actual VPS schema must be verified separately.
+$root = dirname(__DIR__);
+$schema = file_get_contents($root.'/src/Buildings/OfficeBuildingSchema.php');
+$project = file_get_contents($root.'/public/office-project.php');
+$buildings = file_get_contents($root.'/public/office-buildings.php');
+foreach (['building_name VARCHAR(160)', 'street_address VARCHAR(255)', 'office_project_buildings'] as $term) {
+    if (!str_contains($schema, $term)) {
+        throw new RuntimeException('Canonical building schema changed: '.$term);
+    }
+}
+foreach ([
+    'b.building_name AS name',
+    'b.street_address AS address_line',
+    'b.building_name, ht.id AS housing_type_id',
+    'ORDER BY b.building_name, b.id',
+] as $term) {
+    if (!str_contains($project, $term)) {
+        throw new RuntimeException('Project building view uses noncanonical columns: '.$term);
+    }
+}
+foreach (['b.building_name, b.street_address', 'GROUP BY b.id, b.building_name', 'ORDER BY b.building_name, b.id'] as $term) {
+    if (!str_contains($buildings, $term)) {
+        throw new RuntimeException('Buildings view uses noncanonical columns: '.$term);
+    }
+}
+foreach ([$project, $buildings] as $source) {
+    foreach (['b.name', 'b.address_line'] as $legacy) {
+        if (str_contains($source, $legacy)) {
+            throw new RuntimeException('Legacy building column still queried: '.$legacy);
+        }
+    }
+}
+echo "OFFICE_CANONICAL_BUILDING_COLUMNS_OK\n";
