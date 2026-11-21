@@ -24,4 +24,21 @@ $lead['owner_user_id']='1';
 $lead['received_at']='2026-11-21 10:00:00';
 $result = Readiness::assess($lead,$extra);
 if (!$result['complete'] || $result['missing'] !== []) throw new RuntimeException('Completed intake still missing fields');
-echo "FR-201 lead readiness OK\n";
+// Supplemental values cannot spoof authoritative CRM fields.
+$spoofed = Readiness::assess($lead, array_merge($extra, [
+    'contact_email' => 'not-an-email',
+    'relation_id' => '999',
+    'received_at' => 'forged',
+]));
+if ($spoofed['known']['contact_email'] !== 'jan@example.nl'
+    || $spoofed['known']['relation_id'] !== '123'
+    || $spoofed['known']['received_at'] !== '2026-11-21 10:00:00') {
+    throw new RuntimeException('CRM master data spoofed by supplement');
+}
+$invalid = $extra;
+$invalid['intake_id'] = 'wrong';
+$check = Readiness::assess($lead, $invalid);
+if ($check['complete'] || !in_array('intake_id', $check['missing'], true)) {
+    throw new RuntimeException('Invalid intake ID must block readiness');
+}
+echo "FR-201 lead readiness OK\\n";
