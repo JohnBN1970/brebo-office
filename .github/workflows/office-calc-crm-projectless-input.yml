@@ -9,6 +9,9 @@ on:
       - 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php'
       - 'office-independent/tests/OfficeCrmOpportunityContractTest.php'
       - 'office-independent/tests/OfficeCrmDealRevisionTransitionTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php'
+      - 'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php'
+      - 'office-independent/deployment/hostinger/sql/office-calc-crm-drafts-proposed.sql'
       - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
       - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -44,6 +47,9 @@ jobs:
           php office-independent/tests/OfficeCrmOpportunityContractTest.php
           php -l office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
           php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+          php -l office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php
+          php -l office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
+          php office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
       - name: Release boundary
         run: |
           echo "CRM_FIRST_LAUNCH_INPUT=TESTED"
