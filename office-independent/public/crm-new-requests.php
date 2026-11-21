@@ -112,6 +112,33 @@ if (isset($item)) {
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
     echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    // FR-201 qualification readiness: read-only, feature-gated, no duplicate CRM writes.
+    if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled') {
+        try {
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201LeadReadiness.php';
+            $readiness = \Brebo\Office\Process\OfficeFr201LeadReadiness::assess([
+                'source_label' => $item['source_name'] ?? '',
+                'source_detail' => $item['source_detail'] ?? '',
+                'contact_name' => $item['contact_name'] ?? '',
+                'contact_email' => $item['contact_email'] ?? '',
+                'description' => $item['description'] ?? '',
+            ]);
+            echo '<section aria-label="FR-201 intakecontrole"><h2>FR-201 · Intakecontrole (v1.0)</h2>';
+            if ($readiness['complete']) echo '<p>Alle verplichte intakevelden zijn geregistreerd.</p>';
+            else {
+                echo '<p>Deze lead is nog geen volledige intake. Ontbrekende onderdelen:</p><ul>';
+                require_once dirname(__DIR__).'/src/Process/OfficeFr201Intake.php';
+                $fields = \Brebo\Office\Process\OfficeFr201Intake::fields();
+                foreach ($readiness['missing'] as $field) {
+                    echo '<li>'.$h($fields[$field]['label'] ?? $field).'</li>';
+                }
+                echo '</ul><p>Aanvullen en vrijgeven voor overdracht gebeurt pas na bevoegde controle.</p>';
+            }
+            echo '</section>';
+        } catch (Throwable $ignored) {
+            // Missing optional component never exposes internal errors or bypasses access.
+        }
+    }
     // Read-only linked messages: require both lead and message ACL checks.
     if ($base === '/office-test' && getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
         try {
