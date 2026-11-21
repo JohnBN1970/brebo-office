@@ -12,6 +12,19 @@ $html=MaterialProcurementPanel::render([$row]);
 if (str_contains($html,'<script>') || !str_contains($html,'&lt;script&gt;')
     || !str_contains($html,'100x120 &amp; HR++')
     || !str_contains($html,'10,000')) throw new RuntimeException('Material panel rendering failed');
+$overordered = array_replace($row, [
+    'ordered_quantity_milli'=>12000,
+    'received_quantity_milli'=>10000,
+    'remaining_to_order_milli'=>0,
+    'outstanding_delivery_milli'=>2000,
+    'overordered_milli'=>2000,
+]);
+$warningHtml=MaterialProcurementPanel::render([$overordered]);
+if (!str_contains($warningHtml, 'overschrijding')
+    || !str_contains($warningHtml, 'office-material-procurement__overordered')
+    || str_contains($warningHtml, 'style="overflow-x:auto"')) {
+    throw new RuntimeException('Overorder warning or centralized styling missing.');
+}
 $invalid=$row;
 $invalid['received_quantity_milli']=-1;
 try { MaterialProcurementPanel::render([$invalid]); throw new RuntimeException('Invalid quantity accepted'); }
