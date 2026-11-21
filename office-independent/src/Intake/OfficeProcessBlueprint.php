@@ -53,6 +53,16 @@ final class OfficeProcessBlueprint
                 || isset($seen[$step['id']])) {
                 throw new \InvalidArgumentException('invalid_process_step');
             }
+            // A blueprint may configure the number of independent approvers on
+            // approval steps. Never interpret this as permission to approve.
+            if ($step['type'] === 'approval') {
+                if (!isset($step['approval_mode'])
+                    || !in_array($step['approval_mode'], ['single', 'four_eyes'], true)) {
+                    throw new \InvalidArgumentException('invalid_process_approval_mode');
+                }
+            } elseif (array_key_exists('approval_mode', $step)) {
+                throw new \InvalidArgumentException('approval_mode_requires_approval_step');
+            }
             $seen[$step['id']] = true;
         }
     }
