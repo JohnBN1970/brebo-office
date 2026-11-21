@@ -10,6 +10,20 @@ Object.entries(configs).forEach(([type,cfg])=>{
  const feedback=document.getElementById(type==='deal'?'crm-drag-feedback':'crm-board-feedback');
  const stage=el=>el.dataset[type==='lead'?'stage':'crmStage'];
  const id=el=>el.dataset[type==='lead'?'leadId':'crmId'];
+ if(type==='deal'){
+  const search=document.getElementById('crm-board-search');
+  const count=document.getElementById('crm-board-count');
+  if(search){
+   const filter=()=>{
+    const query=search.value.trim().toLocaleLowerCase('nl');
+    let visible=0;
+    cards.forEach(card=>{const match=card.textContent.toLocaleLowerCase('nl').includes(query);card.hidden=!match;if(match)visible++;});
+    if(count)count.textContent=visible+' van '+cards.length+' deals zichtbaar';
+   };
+   search.addEventListener('input',filter);
+   filter();
+  }
+ }
  let moving=null,busy=false;
  const notify=message=>{if(feedback)feedback.textContent=message;};
  const clear=()=>zones.forEach(z=>{z.classList.remove('crm-board-drop-target');z.removeAttribute('data-drop-active');});
