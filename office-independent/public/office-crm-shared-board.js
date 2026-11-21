@@ -13,14 +13,16 @@ Object.entries(configs).forEach(([type,cfg])=>{
  if(type==='deal'){
   const search=document.getElementById('crm-board-search');
   const count=document.getElementById('crm-board-count');
+  const stageFilter=document.getElementById('crm-board-stage');
   if(search){
    const filter=()=>{
     const query=search.value.trim().toLocaleLowerCase('nl');
     let visible=0;
-    cards.forEach(card=>{const match=card.textContent.toLocaleLowerCase('nl').includes(query);card.hidden=!match;if(match)visible++;});
+    cards.forEach(card=>{const match=card.textContent.toLocaleLowerCase('nl').includes(query)&&(!stageFilter?.value||stage(card)===stageFilter.value);card.hidden=!match;if(match)visible++;});
     if(count)count.textContent=visible+' van '+cards.length+' deals zichtbaar';
    };
    search.addEventListener('input',filter);
+   stageFilter?.addEventListener('change',filter);
    filter();
   }
  }
