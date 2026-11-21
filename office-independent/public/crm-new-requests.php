@@ -229,50 +229,5 @@ if (isset($item)) {
     }
     echo '</div>';
 }
-echo <<<'JS'
-<script>
-(()=>{
- const board=document.getElementById('lead-board');if(!board)return;
- const allowed={new:['contacted'],contacted:['new','qualified'],qualified:['contacted','accepted'],accepted:['qualified']};
- let source=null;
- const zones=[...board.querySelectorAll('section[data-stage]')];
- const reset=()=>{zones.forEach(z=>{z.style.outline='';z.removeAttribute('data-drop-active')});};
- async function save(card,stage){
-  const data=new URLSearchParams({csrf:board.dataset.csrf,lead_id:card.dataset.leadId,stage});
-  try{
-   const response=await fetch('/office-test/crm/aanvragen/fase',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data});
-   const result=await response.json().catch(()=>({}));
-   if(!response.ok||!result.ok)throw new Error(result.error||'Fasewijziging geweigerd ('+response.status+')');
-   location.reload();
-  }catch(err){alert(err.message);}
- }
- board.querySelectorAll('.lead-kanban-card[draggable="true"]').forEach(card=>{
-  const moveButton=card.querySelector('.lead-move-button');
-  moveButton?.addEventListener('click',()=>{const target=card.querySelector('.lead-move-select')?.value;if(!target){alert('Selecteer eerst een fase.');return;} if(!allowed[card.dataset.stage]?.includes(target)){alert('Kies een aangrenzende fase.');return;}save(card,target);});
-  card.querySelectorAll('a').forEach(link=>link.setAttribute('draggable','false'));
-  card.addEventListener('dragstart',e=>{
-   source=card;
-   e.dataTransfer.effectAllowed='move';
-   e.dataTransfer.setData('text/plain',card.dataset.leadId);
-   zones.forEach(z=>{if(allowed[card.dataset.stage]?.includes(z.dataset.stage))z.style.outline='3px solid #16a34a';});
-  });
-  card.addEventListener('dragend',()=>{source=null;reset();});
- });
- zones.forEach(zone=>{
-  zone.addEventListener('dragenter',e=>{
-   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();zone.dataset.dropActive='true';}
-  });
-  zone.addEventListener('dragover',e=>{
-   if(source&&allowed[source.dataset.stage]?.includes(zone.dataset.stage)){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';}
-  });
-  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget))zone.removeAttribute('data-drop-active');});
-  zone.addEventListener('drop',e=>{
-   if(!source||!allowed[source.dataset.stage]?.includes(zone.dataset.stage))return;
-   e.preventDefault();e.stopPropagation();
-   const card=source;source=null;reset();save(card,zone.dataset.stage);
-  });
- });
-})();
-</script>
-JS;
+echo '<p id="crm-board-feedback" role="status" aria-live="polite"></p><script src="'.$h($base).'/crm/aanvragen/board.js" defer></script>';
 echo '</main></body></html>';
