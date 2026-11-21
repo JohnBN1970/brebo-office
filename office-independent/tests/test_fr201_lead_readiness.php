@@ -19,6 +19,8 @@ foreach (Intake::fields() as $key => $definition) if ($definition['required']) $
 $extra['intake_id']='INT-2026-0001';
 $extra['contact_email']='jan@example.nl';
 $extra['owner_user_id']='1';
+$lead['relation_id']='123';
+$lead['owner_user_id']='1';
 $result = Readiness::assess($lead,$extra);
 if (!$result['complete'] || $result['missing'] !== []) throw new RuntimeException('Completed intake still missing fields');
 echo "FR-201 lead readiness OK\n";
