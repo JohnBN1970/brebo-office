@@ -14,6 +14,7 @@ if (!in_array($requestMethod, ['GET', 'POST'], true)) {
 if ($requestMethod === 'POST' && (
     getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
     || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
+    || getenv('OFFICE_TEST_FR201_READINESS_ENABLED') !== 'enabled'
 )) { http_response_code(403); exit('FR-201 schrijven niet ingeschakeld.'); }
 $base = getenv('OFFICE_BASE_PATH') === '/office-test' ? '/office-test' : '/office';
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -73,12 +74,14 @@ try {
             || !hash_equals($_SESSION['crm_lead_board_csrf'], $csrf)) {
             http_response_code(403); exit('Ongeldige formulierbeveiliging.');
         }
+        $routeId = $_GET['id'] ?? null;
         $id = filter_var($_POST['lead_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
         $revision = filter_var($_POST['expected_revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
         $reason = $_POST['change_reason'] ?? null;
         $values = $_POST['fr201'] ?? null;
         if (($_POST['fr201_action'] ?? null) !== 'save_supplement'
             || !is_int($id) || !is_int($revision) || !is_string($reason)
+            || !is_string($routeId) || !ctype_digit($routeId) || (string)$id !== $routeId
             || !is_array($values) || count($values) > 40) {
             http_response_code(400); exit('Ongeldige formuliergegevens.');
         }
@@ -104,7 +107,7 @@ try {
         if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
             http_response_code(400); exit('Ongeldig aanvraagnummer.');
         }
-        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.contact_name,l.contact_email,l.converted_at,l.converted_opportunity_id,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.relation_id,l.contact_name,l.contact_email,l.converted_at,l.converted_opportunity_id,
             s.label AS source_name,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id WHERE l.id=? LIMIT 1");
@@ -162,13 +165,21 @@ if (isset($item)) {
     if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled') {
         try {
             require_once dirname(__DIR__).'/src/Process/OfficeFr201LeadReadiness.php';
+            $fr201Supplement = [];
+            if (getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') === 'enabled') {
+                require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+                $fr201Supplement = (new \Brebo\Office\Process\OfficeFr201Repository($db))->load((int)$item['id'])['data'];
+            }
             $readiness = \Brebo\Office\Process\OfficeFr201LeadReadiness::assess([
                 'source_label' => $item['source_name'] ?? '',
                 'source_detail' => $item['source_detail'] ?? '',
                 'contact_name' => $item['contact_name'] ?? '',
                 'contact_email' => $item['contact_email'] ?? '',
                 'description' => $item['description'] ?? '',
-            ]);
+                'relation_id' => $item['relation_id'] ?? '',
+                'owner_user_id' => $item['owner_operator_id'] ?? '',
+                'received_at' => $item['received_at'] ?? '',
+            ], $fr201Supplement);
             echo '<section aria-label="FR-201 intakecontrole"><h2>FR-201 · Intakecontrole (v1.0)</h2>';
             if ($readiness['complete']) echo '<p>Alle verplichte intakevelden zijn geregistreerd.</p>';
             else {
