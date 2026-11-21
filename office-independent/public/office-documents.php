@@ -118,5 +118,12 @@ try {
 <section><h2>Documentenoverzicht</h2>
 <p>De bestaande inspectierapporten zijn beschikbaar via het beveiligde inspectieoverzicht.<?= is_int($projectId) ? " Projectfilter: " . (int) $projectId . "." : "" ?></p>
 <p><a href="<?= htmlspecialchars($inspectionUrl, ENT_QUOTES, "UTF-8") ?>">Inspectierapporten bekijken</a></p>
+<?php
+$reviewDocumentId = filter_var($_GET['document_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if (is_int($projectId) && is_int($reviewDocumentId)) {
+    $reviewUrl = '/office-test/documenten/adresvoorstellen?project_id=' . $projectId . '&document_id=' . $reviewDocumentId;
+    echo '<p><a href="' . htmlspecialchars($reviewUrl, ENT_QUOTES, 'UTF-8') . '">Adresvoorstellen van dit projectdocument beoordelen</a></p>';
+}
+?>
 <p class="muted">Andere documentsoorten worden hier zichtbaar zodra hun centrale registratie en autorisatie zijn aangesloten.</p>
 </section></main></body></html>
