@@ -10,6 +10,10 @@ on:
       - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
       - 'office-independent/tests/OfficeProcessBlueprintTest.php'
       - 'office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php'
+      - 'office-independent/tests/OfficeBlueprintAdminPageContractTest.php'
+      - 'office-independent/public/office-blueprint-approval-settings.php'
+      - 'office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php'
+      - 'office-independent/schema/office-test-site-administrators.sql'
       - 'office-independent/src/Approval/OfficeApprovalPolicy.php'
       - 'office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php'
       - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
@@ -26,6 +30,10 @@ on:
       - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
       - 'office-independent/tests/OfficeProcessBlueprintTest.php'
       - 'office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php'
+      - 'office-independent/tests/OfficeBlueprintAdminPageContractTest.php'
+      - 'office-independent/public/office-blueprint-approval-settings.php'
+      - 'office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php'
+      - 'office-independent/schema/office-test-site-administrators.sql'
       - 'office-independent/src/Approval/OfficeApprovalPolicy.php'
       - 'office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php'
       - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
@@ -52,6 +60,9 @@ jobs:
             office-independent/tests/OfficeDisciplineCatalogTest.php \
             office-independent/tests/OfficeProcessBlueprintTest.php \
             office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php \
+            office-independent/tests/OfficeBlueprintAdminPageContractTest.php \
+            office-independent/public/office-blueprint-approval-settings.php \
+            office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php \
             office-independent/src/Approval/OfficeApprovalPolicy.php \
             office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php \
             office-independent/tests/OfficeIntakeProcessPlanTest.php \
@@ -62,5 +73,6 @@ jobs:
           php office-independent/tests/OfficeDisciplineCatalogTest.php
           php office-independent/tests/OfficeProcessBlueprintTest.php
           php office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php
+          php office-independent/tests/OfficeBlueprintAdminPageContractTest.php
           php office-independent/tests/OfficeIntakeProcessPlanTest.php
           php office-independent/tests/OfficeBuildingColumnMapTest.php
