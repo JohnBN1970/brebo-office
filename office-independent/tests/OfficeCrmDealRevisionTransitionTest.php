@@ -30,9 +30,19 @@ if (!$repo->transition(1,'opportunity','proposal')) {
 }
 $revision=(int)$db->query('SELECT revision FROM office_crm_opportunities WHERE id=1')->fetchColumn();
 if ($revision!==3) throw new RuntimeException('Each successful transition must invalidate stale Calc launch');
-if ($repo->transition(1,'proposal','won')) {
-    throw new RuntimeException('Invalid stage shortcut must remain blocked');
+if ($repo->transition(1,'proposal','prospect')) {
+    throw new RuntimeException('Invalid backward stage shortcut must remain blocked');
 }
 $revision=(int)$db->query('SELECT revision FROM office_crm_opportunities WHERE id=1')->fetchColumn();
 if ($revision!==3) throw new RuntimeException('Rejected transitions must not advance revision');
+if (!$repo->transition(1,'proposal','won')) {
+    throw new RuntimeException('An accepted proposal may transition directly to won');
+}
+$state=$db->query('SELECT stage,status,revision FROM office_crm_opportunities WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+if (!is_array($state) || $state['stage']!=='won' || $state['status']!=='closed' || (int)$state['revision']!==4) {
+    throw new RuntimeException('Winning a Deal must close it and advance revision');
+}
+if ($repo->transition(1,'won','lost')) {
+    throw new RuntimeException('Closed Deal must reject further stage changes');
+}
 echo "CRM_DEAL_REVISION_TRANSITIONS=PASS\n";
