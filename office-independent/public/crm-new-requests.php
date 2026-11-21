@@ -85,6 +85,8 @@ try {
             || !is_array($values) || count($values) > 40) {
             http_response_code(400); exit('Ongeldige formuliergegevens.');
         }
+        // A lead supplement is editable only for its assigned owner while the
+        // lead remains active and has not been converted to a deal.
         $exists = $db->prepare("SELECT owner_operator_id FROM office_crm_leads WHERE id=? AND status='active' AND converted_opportunity_id IS NULL");
         $exists->execute([$id]);
         $leadOwner = $exists->fetchColumn();
