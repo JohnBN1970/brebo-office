@@ -77,6 +77,15 @@ if ($method==='POST') {
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deal wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select{padding:10px;width:100%}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
+// Offer the existing projectless Calc workbench only for eligible open Deals.
+// The start endpoint independently enforces session, revision, origin, CSRF and ownership.
+if ($item['status']==='open'
+    && in_array($item['stage'],['prospect','opportunity','proposal','negotiation'],true)
+    && getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')==='enabled'
+    && getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')==='enabled') {
+    echo '<p><a href="/office-test/calculatie/start?opportunity_id='.$id.'">Calculatie starten of openen</a> · zonder projectaanmaak</p>';
+}
+
 
 // A won CRM stage alone is not proof of a created Office project.
 // Show only a persisted transfer; never invent a project link.
