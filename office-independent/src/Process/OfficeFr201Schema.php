@@ -8,6 +8,49 @@ namespace Brebo\Office\Process;
  */
 final class OfficeFr201Schema
 {
+    /**
+     * Read-only deployment preflight. The feature flag may be enabled only
+     * after both tables and the revision/audit constraints are present.
+     * @return array{ready:bool,missing:list<string>}
+     */
+    public static function verify(\PDO $db): array
+    {
+        $missing = [];
+        $expected = [
+            'office_crm_lead_fr201' => ['lead_id','document_code','document_version','revision','data_json','updated_by','updated_at'],
+            'office_crm_lead_fr201_events' => ['id','lead_id','revision','actor_operator_id','reason','data_json','created_at'],
+        ];
+        foreach ($expected as $table => $columns) {
+            try {
+                $stmt = $db->query('SHOW COLUMNS FROM `'.$table.'`');
+                $actual = array_column($stmt->fetchAll(\PDO::FETCH_ASSOC), 'Field');
+                foreach ($columns as $column) {
+                    if (!in_array($column, $actual, true)) $missing[] = $table.'.'.$column;
+                }
+            } catch (\PDOException $e) {
+                $missing[] = $table;
+            }
+        }
+        try {
+            $stmt = $db->query("SHOW INDEX FROM office_crm_lead_fr201_events");
+            $indexes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            $unique = [];
+            foreach ($indexes as $index) {
+                if ((int)$index['Non_unique'] !== 0) continue;
+                $unique[$index['Key_name']][(int)$index['Seq_in_index']] = $index['Column_name'];
+            }
+            $found = false;
+            foreach ($unique as $cols) {
+                ksort($cols);
+                if (array_values($cols) === ['lead_id','revision']) { $found = true; break; }
+            }
+            if (!$found) $missing[] = 'office_crm_lead_fr201_events.unique(lead_id,revision)';
+        } catch (\PDOException $e) {
+            $missing[] = 'office_crm_lead_fr201_events.indexes';
+        }
+        return ['ready'=>$missing === [],'missing'=>$missing];
+    }
+
     /** @return list<string> */
     public static function statements(): array
     {
