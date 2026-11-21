@@ -31,8 +31,11 @@ Object.entries(configs).forEach(([type,cfg])=>{
  const clear=()=>zones.forEach(z=>{z.classList.remove('crm-board-drop-target');z.removeAttribute('data-drop-active');});
  const allowed=(card,target)=>!!card&&(cfg.next[stage(card)]||[]).includes(target);
  async function save(card,target){
-  if(busy||!allowed(card,target))return;
-  busy=true;notify('Fasewijziging opslaan...');
+  if(busy)return;
+  if(!allowed(card,target)){notify('Kies een toegestane volgende fase.');return;}
+  busy=true;
+  cards.forEach(item=>{const button=item.querySelector('.lead-move-button');if(button)button.disabled=true;});
+  notify('Fasewijziging opslaan...');
   const params=new URLSearchParams({csrf:root.dataset.csrf,stage:target});
   let url=cfg.endpoint;
   if(type==='lead')params.set('lead_id',id(card));
@@ -48,7 +51,7 @@ Object.entries(configs).forEach(([type,cfg])=>{
    }
    window.location.reload();
   }catch(error){notify(error.message||'Opslaan mislukt. De fase is niet gewijzigd.');}
-  finally{busy=false;moving=null;clear();}
+  finally{busy=false;moving=null;clear();cards.forEach(item=>{const button=item.querySelector('.lead-move-button');if(button)button.disabled=false;});}
  }
  cards.forEach(card=>{
   const targets=cfg.next[stage(card)]||[];
