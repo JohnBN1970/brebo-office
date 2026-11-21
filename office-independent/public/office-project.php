@@ -73,7 +73,7 @@ try {
   // Explicit existing-building association, reusing the canonical Office building writer.
   // Project membership is checked above; never accept an operator ID or a new building from POST.
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['building_link_action'])) {
-    if (!\Brebo\\Office\\Intake\\OfficeMount::isTest() || !$canManage
+    if (!\Brebo\Office\Intake\OfficeMount::isTest() || !$canManage
         || $_POST['building_link_action'] !== 'link_existing_building') {
       http_response_code(403);
       exit('Gebouw koppelen niet toegestaan.');
@@ -92,7 +92,7 @@ try {
     }
     try {
       require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingRepository.php';
-      (new \Brebo\\Office\\Buildings\\OfficeBuildingRepository($db))->linkProject(
+      (new \Brebo\Office\Buildings\OfficeBuildingRepository($db))->linkProject(
         (string)$projectId, (string)$buildingId,
         static fn(string $authorizedProjectId): bool => $canManage && $authorizedProjectId === (string)$projectId
       );
@@ -104,7 +104,7 @@ try {
       http_response_code(503);
       exit('Gebouwkoppeling tijdelijk niet beschikbaar.');
     }
-    header('Location: '.\Brebo\\Office\\Intake\\OfficeMount::basePath().'/projecten/detail?id='.$projectId.'&tab=gebouwen', true, 303);
+    header('Location: '.\Brebo\Office\Intake\OfficeMount::basePath().'/projecten/detail?id='.$projectId.'&tab=gebouwen', true, 303);
     exit;
   }
   // WBS/RBS writes: only project managers in Office-test, with double-submit CSRF.
@@ -418,7 +418,7 @@ if ($buildings === []) {
   }
   $buildingHtml .= '</div>';
 }
-if ($canManage && \Brebo\\Office\\Intake\\OfficeMount::isTest()) {
+if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()) {
   // Selecting an existing active building is explicit; never duplicate building records.
   try {
     $availableBuildingQuery = $db->prepare(
