@@ -29,20 +29,23 @@ jobs:
       - name: Inspect exact active VPS release without changing state
         shell: bash
         env:
-          HOST: ${{ secrets.VPS_DEPLOY_HOST }}
-          PORT: ${{ secrets.VPS_DEPLOY_PORT }}
-          USER: ${{ secrets.VPS_DEPLOY_USER }}
-          KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+          HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
         run: |
           set -euo pipefail
-          for v in HOST PORT USER KEY; do test -n "${!v}" || { echo "::error::Missing VPS secret $v"; exit 1; }; done
+          for v in HOST PORT USER KEY HOST_KEY; do test -n "${!v}" || { echo "::error::Missing VPS secret $v"; exit 1; }; done
           [[ "$PORT" =~ ^[0-9]+$ ]]
           install -d -m 700 ~/.ssh
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           keyfile="$(mktemp ~/.ssh/vps.XXXXXX)"
           trap 'rm -f "$keyfile"' EXIT
           printf '%s\n' "$KEY" > "$keyfile"
           chmod 600 "$keyfile"
-          ssh -i "$keyfile" -p "$PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$USER@$HOST" 'bash -se' <<'REMOTE'
+          ssh -i "$keyfile" -p "$PORT" -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes "$USER@$HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           test "$(id -un)" = brebo-deploy
           release="$(readlink -f /srv/brebo/office-test/current)"
