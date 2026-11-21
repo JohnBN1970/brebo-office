@@ -1,0 +1,58 @@
+name: BREBO CRM-first Calc input contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - 'office-independent/tests/OfficeCalcDealStartRouteContractTest.php'
+      - 'office-independent/public/office-calc-crm-start.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php'
+      - 'office-independent/tests/OfficeCrmOpportunityContractTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionTransitionTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php'
+      - 'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php'
+      - 'office-independent/deployment/hostinger/sql/office-calc-crm-drafts-proposed.sql'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'scripts/deployment/office_test_crm_calc_readiness.php'
+      - '.github/workflows/office-calc-crm-projectless-input.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: Syntax and negative input tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php
+          php -l office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php -l office-independent/public/office-calc-crm-start.php
+          php -l office-independent/public/office-crm-opportunity-transition.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/tests/OfficeCalcDealStartRouteContractTest.php
+          php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
+          php -l scripts/deployment/office_test_crm_calc_readiness.php
+          php -l office-independent/src/Crm/OfficeCrmOpportunitySchema.php
+          php -l office-independent/tests/OfficeCrmOpportunityContractTest.php
+          php office-independent/tests/OfficeCrmOpportunityContractTest.php
+          php -l office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+          php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+          php -l office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php
+          php -l office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
+          php office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
+      - name: Release boundary
+        run: |
+          echo "CRM_FIRST_LAUNCH_INPUT=TESTED"
+          echo "CRM_FIRST_LAUNCH_ENDPOINT=CODE_ONLY_NOT_ACCEPTED"
+          echo "OFFICE_TEST_E2E=NOT_EXECUTED"
+          echo "DATABASE_INSTALL=NOT_EXECUTED"
