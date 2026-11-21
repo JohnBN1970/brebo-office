@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Check required connection settings
         env:
-          VPS_HOST: ${{ secrets.OFFICE_TEST_VPS_HOST }}
+          VPS_HOST: 77.37.34.160
           VPS_USER: ${{ secrets.DEPLOY_USER }}
           VPS_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
@@ -31,7 +31,7 @@ jobs:
           done
       - name: Run preinstalled Office-test read-only preflight
         env:
-          VPS_HOST: ${{ secrets.OFFICE_TEST_VPS_HOST }}
+          VPS_HOST: 77.37.34.160
           VPS_USER: ${{ secrets.DEPLOY_USER }}
           VPS_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           VPS_HOST_KEY: ${{ secrets.OFFICE_TEST_VPS_HOST_KEY }}
