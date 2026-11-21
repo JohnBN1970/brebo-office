@@ -44,8 +44,10 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
           # Reject malformed or empty host key material before any SSH connection.
           ssh-keygen -l -f ~/.ssh/known_hosts >/dev/null
+          # The pinned known_hosts entry must cover the configured SSH port.
+          ssh-keygen -F "[$VPS_HOST]:65002" -f ~/.ssh/known_hosts >/dev/null || { echo "::error::No pinned host key for configured VPS and port 65002."; exit 1; }
           # Require a parseable private key; never print key material.
           ssh-keygen -y -P "" -f ~/.ssh/id_ed25519 >/dev/null
           ssh -p 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
             -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" \
-            'exec /usr/local/bin/brebo-office-test-crm-calc-readiness'
+            'test -x /usr/local/bin/brebo-office-test-crm-calc-readiness || { echo "CRM_CALC_PREFLIGHT=BLOCKED:REMOTE_COMMAND_MISSING"; exit 2; }; exec /usr/local/bin/brebo-office-test-crm-calc-readiness'
