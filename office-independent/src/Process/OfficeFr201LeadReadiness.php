@@ -23,6 +23,7 @@ final class OfficeFr201LeadReadiness
         // Explicit supplementary values are allowed, but never infer REL-ID,
         // contractual identity, project location, scope, or customer authority.
         foreach (OfficeFr201Intake::fields() as $key => $_) {
+            if (in_array($key, ['channel','source_reference','contact_name','contact_email','customer_question','relation_id','owner_user_id'], true)) continue;
             if (array_key_exists($key, $supplement) && is_scalar($supplement[$key])) {
                 $known[$key] = trim((string)$supplement[$key]);
             }
