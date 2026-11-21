@@ -20,7 +20,7 @@ try {
     );
     if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') throw new RuntimeException('MYSQL_REQUIRED');
     $schema = (string)$db->query('SELECT DATABASE()')->fetchColumn();
-    if ($schema === '' || !preg_match('/(?:^|_)test(?:$|_)/iD', $schema)) {
+    if ($schema !== 'u213420663_office_test') {
         throw new RuntimeException('NOT_TEST_SCHEMA');
     }
     $required = [
