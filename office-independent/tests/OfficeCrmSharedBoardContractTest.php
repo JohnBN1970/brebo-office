@@ -20,5 +20,6 @@ $deals=file_get_contents($public.'office-crm-opportunities.php');
 foreach ([$leads,$deals] as $page)
  if (!str_contains($page,'/crm/board.css')) throw new RuntimeException('Shared CSS missing');
 if (!str_contains($leads,'/crm/aanvragen/board.js')) throw new RuntimeException('Lead script missing');
+if (str_contains($deals, 'rel=\\\"stylesheet\\\"')) throw new RuntimeException('Malformed Deals CSS link escaping');
 if (!str_contains($deals,'/crm/verkoopkansen/drag.js')) throw new RuntimeException('Deal script missing');
 echo "CRM_SHARED_BOARD_CONTRACT_OK\n";
