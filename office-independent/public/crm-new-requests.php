@@ -7,9 +7,14 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    header('Allow: GET'); http_response_code(405); exit;
+$requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if (!in_array($requestMethod, ['GET', 'POST'], true)) {
+    header('Allow: GET, POST'); http_response_code(405); exit;
 }
+if ($requestMethod === 'POST' && (
+    getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
+    || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
+)) { http_response_code(403); exit('FR-201 schrijven niet ingeschakeld.'); }
 $base = getenv('OFFICE_BASE_PATH') === '/office-test' ? '/office-test' : '/office';
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 if (!in_array($path, [$base.'/crm/aanvragen', $base.'/crm/aanvragen/detail'], true)) {
@@ -52,6 +57,47 @@ try {
     $active->execute([$operator->operatorId]);
     if ($active->fetchColumn() === false) {
         http_response_code(403); exit('Geen CRM-toegang.');
+    }
+    // Optional FR-201 write: only the authenticated detail endpoint, never board/list.
+    if ($requestMethod === 'POST') {
+        if ($path !== $base.'/crm/aanvragen/detail' || $base !== '/office-test') {
+            http_response_code(405); exit;
+        }
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_name('BREBO_CRM_LEAD_BOARD');
+            session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+            if (!session_start()) { http_response_code(503); exit('Formuliersessie niet beschikbaar.'); }
+        }
+        $csrf = $_POST['csrf_token'] ?? null;
+        if (!is_string($csrf) || !is_string($_SESSION['crm_lead_board_csrf'] ?? null)
+            || !hash_equals($_SESSION['crm_lead_board_csrf'], $csrf)) {
+            http_response_code(403); exit('Ongeldige formulierbeveiliging.');
+        }
+        $id = filter_var($_POST['lead_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $revision = filter_var($_POST['expected_revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
+        $reason = $_POST['change_reason'] ?? null;
+        $values = $_POST['fr201'] ?? null;
+        if (($_POST['fr201_action'] ?? null) !== 'save_supplement'
+            || $id === false || $revision === false || !is_string($reason)
+            || !is_array($values) || count($values) > 40) {
+            http_response_code(400); exit('Ongeldige formuliergegevens.');
+        }
+        $exists = $db->prepare("SELECT id FROM office_crm_leads WHERE id=? AND status='active' AND converted_opportunity_id IS NULL");
+        $exists->execute([$id]);
+        if (!$exists->fetchColumn()) { http_response_code(404); exit('Lead niet beschikbaar.'); }
+        require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+        try {
+            (new \Brebo\Office\Process\OfficeFr201Repository($db))->save(
+                (int)$id, (string)$operator->operatorId, (int)$revision, $values, $reason
+            );
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400); exit('Ongeldige aanvulling of wijzigingsreden.');
+        } catch (\RuntimeException $e) {
+            http_response_code(409); exit('De intake is gewijzigd. Ververs de pagina.');
+        }
+        $_SESSION['crm_lead_board_csrf'] = bin2hex(random_bytes(32));
+        header('Location: '.$base.'/crm/aanvragen/detail?id='.(int)$id, true, 303);
+        exit;
     }
     if ($path === $base.'/crm/aanvragen/detail') {
         $rawId = $_GET['id'] ?? null;
@@ -137,6 +183,22 @@ if (isset($item)) {
             echo '</section>';
         } catch (Throwable $ignored) {
             // Missing optional component never exposes internal errors or bypasses access.
+        }
+    }
+    if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') === 'enabled') {
+        try {
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201FormView.php';
+            $fr201 = (new \Brebo\Office\Process\OfficeFr201Repository($db))->load((int)$item['id']);
+            $fr201CanEdit = getenv('OFFICE_TEST_FR201_WRITE_ENABLED') === 'enabled'
+                && $item['status'] === 'active' && !$item['converted_opportunity_id'];
+            echo \Brebo\Office\Process\OfficeFr201FormView::render(
+                (int)$item['id'], $fr201['data'], $fr201['revision'],
+                $base.'/crm/aanvragen/detail?id='.(int)$item['id'],
+                (string)$_SESSION['crm_lead_board_csrf'], $fr201CanEdit
+            );
+        } catch (Throwable $ignored) {
+            // Fail closed when optional schema or view is unavailable.
         }
     }
     // Read-only linked messages: require both lead and message ACL checks.
