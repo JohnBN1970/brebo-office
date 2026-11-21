@@ -11,10 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify source PHP syntax
+      - name: Verify complete source bundle
         run: |
-          php -l office-independent/public/office-buildings.php
-          php -l office-independent/src/Buildings/OfficeBuildingPdokLocationRepository.php
+          set -euo pipefail
+          files=(public/office-buildings.php src/Buildings/OfficeBuildingPdokLocationRepository.php src/Buildings/OfficeBuildingPdokRequestGuard.php src/Buildings/OfficeBuildingPdokClient.php src/Buildings/OfficeBuildingPdokSaveAction.php src/Buildings/OfficeBuildingPdokSchemaMigration.php)
+          for file in "${files[@]}"; do php -l "office-independent/$file"; done
+          php office-independent/tests/OfficeBuildingPdokSchemaMigrationTest.php
+          php office-independent/tests/OfficeBuildingPdokSecurityTest.php
+          tar -czf /tmp/office-buildings-bundle.tgz -C office-independent "${files[@]}"
       - name: Configure SSH
         env:
           KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -24,62 +28,68 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-      - name: Stage source file
+      - name: Stage complete source bundle
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/public/office-buildings.php "$USER@$HOST:/tmp/office-buildings-${GITHUB_RUN_ID}.php"
-          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" office-independent/src/Buildings/OfficeBuildingPdokLocationRepository.php "$USER@$HOST:/tmp/office-building-pdok-repo-${GITHUB_RUN_ID}.php"
-      - name: Back up and deploy to active Office-test release
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -P "$PORT" /tmp/office-buildings-bundle.tgz "$USER@$HOST:/tmp/office-buildings-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tgz"
+      - name: Back up and deploy complete bundle (no DB operations)
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           PORT: ${{ secrets.DEPLOY_PORT }}
           USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID bash -se" <<'REMOTE'
+          sha="$(sha256sum /tmp/office-buildings-bundle.tgz | cut -d' ' -f1)"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/id_deploy -p "$PORT" "$USER@$HOST" "GITHUB_RUN_ID=$GITHUB_RUN_ID GITHUB_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT BUNDLE_SHA=$sha bash -se" <<'REMOTE'
           set -euo pipefail
+          umask 077
           root="$HOME/domains/brebobv.nl/office_calc_test"
-          active="$(php -r '$c=require $argv[1]; echo $c["OFFICE_PRIVATE_ROOT"] ?? "";' "$root/config/config.php")"
+          active="$(php -r '$c=require $argv[1]; if (($c["OFFICE_BASE_PATH"]??null)!=="/office-test") exit(2); echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$root/config/config.php")"
           case "$active" in "$root"/release-*/private) ;; *) echo INVALID_RELEASE_SCOPE; exit 21;; esac
-          test -d "$active/public"
-          src="/tmp/office-buildings-${GITHUB_RUN_ID}.php"
-          repo_src="/tmp/office-building-pdok-repo-${GITHUB_RUN_ID}.php"
-          dest="$active/public/office-buildings.php"
-          repo_dest="$active/src/Buildings/OfficeBuildingPdokLocationRepository.php"
-          test -f "$src" && test -f "$repo_src" && test -f "$dest"
-          test -d "$active/src/Buildings"
-          php -l "$src"
-          php -l "$repo_src"
-          backup="$dest.backup-${GITHUB_RUN_ID}"
-          repo_backup="$repo_dest.backup-${GITHUB_RUN_ID}"
-          cp -p "$dest" "$backup"
-          repo_existed=0
-          if test -f "$repo_dest"; then
-            repo_existed=1
-            cp -p "$repo_dest" "$repo_backup"
-          fi
+          test "$(realpath "$active")" = "$active"
+          test -d "$active/public" && test -d "$active/src/Buildings"
+          archive="/tmp/office-buildings-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tgz"
+          test "$(sha256sum "$archive" | cut -d' ' -f1)" = "$BUNDLE_SHA"
+          stage="$(mktemp -d "$root/.buildings-stage.XXXXXXXX")"
+          cleanup() { rm -f "$archive"; rm -rf "$stage"; }
+          trap cleanup EXIT
+          tar -xzf "$archive" -C "$stage"
+          # Dependencies first; page last. Never invoke migration apply here.
+          files=(src/Buildings/OfficeBuildingPdokLocationRepository.php src/Buildings/OfficeBuildingPdokRequestGuard.php src/Buildings/OfficeBuildingPdokClient.php src/Buildings/OfficeBuildingPdokSaveAction.php src/Buildings/OfficeBuildingPdokSchemaMigration.php public/office-buildings.php)
+          backup="$root/backups/buildings-code/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test ! -e "$backup"
+          mkdir -p "$backup"
+          chmod 700 "$backup"
+          for file in "${files[@]}"; do
+            test -f "$stage/$file"
+            php -l "$stage/$file"
+            test ! -L "$active/$file"
+            if test -f "$active/$file"; then
+              mkdir -p "$backup/$(dirname "$file")"
+              cp -p "$active/$file" "$backup/$file"
+              cmp -s "$active/$file" "$backup/$file"
+            fi
+          done
           rollback() {
-            cp -p "$backup" "$dest"
-            if test "$repo_existed" = 1; then cp -p "$repo_backup" "$repo_dest"; else rm -f "$repo_dest"; fi
+            trap - ERR INT TERM
+            for file in "${files[@]}"; do
+              if test -f "$backup/$file"; then cp -p "$backup/$file" "$active/$file"; else rm -f "$active/$file"; fi
+            done
             echo BUILDINGS_DEPLOY_ROLLED_BACK
           }
-          trap 'rm -f "$src" "$repo_src"' EXIT
-          if ! cp "$repo_src" "$repo_dest" || ! php -l "$repo_dest" || ! cp "$src" "$dest" || ! php -l "$dest"; then
-            rollback
-            exit 31
-          fi
-          if ! cmp -s "$src" "$dest" || ! cmp -s "$repo_src" "$repo_dest"; then
-            rollback
-            exit 32
-          fi
+          trap 'rollback; exit 31' ERR INT TERM
+          for file in "${files[@]}"; do
+            install -m 644 "$stage/$file" "$active/$file.new"
+            mv "$active/$file.new" "$active/$file"
+            php -l "$active/$file"
+            cmp -s "$stage/$file" "$active/$file"
+            echo "VERIFIED_FILE=$file SHA256=$(sha256sum "$active/$file" | cut -d' ' -f1)"
+          done
+          trap - ERR INT TERM
           echo BUILDINGS_DEPLOY_OK
-          echo "SOURCE_SHA=$(sha256sum "$src" | cut -d' ' -f1)"
-          echo "ACTIVE_SHA=$(sha256sum "$dest" | cut -d' ' -f1)"
-          echo "REPO_SOURCE_SHA=$(sha256sum "$repo_src" | cut -d' ' -f1)"
-          echo "REPO_ACTIVE_SHA=$(sha256sum "$repo_dest" | cut -d' ' -f1)"
           echo "BACKUP_PATH=$backup"
           REMOTE
