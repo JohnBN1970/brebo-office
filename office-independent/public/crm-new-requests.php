@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     header('Allow: GET'); http_response_code(405); exit;
 }
@@ -206,6 +206,7 @@ if (isset($item)) {
     echo '</div></section>';
     $listUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'lijst']));
     $boardUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['weergave'=>'kanban']));
+    echo '<form method="get" class="crm-board-toolbar" aria-label="Leadfilters"><label>Fase <select name="fase"><option value="">Alle fasen</option>'; foreach ($stages as $code=>$label) echo '<option value="'.$h($code).'"'.($stageFilter===$code?' selected':'').'>'.$h($label).'</option>'; echo '</select></label><label>Bron <select name="bron"><option value="">Alle bronnen</option>'; foreach ($sourceStats as $source) echo '<option value="'.$h($source['code']).'"'.($sourceFilter===$source['code']?' selected':'').'>'.$h($source['label']).'</option>'; echo '</select></label><label>Eigenaar <select name="eigenaar"><option value="">Alle eigenaren</option>'; foreach ($ownerStats as $owner) { $oid=(string)$owner['owner']; echo '<option value="'.$h($oid).'"'.($ownerFilterActive&&$ownerFilter===$oid?' selected':'').'>'.$h($oid===''?'Niet toegewezen':$oid).'</option>'; } echo '</select></label><input type="hidden" name="weergave" value="'.$h($view).'"><button type="submit">Filter toepassen</button><a href="'.$h($base).'/crm/aanvragen?weergave='.$h($view).'">Wis filters</a></form>';
     echo '<nav aria-label="Weergave"><a href="'.$h($listUrl).'"'.($view==='lijst'?' aria-current="page"':'').'>Lijst</a> · <a href="'.$h($boardUrl).'"'.($view==='kanban'?' aria-current="page"':'').'>Kanban</a></nav>';
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
