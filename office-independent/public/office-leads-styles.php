@@ -92,3 +92,8 @@ html[data-theme="light"] .lead-source-legend__item,body[data-theme="light"] .lea
 html[data-theme="light"] .lead-source-legend__item strong,body[data-theme="light"] .lead-source-legend__item strong{color:#182b40!important}
 html[data-theme="light"] .lead-source-legend__item small,body[data-theme="light"] .lead-source-legend__item small{color:#334b63!important}
 @media(max-width:760px){.lead-source-summary{grid-template-columns:1fr;gap:20px}.lead-source-pie{width:min(100%,260px)}.lead-source-legend{grid-template-columns:1fr}}
+
+/* Lead cards are draggable; links inside remain clickable. */
+.lead-kanban-card[draggable="true"]{cursor:grab;user-select:none;touch-action:pan-y}
+.lead-kanban-card[draggable="true"]:active{cursor:grabbing}
+.lead-kanban-card[draggable="true"]:focus-within{outline:2px solid #83baff;outline-offset:2px}
