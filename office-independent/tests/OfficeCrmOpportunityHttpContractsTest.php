@@ -37,6 +37,33 @@ foreach (['data-crm-id','data-crm-stage','draggable='] as $check) {
 foreach (['URLSearchParams','credentials:\'same-origin\'','/office-test/crm/verkoopkansen/fase','window.location.reload()'] as $check) {
     if (!str_contains($drag,$check)) throw new RuntimeException('Kanban drag missing '.$check);
 }
+// Leads and Deals share exactly one board script; stale PR-specific drag scripts are not required.
+$sharedBoard=file_get_contents($root.'/public/office-crm-shared-board.js');
+$sharedStyle=file_get_contents($root.'/public/office-crm-shared-board.css');
+$leadView=file_get_contents($root.'/public/crm-new-requests.php');
+$leadTransition=file_get_contents($root.'/public/office-crm-lead-board-transition.php');
+foreach (['public/index.php','deployment/hostinger/office-test-index.php'] as $router) {
+    $source=file_get_contents($root.'/'.$router);
+    foreach ([
+        "'/office-test/crm/aanvragen/board.js' => 'office-crm-kanban-drag.php'",
+        "'/office-test/crm/aanvragen/fase' => 'office-crm-lead-board-transition.php'",
+        "'/office-test/crm/board.css' => 'office-crm-shared-board-style.php'",
+    ] as $route) {
+        if (!str_contains($source,$route)) throw new RuntimeException('Shared CRM board route missing in '.$router.': '.$route);
+    }
+}
+foreach (["lead-board", "crm-kanban-drag", "credentials:'same-origin'", "window.location.reload()", "button.disabled=true", "button.disabled=false"] as $marker) {
+    if (!str_contains($sharedBoard,$marker)) throw new RuntimeException('Shared CRM board interaction missing: '.$marker);
+}
+foreach (['/crm/aanvragen/board.js', '/crm/board.css', 'lead-move-button', 'data-lead-id'] as $marker) {
+    if (!str_contains($leadView,$marker)) throw new RuntimeException('Lead page shared board mount missing: '.$marker);
+}
+foreach (['OFFICE_CRM_LEADS_WRITE_ENABLED', 'FOR UPDATE', 'office_crm_lead_events', 'hash_equals'] as $marker) {
+    if (!str_contains($leadTransition,$marker)) throw new RuntimeException('Lead stage persistence guard missing: '.$marker);
+}
+if (!str_contains($sharedStyle,'cursor:grab') || !str_contains($sharedStyle,'pointer:coarse')) {
+    throw new RuntimeException('Shared CRM drag affordances missing');
+}
 // A closed Deal must remain readable but cannot offer phase transitions; project handoff stays separate.
 $transition=file_get_contents($root.'/public/office-crm-opportunity-transition.php');
 foreach (["status']==='open'", "item['status'] !== 'open'", "create_direct_project", "transferForOperator", "OfficeCrmProjectHandoff", "crm_opportunity_csrf"] as $check) {
