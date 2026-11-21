@@ -10,7 +10,7 @@ foreach ([
     'link_existing_building',
     'OfficeNativeProjectAccess($db))->canManage',
     'OfficeMount::isTest()',
-    "hash_equals($cookie, $csrf)",
+    'hash_equals($cookie, $csrf)',
     'OfficeBuildingRepository($db))->linkProject',
     'SELECT id, building_name, street_address, postal_code, city FROM office_buildings',
     'office_project_buildings WHERE project_id=?',
