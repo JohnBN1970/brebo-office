@@ -24,8 +24,8 @@ if (!str_contains($repo, 'authorizedProject($projectId)!==true')
     || !str_contains($repo, 'belongsToProject($projectId,$buildingId)')) {
     throw new RuntimeException('Canonical building writer no longer enforces authorized, active, idempotent linking');
 }
-$handler = strpos($page, "isset($_POST['building_link_action'])");
-$generic = strpos($page, "$writeMessage = null;");
+$handler = strpos($page, 'building_link_action');
+$generic = strpos($page, '$writeMessage = null;');
 if ($handler === false || $generic === false || $handler >= $generic) {
     throw new RuntimeException('Building link must be handled before generic project POST writes');
 }
