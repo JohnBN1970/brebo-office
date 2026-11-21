@@ -1,0 +1,40 @@
+name: Office-test CRM Calc database readiness (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: office-test-crm-calc-db-readiness
+  cancel-in-progress: false
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: PHP syntax check
+        run: php -l office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php
+      - name: Verify pinned SSH host identity and stage audit
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          OFFICE_TEST_VPS_KNOWN_HOSTS: ${{ secrets.OFFICE_TEST_VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$OFFICE_TEST_VPS_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/office_test_key"
+          chmod 600 "$HOME/.ssh/office_test_key"
+          printf '%s\n' "$OFFICE_TEST_VPS_KNOWN_HOSTS" > "$HOME/.ssh/office_test_known_hosts"
+          chmod 600 "$HOME/.ssh/office_test_known_hosts"
+          ssh-keygen -lf "$HOME/.ssh/office_test_known_hosts" >/dev/null
+          ssh-keygen -F '[77.37.34.160]:65002' -f "$HOME/.ssh/office_test_known_hosts" >/dev/null
+          SSH_OPTS=(-i "$HOME/.ssh/office_test_key" -p 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/office_test_known_hosts" -o ConnectTimeout=10)
+          ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+          ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@77.37.34.160" "test -d '$ROOT' && mkdir -p '$ROOT/.crm-calc-readiness-stage'"
+          scp -i "$HOME/.ssh/office_test_key" -P 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/office_test_known_hosts" office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php "$DEPLOY_USER@77.37.34.160:$ROOT/.crm-calc-readiness-stage/audit-office-crm-calc-readonly.php"
+          ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@77.37.34.160" 'set -eu; ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test; SCRIPT="$ROOT/.crm-calc-readiness-stage/audit-office-crm-calc-readonly.php"; PHP=/opt/alt/php83/usr/bin/php; test -f "$SCRIPT"; "$PHP" -l "$SCRIPT"; export OFFICE_BASE_PATH=/office-test; export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"; "$PHP" "$SCRIPT"'
