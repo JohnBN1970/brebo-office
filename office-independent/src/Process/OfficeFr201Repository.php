@@ -49,8 +49,6 @@ final class OfficeFr201Repository
             }
             $data[$key] = trim($value);
         }
-        // Persist only supplement fields; a missing submitted field must not erase
-        // previously saved facts when the form is extended in later versions.
         $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
         try {
