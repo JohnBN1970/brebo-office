@@ -42,6 +42,10 @@ jobs:
           printf '%s\n' "$VPS_KEY" > ~/.ssh/id_ed25519
           printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+          # Reject malformed or empty host key material before any SSH connection.
+          ssh-keygen -l -f ~/.ssh/known_hosts >/dev/null
+          # Require a parseable private key; never print key material.
+          ssh-keygen -y -P "" -f ~/.ssh/id_ed25519 >/dev/null
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
             -i ~/.ssh/id_ed25519 "$VPS_USER@$VPS_HOST" \
             'exec /usr/local/bin/brebo-office-test-crm-calc-readiness'
