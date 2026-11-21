@@ -9,6 +9,9 @@ on:
       - 'office-independent/src/Buildings/OfficeBuildingColumnMap.php'
       - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
       - 'office-independent/tests/OfficeProcessBlueprintTest.php'
+      - 'office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php'
+      - 'office-independent/src/Approval/OfficeApprovalPolicy.php'
+      - 'office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php'
       - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
       - 'office-independent/tests/OfficeBuildingColumnMapTest.php'
       - 'office-independent/deployment/hostinger/audit-office-intake-readonly.php'
@@ -22,6 +25,9 @@ on:
       - 'office-independent/src/Buildings/OfficeBuildingColumnMap.php'
       - 'office-independent/tests/OfficeDisciplineCatalogTest.php'
       - 'office-independent/tests/OfficeProcessBlueprintTest.php'
+      - 'office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php'
+      - 'office-independent/src/Approval/OfficeApprovalPolicy.php'
+      - 'office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php'
       - 'office-independent/tests/OfficeIntakeProcessPlanTest.php'
       - 'office-independent/tests/OfficeBuildingColumnMapTest.php'
       - '.github/workflows/office-process-blueprint-contract.yml'
@@ -45,6 +51,9 @@ jobs:
             office-independent/src/Buildings/OfficeBuildingColumnMap.php \
             office-independent/tests/OfficeDisciplineCatalogTest.php \
             office-independent/tests/OfficeProcessBlueprintTest.php \
+            office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php \
+            office-independent/src/Approval/OfficeApprovalPolicy.php \
+            office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php \
             office-independent/tests/OfficeIntakeProcessPlanTest.php \
             office-independent/tests/OfficeBuildingColumnMapTest.php \
             office-independent/deployment/hostinger/audit-office-intake-readonly.php; do
@@ -52,5 +61,6 @@ jobs:
           done
           php office-independent/tests/OfficeDisciplineCatalogTest.php
           php office-independent/tests/OfficeProcessBlueprintTest.php
+          php office-independent/tests/OfficeBlueprintApprovalModeRepositoryTest.php
           php office-independent/tests/OfficeIntakeProcessPlanTest.php
           php office-independent/tests/OfficeBuildingColumnMapTest.php
