@@ -11,7 +11,18 @@ use DomainException;
  */
 final class OfficeProjectKickstartRepository
 {
-    public function __construct(private readonly PDO $db) {}
+    /**
+     * Mode must be supplied from trusted server configuration or a versioned
+     * blueprint snapshot, never from POST, role preview or query parameters.
+     */
+    public function __construct(
+        private readonly PDO $db,
+        private readonly string $approvalMode = 'four_eyes'
+    ) {
+        if (!in_array($approvalMode, ['single', 'four_eyes'], true)) {
+            throw new DomainException('Invalid start dossier approval mode');
+        }
+    }
 
     /**
      * Initialize a single project start dossier. The controller must resolve
@@ -180,8 +191,15 @@ final class OfficeProjectKickstartRepository
                 // Project leader identity is derived from the locked project assignment.
                 if ((int)$row['project_leader_user_id'] !== $actorId) throw new DomainException('Project leader required');
                 $this->record($dossierId, $revision, $actorId, 'approved_first', $note);
-                $this->setStatus($dossierId, 'awaiting_second_approval', $revision);
-                $next = 'awaiting_second_approval';
+                if ($this->approvalMode === 'single') {
+                    // The project leader is already verified above. Preserve
+                    // the immutable approval event and all dossier checks.
+                    $this->setStatus($dossierId, 'released', $revision);
+                    $next = 'released';
+                } else {
+                    $this->setStatus($dossierId, 'awaiting_second_approval', $revision);
+                    $next = 'awaiting_second_approval';
+                }
             } elseif ($status === 'awaiting_second_approval') {
                 $first = $this->db->prepare("SELECT actor_user_id, dossier_revision FROM office_project_start_approvals WHERE dossier_id = ? AND dossier_revision = ? AND decision = 'approved_first' ORDER BY id DESC LIMIT 1");
                 $first->execute([$dossierId,$revision]);
