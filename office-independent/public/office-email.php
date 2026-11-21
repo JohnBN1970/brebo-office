@@ -571,6 +571,13 @@ h2{margin-top:0}table{width:100%;border-collapse:collapse;background:white}td,th
 <a href="/office-test/email">Postvak IN</a> <a href="/office-test/email?view=board">Werkverdeling</a>
 <span class="muted">Persoonlijke push: nog niet aangesloten</span>
 </div>
+<?php if (!$mailSchemaReady): ?>
+<section class="candidate-panel" role="status" aria-label="E-mail nog niet geactiveerd">
+<h2>Postvak IN nog niet beschikbaar</h2>
+<p>De Mail-database is voor deze testomgeving nog niet vrijgegeven. De inbox blijft uitgeschakeld totdat de tabellen en toegangsrechten gecontroleerd zijn.</p>
+<p class="muted">Beheercontrole: voer de bestaande read-only CLI-preflight <code>office-independent/bin/office-mail-preflight.php</code> uit met de Office-test configuratie. Activeer geen mailflags zonder een geslaagde schemacontrole.</p>
+</section>
+<?php endif; ?>
 <?php if ($mailSchemaReady): ?>
 <section id="mailbord"><h2><?= $mailView === "board" ? "Werkverdeling per module" : ($mailFolder === "sent" ? "Verzonden" : "Postvak IN") ?></h2><p class="muted">Persoonlijke berichten blijven privé. Office-labels zijn werkverdeling, geen afzonderlijke mailboxen.</p>
 <?php if (!$boardEnabled): ?><p class="status">Modulebord-database nog niet geactiveerd.</p>
