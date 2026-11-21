@@ -1,0 +1,31 @@
+name: BREBO CRM-first Calc input contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - '.github/workflows/office-calc-crm-projectless-input.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Syntax and negative input tests
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php
+          php -l office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+      - name: Release boundary
+        run: |
+          echo "CRM_FIRST_LAUNCH_INPUT=TESTED"
+          echo "CRM_FIRST_LAUNCH_ENDPOINT=NOT_IMPLEMENTED"
+          echo "OFFICE_TEST_E2E=NOT_EXECUTED"
+          echo "DATABASE_INSTALL=NOT_EXECUTED"
