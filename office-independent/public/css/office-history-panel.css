@@ -16,3 +16,9 @@
 .office-history-event p{margin:8px 0 0;overflow-wrap:anywhere}
 .office-history-empty{margin:8px 0}
 @media(max-width:720px){.office-history-disclosure[open]{width:100%}.office-history-content{max-height:50vh}}
+
+/* Lead detail integration: main record and right-hand history share one layout. */
+.office-lead-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(48px,340px);align-items:start;gap:20px}
+.office-lead-detail-main{min-width:0}
+.office-lead-detail-layout>.office-history-panel{position:sticky;top:16px}
+@media(max-width:850px){.office-lead-detail-layout{grid-template-columns:minmax(0,1fr)}.office-lead-detail-layout>.office-history-panel{position:static}}
