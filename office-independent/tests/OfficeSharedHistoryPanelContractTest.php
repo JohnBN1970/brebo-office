@@ -7,6 +7,9 @@ use Brebo\Office\Shared\OfficeHistoryPanel;
 $html = OfficeHistoryPanel::render([
     ['actor' => '<script>alert(1)</script>', 'action' => 'Fase teruggezet', 'occurred_at' => '2026-11-21 08:30', 'detail' => 'Gekwalificeerd → Contact gelegd'],
 ]);
+if (!str_contains($html, '<details class="office-history-disclosure" open>') || !str_contains($html, '<summary class="office-history-toggle">Historie</summary>')) {
+    throw new RuntimeException('History disclosure must be accessible and initially expanded');
+}
 if (str_contains($html, '<script>') || !str_contains($html, '&lt;script&gt;')) {
     throw new RuntimeException('History output must escape untrusted content');
 }
