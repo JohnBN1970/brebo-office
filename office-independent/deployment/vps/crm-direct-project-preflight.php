@@ -138,6 +138,20 @@ foreach ($required as $table=>$fields) {
     } else $pass('SCHEMA_'.$table);
 }
 
+// Project and building screens must read the same canonical Office building columns.
+// This is a read-only gate. Never silently accept a legacy schema or create a table.
+foreach ([
+    'office_buildings' => ['id','building_name','street_address','postal_code','city'],
+    'office_project_buildings' => ['project_id','building_id'],
+] as $table => $fields) {
+    if (($engines[$table] ?? null) !== 'InnoDB'
+        || array_diff($fields, array_keys($columns[$table] ?? [])) !== []) {
+        $fail('CANONICAL_BUILDING_SCHEMA_'.$table);
+    } else {
+        $pass('CANONICAL_BUILDING_SCHEMA_'.$table);
+    }
+}
+
 $projectColumns = $columns['office_projects'] ?? [];
 foreach ($projectColumns as $name=>$meta) {
     if (in_array($name,['id','title','status','code','description'],true)) continue;

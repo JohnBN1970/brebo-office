@@ -303,11 +303,11 @@ try {
   }
   // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
   $buildingQuery = $db->prepare(
-    'SELECT b.id, b.name, b.address_line, b.postal_code, b.city
+    'SELECT b.id, b.building_name AS name, b.street_address AS address_line, b.postal_code, b.city
      FROM office_project_buildings pb
      INNER JOIN office_buildings b ON b.id = pb.building_id
      WHERE pb.project_id = :project_id
-     ORDER BY b.name, b.id LIMIT 100'
+     ORDER BY b.building_name, b.id LIMIT 100'
   );
   $buildingQuery->execute([':project_id' => $projectId]);
   $buildings = $buildingQuery->fetchAll(PDO::FETCH_ASSOC);
@@ -317,12 +317,12 @@ try {
   $schemaCheck = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_housing_types', 'office_project_housing_types')");
   if ((int) $schemaCheck->fetchColumn() === 2) {
     $housingQuery = $db->prepare(
-      'SELECT b.id AS building_id, b.name AS building_name, ht.id AS housing_type_id, ht.code, ht.name, pht.dwelling_count
+      'SELECT b.id AS building_id, b.building_name, ht.id AS housing_type_id, ht.code, ht.name, pht.dwelling_count
        FROM office_project_housing_types pht
        INNER JOIN office_housing_types ht ON ht.id = pht.housing_type_id AND ht.building_id = pht.building_id
        INNER JOIN office_project_buildings pb ON pb.project_id = pht.project_id AND pb.building_id = pht.building_id
        INNER JOIN office_buildings b ON b.id = pb.building_id
-       WHERE pht.project_id = :project_id ORDER BY b.name, ht.name LIMIT 200'
+       WHERE pht.project_id = :project_id ORDER BY b.building_name, ht.name LIMIT 200'
     );
     $housingQuery->execute([':project_id' => $projectId]);
     $housingTypes = $housingQuery->fetchAll(PDO::FETCH_ASSOC);
