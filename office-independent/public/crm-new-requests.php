@@ -78,7 +78,7 @@ try {
         $reason = $_POST['change_reason'] ?? null;
         $values = $_POST['fr201'] ?? null;
         if (($_POST['fr201_action'] ?? null) !== 'save_supplement'
-            || $id === false || $revision === false || !is_string($reason)
+            || !is_int($id) || !is_int($revision) || !is_string($reason)
             || !is_array($values) || count($values) > 40) {
             http_response_code(400); exit('Ongeldige formuliergegevens.');
         }
