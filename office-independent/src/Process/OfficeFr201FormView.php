@@ -12,7 +12,7 @@ final class OfficeFr201FormView
     /** Lead master fields are displayed by CRM, never duplicated here. */
     private const MASTER_FIELDS = [
         'channel', 'source_reference', 'contact_name', 'contact_email',
-        'customer_question', 'relation_id', 'owner_user_id',
+        'customer_question', 'relation_id', 'owner_user_id', 'received_at',
     ];
 
     public static function render(
