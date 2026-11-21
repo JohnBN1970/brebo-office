@@ -8,6 +8,7 @@ on:
       - 'office-independent/public/office-calc-crm-start.php'
       - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'scripts/deployment/office_test_crm_calc_readiness.php'
       - '.github/workflows/office-calc-crm-projectless-input.yml'
   workflow_dispatch:
 permissions:
@@ -32,6 +33,7 @@ jobs:
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeCalcDealStartRouteContractTest.php
           php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
+          php -l scripts/deployment/office_test_crm_calc_readiness.php
       - name: Release boundary
         run: |
           echo "CRM_FIRST_LAUNCH_INPUT=TESTED"
