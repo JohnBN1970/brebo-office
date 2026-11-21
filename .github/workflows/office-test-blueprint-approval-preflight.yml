@@ -1,0 +1,66 @@
+name: Office-test blueprint approval VPS preflight
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type BLUEPRINT-APPROVAL-PREFLIGHT (read-only)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/develop' && inputs.confirmation == 'BLUEPRINT-APPROVAL-PREFLIGHT'
+    runs-on: ubuntu-latest
+    environment: office-test-vps
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check schema and PHP syntax
+        run: |
+          set -euo pipefail
+          php -l office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php
+          php -l office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php
+          php -l office-independent/public/office-blueprint-approval-settings.php
+          test -s office-independent/schema/office-test-site-administrators.sql
+          test -s office-independent/schema/office-test-blueprint-approval-modes.sql
+      - name: Inspect isolated VPS release and approval gates (no mutations)
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do
+            test -n "${!key}" || { echo "::error::Missing VPS configuration: $key"; exit 1; }
+          done
+          test "$VPS_USER" = brebo-deploy
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          keyfile="$(mktemp ~/.ssh/blueprint-preflight.XXXXXXXX)"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$VPS_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts >/dev/null
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -i "$keyfile" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -eu
+          root=/srv/brebo/office-test
+          release="$(readlink -f "$root/current" || true)"
+          case "$release" in "$root"/releases/*) ;; *) echo "INVALID_RELEASE_PATH"; exit 1;; esac
+          for file in public/office-blueprint-approval-settings.php src/Approval/OfficeTestSiteAdministratorAccess.php schema/office-test-site-administrators.sql schema/office-test-blueprint-approval-modes.sql; do
+            test -f "$release/$file" || { echo "MISSING_RELEASE_FILE:$file"; exit 1; }
+          done
+          echo "BLUEPRINT_RELEASE_FILES=present"
+          if test -f "$release/.office-source-sha"; then
+            printf 'RELEASE_SHA='
+            cat "$release/.office-source-sha"
+          fi
+          echo "DB_SCHEMA=not_checked_no_db_credentials"
+          echo "ADMIN_GRANTS=not_checked_no_db_credentials"
+          echo "FEATURE_FLAGS=not_checked_no_runtime_config_access"
+          echo "NO_CHANGES_APPLIED=true"
+          REMOTE
