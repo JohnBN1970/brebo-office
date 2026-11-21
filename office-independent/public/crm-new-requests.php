@@ -65,6 +65,25 @@ try {
         $stmt->execute([(int)$rawId]);
         $item = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$item) { http_response_code(404); exit('Aanvraag niet gevonden.'); }
+        // Read only the current lead's event trail after authenticated CRM access.
+        $eventStmt = $db->prepare('SELECT actor_operator_id,event_type,old_stage,new_stage,note,created_at FROM office_crm_lead_events WHERE lead_id=? ORDER BY created_at DESC,id DESC LIMIT 100');
+        $eventStmt->execute([(int)$item['id']]);
+        $stageLabels = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];
+        $leadHistory = [];
+        foreach ($eventStmt->fetchAll(PDO::FETCH_ASSOC) as $event) {
+            $old = (string)($event['old_stage'] ?? '');
+            $new = (string)($event['new_stage'] ?? '');
+            $detail = $old !== '' || $new !== ''
+                ? ($stageLabels[$old] ?? $old).' → '.($stageLabels[$new] ?? $new)
+                : (string)($event['note'] ?? '');
+            $leadHistory[] = [
+                'actor'=>(string)($event['actor_operator_id'] ?: 'Systeem'),
+                'action'=>$event['event_type'] === 'stage_changed' ? 'Fase gewijzigd' : 'Leadactiviteit',
+                'occurred_at'=>(string)$event['created_at'],
+                'detail'=>$detail,
+            ];
+        }
+
     } else {
         $stageFilter = $_GET['fase'] ?? '';
         if (!is_string($stageFilter) || strlen($stageFilter) > 32 || ($stageFilter !== '' && !preg_match('/^[a-z0-9_-]+$/D', $stageFilter))) { http_response_code(400); exit('Ongeldige fase.'); }
@@ -111,7 +130,8 @@ if (isset($item)) {
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
-    echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    echo '<div class="office-lead-detail-layout"><div class="office-lead-detail-main"><section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    // Shared history rail is rendered after the main lead content.\n
     // Read-only linked messages: require both lead and message ACL checks.
     if ($base === '/office-test' && getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
         try {
@@ -141,6 +161,10 @@ if (isset($item)) {
             // Fail closed: unavailable mail data must never break lead details.
         }
     }
+    echo '</div>'; // Main detail column.
+    require_once dirname(__DIR__).'/src/Shared/OfficeHistoryPanel.php';
+    echo \Brebo\Office\Shared\OfficeHistoryPanel::render($leadHistory);
+    echo '</div>'; // Detail grid.
 } else {
     echo '<h1>Aanvragen · Leads</h1><p>Alleen actieve, nog niet omgezette leads. Bestaande klanten horen bij Deals.</p><p><a href="'.$h($base).'/crm/aanvragen/nieuw">+ Nieuwe lead</a></p><div class="leads-dashboard">';
     $stages = ['new'=>'Nieuw','contacted'=>'Contact gelegd','qualified'=>'Gekwalificeerd','accepted'=>'Geaccepteerd'];

@@ -61,6 +61,7 @@ $routes = [
   '/office-test/crm/aanvragen/stijl.css' => 'office-leads-styles.php',
   '/office-test/crm/aanvragen/board.js' => 'office-crm-kanban-drag.php',
   '/office-test/crm/board.css' => 'office-crm-shared-board-style.php',
+  '/office-test/css/office-history-panel.css' => 'office-history-panel-style.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/nieuw' => 'office-crm-lead-create.php',

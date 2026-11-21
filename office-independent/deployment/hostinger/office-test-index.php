@@ -90,6 +90,7 @@ $routes = [
   '/office-test/crm/verkoopkansen/fase' => 'office-crm-opportunity-transition.php',
   '/office-test/crm/verkoopkansen/drag.js' => 'office-crm-kanban-drag.php',
   '/office-test/crm/board.css' => 'office-crm-shared-board-style.php',
+  '/office-test/css/office-history-panel.css' => 'office-history-panel-style.php',
   '/office-test/crm/aanvragen/stijl.css' => 'office-leads-styles.php',
   '/office-test/crm/aanvragen/board.js' => 'office-crm-kanban-drag.php',
   '/office-test/crm/aanvragen/fase' => 'office-crm-lead-board-transition.php',
