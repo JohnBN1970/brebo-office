@@ -19,6 +19,9 @@ final class OfficeFr201LeadReadiness
             'contact_name' => self::string($lead['contact_name'] ?? ''),
             'contact_email' => self::string($lead['contact_email'] ?? ''),
             'customer_question' => self::string($lead['description'] ?? ''),
+            'relation_id' => self::string($lead['relation_id'] ?? ''),
+            'owner_user_id' => self::string($lead['owner_user_id'] ?? ''),
+            'received_at' => self::string($lead['received_at'] ?? ''),
         ];
         // Explicit supplementary values are allowed, but never infer REL-ID,
         // contractual identity, project location, scope, or customer authority.
