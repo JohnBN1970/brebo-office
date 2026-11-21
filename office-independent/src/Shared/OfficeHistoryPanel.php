@@ -16,9 +16,9 @@ final class OfficeHistoryPanel
     {
         $escape = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $html = '<aside class="office-history-panel" aria-label="'.$escape($heading).'">';
-        $html .= '<h2>'.$escape($heading).'</h2>';
+        $html .= '<details class="office-history-disclosure" open><summary class="office-history-toggle">'.$escape($heading).'</summary><div class="office-history-content">';
         if ($events === []) {
-            return $html.'<p class="office-history-empty">Nog geen gebeurtenissen.</p></aside>';
+            return $html.'<p class="office-history-empty">Nog geen gebeurtenissen.</p></div></details></aside>';
         }
         $html .= '<ol class="office-history-list">';
         foreach ($events as $event) {
@@ -33,6 +33,6 @@ final class OfficeHistoryPanel
             }
             $html .= '</li>';
         }
-        return $html.'</ol></aside>';
+        return $html.'</ol></div></details></aside>';
     }
 }
