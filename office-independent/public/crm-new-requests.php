@@ -210,7 +210,7 @@ if (isset($item)) {
     if ($items === []) {
         echo '<p>Geen actieve leads gevonden.</p>';
     } elseif ($view === 'kanban') {
-        echo '<div class="lead-kanban" id="lead-board" data-csrf="'.$h($_SESSION['crm_lead_board_csrf']).'">';
+        echo '<div class="lead-kanban crm-board-columns" id="lead-board" data-csrf="'.$h($_SESSION['crm_lead_board_csrf']).'">';
         foreach ($stages as $stageCode => $stageLabel) {
             echo '<section data-stage="'.$h($stageCode).'"><h3>'.$h($stageLabel).' · '.count(array_filter($items,static fn(array $row): bool => $row['stage'] === $stageCode)).'</h3>';
             foreach ($items as $row) {
