@@ -26,4 +26,14 @@ try {
 } catch (InvalidArgumentException $expected) {
     // Expected: future discipline not activated.
 }
+$configured = Blueprint::forDiscipline('construction');
+$configured['steps'][0] = ['id'=>'aanvraag', 'type'=>'approval', 'approval_mode'=>'single'];
+Blueprint::validateDefinition($configured);
+$configured['steps'][0]['approval_mode']='four_eyes';
+Blueprint::validateDefinition($configured);
+foreach (['disabled', null] as $invalid) {
+    $configured['steps'][0]['approval_mode']=$invalid;
+    try { Blueprint::validateDefinition($configured); throw new RuntimeException('Invalid approval mode accepted'); }
+    catch (InvalidArgumentException $expected) {}
+}
 echo "OfficeProcessBlueprintTest OK\n";
