@@ -1,0 +1,36 @@
+name: CRM shared board contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-crm-*'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/public/index.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeCrmSharedBoardContractTest.php'
+      - '.github/workflows/office-crm-shared-board-contract.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/public/office-crm-*'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/public/index.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/tests/OfficeCrmSharedBoardContractTest.php'
+      - '.github/workflows/office-crm-shared-board-contract.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/public/crm-new-requests.php
+          php -l office-independent/public/office-crm-opportunities.php
+          php -l office-independent/public/office-crm-kanban-drag.php
+          php -l office-independent/public/office-crm-shared-board-style.php
+          php -l office-independent/public/index.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+      - name: JS syntax
+        run: node --check office-independent/public/office-crm-shared-board.js
+      - name: Shared board contracts
+        run: php office-independent/tests/OfficeCrmSharedBoardContractTest.php
