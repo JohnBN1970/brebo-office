@@ -140,9 +140,9 @@ try {
       require_once dirname(__DIR__) . '/src/Approval/OfficeApprovalPolicy.php';
       require_once dirname(__DIR__) . '/src/Approval/OfficeBlueprintApprovalModeRepository.php';
       try {
-        $kickstartApprovalMode = (new \\Brebo\\Office\\Approval\\OfficeBlueprintApprovalModeRepository($db))
+        $kickstartApprovalMode = (new \Brebo\Office\Approval\OfficeBlueprintApprovalModeRepository($db))
           ->get('project_start', 'startdossier_release');
-      } catch (\\Throwable $approvalModeError) {
+      } catch (\Throwable $approvalModeError) {
         $kickstartApprovalMode = 'four_eyes';
         error_log('Office-test blueprint approval mode unavailable; four-eyes enforced');
       }
