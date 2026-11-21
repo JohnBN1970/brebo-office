@@ -26,7 +26,7 @@ try {
 } catch (InvalidArgumentException $expected) {
     // Expected: future discipline not activated.
 }
-$configured = Blueprint::forDiscipline('construction');
+$configured = Blueprint::forDiscipline(Catalog::CONSTRUCTION);
 $configured['steps'][0] = ['id'=>'aanvraag', 'type'=>'approval', 'approval_mode'=>'single'];
 Blueprint::validateDefinition($configured);
 $configured['steps'][0]['approval_mode']='four_eyes';
