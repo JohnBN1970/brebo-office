@@ -48,6 +48,18 @@ final class OfficeFr201Schema
         } catch (\PDOException $e) {
             $missing[] = 'office_crm_lead_fr201_events.indexes';
         }
+        // Verify referential integrity: orphan supplements and events must be impossible.
+        foreach (['office_crm_lead_fr201','office_crm_lead_fr201_events'] as $table) {
+            try {
+                $stmt = $db->query("SELECT REFERENCED_TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='".$table."' AND COLUMN_NAME='lead_id' AND REFERENCED_TABLE_NAME IS NOT NULL");
+                $references = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+                if (!in_array('office_crm_leads', $references, true)) {
+                    $missing[] = $table.'.foreign_key(lead_id)';
+                }
+            } catch (\PDOException $e) {
+                $missing[] = $table.'.foreign_key(lead_id)';
+            }
+        }
         return ['ready'=>$missing === [],'missing'=>$missing];
     }
 
