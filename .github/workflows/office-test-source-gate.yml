@@ -1,0 +1,30 @@
+name: Office-test source gate
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    name: Office-test source gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate Office-test approval source
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php \
+            office-independent/src/Approval/OfficeBlueprintApprovalModeRepository.php \
+            office-independent/public/office-blueprint-approval-settings.php; do
+            test -s "$path"
+            php -l "$path"
+          done
+          test -s office-independent/schema/office-test-site-administrators.sql
+          test -s office-independent/schema/office-test-blueprint-approval-modes.sql
+          echo "Source checks passed; no deployment or activation performed."
