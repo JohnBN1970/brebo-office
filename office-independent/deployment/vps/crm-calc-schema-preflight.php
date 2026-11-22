@@ -107,6 +107,30 @@ try {
             $check('COLUMN_'.$table.'_'.$field, isset($columns[$table][$field]));
         }
     }
+    // A Deal must never create two project-free drafts under concurrent requests.
+    // Only an exact, non-nullable, single-column UNIQUE opportunity_id index suffices.
+    $indexes = $pdo->query(
+        "SELECT INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME
+           FROM information_schema.STATISTICS
+          WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_crm_drafts'
+          ORDER BY INDEX_NAME,SEQ_IN_INDEX"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $byName = [];
+    foreach ($indexes as $index) {
+        $byName[(string)$index['INDEX_NAME']]['unique'] = (int)$index['NON_UNIQUE'] === 0;
+        $byName[(string)$index['INDEX_NAME']]['columns'][] = (string)$index['COLUMN_NAME'];
+    }
+    $uniqueOpportunity = false;
+    foreach ($byName as $index) {
+        if ($index['unique'] && $index['columns'] === ['opportunity_id']) {
+            $uniqueOpportunity = true;
+            break;
+        }
+    }
+    $check('CRM_DRAFT_UNIQUE_OPPORTUNITY', $uniqueOpportunity);
+    $check('CRM_DRAFT_OPPORTUNITY_REQUIRED',
+        isset($columns['office_calc_crm_drafts']['opportunity_id'])
+        && $columns['office_calc_crm_drafts']['opportunity_id']['IS_NULLABLE'] === 'NO');
     $check('CRM_DRAFT_PROJECT_OPTIONAL',
         isset($columns['office_calc_crm_drafts']['project_id'])
         && $columns['office_calc_crm_drafts']['project_id']['IS_NULLABLE'] === 'YES');
