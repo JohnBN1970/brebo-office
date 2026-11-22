@@ -10,4 +10,15 @@ $data=array_fill_keys($required,'ingevuld');
 if (F::missingRequired($data)!==[]) throw new RuntimeException('Valid FR-201 falsely rejected');
 unset($data['klantvraag']);
 if (F::missingRequired($data)!==['klantvraag']) throw new RuntimeException('Klantvraag requirement not enforced');
+$repositorySource=file_get_contents(dirname(__DIR__).'/src/Process/OfficeProcessFormRepository.php');
+foreach ([
+    "if (\$action === 'submit')",
+    'OfficeProcessFormFr201::missingRequired($data)',
+    'FR-201 verplichte velden ontbreken',
+    'FOR UPDATE',
+] as $fragment) {
+    if (!str_contains($repositorySource,$fragment)) {
+        throw new RuntimeException('Missing atomic FR-201 submission check: '.$fragment);
+    }
+}
 echo "FR-201 source form definition OK\n";
