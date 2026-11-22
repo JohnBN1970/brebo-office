@@ -24,6 +24,7 @@ final class OfficeProcessFormRepository
             throw new InvalidArgumentException('Formuliercode hoort niet bij deze modulecontext');
         }
         self::validate($version,$contextType,$contextId,$actor,$data,$reason);
+        self::validateDocumentData($code,$data);
         $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
         try {
@@ -54,10 +55,15 @@ final class OfficeProcessFormRepository
     public function revise(int $id, int $expectedRevision, string $actor, array $data, string $reason): int
     {
         if ($id < 1 || $expectedRevision < 1) throw new InvalidArgumentException('Invalid revision');
-        self::validatePayload($actor,$data,$reason);
+        self::validatePayload($actor,$data,$reason,true);
         $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
         try {
+            $codeStmt=$this->db->prepare('SELECT document_code FROM office_process_form_instances WHERE id=?');
+            $codeStmt->execute([$id]);
+            $code=(string)$codeStmt->fetchColumn();
+            if ($code==='') throw new RuntimeException('Formulier niet gevonden');
+            self::validateDocumentData($code,$data);
             $stmt = $this->db->prepare("UPDATE office_process_form_instances SET revision=revision+1,data_json=?,updated_by=? WHERE id=? AND revision=? AND status='concept'");
             $stmt->execute([$json,$actor,$id,$expectedRevision]);
             if ($stmt->rowCount() !== 1) throw new RuntimeException('Formulier gewijzigd of niet meer in concept');
@@ -136,7 +142,7 @@ final class OfficeProcessFormRepository
         $stmt->execute([$id,$revision,$actor,$type,$reason,$json]);
     }
 
-    private static function validatePayload(string $actor, array $data, string $reason): void
+    private static function validatePayload(string $actor, array $data, string $reason, bool $allowNested = false): void
     {
         if (trim($actor)==='' || strlen($actor)>128 || trim($reason)==='' || mb_strlen($reason)>500) {
             throw new InvalidArgumentException('Invalid controlled form actor or reason');
@@ -144,7 +150,7 @@ final class OfficeProcessFormRepository
         if (count($data)>250) throw new InvalidArgumentException('Too many fields');
         foreach ($data as $key=>$value) {
             if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{0,79}$/',$key)
-                || !(is_scalar($value) || $value===null) || (is_string($value) && mb_strlen($value)>10000)) {
+                || !($allowNested && is_array($value) || is_scalar($value) || $value===null) || (is_string($value) && mb_strlen($value)>10000)) {
                 throw new InvalidArgumentException('Invalid controlled form field');
             }
         }
@@ -156,6 +162,19 @@ final class OfficeProcessFormRepository
             || $contextId<1 || trim($actor)==='' || strlen($actor)>128 || trim($reason)==='' || mb_strlen($reason)>500) {
             throw new InvalidArgumentException('Invalid controlled form metadata');
         }
-        self::validatePayload($actor,$data,$reason);
+        self::validatePayload($actor,$data,$reason,true);
+    }
+
+    private static function validateDocumentData(string $code, array $data): void
+    {
+        if ($code === 'CL-204') {
+            require_once __DIR__.'/OfficeCl204Projectopname.php';
+            $errors=OfficeCl204Projectopname::validateDraft($data);
+            if ($errors !== []) throw new InvalidArgumentException('Ongeldige CL-204-gegevens: '.implode(', ',array_keys($errors)));
+        } else {
+            foreach ($data as $value) {
+                if (is_array($value)) throw new InvalidArgumentException('Nested fields not supported for this form');
+            }
+        }
     }
 }
