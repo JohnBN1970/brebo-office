@@ -93,6 +93,40 @@ final class OfficeProcessFormRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Atomically revise a CL-204 draft only within its canonical building.
+     * Prevents a stale or cross-building form ID from being updated.
+     */
+    public function reviseBuildingOpname(int $buildingId, int $id, int $expectedRevision, string $actor, array $data, string $reason): int
+    {
+        if ($buildingId < 1 || $id < 1 || $expectedRevision < 1) {
+            throw new InvalidArgumentException('Invalid building opname revision');
+        }
+        self::validatePayload($actor, $data, $reason, true);
+        self::validateDocumentData('CL-204', $data);
+        $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare(
+                "UPDATE office_process_form_instances
+                    SET revision=revision+1,data_json=?,updated_by=?
+                  WHERE id=? AND document_code='CL-204' AND context_type='building'
+                    AND context_id=? AND revision=? AND status='concept'"
+            );
+            $stmt->execute([$json, $actor, $id, $buildingId, $expectedRevision]);
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('Opname gewijzigd, niet toegankelijk of niet meer in concept');
+            }
+            $revision = $expectedRevision + 1;
+            $this->appendEvent($id, $revision, $actor, 'revised', $reason, $json);
+            $this->db->commit();
+            return $revision;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
     public function revise(int $id, int $expectedRevision, string $actor, array $data, string $reason): int
     {
         if ($id < 1 || $expectedRevision < 1) throw new InvalidArgumentException('Invalid revision');
