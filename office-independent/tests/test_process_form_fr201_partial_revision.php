@@ -6,6 +6,8 @@ foreach ([
     "if (\$current === false && \$expectedRevision !== 0)",
     "if (\$current !== false && (int)\$current['revision'] !== \$expectedRevision)",
     'array_replace($existing,$data)',
+    "(int)\$current['revision'] !== \$expectedRevision",
+    'SELECT revision,data_json FROM office_crm_lead_fr201 WHERE lead_id=? FOR UPDATE',
     'json_encode($data, JSON_THROW_ON_ERROR',
     'rollBack()',
 ] as $contract) {
