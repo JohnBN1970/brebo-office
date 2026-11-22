@@ -28,15 +28,14 @@ on:
 permissions:
   contents: read
 jobs:
-  forms:
+  merge-compatibility:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspect merge conflicts with develop without changing branch
+      - name: Check develop merge compatibility
         shell: bash
-        continue-on-error: true
         run: |
           set -eu
           git fetch --no-tags origin develop
@@ -46,6 +45,10 @@ jobs:
             exit 1
           fi
           echo 'No merge conflicts with develop.'
+  forms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
