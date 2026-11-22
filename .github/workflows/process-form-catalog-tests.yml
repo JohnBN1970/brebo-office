@@ -89,12 +89,12 @@ jobs:
           test "$VPS_USER" = brebo-deploy
           install -d -m 700 ~/.ssh
           trap 'rm -f ~/.ssh/office_test_vps ~/.ssh/known_hosts' EXIT
-          printf '%s\\n' "$VPS_KEY" > ~/.ssh/office_test_vps
-          printf '%s\\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/office_test_vps
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/office_test_vps ~/.ssh/known_hosts
           ssh-keygen -y -f ~/.ssh/office_test_vps > /dev/null
           ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts > /dev/null
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \\
-            -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \\
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
             'bash -s' < scripts/deployment/check_office_test_vps_readiness.sh
           echo "VPS_READONLY_PREFLIGHT=PASS"
