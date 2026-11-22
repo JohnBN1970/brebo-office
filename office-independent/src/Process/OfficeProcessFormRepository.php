@@ -148,6 +148,9 @@ final class OfficeProcessFormRepository
             throw new InvalidArgumentException('Invalid controlled form actor or reason');
         }
         if (count($data)>250) throw new InvalidArgumentException('Too many fields');
+        if ($allowNested && strlen(json_encode($data, JSON_THROW_ON_ERROR)) > 262144) {
+            throw new InvalidArgumentException('Formuliergegevens te groot');
+        }
         foreach ($data as $key=>$value) {
             if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{0,79}$/',$key)
                 || !($allowNested && is_array($value) || is_scalar($value) || $value===null) || (is_string($value) && mb_strlen($value)>10000)) {
