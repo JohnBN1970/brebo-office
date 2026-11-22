@@ -183,8 +183,8 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $leadWhere='relation_id=?';
         $leadArgs=[$id];
         if($leadSearch!=='') {
-            $leadWhere.=' AND (title LIKE ? OR stage LIKE ? OR status LIKE ?)';
-            $term='%'.$leadSearch.'%';
+            $leadWhere.=" AND (title LIKE ? ESCAPE '!' OR stage LIKE ? ESCAPE '!' OR status LIKE ? ESCAPE '!')";
+            $term='%'.str_replace(['!','%','_'],['!!','!%','!_'],$leadSearch).'%';
             $leadArgs=array_merge($leadArgs,[$term,$term,$term]);
 
         }
@@ -202,8 +202,8 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $dealWhere='relation_id=?';
         $dealArgs=[$id];
         if($dealSearch!=='') {
-            $dealWhere.=' AND (title LIKE ? OR stage LIKE ? OR status LIKE ?)';
-            $term='%'.$dealSearch.'%';
+            $dealWhere.=" AND (title LIKE ? ESCAPE '!' OR stage LIKE ? ESCAPE '!' OR status LIKE ? ESCAPE '!')";
+            $term='%'.str_replace(['!','%','_'],['!!','!%','!_'],$dealSearch).'%';
             $dealArgs=array_merge($dealArgs,[$term,$term,$term]);
 
         }
