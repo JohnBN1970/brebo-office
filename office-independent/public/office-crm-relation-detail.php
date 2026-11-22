@@ -141,16 +141,17 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $value=$_GET[$key]??'';
         return is_string($value)?mb_substr(trim($value),0,100):'';
     };
-    $leadSearch=$searchFor('lead_q');
-    $dealSearch=$searchFor('deal_q');
+    $generalSearch=$searchFor('q');
+    $leadSearch=$generalSearch;
+    $dealSearch=$generalSearch;
     $pageFor=static function(string $key): int {
         $raw=$_GET[$key]??'1';
         if (!is_string($raw) || !preg_match('/^[1-9][0-9]{0,5}$/D',$raw)) return 1;
         return min(100000,(int)$raw);
     };
-    $urlFor=static function(array $changes) use ($id,$leadSearch,$dealSearch): string {
+    $urlFor=static function(array $changes) use ($id,$generalSearch): string {
         $params=['id'=>$id];
-        foreach (['lead_q'=>$leadSearch,'deal_q'=>$dealSearch] as $key=>$value) if($value!=='') $params[$key]=$value;
+        if($generalSearch!=='') $params['q']=$generalSearch;
         foreach (['lead_page','deal_page'] as $key) {
             $raw=$_GET[$key]??null;
             if (is_string($raw) && preg_match('/^[1-9][0-9]{0,5}$/D',$raw)) $params[$key]=(int)$raw;
@@ -169,14 +170,8 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         if ($page<$pages) $out.='<a href="'.$urlFor([$key=>$page+1]).'">Volgende</a>';
         return $out.'</nav>';
     };
-    $searchForm=static function(string $key,string $value,string $otherKey,string $otherValue,string $label) use ($id,$h,$urlFor): string {
-        $out='<form method="get" action="/office-test/crm/relaties/detail"><input type="hidden" name="id" value="'.$id.'">';
-        if ($otherValue!=='') $out.='<input type="hidden" name="'.$otherKey.'" value="'.$h($otherValue).'">';
-        $out.='<label>'.$label.' <input type="search" name="'.$key.'" value="'.$h($value).'" maxlength="100" placeholder="Zoek in alle records"></label> <button type="submit">Zoeken</button>';
-        if ($value!=='') $out.=' <a href="'.$urlFor([$key=>null,$key==='lead_q'?'lead_page':'deal_page'=>null]).'">Wis zoekopdracht</a>';
-        return $out.'</form>';
-    };
     echo '<section><h2>Gerelateerde CRM-gegevens</h2>';
+    echo '<form method="get" action="/office-test/crm/relaties/detail"><input type="hidden" name="id" value="'.$id.'"><label for="crm-general-search">Zoek in gekoppelde gegevens</label> <input id="crm-general-search" type="search" name="q" value="'.$h($generalSearch).'" maxlength="100" placeholder="Zoek in alle leads en deals"> <button type="submit">Zoeken</button>'.($generalSearch!==''?' <a href="/office-test/crm/relaties/detail?id='.$id.'">Wissen</a>':'').'</form>';
     try {
         // Search is applied in SQL before pagination, not to the visible page only.
         $leadWhere='relation_id=?';
@@ -193,7 +188,6 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_leads WHERE '.$leadWhere.' ORDER BY received_at DESC,id DESC LIMIT 25 OFFSET '.(($leadPage-1)*$pageSize));
         $stmt->execute($leadArgs);$leadRows=$stmt->fetchAll(PDO::FETCH_ASSOC);
         echo '<details'.($leadSearch!==''?' open':'').'><summary>Leads ('.$leadCount.')</summary>';
-        echo $searchForm('lead_q',$leadSearch,'deal_q',$dealSearch,'Zoek leads');
         if (!$leadRows) echo '<p>Geen passende leads.</p>';
         else {echo '<ul>';foreach($leadRows as $lead) echo '<li><a href="/office-test/crm/aanvragen/detail?id='.(int)$lead['id'].'">'.$h($lead['title']).'</a> · '.$h($lead['stage']).' · '.$h($lead['status']).'</li>';echo '</ul>';}
         echo $pagination('lead_page',$leadPage,$leadCount);
@@ -212,7 +206,6 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_opportunities WHERE '.$dealWhere.' ORDER BY updated_at DESC,id DESC LIMIT 25 OFFSET '.(($dealPage-1)*$pageSize));
         $stmt->execute($dealArgs);$deals=$stmt->fetchAll(PDO::FETCH_ASSOC);
         echo '<details'.($dealSearch!==''?' open':'').'><summary>Deals ('.$dealCount.')</summary>';
-        echo $searchForm('deal_q',$dealSearch,'lead_q',$leadSearch,'Zoek deals');
         if (!$deals) echo '<p>Geen passende deals.</p>';
         else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen/fase?id='.(int)$deal['id'].'">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
         echo $pagination('deal_page',$dealPage,$dealCount);
