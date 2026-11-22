@@ -150,6 +150,22 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         if (!$deals) echo '<p>Geen gekoppelde deals.</p>';
         else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen/fase?id='.(int)$deal['id'].'">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
         echo '</details>';
+        // Reuse the authoritative, verified deal-to-project transfer lookup.
+        require_once dirname(__DIR__).'/src/Crm/OfficeCrmProjectHandoff.php';
+        $handoff=new \Brebo\Office\Crm\OfficeCrmProjectHandoff($db);
+        $projects=[];
+        foreach($deals as $deal) {
+            try {
+                $projectId=$handoff->projectId((int)$deal['id']);
+                if ($projectId!==null) $projects[$projectId]=$deal['title'];
+            } catch (PDOException $ignored) {
+                // An unverified transfer is never displayed as an existing project.
+            }
+        }
+        echo '<details><summary>Projecten via deals ('.count($projects).')</summary>';
+        if (!$projects) echo '<p>Geen geverifieerde projectoverdrachten voor de getoonde deals.</p>';
+        else {echo '<ul>';foreach($projects as $projectId=>$dealTitle) echo '<li><a href="/office-test/projecten/detail?id='.(int)$projectId.'">Project #'.(int)$projectId.'</a> · '.$h($dealTitle).'</li>';echo '</ul>';}
+        echo '</details>';
     } catch(Throwable $ignored) {echo '<p>Gerelateerde CRM-gegevens tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
 }
