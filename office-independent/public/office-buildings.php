@@ -95,6 +95,24 @@ if ($detail) {
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
+// Validate opname selection before writing any HTML, so invalid IDs return a real 404.
+$requestedCl204OpnameId = null;
+if ($detail && isset($_GET['opname_id'])) {
+  $requestedCl204OpnameId = filter_input(INPUT_GET, 'opname_id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+  if (!is_int($requestedCl204OpnameId) || getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Opname niet gevonden.');
+  }
+  try {
+    require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
+    $requestedCl204Opname = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->loadBuildingOpname((int)$buildingId, $requestedCl204OpnameId);
+    if ($requestedCl204Opname === null) { http_response_code(404); exit('Opname niet gevonden.'); }
+  } catch (PDOException $e) {
+    http_response_code(503);
+    exit('Opnames tijdelijk niet beschikbaar.');
+  }
+}
+
 // Read access to a building does not imply permission to change its opnames.
 $cl204CanManage = false;
 if ($detail && is_int($buildingId)) {
@@ -214,19 +232,7 @@ if ($detail) {
     try {
       require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
       $opnames = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->listBuildingOpnames((int)$buildingId);
-      $selectedOpnameId = filter_input(INPUT_GET, 'opname_id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-      $selectedOpname = null;
-      if (isset($_GET['opname_id'])) {
-        if (!is_int($selectedOpnameId)) {
-          http_response_code(404);
-          exit('Opname niet gevonden.');
-        }
-        $selectedOpname = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->loadBuildingOpname((int)$buildingId, $selectedOpnameId);
-        if ($selectedOpname === null) {
-          http_response_code(404);
-          exit('Opname niet gevonden voor dit gebouw.');
-        }
-      }
+      $selectedOpname = $requestedCl204Opname ?? null;
       $cl204RegisterReady = true;
       if ($opnames === []) {
         echo '<p>Voor dit gebouw zijn nog geen CL-204-opnames geregistreerd.</p>';
