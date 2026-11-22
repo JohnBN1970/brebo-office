@@ -23,8 +23,7 @@ final class OfficeCl204BuildingDraftService
         }
         require_once __DIR__.'/OfficeCl204DraftInput.php';
         require_once __DIR__.'/OfficeProcessFormRepository.php';
-        try {
-            // Only a manage membership on a project linked to this building permits writes.
+        // Only a manage membership on a project linked to this building permits writes.
             $access = $this->db->prepare(
                 "SELECT 1 FROM office_project_buildings pb
                  JOIN office_project_memberships m ON m.project_id=pb.project_id
@@ -39,7 +38,7 @@ final class OfficeCl204BuildingDraftService
             if ($formId === null) {
                 if ($expectedRevision !== null) throw new InvalidArgumentException('Onverwachte revisie');
                 $data = OfficeCl204DraftInput::parse($post);
-                    $id = $repository->create('CL-204','1.0','building',$buildingId,$actor,$data,$reason);
+                $id = $repository->create('CL-204','1.0','building',$buildingId,$actor,$data,$reason);
                 return ['id'=>$id,'revision'=>1];
             }
             if ($formId < 1 || $expectedRevision === null || $expectedRevision < 1) {
@@ -55,8 +54,5 @@ final class OfficeCl204BuildingDraftService
             $data = OfficeCl204DraftInput::parse($post,$stored['data']);
             $revision = $repository->revise($formId,$expectedRevision,$actor,$data,$reason);
             return ['id'=>$formId,'revision'=>$revision];
-        } catch (\Throwable $e) {
-            throw $e;
-        }
     }
 }
