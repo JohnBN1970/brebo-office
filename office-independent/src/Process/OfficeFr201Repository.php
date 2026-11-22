@@ -56,6 +56,9 @@ final class OfficeFr201Repository
             $locked=$this->db->prepare('SELECT revision,data_json FROM office_crm_lead_fr201 WHERE lead_id=? FOR UPDATE');
             $locked->execute([$leadId]);
             $current=$locked->fetch(PDO::FETCH_ASSOC);
+            if ($current !== false && $expectedRevision === 0) {
+                throw new RuntimeException('FR-201 bestaat al; ververs het formulier');
+            }
             if ($current === false && $expectedRevision !== 0) {
                 throw new RuntimeException('FR-201 revision no longer exists');
             }
