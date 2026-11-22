@@ -79,6 +79,27 @@ else {
     foreach ($contacts as $person) echo '<tr><td>'.$h(trim($person['given_name'].' '.$person['family_name'])).'</td><td>'.$h($person['job_title']??'').'</td><td>'.$h($person['email']??'').'</td><td>'.$h($person['phone']??'').'</td><td>'.($person['is_primary']?'Ja':'').'</td><td>'.(getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled' && getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled'?'<a href="/office-test/crm/relaties/contactpersoon/beheren?relation_id='.$id.'&amp;contact_id='.(int)$person['contact_id'].'">Bewerken / ontkoppelen</a>':'').'</td></tr>';
     echo '</tbody></table>';
 }
+if (getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled') {
+    echo '<details><summary>Historie contactkoppelingen</summary>';
+    try {
+        $history=$db->prepare('SELECT actor_operator_id,event_type,note,created_at FROM office_crm_relation_contact_events WHERE relation_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
+        $history->execute([$id]);
+        $events=$history->fetchAll(PDO::FETCH_ASSOC);
+        if (!$events) echo '<p>Geen wijzigingen geregistreerd.</p>';
+        else {
+            echo '<ul>';
+            foreach ($events as $event) {
+                $payload=json_decode((string)($event['note']??''),true);
+                $reason=is_array($payload)?($payload['reason']??''):'';
+                echo '<li>'.$h($event['created_at']).' · '.$h($event['event_type']).' · '.$h($event['actor_operator_id']).($reason!==''?' · '.$h($reason):'').'</li>';
+            }
+            echo '</ul>';
+        }
+    } catch (Throwable $ignored) {
+        echo '<p>Contacthistorie tijdelijk niet beschikbaar.</p>';
+    }
+    echo '</details>';
+}
 echo '</section><section><h2>Vastgoedbeheerder</h2>';
 if (!$managers) echo '<p>Geen actieve vertegenwoordiging vastgelegd.</p>';
 else foreach ($managers as $manager) echo '<p>'.$h($manager['display_name']).'</p>';
