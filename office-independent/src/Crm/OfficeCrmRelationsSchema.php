@@ -55,6 +55,34 @@ final class OfficeCrmRelationsSchema {
                 CONSTRAINT fk_crm_contact_relation FOREIGN KEY (relation_id) REFERENCES office_crm_relations(id),
                 CONSTRAINT fk_crm_contact_person FOREIGN KEY (contact_id) REFERENCES office_crm_contact_people(id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS office_crm_relation_contact_events (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                relation_id BIGINT UNSIGNED NOT NULL,
+                contact_id BIGINT UNSIGNED NOT NULL,
+                actor_operator_id VARCHAR(128) NULL,
+                event_type VARCHAR(24) NOT NULL,
+                note TEXT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_crm_contact_events_relation (relation_id,contact_id,created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS office_crm_relation_hierarchy (
+                child_relation_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+                parent_relation_id BIGINT UNSIGNED NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_crm_hierarchy_parent (parent_relation_id),
+                CONSTRAINT fk_crm_hierarchy_child FOREIGN KEY (child_relation_id) REFERENCES office_crm_relations(id),
+                CONSTRAINT fk_crm_hierarchy_parent FOREIGN KEY (parent_relation_id) REFERENCES office_crm_relations(id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+            "CREATE TABLE IF NOT EXISTS office_crm_relation_hierarchy_events (
+                id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                child_relation_id BIGINT UNSIGNED NOT NULL,
+                old_parent_relation_id BIGINT UNSIGNED NULL,
+                new_parent_relation_id BIGINT UNSIGNED NULL,
+                actor_operator_id VARCHAR(128) NULL,
+                reason VARCHAR(500) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_crm_hierarchy_events_child (child_relation_id,created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
             "CREATE TABLE IF NOT EXISTS office_crm_external_identities (
                 provider_code VARCHAR(32) NOT NULL,
                 external_id VARCHAR(128) NOT NULL,
