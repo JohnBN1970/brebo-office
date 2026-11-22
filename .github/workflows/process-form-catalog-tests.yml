@@ -1,0 +1,26 @@
+name: Office process form catalog checks
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Process/OfficeProcessForm*.php'
+      - 'office-independent/tests/test_process_form_*.php'
+      - '.github/workflows/process-form-catalog-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  forms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint and verify catalog contracts
+        run: |
+          set -eu
+          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/tests/test_process_form_*.php; do
+            php -l "$file"
+          done
+          php office-independent/tests/test_process_form_catalog.php
