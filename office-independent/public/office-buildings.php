@@ -259,6 +259,39 @@ if ($detail) {
         echo '<tr><td>' . $h($definition['label']) . '</td><td>' . $h($controlData[$controlKey]['status'] ?? 'Niet vastgelegd') . '</td></tr>';
       }
       echo '</tbody></table><h4>Disciplines</h4><p>' . $h(implode(', ', array_filter($selectedOpname['data']['disciplines'] ?? [], 'is_string'))) . '</p></section>';
+      // History is read-only and scoped to this authorized building and opname.
+      try {
+        $history = (new \\Brebo\\Office\\Process\\OfficeProcessFormRepository($db))->listBuildingOpnameHistory((int)$buildingId, (int)$selectedOpname['id']);
+        echo '<details class="office-cl204-history"><summary>Revisiehistorie (' . count($history) . ' gebeurtenissen)</summary>';
+        $previousSnapshot = null;
+        foreach ($history as $event) {
+          $snapshot = json_decode((string)$event['snapshot_json'], true);
+          $currentData = is_array($snapshot) ? (isset($snapshot['data']) && is_array($snapshot['data']) ? $snapshot['data'] : $snapshot) : [];
+          echo '<article><h4>Revisie ' . (int)$event['revision'] . ' · ' . $h($event['event_type']) . '</h4>';
+          echo '<p>Datum: ' . $h($event['created_at']) . ' · Medewerker: ' . $h($event['actor_operator_id']) . '</p>';
+          echo '<p>Reden: ' . $h($event['reason']) . '</p>';
+          if ($previousSnapshot !== null && in_array($event['event_type'], ['revised','created'], true)) {
+            $before = is_array($previousSnapshot['controls'] ?? null) ? $previousSnapshot['controls'] : [];
+            $after = is_array($currentData['controls'] ?? null) ? $currentData['controls'] : [];
+            $changes = [];
+            foreach (\\Brebo\\Office\\Process\\OfficeCl204Projectopname::controls() as $key => $definition) {
+              $old = (string)($before[$key]['status'] ?? 'onbekend');
+              $new = (string)($after[$key]['status'] ?? 'onbekend');
+              if ($old !== $new) $changes[] = $h($definition['label']) . ': ' . $h($old) . ' → ' . $h($new);
+            }
+            $oldDisciplines = $previousSnapshot['disciplines'] ?? [];
+            $newDisciplines = $currentData['disciplines'] ?? [];
+            if ($oldDisciplines !== $newDisciplines) $changes[] = 'Disciplines gewijzigd';
+            echo $changes === [] ? '<p>Geen wijzigingen in controle-statussen of disciplines.</p>' : '<ul><li>' . implode('</li><li>', $changes) . '</li></ul>';
+          }
+          $previousSnapshot = $currentData;
+          echo '</article>';
+        }
+        echo '</details>';
+      } catch (\\PDOException $historyError) {
+        error_log('CL-204 history unavailable: ' . $historyError->getCode());
+        echo '<p role="status">Revisiehistorie tijdelijk niet beschikbaar.</p>';
+      }
     }
     if ($cl204RegisterReady && $cl204CsrfReady) {
       require_once dirname(__DIR__) . '/src/Process/OfficeCl204FormView.php';
