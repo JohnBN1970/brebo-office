@@ -14,5 +14,5 @@ foreach (['kanban','list'] as $view) {
   if (!str_contains($html,$label)) { fwrite(STDERR,"Missing ".$label." in ".$view."\n"); exit(1); }
 }
 $source=file_get_contents(dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php');
-if (!str_contains($source,"o.status='closed' AND o.stage IN ('won','lost')")) { fwrite(STDERR,"Closed opportunities excluded\n"); exit(1); }
+if (!str_contains($source,"o.status IN ('closed','won') AND o.stage IN ('won','lost')")) { fwrite(STDERR,"Closed opportunities excluded\n"); exit(1); }
 echo "CRM_FUNNEL_CLOSED_STAGES_OK\n";

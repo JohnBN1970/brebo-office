@@ -35,13 +35,32 @@ $db->exec('CREATE TABLE office_crm_opportunities (id INTEGER PRIMARY KEY, relati
 $db->exec("INSERT INTO office_crm_opportunities VALUES
   (1,5,'Gegunde calc','won','closed',NULL,NULL),
   (2,5,'Zonder bevestiging','won','closed',NULL,NULL),
-  (3,5,'Gegunde directe opdracht','won','closed',NULL,NULL)");
+  (3,5,'Gegunde directe opdracht','won','closed',NULL,NULL),
+  (4,5,'Gegunde oude status','won','won',NULL,NULL),
+  (5,5,'Afgewezen opdracht','lost','closed',NULL,NULL)");
 $rows=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
+if (count($rows)!==5) throw new RuntimeException('Closed and legacy won Deals must remain listed');
 $byId=[]; foreach($rows as $row) $byId[(int)$row['id']]=$row;
 $assert((int)$byId[3]['project_id'],12,'repository resolves direct transfer');
 if (isset($byId[1]['project_id']) || isset($byId[2]['project_id'])) throw new RuntimeException('Ambiguous or orphan transfer leaked into CRM list');
 $html=\Brebo\Office\Crm\OfficeCrmFunnelViews::render($rows,'list');
 if (!str_contains($html,'projecten/detail?id=12') || !str_contains($html,'Projectoverdracht nog niet bevestigd')) {
     throw new RuntimeException('CRM list lacks project link or pending indicator');
+}
+foreach (['kanban','list','calendar'] as $view) {
+    // Calendar cards require a scheduled date; put one on the fixture.
+    if ($view==='calendar') {
+        $db->exec("UPDATE office_crm_opportunities SET next_action_at='2026-11-22' WHERE id IN (1,2,3,4,5)");
+        $rows=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
+    }
+    $markup=\Brebo\Office\Crm\OfficeCrmFunnelViews::render($rows,$view);
+    foreach ([1,2,3,4,5] as $id) {
+        if (!str_contains($markup, '/office-test/crm/verkoopkansen/fase?id='.$id)) {
+            throw new RuntimeException('Deal #'.$id.' cannot be opened from '.$view);
+        }
+    }
+    if (!str_contains($markup,'Open project') || !str_contains($markup,'Projectoverdracht nog niet bevestigd')) {
+        throw new RuntimeException('Awarded Deal project handoff missing in '.$view);
+    }
 }
 echo "CRM_UNIFIED_PROJECT_HANDOFF=PASS\n";

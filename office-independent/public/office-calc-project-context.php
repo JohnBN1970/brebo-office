@@ -65,7 +65,7 @@ try {
     $project = $query->fetch(PDO::FETCH_ASSOC);
     if (!is_array($project)) $deny(404);
     $buildingsQuery = $db->prepare(
-        'SELECT b.id, b.name FROM office_project_buildings pb
+        'SELECT b.id, b.building_name AS name FROM office_project_buildings pb
          INNER JOIN office_buildings b ON b.id=pb.building_id
          WHERE pb.project_id=:id ORDER BY b.id'
     );

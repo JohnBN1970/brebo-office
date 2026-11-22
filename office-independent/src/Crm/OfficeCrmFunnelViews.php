@@ -53,14 +53,17 @@ final class OfficeCrmFunnelViews {
     private static function action(array $item): string {
         $id=filter_var($item['id']??null,FILTER_VALIDATE_INT);
         if ($id===false || $id<1) return '';
+        // Every Deal remains reachable from list, calendar and Kanban, even
+        // after award or rejection. A project link never replaces Deal access.
+        $dealLink=' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Open deal</a>';
         if ((string)($item['stage']??'')==='won') {
             $projectId=filter_var($item['project_id']??null,FILTER_VALIDATE_INT);
-            return $projectId!==false && $projectId>0
+            return $dealLink.($projectId!==false && $projectId>0
                 ? ' <a href="/office-test/projecten/detail?id='.$projectId.'">Open project</a>'
-                : ' <span class="crm-project-handoff-pending">Projectoverdracht nog niet bevestigd</span>';
+                : ' <span class="crm-project-handoff-pending">Projectoverdracht nog niet bevestigd</span>');
         }
-        if ((string)($item['stage']??'')==='lost') return '';
-        return ' <a href="/office-test/crm/verkoopkansen/fase?id='.$id.'">Fase wijzigen</a>';
+        if ((string)($item['stage']??'')==='lost') return $dealLink;
+        return $dealLink;
     }
     private static function card(array $item): string {
         return '<article draggable="true" data-crm-id="'.(int)($item['id']??0).'" data-crm-stage="'.self::h($item['stage']??'').'" style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px;cursor:grab"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';

@@ -242,23 +242,12 @@ final class OfficeNavigation {
     $module=$current==='bedrijf'?'Mijn werkplek':(self::AREAS[$current][0]??'Mijn werkplek');
     // Test-only role preview: presentation context, never an authorization identity.
     // The real Office operator and project ACL continue to govern every request.
-    $previewRoles=[
-      'actual'=>'Eigen account', 'medewerker'=>'Medewerker',
-      'RL-001'=>'Directie', 'RL-002'=>'Senior Projectleider',
-      'RL-003'=>'Senior Uitvoerder', 'RL-004'=>'Senior Werkvoorbereider',
-      'RL-005'=>'Calculator / Inkoper', 'RL-006'=>'KAM / Kwaliteitsmanager',
-      'RL-007'=>'Controller', 'RL-008'=>'Administrateur',
-      'RL-009'=>'Directiesecretaresse', 'RL-010'=>'Planner / Capaciteitscoördinator',
-      'RL-011'=>'Contract- en Documentcontroller', 'RL-012'=>'Service- en Garantiecoördinator',
-      'RL-013'=>'Omgevings- en Bewonerscoördinator', 'RL-014'=>'Kennis- en Procesbeheerder',
-      'RL-015'=>'BREBO Virtuele Staf', 'RL-016'=>'Bedrijfsjurist / Juridisch Adviseur',
-      'admin'=>'Systeembeheerder / Admin',
-    ];
+    require_once dirname(__DIR__).'/Approval/OfficeTestRolePermissionPolicy.php';
+    $previewRoles=\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::roles();
     $roleOptions='';
     foreach($previewRoles as $code=>$label)$roleOptions.='<option value="'.self::h($code).'">'.self::h($label).'</option>';
     $rolePreview='<label class="office-role-preview">Bekijk als <select id="office-role-preview" aria-label="Bekijk Office als functie">'.$roleOptions.'</select></label><span id="office-role-preview-status" role="status" aria-live="polite"></span>';
     $css.='<style>.office-role-preview{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:inherit}.office-role-preview select{max-width:220px;min-width:120px;border:1px solid #7890a8;border-radius:7px;padding:7px;background:var(--office-surface,#172234);color:var(--office-text,#fff)}#office-role-preview-status{font-size:11px;color:inherit;opacity:.85}@media(max-width:700px){.office-role-preview select{max-width:145px}}</style>';
-    $css.='<script>(function(){document.addEventListener("DOMContentLoaded",function(){var picker=document.getElementById("office-role-preview"),status=document.getElementById("office-role-preview-status");if(!picker||!status)return;var key="brebo-office-role-preview";try{var saved=sessionStorage.getItem(key);if(saved&&picker.querySelector("option[value="+JSON.stringify(saved)+"]"))picker.value=saved;}catch(e){}function update(){document.body.dataset.officePreviewRole=picker.value;status.textContent=picker.value==="actual"?"":"Weergavevoorbeeld · rechten ongewijzigd";}picker.addEventListener("change",function(){try{sessionStorage.setItem(key,picker.value);}catch(e){}update();});update();});})();</script>';
     $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><div class="office-app-controls"><span class="office-env-badge">TESTOMGEVING</span>'.$rolePreview.OfficeTheme::controls().'</div></header>';
     $html=preg_replace_callback('~<main\\b[^>]*>~i',static fn($m)=>$m[0].$bar,$html,1)??$html;
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;

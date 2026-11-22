@@ -1,4 +1,4 @@
-name: Office-test CRM Calc database readiness (read-only)
+name: Office-test CRM Calc VPS readiness (read-only)
 on:
   workflow_dispatch:
 permissions:
@@ -9,32 +9,51 @@ concurrency:
 jobs:
   readiness:
     runs-on: ubuntu-latest
+    environment: office-test-vps
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: PHP syntax check
-        run: php -l office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php
-      - name: Verify pinned SSH host identity and stage audit
+      - name: Verify established VPS identity and inspect active release
         env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          OFFICE_TEST_VPS_KNOWN_HOSTS: ${{ secrets.OFFICE_TEST_VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
         run: |
           set -euo pipefail
-          test -n "$DEPLOY_USER"
-          test -n "$DEPLOY_SSH_KEY"
-          test -n "$OFFICE_TEST_VPS_KNOWN_HOSTS"
+          for var in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do
+            test -n "${!var}" || { echo "::error::Missing established Office-test VPS environment secret: $var"; exit 1; }
+          done
+          test "$VPS_USER" = brebo-deploy || { echo "::error::Expected restricted VPS deploy user"; exit 1; }
+          [[ "$VPS_PORT" =~ ^[0-9]{1,5}$ ]] || { echo "::error::Invalid SSH port"; exit 1; }
+          umask 077
           install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/office_test_key"
-          chmod 600 "$HOME/.ssh/office_test_key"
-          printf '%s\n' "$OFFICE_TEST_VPS_KNOWN_HOSTS" > "$HOME/.ssh/office_test_known_hosts"
-          chmod 600 "$HOME/.ssh/office_test_known_hosts"
-          ssh-keygen -lf "$HOME/.ssh/office_test_known_hosts" >/dev/null
-          ssh-keygen -F '[77.37.34.160]:65002' -f "$HOME/.ssh/office_test_known_hosts" >/dev/null
-          SSH_OPTS=(-i "$HOME/.ssh/office_test_key" -p 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/office_test_known_hosts" -o ConnectTimeout=10)
-          ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
-          ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@77.37.34.160" "test -d '$ROOT' && mkdir -p '$ROOT/.crm-calc-readiness-stage'"
-          scp -i "$HOME/.ssh/office_test_key" -P 65002 -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/office_test_known_hosts" office-independent/deployment/hostinger/audit-office-crm-calc-readonly.php "$DEPLOY_USER@77.37.34.160:$ROOT/.crm-calc-readiness-stage/audit-office-crm-calc-readonly.php"
-          ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@77.37.34.160" 'set -eu; ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test; SCRIPT="$ROOT/.crm-calc-readiness-stage/audit-office-crm-calc-readonly.php"; PHP=/opt/alt/php83/usr/bin/php; test -f "$SCRIPT"; "$PHP" -l "$SCRIPT"; export OFFICE_BASE_PATH=/office-test; export OFFICE_TEST_CONFIG_PATH="$ROOT/config/config.php"; "$PHP" "$SCRIPT"'
+          printf '%s\n' "$VPS_KEY" > "$HOME/.ssh/id_office_test"
+          printf '%s\n' "$VPS_HOST_KEY" > "$HOME/.ssh/known_hosts_office_test"
+          chmod 600 "$HOME/.ssh/id_office_test" "$HOME/.ssh/known_hosts_office_test"
+          ssh-keygen -y -P '' -f "$HOME/.ssh/id_office_test" > /dev/null
+          ssh-keygen -l -f "$HOME/.ssh/known_hosts_office_test" > /dev/null
+          if ! ssh-keygen -F "$VPS_HOST" -f "$HOME/.ssh/known_hosts_office_test" > /dev/null &&
+             ! ssh-keygen -F "[$VPS_HOST]:$VPS_PORT" -f "$HOME/.ssh/known_hosts_office_test" > /dev/null; then
+            echo "::error::Pinned host identity does not cover configured VPS"; exit 1
+          fi
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o IdentitiesOnly=yes -o ConnectTimeout=10 \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts_office_test" \
+              -i "$HOME/.ssh/id_office_test" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test "$(id -un)" = brebo-deploy
+          BASE=/srv/brebo/office-test
+          RELEASE="$(readlink -f "$BASE/current")"
+          case "$RELEASE" in "$BASE"/releases/*) ;; *) echo "::error::OFFICE_TEST_RELEASE_INVALID"; exit 1;; esac
+          test -r "$RELEASE/.office-source-sha" || { echo "::error::OFFICE_TEST_RELEASE_SHA_MISSING"; exit 1; }
+          echo "OFFICE_TEST_ACTIVE_RELEASE_SHA=$(cat "$RELEASE/.office-source-sha")"
+          for file in public/index.php public/office-login.php; do
+            test -r "$RELEASE/$file" || { echo "::error::OFFICE_TEST_FILE_MISSING=$file"; exit 1; }
+          done
+          echo "OFFICE_TEST_VPS_SSH_AND_RELEASE=PASS"
+          echo "CRM_CALC_DATABASE_SCHEMA=NOT_VERIFIED_PRIVILEGED_AUDIT_REQUIRED"
+          echo "CRM_CALC_PROJECTLESS_E2E=NOT_VERIFIED"
+          echo "CRM_CALC_INTEGRATION_RELEASE=BLOCKED"
+          REMOTE
