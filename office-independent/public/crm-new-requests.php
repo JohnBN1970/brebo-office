@@ -164,6 +164,10 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if (isset($item)) {
     echo '<h1>'.$h($item['title']).'</h1>';
     if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')==='enabled' && $item['status']==='active' && $item['converted_opportunity_id']===null) echo '<p><a href="'.$h($base).'/crm/aanvragen/bewerken?id='.(int)$item['id'].'">Bewerken</a></p>';
+    if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')==='enabled' && $item['converted_opportunity_id']===null && in_array($item['status'],['active','archived'],true)) {
+        $statusAction=$item['status']==='active'?'archive':'restore';
+        echo '<p><a href="'.$h($base).'/crm/aanvragen/status?id='.(int)$item['id'].'&amp;action='.$statusAction.'">'.($statusAction==='archive'?'Archiveren':'Herstellen').'</a></p>';
+    }
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
