@@ -13,7 +13,7 @@ $source = file_get_contents(dirname(__DIR__).'/src/Process/OfficeProcessFormRepo
 foreach (['beginTransaction()', 'rollBack()', 'revision=revision+1', "status='concept'", 'appendEvent(', 'OfficeProcessFormCatalog::requireCode'] as $contract) {
     if (!str_contains($source,$contract)) throw new RuntimeException('Missing repository invariant: '.$contract);
 }
-foreach (['FOR UPDATE', "event_type='submit'", 'OfficeProcessFormWorkflow::target', 'Concurrent form decision'] as $contract) {
+foreach (['FOR UPDATE', "event_type='submit'", 'OfficeProcessFormWorkflow::target', 'Concurrent form decision', 'Goedkeuring vereist een geregistreerde indiening'] as $contract) {
     if (!str_contains($source,$contract)) throw new RuntimeException('Missing transition invariant: '.$contract);
 }
 echo "Process form repository contracts OK\n";
