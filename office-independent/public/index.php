@@ -67,6 +67,7 @@ $routes = [
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/bewerken' => 'office-crm-lead-edit.php',
+  '/office-test/crm/aanvragen/status' => 'office-crm-lead-status.php',
   '/office-test/crm/aanvragen/nieuw' => 'office-crm-lead-create.php',
   '/office-test/crm/aanvragen/fase' => 'office-crm-lead-board-transition.php',
   '/office-test/projecten' => 'office-projects.php',
