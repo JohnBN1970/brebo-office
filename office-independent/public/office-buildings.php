@@ -7,8 +7,8 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -94,6 +94,46 @@ if ($detail) {
     if ((int)$candidate['id'] === $buildingId) { $selectedBuilding = $candidate; break; }
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
+}
+// CL-204 writes require explicit test-only activation and a session-bound HMAC CSRF token.
+$cl204WriteEnabled = getenv('OFFICE_BASE_PATH') === '/office-test'
+  && getenv('OFFICE_TEST_CL204_OPNAMES_WRITE_ENABLED') === 'enabled';
+$cl204Secret = getenv('OFFICE_CL204_CSRF_SECRET');
+$cl204SessionHash = isset($operator) ? (string)$operator->sessionTokenHash : '';
+$cl204CsrfReady = $cl204WriteEnabled && is_string($cl204Secret) && strlen($cl204Secret) >= 32
+  && strlen($cl204SessionHash) === 64;
+$cl204Csrf = $cl204CsrfReady
+  ? hash_hmac('sha256', 'CL-204:building:' . (int)$buildingId, $cl204SessionHash . $cl204Secret)
+  : '';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+  if (!$detail || !$cl204CsrfReady || !is_string($_POST['csrf_token'] ?? null)
+    || !hash_equals($cl204Csrf, $_POST['csrf_token'])) {
+    http_response_code(403);
+    exit('Opname opslaan niet toegestaan.');
+  }
+  try {
+    require_once dirname(__DIR__) . '/src/Process/OfficeCl204BuildingDraftService.php';
+    $formId = filter_var($_POST['form_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+    $revision = filter_var($_POST['revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+    if (isset($_POST['form_id']) && !is_int($formId)) throw new InvalidArgumentException('Ongeldig opname-ID');
+    if (isset($_POST['form_id']) && !is_int($revision)) throw new InvalidArgumentException('Ongeldige revisie');
+    if (!isset($_POST['form_id']) && isset($_POST['revision'])) throw new InvalidArgumentException('Onverwachte revisie');
+    $reason = $_POST['reason'] ?? '';
+    if (!is_string($reason)) throw new InvalidArgumentException('Ongeldige reden');
+    $saved = (new \Brebo\Office\Process\OfficeCl204BuildingDraftService($db))->save(
+      (int)$buildingId, (int)$operator->operatorId, $_POST, $reason,
+      is_int($formId) ? $formId : null, is_int($revision) ? $revision : null
+    );
+    header('Location: /office-test/gebouwen?id=' . (int)$buildingId . '&opname_id=' . (int)$saved['id'], true, 303);
+    exit;
+  } catch (InvalidArgumentException | RuntimeException $saveError) {
+    http_response_code(422);
+    exit('Opname niet opgeslagen: ' . htmlspecialchars($saveError->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+  } catch (Throwable $saveError) {
+    error_log('CL-204 save failure: ' . $saveError->getCode());
+    http_response_code(503);
+    exit('Opname tijdelijk niet beschikbaar.');
+  }
 }
 // PDOK persistence readiness is advisory only; never block the building page.
 $pdokStorageReady = false;
@@ -196,7 +236,24 @@ if ($detail) {
       }
       echo '</tbody></table><h4>Disciplines</h4><p>' . $h(implode(', ', array_filter($selectedOpname['data']['disciplines'] ?? [], 'is_string'))) . '</p></section>';
     }
-    echo '<p>Nieuwe opname en bewerken volgen na controle van rechten, CSRF en opslag.</p></section>';
+    if ($cl204CsrfReady) {
+      require_once dirname(__DIR__) . '/src/Process/OfficeCl204FormView.php';
+      $draft = $selectedOpname !== null && $selectedOpname['status'] === 'concept' ? $selectedOpname['data'] : [];
+      if ($selectedOpname === null || $selectedOpname['status'] === 'concept') {
+        echo '<form method="post" action="/office-test/gebouwen?id=' . (int)$buildingId . '">';
+        echo '<input type="hidden" name="csrf_token" value="' . $h($cl204Csrf) . '">';
+        if ($selectedOpname !== null) {
+          echo '<input type="hidden" name="form_id" value="' . (int)$selectedOpname['id'] . '">';
+          echo '<input type="hidden" name="revision" value="' . (int)$selectedOpname['revision'] . '">';
+        }
+        echo \Brebo\Office\Process\OfficeCl204FormView::render($draft);
+        echo '<label for="cl204_reason">Reden van vastlegging</label><input id="cl204_reason" name="reason" maxlength="500" required>';
+        echo '<button type="submit">Conceptopname opslaan</button></form>';
+      }
+    } else {
+      echo '<p>Opname wijzigen is nog niet geactiveerd.</p>';
+    }
+    echo '</section>';
   }
   echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
   if ($pdokStorageReady) {
