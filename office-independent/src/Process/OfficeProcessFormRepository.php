@@ -19,6 +19,10 @@ final class OfficeProcessFormRepository
     {
         require_once __DIR__.'/OfficeProcessFormCatalog.php';
         OfficeProcessFormCatalog::requireCode($code);
+        require_once __DIR__.'/OfficeProcessFormContext.php';
+        if (!OfficeProcessFormContext::accepts($code,$contextType)) {
+            throw new InvalidArgumentException('Formuliercode hoort niet bij deze modulecontext');
+        }
         self::validate($version,$contextType,$contextId,$actor,$data,$reason);
         $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
