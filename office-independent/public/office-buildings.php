@@ -261,7 +261,7 @@ if ($detail) {
       echo '</tbody></table><h4>Disciplines</h4><p>' . $h(implode(', ', array_filter($selectedOpname['data']['disciplines'] ?? [], 'is_string'))) . '</p></section>';
       // History is read-only and scoped to this authorized building and opname.
       try {
-        $history = (new \\Brebo\\Office\\Process\\OfficeProcessFormRepository($db))->listBuildingOpnameHistory((int)$buildingId, (int)$selectedOpname['id']);
+        $history = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->listBuildingOpnameHistory((int)$buildingId, (int)$selectedOpname['id']);
         echo '<details class="office-cl204-history"><summary>Revisiehistorie (' . count($history) . ' gebeurtenissen)</summary>';
         $previousSnapshot = null;
         foreach ($history as $event) {
@@ -274,7 +274,7 @@ if ($detail) {
             $before = is_array($previousSnapshot['controls'] ?? null) ? $previousSnapshot['controls'] : [];
             $after = is_array($currentData['controls'] ?? null) ? $currentData['controls'] : [];
             $changes = [];
-            foreach (\\Brebo\\Office\\Process\\OfficeCl204Projectopname::controls() as $key => $definition) {
+            foreach (\Brebo\Office\Process\OfficeCl204Projectopname::controls() as $key => $definition) {
               $old = (string)($before[$key]['status'] ?? 'onbekend');
               $new = (string)($after[$key]['status'] ?? 'onbekend');
               if ($old !== $new) $changes[] = $h($definition['label']) . ': ' . $h($old) . ' → ' . $h($new);
@@ -288,7 +288,7 @@ if ($detail) {
           echo '</article>';
         }
         echo '</details>';
-      } catch (\\PDOException $historyError) {
+      } catch (\PDOException $historyError) {
         error_log('CL-204 history unavailable: ' . $historyError->getCode());
         echo '<p role="status">Revisiehistorie tijdelijk niet beschikbaar.</p>';
       }
