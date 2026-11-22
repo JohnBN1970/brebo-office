@@ -35,6 +35,12 @@ overviewCheck($all['paid_gross_cents']===26300&&$all['draft_gross_cents']===9075
 overviewCheck($all['ageing']['31–60']===10000&&$all['ageing']['90+']===36300,'Ageing uses calendar days past due date');
 overviewCheck($all['unbilled_net_cents']===70000&&$all['contracts_complete']===true,'Draft not subtracted from remaining contract work');
 overviewCheck($db->query('SELECT total_changes()')->fetchColumn()===$writes,'Overview performs no writes');
+$dueToday=Overview::read($db,'1',null,'2026-10-01');
+overviewCheck($dueToday['overdue_gross_cents']===36300,'Invoice due today must not be marked overdue');
+overviewCheck($dueToday['outstanding_gross_cents']===94700,'Future-dated issued invoices remain outstanding but not overdue');
+$dueTomorrow=Overview::read($db,'1',null,'2026-10-02');
+overviewCheck($dueTomorrow['overdue_gross_cents']===46300,'Invoice becomes overdue only after its due date');
+overviewCheck($dueTomorrow['ytd_net_cents']===10000,'YTD excludes invoices dated after reporting date');
 $project=Overview::read($db,'1',10,'2026-11-07');overviewCheck($project['outstanding_gross_cents']===58400&&$project['draft_count']===1,'Project scope excludes private and other project invoices');
 foreach([['1',20],['3',null]] as [$operator,$scope]){try{Overview::read($db,$operator,$scope,'2026-11-07');throw new RuntimeException('Unauthorized totals');}catch(DomainException){}}
 $db->exec("UPDATE office_project_terms SET status='invoiced' WHERE id=103;DELETE FROM office_finance_sales_context WHERE invoice_id=6");
