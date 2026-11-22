@@ -92,7 +92,9 @@ final class OfficeCl204Projectopname
                 $errors['observations'] = 'Ongeldige bevindingenlijst';
             } else {
                 foreach ($data['observations'] as $index => $observation) {
-                    if (!is_array($observation) || array_diff(array_keys($observation), self::observationFields())) {
+                    if (!is_array($observation) || array_diff(array_keys($observation), self::observationFields())
+                        || (isset($observation['evidence_refs']) && (!is_array($observation['evidence_refs'])
+                            || count(array_filter($observation['evidence_refs'], 'is_string')) !== count($observation['evidence_refs'])))) {
                         $errors['observations.'.$index] = 'Ongeldige bevinding';
                     }
                 }
