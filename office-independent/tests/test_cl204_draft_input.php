@@ -34,6 +34,9 @@ $escaped = OfficeCl204FormView::render(['disciplines'=>['<script>alert(1)</scrip
 check(!str_contains($escaped,'<script>'),'untrusted disciplines must be HTML-escaped');
 mustReject(['cl204'=>['controls'=>$controls,'release_status'=>'V1']],'client release status must be rejected');
 $bad=$post;
+unset($bad['cl204']['controls']['opnameopdracht']);
+mustReject($bad,'missing control must be rejected');
+$bad=$post;
 $bad['cl204']['controls']['opnameopdracht']['status']='approved';
 mustReject($bad,'unknown control status must be rejected');
 $bad=$post;
