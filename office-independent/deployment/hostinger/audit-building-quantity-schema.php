@@ -8,9 +8,36 @@ declare(strict_types=1);
  */
 if (PHP_SAPI !== 'cli') exit(2);
 $file = getenv('OFFICE_TEST_CONFIG_PATH');
-if (!is_string($file) || !is_file($file)) { echo "BLOCK_CONFIG\n"; exit(2); }
-$c = require $file;
-if (!is_array($c)) { echo "BLOCK_CONFIG\n"; exit(2); }
+if (is_string($file) && is_file($file)) {
+    $c = require $file;
+} else {
+    // CLI does not inherit PHP-FPM pool env[] values. Read the existing pool
+    // configuration only when explicitly requested; never print credentials.
+    $pool = getenv('OFFICE_TEST_FPM_POOL_PATH');
+    if (!is_string($pool) || $pool === '' || !is_file($pool) || !is_readable($pool)) {
+        echo "BLOCK_CONFIG\n"; exit(2);
+    }
+    $lines = file($pool, FILE_IGNORE_NEW_LINES);
+    if (!is_array($lines)) { echo "BLOCK_CONFIG\n"; exit(2); }
+    $c = [];
+    $keys = ['OFFICE_INTAKE_PDO_DSN', 'OFFICE_INTAKE_DB_USER', 'OFFICE_INTAKE_DB_PASSWORD', 'OFFICE_BASE_PATH'];
+    foreach ($lines as $line) {
+        if (!preg_match('/^\\s*env\\[([A-Z0-9_]+)\\]\\s*=\\s*(.*?)\\s*$/', $line, $match)) continue;
+        if (!in_array($match[1], $keys, true)) continue;
+        $value = trim($match[2]);
+        if (strlen($value) >= 2 && ($value[0] === '"' || $value[0] === "'") && substr($value, -1) === $value[0]) {
+            $value = substr($value, 1, -1);
+        }
+        // Reject references or escaped values that need FPM-specific expansion.
+        if (str_contains($value, '$') || str_contains($value, '\\\\')) {
+            echo "BLOCK_CONFIG_FORMAT\n"; exit(2);
+        }
+        $c[$match[1]] = $value;
+    }
+}
+if (!is_array($c) || !isset($c['OFFICE_INTAKE_PDO_DSN'], $c['OFFICE_INTAKE_DB_USER'], $c['OFFICE_INTAKE_DB_PASSWORD'], $c['OFFICE_BASE_PATH'])) {
+    echo "BLOCK_CONFIG\n"; exit(2);
+}
 $dsn = (string)($c['OFFICE_INTAKE_PDO_DSN'] ?? '');
 if (($c['OFFICE_BASE_PATH'] ?? '') !== '/office-test'
     || !preg_match('/(?:^|;)dbname=u213420663_office_test(?:;|$)/', $dsn)
