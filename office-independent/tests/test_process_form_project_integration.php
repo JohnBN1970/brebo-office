@@ -56,4 +56,12 @@ foreach ([
 ] as $fragment) {
     if (!str_contains($catalog,$fragment)) throw new RuntimeException('Missing protected form editing or workflow: '.$fragment);
 }
+foreach ([
+    'OfficeProcessFormFr201::FIELDS',
+    'OfficeProcessFormFr201::missingRequired',
+    "FR-201 bevat nog niet ingevulde verplichte velden.",
+    'Onbekend FR-201-veld.',
+] as $fragment) {
+    if (!str_contains($catalog,$fragment)) throw new RuntimeException('FR-201 form integration missing: '.$fragment);
+}
 echo "Process form project integration and schema gate OK\n";
