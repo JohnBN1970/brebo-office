@@ -31,6 +31,7 @@ try {
     $catalog=\Brebo\Office\Process\OfficeProcessFormCatalog::all();
     // Project-scoped catalog: never expose project context without membership.
     $projectForms=[];
+    $selectedForm=null;
     $projectIdRaw=(string)($_GET['project_id']??'');
     if ($projectIdRaw!=='') {
         if (!preg_match('/^[1-9][0-9]{0,17}$/D',$projectIdRaw)) {
@@ -57,6 +58,26 @@ try {
             $formsStmt->execute([(int)$projectIdRaw]);
             $projectForms=array_values(array_filter($formsStmt->fetchAll(PDO::FETCH_ASSOC),
                 static fn(array $row):bool=>isset($catalog[(string)$row['document_code']])));
+            // The detail query is bound to the verified project; a foreign
+            // form ID cannot be used to cross into another project dossier.
+            $formIdRaw=(string)($_GET['form_id']??'');
+            if ($formIdRaw!=='') {
+                if (!preg_match('/^[1-9][0-9]{0,17}$/D',$formIdRaw)) {
+                    http_response_code(400); exit('Ongeldig formuliernummer.');
+                }
+                $detail=$db->prepare("SELECT id,document_code,status,revision,document_version,data_json
+                    FROM office_process_form_instances
+                    WHERE id=? AND context_type='project' AND context_id=? LIMIT 1");
+                $detail->execute([(int)$formIdRaw,(int)$projectIdRaw]);
+                $selectedForm=$detail->fetch(PDO::FETCH_ASSOC) ?: null;
+                if ($selectedForm===null || !isset($catalog[(string)$selectedForm['document_code']])) {
+                    http_response_code(404); exit('Formulier niet gevonden.');
+                }
+                $decoded=json_decode((string)$selectedForm['data_json'],true,512,JSON_THROW_ON_ERROR);
+                if (!is_array($decoded)) throw new \RuntimeException('Invalid form payload');
+                $selectedForm['data']=$decoded;
+                unset($selectedForm['data_json']);
+            }
         }
     }
 } catch (\Throwable $e) { http_response_code(503); exit('Formuliercatalogus tijdelijk niet beschikbaar.'); }
@@ -73,9 +94,18 @@ if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')===
     else {
         echo '<table><thead><tr><th>Nummer</th><th>Code</th><th>Status</th><th>Revisie</th><th>Gewijzigd</th></tr></thead><tbody>';
         foreach ($projectForms as $form) {
-            echo '<tr><td>'.$h($form['id']).'</td><td>'.$h($form['document_code']).'</td><td>'.$h($form['status']).'</td><td>'.$h($form['revision']).'</td><td>'.$h($form['updated_at']).'</td></tr>';
+            echo '<tr><td><a href="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'&amp;form_id='.$h($form['id']).'">'.$h($form['id']).'</a></td><td>'.$h($form['document_code']).'</td><td>'.$h($form['status']).'</td><td>'.$h($form['revision']).'</td><td>'.$h($form['updated_at']).'</td></tr>';
         }
         echo '</tbody></table>';
     }
+}
+if ($selectedForm!==null) {
+    echo '<h2>Formulier '.$h($selectedForm['document_code']).'</h2><p>Status: '.$h($selectedForm['status']).' · Revisie: '.$h($selectedForm['revision']).' · Versie: '.$h($selectedForm['document_version']).'</p>';
+    echo '<dl>';
+    foreach ($selectedForm['data'] as $key=>$value) {
+        if (!is_string($key) || !(is_scalar($value) || $value===null)) continue;
+        echo '<dt><strong>'.$h($key).'</strong></dt><dd>'.nl2br($h($value),false).'</dd>';
+    }
+    echo '</dl><p>Alleen lezen. Bewerken en goedkeuren zijn nog niet vrijgegeven.</p>';
 }
 echo '</section></main></body></html>';
