@@ -32,6 +32,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Inspect merge conflicts with develop without changing branch
+        shell: bash
+        run: |
+          set -eu
+          git fetch --no-tags --depth=200 origin develop
+          if ! git merge-tree --write-tree HEAD FETCH_HEAD > /tmp/process-forms-merge-tree.txt 2>&1; then
+            echo 'Merge conflicts detected against develop:'
+            cat /tmp/process-forms-merge-tree.txt
+            exit 1
+          fi
+          echo 'No merge conflicts with develop.'
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
