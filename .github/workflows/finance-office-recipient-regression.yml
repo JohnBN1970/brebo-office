@@ -1,0 +1,40 @@
+name: Finance Office supplier recipient regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/OfficeSupplierRecipient*.php'
+      - 'office-independent/src/Finance/OfficeSupplierBankSchema.php'
+      - 'office-independent/tests/OfficeSupplierBankSchemaTest.php'
+      - 'office-independent/tests/OfficeSupplierRecipient*.php'
+      - 'office-independent/tests/OfficePaymentRecipientGatewayTest.php'
+      - 'web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php'
+      - '.github/workflows/finance-office-recipient-regression.yml'
+  workflow_dispatch:
+jobs:
+  recipient-regression:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Syntax checks
+        run: |
+          php -l office-independent/src/Finance/OfficeSupplierBankSchema.php
+          php -l office-independent/tests/OfficeSupplierBankSchemaTest.php
+          php -l office-independent/src/Finance/OfficeSupplierRecipientPolicy.php
+          php -l office-independent/src/Finance/OfficeSupplierRecipientResolver.php
+          php -l office-independent/tests/OfficeSupplierRecipientPolicyTest.php
+          php -l office-independent/tests/OfficeSupplierRecipientResolverTest.php
+          php -l office-independent/tests/OfficePaymentRecipientGatewayTest.php
+          php -l web/modules/custom/brebo_finance/src/Infrastructure/OfficePaymentRecipientGateway.php
+      - name: Run isolated regression fixtures (no database or external services)
+        run: |
+          php office-independent/tests/OfficeSupplierBankSchemaTest.php
+          php office-independent/tests/OfficeSupplierRecipientPolicyTest.php
+          php office-independent/tests/OfficeSupplierRecipientResolverTest.php
+          php office-independent/tests/OfficePaymentRecipientGatewayTest.php
