@@ -40,8 +40,8 @@ if (!is_array($c) || !isset($c['OFFICE_INTAKE_PDO_DSN'], $c['OFFICE_INTAKE_DB_US
 }
 $dsn = (string)($c['OFFICE_INTAKE_PDO_DSN'] ?? '');
 if (($c['OFFICE_BASE_PATH'] ?? '') !== '/office-test'
-    || !preg_match('/(?:^|;)dbname=u213420663_office_test(?:;|$)/', $dsn)
-    || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);/', $dsn)) {
+    || !preg_match('/(?:^|;)dbname=brebo_office_test(?:;|$)/', $dsn)
+    || !preg_match('/^mysql:host=(?:localhost|127[.]0[.]0[.]1);/', $dsn)) {
     echo "BLOCK_TEST_SCOPE\n"; exit(3);
 }
 try {
