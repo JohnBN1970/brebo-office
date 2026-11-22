@@ -33,7 +33,7 @@ final class OfficeCrmOpportunityRepository {
     }
     public function transition(int $id,string $from,string $to): bool {
         if ($id<1 || !OfficeCrmFunnel::canTransition($from,$to)) return false;
-        $stmt=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status=? WHERE id=? AND stage=? AND status='open'");
+        $stmt=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status=?,revision=revision+1 WHERE id=? AND stage=? AND status='open'");
         $stmt->execute([$to,in_array($to,['won','lost'],true)?'closed':'open',$id,$from]);
         return $stmt->rowCount()===1;
     }
