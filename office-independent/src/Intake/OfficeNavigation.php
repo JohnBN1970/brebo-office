@@ -242,18 +242,8 @@ final class OfficeNavigation {
     $module=$current==='bedrijf'?'Mijn werkplek':(self::AREAS[$current][0]??'Mijn werkplek');
     // Test-only role preview: presentation context, never an authorization identity.
     // The real Office operator and project ACL continue to govern every request.
-    $previewRoles=[
-      'actual'=>'Eigen account', 'medewerker'=>'Medewerker',
-      'RL-001'=>'Directie', 'RL-002'=>'Senior Projectleider',
-      'RL-003'=>'Senior Uitvoerder', 'RL-004'=>'Senior Werkvoorbereider',
-      'RL-005'=>'Calculator / Inkoper', 'RL-006'=>'KAM / Kwaliteitsmanager',
-      'RL-007'=>'Controller', 'RL-008'=>'Administrateur',
-      'RL-009'=>'Directiesecretaresse', 'RL-010'=>'Planner / Capaciteitscoördinator',
-      'RL-011'=>'Contract- en Documentcontroller', 'RL-012'=>'Service- en Garantiecoördinator',
-      'RL-013'=>'Omgevings- en Bewonerscoördinator', 'RL-014'=>'Kennis- en Procesbeheerder',
-      'RL-015'=>'BREBO Virtuele Staf', 'RL-016'=>'Bedrijfsjurist / Juridisch Adviseur',
-      'admin'=>'Systeembeheerder / Admin',
-    ];
+    require_once dirname(__DIR__).'/Approval/OfficeTestRolePermissionPolicy.php';
+    $previewRoles=\\Brebo\\Office\\Approval\\OfficeTestRolePermissionPolicy::roles();
     $roleOptions='';
     foreach($previewRoles as $code=>$label)$roleOptions.='<option value="'.self::h($code).'">'.self::h($label).'</option>';
     $rolePreview='<label class="office-role-preview">Bekijk als <select id="office-role-preview" aria-label="Bekijk Office als functie">'.$roleOptions.'</select></label><span id="office-role-preview-status" role="status" aria-live="polite"></span>';
