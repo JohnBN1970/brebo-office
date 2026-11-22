@@ -153,6 +153,29 @@ header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
   echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  // CL-204 opnames are read-only until a separately authorized write controller exists.
+  // Never interpret missing schema or inaccessible data as an empty confirmed register.
+  if (getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled') {
+    echo '<section class="office-building-opnames"><h2>Opnames</h2><p>CL-204 Projectopname. Inspecties blijven een afzonderlijk onderdeel.</p>';
+    try {
+      $opnameStatement = $db->prepare("SELECT id, status, revision, updated_at FROM office_process_form_instances WHERE document_code='CL-204' AND context_type='building' AND context_id=? ORDER BY updated_at DESC, id DESC LIMIT 50");
+      $opnameStatement->execute([(int)$buildingId]);
+      $opnames = $opnameStatement->fetchAll(PDO::FETCH_ASSOC);
+      if ($opnames === []) {
+        echo '<p>Voor dit gebouw zijn nog geen CL-204-opnames geregistreerd.</p>';
+      } else {
+        echo '<table><thead><tr><th>Opname</th><th>Formulierstatus</th><th>Revisie</th><th>Bijgewerkt</th></tr></thead><tbody>';
+        foreach ($opnames as $opname) {
+          echo '<tr><td>CL-204 #' . (int)$opname['id'] . '</td><td>' . $h($opname['status']) . '</td><td>' . (int)$opname['revision'] . '</td><td>' . $h($opname['updated_at']) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+      }
+    } catch (PDOException $opnameError) {
+      error_log('Office building CL-204 opnames unavailable: ' . $opnameError->getCode());
+      echo '<p role="status">Opnames zijn tijdelijk niet beschikbaar; opslag of toegang moet nog worden gecontroleerd.</p>';
+    }
+    echo '<p>Nieuwe opname en bewerken volgen na controle van rechten, CSRF en opslag.</p></section>';
+  }
   echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
   if ($pdokStorageReady) {
     echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
