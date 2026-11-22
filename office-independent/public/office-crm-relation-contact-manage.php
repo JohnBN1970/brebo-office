@@ -47,10 +47,13 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
    if (!$lock->fetchColumn()) throw new RuntimeException('Relatie is niet meer actief.');
    $stmt=$db->prepare('SELECT job_title,is_primary FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=? FOR UPDATE');$stmt->execute([$relationId,$contactId]);$previous=$stmt->fetch(PDO::FETCH_ASSOC);
    if (!$previous) throw new RuntimeException('Koppeling is al gewijzigd.');
+   $previousPrimaryIds=[];
    if ($action==='unlink') {
     $stmt=$db->prepare('DELETE FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=?');$stmt->execute([$relationId,$contactId]);
    } else {
     if (($_POST['is_primary']??'')==='1') {
+     $stmt=$db->prepare('SELECT contact_id FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id<>? AND is_primary=1');
+     $stmt->execute([$relationId,$contactId]);$previousPrimaryIds=array_map('intval',$stmt->fetchAll(PDO::FETCH_COLUMN));
      $stmt=$db->prepare('UPDATE office_crm_relation_contacts SET is_primary=0 WHERE relation_id=? AND contact_id<>?');
      $stmt->execute([$relationId,$contactId]);
     }
@@ -59,7 +62,7 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
    }
    // Audit storage must be installed and verified before enabling this write endpoint.
    $stmt=$db->prepare('INSERT INTO office_crm_relation_contact_events (relation_id,contact_id,actor_operator_id,event_type,note) VALUES (?,?,?,?,?)');
-   $stmt->execute([$relationId,$contactId,(string)$operator->operatorId,$action,json_encode(['reason'=>$reason,'before'=>$previous,'after'=>$action==='save'?['job_title'=>$job,'is_primary'=>($_POST['is_primary']??'')==='1']:null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+   $stmt->execute([$relationId,$contactId,(string)$operator->operatorId,$action,json_encode(['reason'=>$reason,'before'=>$previous,'previous_primary_contact_ids'=>$previousPrimaryIds,'after'=>$action==='save'?['job_title'=>$job,'is_primary'=>($_POST['is_primary']??'')==='1']:null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
    $db->commit();$_SESSION['crm_contact_manage_csrf']=bin2hex(random_bytes(32));
    header('Location: /office-test/crm/relaties/detail?id='.$relationId,true,303);exit;
   } catch(Throwable $e) { if ($db->inTransaction()) $db->rollBack();$error='Wijziging niet opgeslagen; controleer de auditinstallatie.'; }
