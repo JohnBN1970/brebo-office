@@ -74,7 +74,12 @@ try {
             if ($action==='create_concept') {
                 $code=$_POST['document_code']??null;
                 if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
-                $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
+                $initialData=[];
+                if ($code==='FR-201') {
+                    require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
+                    $initialData=array_fill_keys(array_keys(\Brebo\Office\Process\OfficeProcessFormFr201::FIELDS),'');
+                }
+                $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,$initialData,'Concept aangemaakt');
             } elseif ($action!=='revise_concept') {
                 $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -86,6 +91,12 @@ try {
                 // A blank placeholder cannot be submitted as a completed form.
                 // Document-specific mandatory fields will be enabled only after
                 // the source form definitions have been verified.
+                if ($action==='submit_concept' && $form['document_code']==='FR-201') {
+                    require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
+                    if (\Brebo\Office\Process\OfficeProcessFormFr201::missingRequired($form['data'])!==[]) {
+                        http_response_code(422); exit('FR-201 bevat nog niet ingevulde verplichte velden.');
+                    }
+                }
                 if ($action==='submit_concept') {
                     // A free-text note is not a substitute for the controlled
                     // fields of the original process-handbook document.
@@ -118,6 +129,14 @@ try {
                 // Only the existing field set and the explicitly supported
                 // free-text note can be edited through this generic UI.
                 // Document-specific field schemas will be source-verified.
+                if ($form['document_code']==='FR-201') {
+                    require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
+                    foreach (array_keys($fields) as $fieldKey) {
+                        if (!is_string($fieldKey) || !array_key_exists($fieldKey,\Brebo\Office\Process\OfficeProcessFormFr201::FIELDS)) {
+                            http_response_code(422); exit('Onbekend FR-201-veld.');
+                        }
+                    }
+                }
                 foreach (array_keys($fields) as $fieldKey) {
                     if (!is_string($fieldKey) || (!array_key_exists($fieldKey,$form['data']) && $fieldKey!=='opmerking')) {
                         http_response_code(422); exit('Onbekend formulierveld.');
@@ -214,11 +233,21 @@ if ($selectedForm!==null) {
         echo '<h3>Concept bewerken</h3><form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
         echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="revise_concept">';
         echo '<input type="hidden" name="form_id" value="'.$h($selectedForm['id']).'"><input type="hidden" name="expected_revision" value="'.$h($selectedForm['revision']).'">';
+        if ($selectedForm['document_code']==='FR-201') {
+            require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
+        }
         foreach ($selectedForm['data'] as $key=>$value) {
             if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{0,79}$/D',$key) || !(is_scalar($value) || $value===null)) continue;
-            echo '<p><label>'.$h($key).' <textarea name="fields['.$h($key).']">'.$h($value).'</textarea></label></p>';
+            $definition=$selectedForm['document_code']==='FR-201'
+                ? (\Brebo\Office\Process\OfficeProcessFormFr201::FIELDS[$key]??null) : null;
+            $label=$definition[0]??$key;
+            $help=$definition[1]??'';
+            $required=$definition!==null && $definition[2]===true;
+            echo '<p><label>'.$h($label).($required?' *':'').' <textarea name="fields['.$h($key).']"'.($required?' required':'').'>'.$h($value).'</textarea></label>';
+            if ($help!=='') echo '<small>'.$h($help).'</small>';
+            echo '</p>';
         }
-        if (!array_key_exists('opmerking',$selectedForm['data'])) {
+        if ($selectedForm['document_code']!=='FR-201' && !array_key_exists('opmerking',$selectedForm['data'])) {
             echo '<p><label>Opmerking <textarea name="fields[opmerking]"></textarea></label></p>';
         }
         echo '<p><label>Reden wijziging <input name="change_reason" required maxlength="500"></label></p><button type="submit">Concept opslaan</button></form>';
