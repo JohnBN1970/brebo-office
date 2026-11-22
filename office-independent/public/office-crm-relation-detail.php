@@ -100,6 +100,7 @@ if (getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled') {
     }
     echo '</details>';
 }
+echo '</section>';
 if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
     echo '<section><h2>Bedrijfsstructuur</h2>';
     try {
@@ -116,7 +117,7 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
     } catch(Throwable $ignored) { echo '<p>Bedrijfsstructuur tijdelijk niet beschikbaar.</p>'; }
     echo '</section>';
 }
-echo '</section><section><h2>Vastgoedbeheerder</h2>';
+echo '<section><h2>Vastgoedbeheerder</h2>';
 if (!$managers) echo '<p>Geen actieve vertegenwoordiging vastgelegd.</p>';
 else foreach ($managers as $manager) echo '<p>'.$h($manager['display_name']).'</p>';
 echo '</section><section><h2>Gerelateerde e-mails</h2>';
