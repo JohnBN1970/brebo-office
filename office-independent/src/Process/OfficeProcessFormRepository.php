@@ -93,6 +93,11 @@ final class OfficeProcessFormRepository
             $stmt = $this->db->prepare("SELECT actor_operator_id FROM office_process_form_events WHERE form_id=? AND event_type='submit' ORDER BY revision DESC LIMIT 1");
             $stmt->execute([$id]);
             $submitter = (string)($stmt->fetchColumn() ?: '');
+            // Never approve a form without a recorded submission, even when
+            // the optional independent-review rule is disabled.
+            if ($action === 'approve' && $submitter === '') {
+                throw new RuntimeException('Goedkeuring vereist een geregistreerde indiening');
+            }
             $next = OfficeProcessFormWorkflow::target((string)$row['status'],$action,$actor,$submitter,$fourEyes,$mandateGranted,$reason);
             $revision = $expectedRevision + 1;
             $stmt = $this->db->prepare('UPDATE office_process_form_instances SET status=?,revision=?,updated_by=? WHERE id=? AND revision=?');
