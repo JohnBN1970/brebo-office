@@ -13,6 +13,8 @@ on:
       - 'office-independent/tests/OfficeCalcDealStartRouteContractTest.php'
       - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
       - 'office-independent/tests/OfficeCrmDealRevisionTransitionTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php'
+      - 'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php'
       - '.github/workflows/office-crm-calc-clean-integration.yml'
   workflow_dispatch:
 permissions:
@@ -41,7 +43,9 @@ jobs:
             office-independent/deployment/vps/crm-calc-schema-preflight.php \
             office-independent/tests/OfficeCalcDealStartRouteContractTest.php \
             office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php \
-            office-independent/tests/OfficeCrmDealRevisionTransitionTest.php; do
+            office-independent/tests/OfficeCrmDealRevisionTransitionTest.php \
+            office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php \
+            office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php; do
             php -l "$file"
           done
       - name: Projectless Deal Calc contracts
@@ -50,6 +54,7 @@ jobs:
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
           php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
           php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+          php office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
       - name: Read-only VPS schema gate contract
         run: |
           set -euo pipefail
