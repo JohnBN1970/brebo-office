@@ -97,7 +97,8 @@ if ($detail) {
 }
 // CL-204 writes require explicit test-only activation and a session-bound HMAC CSRF token.
 $cl204WriteEnabled = getenv('OFFICE_BASE_PATH') === '/office-test'
-  && getenv('OFFICE_TEST_CL204_OPNAMES_WRITE_ENABLED') === 'enabled';
+  && getenv('OFFICE_TEST_CL204_OPNAMES_WRITE_ENABLED') === 'enabled'
+  && getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled';
 $cl204Secret = getenv('OFFICE_CL204_CSRF_SECRET');
 $cl204SessionHash = isset($operator) ? (string)$operator->sessionId : '';
 $cl204CsrfReady = $cl204WriteEnabled && is_string($cl204Secret) && strlen($cl204Secret) >= 32
