@@ -27,6 +27,11 @@ final class OfficeCl204FormView
             }
             $out .= '</select></div>';
         }
+        $out .= '</fieldset><fieldset><legend>Disciplines</legend>';
+        $disciplines = $draft['disciplines'] ?? [];
+        $out .= '<label for="cl204_disciplines">Disciplines (één per regel)</label>';
+        $out .= '<textarea id="cl204_disciplines" name="cl204_disciplines" rows="3" maxlength="2000">'.self::e(is_array($disciplines) ? implode("\\n", array_filter($disciplines, 'is_string')) : '').'</textarea>';
+        $out .= '<p>Gebouw, project en opnemer worden door Office aan de opname gekoppeld.</p>';
         $out .= '</fieldset><fieldset><legend>Vrijgavestatus (alleen bevoegd besluit)</legend>';
         $out .= '<p>V1 t/m V6 wordt door de bevoegde beoordelaar vastgesteld; niet door dit conceptformulier.</p>';
         $out .= '</fieldset></section>';
