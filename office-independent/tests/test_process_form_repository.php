@@ -16,4 +16,12 @@ foreach (['beginTransaction()', 'rollBack()', 'revision=revision+1', "status='co
 foreach (['FOR UPDATE', "event_type='submit'", 'OfficeProcessFormWorkflow::target', 'Concurrent form decision', 'Goedkeuring vereist een geregistreerde indiening'] as $contract) {
     if (!str_contains($source,$contract)) throw new RuntimeException('Missing transition invariant: '.$contract);
 }
+require_once dirname(__DIR__).'/src/Process/OfficeProcessFormContext.php';
+if (\Brebo\Office\Process\OfficeProcessFormContext::accepts('FR-201','project')
+    || !\Brebo\Office\Process\OfficeProcessFormContext::accepts('FR-201','lead')) {
+    throw new RuntimeException('Incorrect CRM intake context mapping');
+}
+foreach (['OfficeProcessFormContext::accepts($code,$contextType)','Formuliercode hoort niet bij deze modulecontext'] as $contract) {
+    if (!str_contains($source,$contract)) throw new RuntimeException('Missing repository module context guard: '.$contract);
+}
 echo "Process form repository contracts OK\n";
