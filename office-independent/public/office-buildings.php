@@ -99,7 +99,7 @@ if ($detail) {
 $cl204WriteEnabled = getenv('OFFICE_BASE_PATH') === '/office-test'
   && getenv('OFFICE_TEST_CL204_OPNAMES_WRITE_ENABLED') === 'enabled';
 $cl204Secret = getenv('OFFICE_CL204_CSRF_SECRET');
-$cl204SessionHash = isset($operator) ? (string)$operator->sessionTokenHash : '';
+$cl204SessionHash = isset($operator) ? (string)$operator->sessionId : '';
 $cl204CsrfReady = $cl204WriteEnabled && is_string($cl204Secret) && strlen($cl204Secret) >= 32
   && strlen($cl204SessionHash) === 64;
 $cl204Csrf = $cl204CsrfReady
