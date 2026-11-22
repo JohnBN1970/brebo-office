@@ -29,7 +29,16 @@ final class OfficeFr201FormView
         $html = '<section class="office-fr201" aria-label="FR-201 klantvraag en intake">'
             .'<h3>FR-201 · Klantvraag en intake <small>v1.0</small></h3>'
             .'<p>Vul alleen de ontbrekende intakegegevens aan. De oorspronkelijke lead en herkomst blijven leidend.</p>';
-        if (!$canEdit) return $html.'<p>Alleen lezen; geen bewerkrechten.</p></section>';
+        if (!$canEdit) {
+            $html .= '<p>Alleen lezen; geen bewerkrechten.</p><dl>';
+            foreach (OfficeFr201Intake::fields() as $key => $field) {
+                if (in_array($key, self::MASTER_FIELDS, true)) continue;
+                $value=$supplement[$key]??'';
+                if (!is_string($value) || trim($value)==='') continue;
+                $html .= '<dt>'.$h($field['label']).'</dt><dd>'.nl2br($h($value),false).'</dd>';
+            }
+            return $html.'</dl></section>';
+        }
         $html .= '<form method="post" action="'.$h($trustedActionUrl).'">'
             .'<input type="hidden" name="csrf_token" value="'.$h($csrfToken).'">'
             .'<input type="hidden" name="lead_id" value="'.$leadId.'">'
