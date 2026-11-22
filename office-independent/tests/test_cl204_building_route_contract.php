@@ -26,4 +26,12 @@ foreach ($required as $contract) {
 if (!str_contains($source,"getenv('OFFICE_BASE_PATH') === '/office-test'")) {
     throw new RuntimeException('CL-204 writes must remain test-only');
 }
+$preRenderGuard = strpos($source, '// Validate opname selection before writing any HTML');
+$pageRender = strpos($source, "echo '<!doctype html>");
+if ($preRenderGuard === false || $pageRender === false || $preRenderGuard >= $pageRender) {
+    throw new RuntimeException('Invalid opname ID must be rejected before HTML rendering');
+}
+if (!str_contains($source, 'loadBuildingOpname((int)$buildingId, $requestedCl204OpnameId)')) {
+    throw new RuntimeException('Opname lookup must be scoped to the selected building');
+}
 echo "CL-204 building route contract OK\n";
