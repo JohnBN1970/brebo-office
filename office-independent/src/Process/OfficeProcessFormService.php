@@ -20,6 +20,8 @@ final class OfficeProcessFormService
 
     public function create(string $code, string $version, string $contextType, int $contextId, string $actor, array $data, string $reason, bool $csrfValid): int
     {
+        require_once __DIR__.'/OfficeProcessFormContext.php';
+        if (!OfficeProcessFormContext::accepts($code,$contextType)) throw new InvalidArgumentException('Ongeldige modulekoppeling voor formulier');
         $this->guard($csrfValid,$actor,'create',$contextType,$contextId,$code);
         return $this->repository->create($code,$version,$contextType,$contextId,$actor,$data,$reason);
     }
@@ -59,6 +61,8 @@ final class OfficeProcessFormService
     private function guard(bool $csrfValid, string $actor, string $action, string $contextType, int $contextId, string $code): void
     {
         if (!$csrfValid) throw new InvalidArgumentException('Ongeldige formulierbeveiliging');
+        require_once __DIR__.'/OfficeProcessFormContext.php';
+        if (!OfficeProcessFormContext::accepts($code,$contextType)) throw new InvalidArgumentException('Ongeldige formuliercontext');
         require_once __DIR__.'/OfficeProcessFormAuthorization.php';
         OfficeProcessFormAuthorization::assertPermitted($this->permissionResolver,$actor,$action,$contextType,$contextId,$code);
     }
