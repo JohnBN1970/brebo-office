@@ -11,6 +11,14 @@ foreach ([
     if (!str_contains($project,$fragment)) throw new RuntimeException('Missing project navigation gate: '.$fragment);
 }
 foreach ([
+    'building_link_action',
+    'OfficeBuildingRepository($db))->linkProject(',
+    'b.building_name AS name',
+    'office_project_csrf',
+] as $fragment) {
+    if (!str_contains($project,$fragment)) throw new RuntimeException('Existing project-building integration lost: '.$fragment);
+}
+foreach ([
     'office_project_memberships',
     'm.operator_id=?',
     "m.permission IN ('read','manage')",
