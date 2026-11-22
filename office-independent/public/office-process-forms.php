@@ -30,6 +30,7 @@ try {
     require_once dirname(__DIR__).'/src/Process/OfficeProcessFormCatalog.php';
     $catalog=\Brebo\Office\Process\OfficeProcessFormCatalog::all();
     // Project-scoped catalog: never expose project context without membership.
+    $projectForms=[];
     $projectIdRaw=(string)($_GET['project_id']??'');
     if ($projectIdRaw!=='') {
         if (!preg_match('/^[1-9][0-9]{0,17}$/D',$projectIdRaw)) {
@@ -44,6 +45,19 @@ try {
         require_once dirname(__DIR__).'/src/Process/OfficeProcessFormContext.php';
         $catalog=array_filter($catalog,static fn(array $entry,string $code):bool=>
             \Brebo\Office\Process\OfficeProcessFormContext::accepts($code,'project'),ARRAY_FILTER_USE_BOTH);
+        // No runtime migrations; never expose rows without project membership.
+        if (getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
+            require_once dirname(__DIR__).'/src/Process/OfficeProcessFormSchemaPreflight.php';
+            $preflight=\Brebo\Office\Process\OfficeProcessFormSchemaPreflight::verify($db);
+            if ($preflight['ready']!==true) { http_response_code(503); exit('Formulieropslag nog niet gereed.'); }
+            $formsStmt=$db->prepare("SELECT id,document_code,status,revision,updated_at
+                FROM office_process_form_instances
+                WHERE context_type='project' AND context_id=?
+                ORDER BY updated_at DESC,id DESC LIMIT 100");
+            $formsStmt->execute([(int)$projectIdRaw]);
+            $projectForms=array_values(array_filter($formsStmt->fetchAll(PDO::FETCH_ASSOC),
+                static fn(array $row):bool=>isset($catalog[(string)$row['document_code']])));
+        }
     }
 } catch (\Throwable $e) { http_response_code(503); exit('Formuliercatalogus tijdelijk niet beschikbaar.'); }
 $h=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
@@ -52,4 +66,16 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 foreach ($catalog as $code=>$details) {
     echo '<tr><td>'.$h($code).'</td><td>'.$h($details[0]??'').'</td><td>'.$h($details[1]??'').'</td></tr>';
 }
-echo '</tbody></table></section></main></body></html>';
+echo '</tbody></table>';
+if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
+    echo '<h2>Opgeslagen projectformulieren</h2>';
+    if ($projectForms===[]) echo '<p>Nog geen formulieren geregistreerd.</p>';
+    else {
+        echo '<table><thead><tr><th>Nummer</th><th>Code</th><th>Status</th><th>Revisie</th><th>Gewijzigd</th></tr></thead><tbody>';
+        foreach ($projectForms as $form) {
+            echo '<tr><td>'.$h($form['id']).'</td><td>'.$h($form['document_code']).'</td><td>'.$h($form['status']).'</td><td>'.$h($form['revision']).'</td><td>'.$h($form['updated_at']).'</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+}
+echo '</section></main></body></html>';
