@@ -15,6 +15,7 @@ final class OfficeCl204DraftInput
         require_once __DIR__.'/OfficeCl204Projectopname.php';
         $input = $post['cl204'] ?? null;
         if (!is_array($input)) throw new InvalidArgumentException('Opnamegegevens ontbreken');
+        if (array_keys($input) !== ['controls']) throw new InvalidArgumentException('Onbekende opnamevelden');
         $statuses = $input['controls'] ?? null;
         if (!is_array($statuses) || array_diff(array_keys($statuses), array_keys(OfficeCl204Projectopname::controls()))) {
             throw new InvalidArgumentException('Ongeldige opnamecontroles');
