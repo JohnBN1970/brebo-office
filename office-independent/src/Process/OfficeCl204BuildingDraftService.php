@@ -9,7 +9,8 @@ use RuntimeException;
 /**
  * Building-scoped CL-204 draft write service.
  * Host must authenticate operator and verify CSRF before invoking this service.
- * Project membership is checked again in the same database transaction.
+ * Project membership is checked before the repository's atomic write.
+ * A host-level mandate check and CSRF verification are still required.
  */
 final class OfficeCl204BuildingDraftService
 {
@@ -22,7 +23,6 @@ final class OfficeCl204BuildingDraftService
         }
         require_once __DIR__.'/OfficeCl204DraftInput.php';
         require_once __DIR__.'/OfficeProcessFormRepository.php';
-        $this->db->beginTransaction();
         try {
             // Only a manage membership on a project linked to this building permits writes.
             $access = $this->db->prepare(
@@ -39,11 +39,7 @@ final class OfficeCl204BuildingDraftService
             if ($formId === null) {
                 if ($expectedRevision !== null) throw new InvalidArgumentException('Onverwachte revisie');
                 $data = OfficeCl204DraftInput::parse($post);
-                // Repository owns its own transaction; close the authorization transaction
-                // only after access check. A concurrent permission change must be checked
-                // by the host's authorization layer before any request reaches this service.
-                $this->db->commit();
-                $id = $repository->create('CL-204','1.0','building',$buildingId,$actor,$data,$reason);
+                    $id = $repository->create('CL-204','1.0','building',$buildingId,$actor,$data,$reason);
                 return ['id'=>$id,'revision'=>1];
             }
             if ($formId < 1 || $expectedRevision === null || $expectedRevision < 1) {
@@ -57,11 +53,9 @@ final class OfficeCl204BuildingDraftService
                 throw new RuntimeException('Opname is inmiddels gewijzigd');
             }
             $data = OfficeCl204DraftInput::parse($post,$stored['data']);
-            $this->db->commit();
             $revision = $repository->revise($formId,$expectedRevision,$actor,$data,$reason);
             return ['id'=>$formId,'revision'=>$revision];
         } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
             throw $e;
         }
     }
