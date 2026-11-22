@@ -98,6 +98,19 @@ final class OfficeProcessFormRepository
             if ($action === 'approve' && $submitter === '') {
                 throw new RuntimeException('Goedkeuring vereist een geregistreerde indiening');
             }
+            if ($action === 'submit') {
+                // Revalidate against the locked database snapshot, not a stale
+                // browser copy. FR-201 is the first source-verified schema.
+                $codeStmt=$this->db->prepare('SELECT document_code FROM office_process_form_instances WHERE id=?');
+                $codeStmt->execute([$id]);
+                if ($codeStmt->fetchColumn()==='FR-201') {
+                    require_once __DIR__.'/OfficeProcessFormFr201.php';
+                    $data=json_decode((string)$row['data_json'],true,512,JSON_THROW_ON_ERROR);
+                    if (!is_array($data) || OfficeProcessFormFr201::missingRequired($data)!==[]) {
+                        throw new InvalidArgumentException('FR-201 verplichte velden ontbreken');
+                    }
+                }
+            }
             $next = OfficeProcessFormWorkflow::target((string)$row['status'],$action,$actor,$submitter,$fourEyes,$mandateGranted,$reason);
             $revision = $expectedRevision + 1;
             $stmt = $this->db->prepare('UPDATE office_process_form_instances SET status=?,revision=?,updated_by=? WHERE id=? AND revision=?');
