@@ -91,7 +91,7 @@ try {
         $exists->execute([$id]);
         $leadOwner = $exists->fetchColumn();
         if ($leadOwner === false) { http_response_code(404); exit('Lead niet beschikbaar.'); }
-        if (!is_string($leadOwner) || $leadOwner === '' || !hash_equals($leadOwner, (string)$operator->operatorId)) {
+        if (!is_scalar($leadOwner) || (string)$leadOwner === '' || !hash_equals((string)$leadOwner, (string)$operator->operatorId)) {
             http_response_code(403); exit('Alleen de toegewezen leadverantwoordelijke mag FR-201 aanvullen.');
         }
         require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
@@ -210,8 +210,8 @@ if (isset($item)) {
             $fr201CanEdit = getenv('OFFICE_TEST_FR201_WRITE_ENABLED') === 'enabled'
                 && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled'
                 && $item['status'] === 'active' && !$item['converted_opportunity_id']
-                && is_string($item['owner_operator_id']) && $item['owner_operator_id'] !== ''
-                && hash_equals($item['owner_operator_id'], (string)$operator->operatorId);
+                && is_scalar($item['owner_operator_id']) && (string)$item['owner_operator_id'] !== ''
+                && hash_equals((string)$item['owner_operator_id'], (string)$operator->operatorId);
             echo \Brebo\Office\Process\OfficeFr201FormView::render(
                 (int)$item['id'], $fr201['data'], $fr201['revision'],
                 $base.'/crm/aanvragen/detail?id='.(int)$item['id'],
