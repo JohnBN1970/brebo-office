@@ -60,7 +60,7 @@ try {
             $submittedCsrf=$_POST['csrf_token']??null;
             if (!is_string($submittedCsrf) || !hash_equals($csrfCookie,$submittedCsrf)) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
             $action=$_POST['action']??null;
-            if (!in_array($action,['create_concept','revise_concept'],true)) { http_response_code(400); exit('Onbekende formulieractie.'); }
+            if (!in_array($action,['create_concept','revise_concept','submit_concept','start_review','return','reject'],true)) { http_response_code(400); exit('Onbekende formulieractie.'); }
             $manage=$db->prepare("SELECT 1 FROM office_project_memberships WHERE project_id=? AND operator_id=? AND permission='manage' LIMIT 1");
             $manage->execute([(int)$projectIdRaw,$operator->operatorId]);
             if ($manage->fetchColumn()===false) { http_response_code(403); exit('Geen schrijfrechten voor dit project.'); }
@@ -70,6 +70,16 @@ try {
                 $code=$_POST['document_code']??null;
                 if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
                 $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
+            } elseif ($action!=='revise_concept') {
+                $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $reason=$_POST['change_reason']??null;
+                if (!is_int($id) || !is_int($revision) || !is_string($reason)) { http_response_code(422); exit('Ongeldige beslissing.'); }
+                $form=$repository->load($id);
+                if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
+                    || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                $workflowAction=$action==='submit_concept'?'submit':$action;
+                $repository->transition($id,$revision,$workflowAction,(string)$operator->operatorId,true,true,$reason);
             } else {
                 $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -171,6 +181,18 @@ if ($selectedForm!==null) {
         }
         echo '<p><label>Opmerking <textarea name="fields[opmerking]">'.$h($selectedForm['data']['opmerking']??'').'</textarea></label></p>';
         echo '<p><label>Reden wijziging <input name="change_reason" required maxlength="500"></label></p><button type="submit">Concept opslaan</button></form>';
+    }
+    if (getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled'
+        && in_array($selectedForm['status'],['concept','ingediend','controle'],true)) {
+        $actions=['concept'=>['submit_concept'=>'Ter controle indienen'],
+                  'ingediend'=>['start_review'=>'Controle starten','return'=>'Terug naar concept'],
+                  'controle'=>['reject'=>'Afwijzen','return'=>'Terug naar concept']];
+        foreach ($actions[$selectedForm['status']] as $action=>$label) {
+            echo '<form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
+            echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="'.$h($action).'">';
+            echo '<input type="hidden" name="form_id" value="'.$h($selectedForm['id']).'"><input type="hidden" name="expected_revision" value="'.$h($selectedForm['revision']).'">';
+            echo '<label>Motivering <input name="change_reason" required maxlength="500"></label> <button type="submit">'.$h($label).'</button></form>';
+        }
     }
     echo '</dl><h3>Revisie- en besluitgeschiedenis</h3>';
     if ($formEvents===[]) echo '<p>Geen geregistreerde gebeurtenissen.</p>';
