@@ -27,7 +27,7 @@ try {
     if (!$relation) { http_response_code(404); exit('Relatie niet gevonden.'); }
     $stmt=$db->prepare('SELECT role_code FROM office_crm_relation_roles WHERE relation_id=? ORDER BY role_code');
     $stmt->execute([$id]); $roles=$stmt->fetchAll(PDO::FETCH_COLUMN);
-    $stmt=$db->prepare('SELECT p.given_name,p.family_name,p.email,p.phone,c.job_title,c.is_primary FROM office_crm_relation_contacts c JOIN office_crm_contact_people p ON p.id=c.contact_id WHERE c.relation_id=? AND p.status=? ORDER BY c.is_primary DESC,p.family_name,p.given_name');
+    $stmt=$db->prepare('SELECT p.id AS contact_id,p.given_name,p.family_name,p.email,p.phone,c.job_title,c.is_primary FROM office_crm_relation_contacts c JOIN office_crm_contact_people p ON p.id=c.contact_id WHERE c.relation_id=? AND p.status=? ORDER BY c.is_primary DESC,p.family_name,p.given_name');
     $stmt->execute([$id,'active']); $contacts=$stmt->fetchAll(PDO::FETCH_ASSOC);
     $stmt=$db->prepare("SELECT manager.display_name,rep.valid_from,rep.valid_until FROM office_crm_relation_representations rep JOIN office_crm_relations manager ON manager.id=rep.representative_relation_id WHERE rep.principal_relation_id=? AND rep.representation_type='property_management' AND (rep.valid_from IS NULL OR rep.valid_from<=CURRENT_DATE()) AND (rep.valid_until IS NULL OR rep.valid_until>=CURRENT_DATE()) ORDER BY manager.display_name");
     $stmt->execute([$id]); $managers=$stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -75,8 +75,8 @@ echo '</dl></section><section><h2>Relatierollen</h2><p>'.$h(implode(', ',array_m
 if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && $relation['status']==='active') echo '<p><a href="/office-test/crm/relaties/contactpersoon/nieuw?relation_id='.$id.'">+ Contactpersoon toevoegen</a></p>';
 if (!$contacts) echo '<p>Geen contactpersonen vastgelegd.</p>';
 else {
-    echo '<table><thead><tr><th>Naam</th><th>Functie</th><th>E-mail</th><th>Telefoon</th><th>Primair</th></tr></thead><tbody>';
-    foreach ($contacts as $person) echo '<tr><td>'.$h(trim($person['given_name'].' '.$person['family_name'])).'</td><td>'.$h($person['job_title']??'').'</td><td>'.$h($person['email']??'').'</td><td>'.$h($person['phone']??'').'</td><td>'.($person['is_primary']?'Ja':'').'</td></tr>';
+    echo '<table><thead><tr><th>Naam</th><th>Functie</th><th>E-mail</th><th>Telefoon</th><th>Primair</th><th>Acties</th></tr></thead><tbody>';
+    foreach ($contacts as $person) echo '<tr><td>'.$h(trim($person['given_name'].' '.$person['family_name'])).'</td><td>'.$h($person['job_title']??'').'</td><td>'.$h($person['email']??'').'</td><td>'.$h($person['phone']??'').'</td><td>'.($person['is_primary']?'Ja':'').'</td><td>'.(getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled' && getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled'?'<a href="/office-test/crm/relaties/contactpersoon/beheren?relation_id='.$id.'&amp;contact_id='.(int)$person['contact_id'].'">Bewerken / ontkoppelen</a>':'').'</td></tr>';
     echo '</tbody></table>';
 }
 echo '</section><section><h2>Vastgoedbeheerder</h2>';
