@@ -12,7 +12,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$db->exec('CREATE TABLE office_buildings (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+$db->exec('CREATE TABLE office_buildings (id INTEGER PRIMARY KEY, building_name TEXT NOT NULL)');
 $db->exec('CREATE TABLE office_project_buildings (project_id INTEGER NOT NULL, building_id INTEGER NOT NULL)');
 $db->exec('CREATE TABLE office_housing_types (id INTEGER PRIMARY KEY, building_id INTEGER NOT NULL, code TEXT NOT NULL, name TEXT NOT NULL)');
 $db->exec('CREATE TABLE office_project_housing_types (project_id INTEGER NOT NULL, building_id INTEGER NOT NULL, housing_type_id INTEGER NOT NULL, dwelling_count INTEGER NOT NULL)');
