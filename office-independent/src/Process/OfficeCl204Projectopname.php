@@ -27,6 +27,13 @@ final class OfficeCl204Projectopname
             'maatvoering' => ['label'=>'Maatvoering', 'detail'=>'Aantallen, lengtes, oppervlaktes, referentiemaat, meetmethode en tolerantie'],
             'bereikbaarheid' => ['label'=>'Bereikbaarheid', 'detail'=>'Steiger, hoogwerker, hijsen, parkeren, opslag, stroom, water en afval'],
             'omgeving_bewoners' => ['label'=>'Omgeving/bewoners', 'detail'=>'Gebruik, toegankelijkheid, privacy, geluid, hinder en communicatiebeperkingen'],
+            'te_behouden_delen' => ['label'=>'Te behouden delen', 'detail'=>'Bescherming, proefvlakken, bestaande voorzieningen en herstelgrenzen'],
+            'kwaliteit_garantie' => ['label'=>'Kwaliteit/garantie', 'detail'=>'Keuringspunten, producteisen, ondergrond, garanties en onderhoudsvoorwaarden'],
+            'foto_video' => ['label'=>'Foto/video', 'detail'=>'Overzicht, tussenbeeld, detail, oriëntatie, schaal, bron en actualiteit'],
+            'risico_urgentie' => ['label'=>'Risico/urgentie', 'detail'=>'Kans, impact, gevolgschade, termijn en tijdelijke beheersing'],
+            'gevolg_bij_uitstel' => ['label'=>'Gevolg bij uitstel', 'detail'=>'Waarschijnlijke schade, kostenstijging, hinder, veiligheid en garantie-effect'],
+            'open_punten' => ['label'=>'Open punten', 'detail'=>'Onzekerheid, actie, eigenaar, termijn, bewijsbehoefte en blokkade'],
+            'vrijgave_overdracht' => ['label'=>'Vrijgave/overdracht', 'detail'=>'Status, gebruiksgrens, beoordelaar, datum, ontvangers en bevestiging'],
         ];
     }
 
@@ -38,6 +45,19 @@ final class OfficeCl204Projectopname
             'observer_operator_id','observation','source_reference','interpretation',
             'measurement','unit','measurement_method','measurement_uncertainty',
             'risk','consequence_of_delay','follow_up_action','evidence_refs',
+        ];
+    }
+
+    /** Handbook V1-V6 describes permitted use of the opname, not the Lead/Deal stage. */
+    public static function releaseStatuses(): array
+    {
+        return [
+            'V1' => 'vrijgegeven',
+            'V2' => 'voorwaardelijk',
+            'V3' => 'aanvulling nodig',
+            'V4' => 'fysieke verificatie',
+            'V5' => 'specialistisch onderzoek',
+            'V6' => 'niet vrijgegeven',
         ];
     }
 
@@ -63,6 +83,9 @@ final class OfficeCl204Projectopname
         if (isset($data['disciplines']) && (!is_array($data['disciplines'])
             || count(array_filter($data['disciplines'], 'is_string')) !== count($data['disciplines']))) {
             $errors['disciplines'] = 'Ongeldige disciplines';
+        }
+        if (isset($data['release_status']) && !array_key_exists((string)$data['release_status'], self::releaseStatuses())) {
+            $errors['release_status'] = 'Ongeldige vrijgavestatus';
         }
         if (isset($data['observations'])) {
             if (!is_array($data['observations'])) {
