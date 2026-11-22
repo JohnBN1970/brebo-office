@@ -72,6 +72,7 @@ echo '<section><h2>Relatiegegevens</h2><dl>';
 $fields=['legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'E-mail','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
 foreach ($fields as $key=>$label) echo '<dt>'.$label.'</dt><dd>'.$h($relation[$key]??'').'</dd>';
 echo '</dl></section><section><h2>Relatierollen</h2><p>'.$h(implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roles))?:'Geen rollen vastgelegd').'</p></section><section><h2>Contactpersonen</h2>';
+if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && $relation['status']==='active') echo '<p><a href="/office-test/crm/relaties/contactpersoon/nieuw?relation_id='.$id.'">+ Contactpersoon toevoegen</a></p>';
 if (!$contacts) echo '<p>Geen contactpersonen vastgelegd.</p>';
 else {
     echo '<table><thead><tr><th>Naam</th><th>Functie</th><th>E-mail</th><th>Telefoon</th><th>Primair</th></tr></thead><tbody>';
