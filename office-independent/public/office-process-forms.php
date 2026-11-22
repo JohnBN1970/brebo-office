@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Isolated, read-only Office-test entry point. No form writes or role preview.
+// Isolated Office-test form entry point. Mutations require explicit write flag, real project rights and CSRF.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -79,7 +79,10 @@ try {
                 if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
                     || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
                 $workflowAction=$action==='submit_concept'?'submit':$action;
-                $repository->transition($id,$revision,$workflowAction,(string)$operator->operatorId,true,true,$reason);
+                // Four-eyes remains the safe default; the approval action is
+            // intentionally unavailable until independent reviewer mandate
+            // and blueprint policy are wired to the real Office roles.
+            $repository->transition($id,$revision,$workflowAction,(string)$operator->operatorId,true,true,$reason);
             } else {
                 $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -179,7 +182,9 @@ if ($selectedForm!==null) {
             if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{0,79}$/D',$key) || !(is_scalar($value) || $value===null)) continue;
             echo '<p><label>'.$h($key).' <textarea name="fields['.$h($key).']">'.$h($value).'</textarea></label></p>';
         }
-        echo '<p><label>Opmerking <textarea name="fields[opmerking]">'.$h($selectedForm['data']['opmerking']??'').'</textarea></label></p>';
+        if (!array_key_exists('opmerking',$selectedForm['data'])) {
+            echo '<p><label>Opmerking <textarea name="fields[opmerking]"></textarea></label></p>';
+        }
         echo '<p><label>Reden wijziging <input name="change_reason" required maxlength="500"></label></p><button type="submit">Concept opslaan</button></form>';
     }
     if (getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled'
