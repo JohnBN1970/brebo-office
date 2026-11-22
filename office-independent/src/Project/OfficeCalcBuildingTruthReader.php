@@ -23,7 +23,7 @@ final class OfficeCalcBuildingTruthReader
         }
 
         $statement = $this->db->prepare(
-            'SELECT b.id AS building_id, b.name AS building_name,
+            'SELECT b.id AS building_id, b.building_name AS building_name,
                     ht.id AS housing_type_id, ht.code AS housing_type_code,
                     ht.name AS housing_type_name, pht.dwelling_count
              FROM office_project_buildings pb
@@ -33,7 +33,7 @@ final class OfficeCalcBuildingTruthReader
              LEFT JOIN office_housing_types ht
                ON ht.id = pht.housing_type_id AND ht.building_id = b.id
              WHERE pb.project_id = :project_id
-             ORDER BY b.name, b.id, ht.name, ht.id'
+             ORDER BY b.building_name, b.id, ht.name, ht.id'
         );
         $statement->execute([':project_id' => $projectId]);
 
