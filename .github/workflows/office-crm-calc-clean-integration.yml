@@ -1,0 +1,58 @@
+name: Office CRM Calc clean integration contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/index.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/public/office-calc-crm-start.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/deployment/vps/crm-calc-schema-preflight.php'
+      - 'office-independent/tests/OfficeCalcDealStartRouteContractTest.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionTransitionTest.php'
+      - '.github/workflows/office-crm-calc-clean-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax
+        run: |
+          set -euo pipefail
+          for file in \
+            office-independent/public/index.php \
+            office-independent/deployment/hostinger/office-test-index.php \
+            office-independent/public/office-calc-crm-start.php \
+            office-independent/public/office-crm-opportunity-transition.php \
+            office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php \
+            office-independent/src/Crm/OfficeCrmOpportunitySchema.php \
+            office-independent/src/Crm/OfficeCrmOpportunityRepository.php \
+            office-independent/deployment/vps/crm-calc-schema-preflight.php \
+            office-independent/tests/OfficeCalcDealStartRouteContractTest.php \
+            office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php \
+            office-independent/tests/OfficeCrmDealRevisionTransitionTest.php; do
+            php -l "$file"
+          done
+      - name: Projectless Deal Calc contracts
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
+          php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+      - name: Explicit release boundary
+        run: |
+          echo 'SOURCE_CONTRACTS_ONLY=PASS'
+          echo 'VPS_SCHEMA_PREFLIGHT=NOT_EXECUTED'
+          echo 'AUTHENTICATED_BROWSER_E2E=NOT_EXECUTED'
+          echo 'RELEASE_APPROVAL=BLOCKED'
