@@ -87,9 +87,14 @@ try {
                 // Document-specific mandatory fields will be enabled only after
                 // the source form definitions have been verified.
                 if ($action==='submit_concept') {
-                    $filled=array_filter($form['data'],static fn(mixed $value):bool=>
-                        is_scalar($value) && trim((string)$value)!=='');
+                    // A free-text note is not a substitute for the controlled
+                    // fields of the original process-handbook document.
+                    $filled=array_filter($form['data'],static fn(mixed $value,string|int $key):bool=>
+                        $key!=='opmerking' && is_scalar($value) && trim((string)$value)!=='',ARRAY_FILTER_USE_BOTH);
                     if ($filled===[]) { http_response_code(422); exit('Vul het formulier in voordat het ter controle gaat.'); }
+                }
+                if ($action==='reopen' && $form['status']==='akkoord') {
+                    http_response_code(403); exit('Intrekken van een goedkeuring vereist afzonderlijk mandaat.');
                 }
                 $workflowAction=$action==='submit_concept'?'submit':$action;
                 // Four-eyes remains the safe default; the approval action is
@@ -224,7 +229,7 @@ if ($selectedForm!==null) {
                   'ingediend'=>['start_review'=>'Controle starten','return'=>'Terug naar concept'],
                   'controle'=>['reject'=>'Afwijzen','return'=>'Terug naar concept'],
                   'afgekeurd'=>['reopen'=>'Opnieuw openen als concept'],
-                  'akkoord'=>['reopen'=>'Goedkeuring intrekken en heropenen']];
+                  'akkoord'=>[]];
         foreach ($actions[$selectedForm['status']] as $action=>$label) {
             echo '<form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
             echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="'.$h($action).'">';
