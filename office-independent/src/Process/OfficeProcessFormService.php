@@ -68,7 +68,7 @@ final class OfficeProcessFormService
         // Never accept a form linked to a deleted or fabricated record.
         try {
             $exists = ($this->resourceExistsResolver)($contextType,$contextId);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             throw new RuntimeException('Office-broncontrole niet beschikbaar',0,$e);
         }
         if ($exists !== true) throw new InvalidArgumentException('Gekoppelde Office-bron bestaat niet');
