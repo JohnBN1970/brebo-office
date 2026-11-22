@@ -49,9 +49,25 @@ final class OfficeFr201Repository
             }
             $data[$key] = trim($value);
         }
-        $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
         try {
+            // Merge partial updates with the locked stored supplement.
+            // Missing browser fields must never erase earlier intake facts.
+            $locked=$this->db->prepare('SELECT revision,data_json FROM office_crm_lead_fr201 WHERE lead_id=? FOR UPDATE');
+            $locked->execute([$leadId]);
+            $current=$locked->fetch(PDO::FETCH_ASSOC);
+            if ($current === false && $expectedRevision !== 0) {
+                throw new RuntimeException('FR-201 revision no longer exists');
+            }
+            if ($current !== false && (int)$current['revision'] !== $expectedRevision) {
+                throw new RuntimeException('FR-201 is gewijzigd; ververs het formulier');
+            }
+            if ($current !== false) {
+                $existing=json_decode((string)$current['data_json'],true,512,JSON_THROW_ON_ERROR);
+                if (!is_array($existing)) throw new RuntimeException('Invalid stored FR-201 data');
+                $data=array_replace($existing,$data);
+            }
+            $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
             if ($expectedRevision === 0) {
                 $stmt = $this->db->prepare('INSERT INTO office_crm_lead_fr201 (lead_id,revision,data_json,updated_by) VALUES (?,1,?,?)');
                 $stmt->execute([$leadId,$json,$actor]);
