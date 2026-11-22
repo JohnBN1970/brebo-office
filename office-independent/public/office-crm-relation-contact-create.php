@@ -89,14 +89,17 @@ if ($method==='POST') {
             $stmt=$db->prepare('SELECT 1 FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=?');
             $stmt->execute([$id,$contactId]);
             if ($stmt->fetchColumn()) throw new DomainException('Deze contactpersoon is al gekoppeld.');
+            $previousPrimaryIds=[];
             if ($primary) {
+                $stmt=$db->prepare('SELECT contact_id FROM office_crm_relation_contacts WHERE relation_id=? AND is_primary=1');
+                $stmt->execute([$id]);$previousPrimaryIds=array_map('intval',$stmt->fetchAll(PDO::FETCH_COLUMN));
                 $stmt=$db->prepare('UPDATE office_crm_relation_contacts SET is_primary=0 WHERE relation_id=?');
                 $stmt->execute([$id]);
             }
             $stmt=$db->prepare('INSERT INTO office_crm_relation_contacts (relation_id,contact_id,job_title,is_primary) VALUES (?,?,?,?)');
             $stmt->execute([$id,$contactId,$values['job_title']?:null,$primary?1:0]);
             $audit=$db->prepare('INSERT INTO office_crm_relation_contact_events (relation_id,contact_id,actor_operator_id,event_type,note) VALUES (?,?,?,?,?)');
-            $audit->execute([$id,$contactId,(string)$operator->operatorId,'linked',json_encode(['reason'=>$reason,'job_title'=>$values['job_title'],'is_primary'=>$primary,'contact_id'=>$contactId],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+            $audit->execute([$id,$contactId,(string)$operator->operatorId,'linked',json_encode(['reason'=>$reason,'job_title'=>$values['job_title'],'is_primary'=>$primary,'contact_id'=>$contactId,'previous_primary_contact_ids'=>$previousPrimaryIds],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
             $db->commit();
             $_SESSION['crm_contact_csrf']=bin2hex(random_bytes(32));
             header('Location: /office-test/crm/relaties/detail?id='.$id,true,303); exit;
