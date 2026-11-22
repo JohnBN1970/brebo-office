@@ -24,3 +24,41 @@
     apply();
   });
 })();
+
+/*
+ * Office-test function preview lives in the same centrally CSP-hashed script
+ * as the theme switcher. This is presentation only; server authorization always
+ * uses the actual authenticated Office operator.
+ */
+(() => {
+  'use strict';
+  const key = 'brebo-office-role-preview';
+  const apply = () => {
+    const picker = document.getElementById('office-role-preview');
+    const status = document.getElementById('office-role-preview-status');
+    if (!picker || !status) return;
+    let selected = 'actual';
+    try {
+      const stored = sessionStorage.getItem(key);
+      if (stored && Array.from(picker.options).some(option => option.value === stored)) selected = stored;
+    } catch (_) {}
+    picker.value = selected;
+    const update = () => {
+      const option = picker.options[picker.selectedIndex];
+      const label = option ? option.textContent.trim() : 'Eigen account';
+      document.body.dataset.officePreviewRole = picker.value;
+      status.textContent = picker.value === 'actual'
+        ? 'Eigen account · werkelijke rechten'
+        : 'Voorbeeld: ' + label + ' · rechten ongewijzigd';
+      status.title = 'Voorbeeldweergave; geen wijziging van toegangsrechten';
+      status.setAttribute('data-office-preview-active', String(picker.value !== 'actual'));
+    };
+    picker.addEventListener('change', () => {
+      try { sessionStorage.setItem(key, picker.value); } catch (_) {}
+      update();
+    });
+    update();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
+  else apply();
+})();
