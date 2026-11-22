@@ -26,24 +26,32 @@
 })();
 
 /*
- * Office-test function preview lives in the same centrally CSP-hashed script
- * as the theme switcher. This is presentation only; server authorization always
- * uses the actual authenticated Office operator.
+ * Office-test role preview persists across Office pages and browser tabs.
+ * This is a visual preference only: never read this value in PHP ACL or grants.
  */
 (() => {
   'use strict';
   const key = 'brebo-office-role-preview';
-  const apply = () => {
+  const valid = picker => Array.from(picker.options).map(option => option.value);
+  const read = picker => {
+    const options = valid(picker);
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved && options.includes(saved)) return saved;
+      // Migrate previous per-tab preference from the old role preview.
+      const old = sessionStorage.getItem(key);
+      if (old && options.includes(old)) {
+        localStorage.setItem(key, old);
+        return old;
+      }
+    } catch (_) {}
+    return 'actual';
+  };
+  const init = () => {
     const picker = document.getElementById('office-role-preview');
     const status = document.getElementById('office-role-preview-status');
     if (!picker || !status) return;
-    let selected = 'actual';
-    try {
-      const stored = sessionStorage.getItem(key);
-      if (stored && Array.from(picker.options).some(option => option.value === stored)) selected = stored;
-    } catch (_) {}
-    picker.value = selected;
-    const update = () => {
+    const display = () => {
       const option = picker.options[picker.selectedIndex];
       const label = option ? option.textContent.trim() : 'Eigen account';
       document.body.dataset.officePreviewRole = picker.value;
@@ -53,12 +61,24 @@
       status.title = 'Voorbeeldweergave; geen wijziging van toegangsrechten';
       status.setAttribute('data-office-preview-active', String(picker.value !== 'actual'));
     };
+    const restore = () => {
+      picker.value = read(picker);
+      display();
+    };
     picker.addEventListener('change', () => {
-      try { sessionStorage.setItem(key, picker.value); } catch (_) {}
-      update();
+      try {
+        localStorage.setItem(key, picker.value);
+        sessionStorage.removeItem(key);
+      } catch (_) {}
+      display();
     });
-    update();
+    window.addEventListener('storage', event => {
+      if (event.key === key) restore();
+    });
+    // Back-forward cache restores a page without a fresh DOMContentLoaded.
+    window.addEventListener('pageshow', restore);
+    restore();
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', apply);
-  else apply();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
