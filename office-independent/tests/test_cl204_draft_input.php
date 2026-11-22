@@ -29,6 +29,8 @@ check($parsed['release_status']==='V3','release status must not be modified');
 $html = OfficeCl204FormView::render($parsed);
 check(str_contains($html,'name="cl204[controls][opnameopdracht][status]"'),'view must expose controls');
 check(str_contains($html,'Bouwkundig'."\n".'Glas'),'view must show discipline lines');
+$escaped = OfficeCl204FormView::render(['disciplines'=>['<script>alert(1)</script>']]);
+check(!str_contains($escaped,'<script>'),'untrusted disciplines must be HTML-escaped');
 mustReject(['cl204'=>['controls'=>$controls,'release_status'=>'V1']],'client release status must be rejected');
 $bad=$post;
 $bad['cl204']['controls']['opnameopdracht']['status']='approved';
