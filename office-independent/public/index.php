@@ -38,6 +38,7 @@ if ($path === '/') {
   exit;
 }
 $routes = [
+  '/office-test/procesformulieren' => 'office-process-forms.php',
   '/office-test/instellingen/organisatie/projectrechten' => 'office-project-permission-settings.php',
   '/office-test/instellingen/blauwdrukken' => 'office-blueprint-approval-settings.php',
   '/office-test/email' => 'office-email.php',

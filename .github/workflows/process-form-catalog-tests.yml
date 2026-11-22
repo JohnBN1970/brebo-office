@@ -1,0 +1,64 @@
+name: Office process form catalog checks
+on:
+  push:
+    branches:
+      - 'feat/proceshandboek-formulieren-catalogus'
+    paths:
+      - 'office-independent/src/Process/OfficeProcessForm*.php'
+      - 'office-independent/src/Process/OfficeFr201*.php'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/tests/test_process_form_*.php'
+      - 'office-independent/public/office-process-forms.php'
+      - 'office-independent/public/index.php'
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/tests/test_fr201_*.php'
+      - '.github/workflows/process-form-catalog-tests.yml'
+  pull_request:
+    paths:
+      - 'office-independent/src/Process/OfficeProcessForm*.php'
+      - 'office-independent/src/Process/OfficeFr201*.php'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/tests/test_process_form_*.php'
+      - 'office-independent/public/office-process-forms.php'
+      - 'office-independent/public/index.php'
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/tests/test_fr201_*.php'
+      - '.github/workflows/process-form-catalog-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  merge-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check develop merge compatibility
+        shell: bash
+        run: |
+          set -eu
+          git fetch --no-tags origin develop
+          if ! git merge-tree --write-tree HEAD FETCH_HEAD > /tmp/process-forms-merge-tree.txt 2>&1; then
+            echo 'Merge conflicts detected against develop:'
+            cat /tmp/process-forms-merge-tree.txt
+            exit 1
+          fi
+          echo 'No merge conflicts with develop.'
+  forms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint and verify catalog contracts
+        run: |
+          set -eu
+          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/src/Process/OfficeFr201*.php office-independent/tests/test_process_form_*.php office-independent/tests/test_fr201_*.php office-independent/public/office-process-forms.php office-independent/public/office-project.php office-independent/public/index.php office-independent/public/crm-new-requests.php; do
+            php -l "$file"
+          done
+          for test in office-independent/tests/test_process_form_*.php office-independent/tests/test_fr201_*.php; do
+            php "$test"
+          done

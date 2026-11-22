@@ -6,7 +6,7 @@ $page=file_get_contents($root.'/public/office-project-permission-settings.php');
 foreach ([$service,$page] as $source) if (!is_string($source)) throw new RuntimeException('Missing role profile source');
 foreach ([
     'applyProjectCreateProfile(', 'OfficeTestRolePermissionPolicy::expectedProjectCreate(',
-    "expected?'grant':'revoke'", "'Testprofiel '.$roleCode",
+    "expected?'grant':'revoke'", '\'Testprofiel \'.$roleCode',
     'return $this->change(', 'OfficeTestSiteAdministratorAccess',
     "office_test_project_create_permission_events",
 ] as $marker) {

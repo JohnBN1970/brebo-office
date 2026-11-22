@@ -687,6 +687,10 @@ foreach ($tabs as $key => $label) {
   $dossierNav .= '<a ' . ($activeTab === $key ? 'aria-current="page" ' : '') . 'href="' . $escape($projectUrl . '&tab=' . $key) . '">' . $escape($label) . '</a>';
 }
 $dossierNav .= '<a href="'.$escape(\Brebo\Office\Intake\OfficeMount::route('documenten',['project_id'=>$projectId])).'">Documenten</a>';
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_TEST_PROCESS_FORMS_CATALOG_ENABLED') === 'enabled') {
+  $dossierNav .= '<a href="'.$escape(\Brebo\Office\Intake\OfficeMount::basePath().'/procesformulieren?project_id='.(int)$projectId).'">Procesformulieren</a>';
+}
 if (getenv('OFFICE_TEST_GOVERNANCE_ENABLED')==='enabled' && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED')==='enabled') {
   foreach (['kwaliteit'=>'Kwaliteit','risicos'=>'Risico’s','inkoop'=>'Inkoop'] as $route=>$label) $dossierNav.='<a href="/office-test/'.$route.'?project_id='.(int)$projectId.'">'.$label.'</a>';
 }

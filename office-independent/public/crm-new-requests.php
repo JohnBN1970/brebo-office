@@ -7,9 +7,15 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-    header('Allow: GET'); http_response_code(405); exit;
+$requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if (!in_array($requestMethod, ['GET', 'POST'], true)) {
+    header('Allow: GET, POST'); http_response_code(405); exit;
 }
+if ($requestMethod === 'POST' && (
+    getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
+    || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
+    || getenv('OFFICE_TEST_FR201_READINESS_ENABLED') !== 'enabled'
+)) { http_response_code(403); exit('FR-201 schrijven niet ingeschakeld.'); }
 $base = getenv('OFFICE_BASE_PATH') === '/office-test' ? '/office-test' : '/office';
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 if (!in_array($path, [$base.'/crm/aanvragen', $base.'/crm/aanvragen/detail'], true)) {
@@ -53,12 +59,61 @@ try {
     if ($active->fetchColumn() === false) {
         http_response_code(403); exit('Geen CRM-toegang.');
     }
+    // Optional FR-201 write: only the authenticated detail endpoint, never board/list.
+    if ($requestMethod === 'POST') {
+        if ($path !== $base.'/crm/aanvragen/detail' || $base !== '/office-test') {
+            http_response_code(405); exit;
+        }
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_name('BREBO_CRM_LEAD_BOARD');
+            session_set_cookie_params(['lifetime'=>0,'path'=>'/office-test/crm','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+            if (!session_start()) { http_response_code(503); exit('Formuliersessie niet beschikbaar.'); }
+        }
+        $csrf = $_POST['csrf_token'] ?? null;
+        if (!is_string($csrf) || !is_string($_SESSION['crm_lead_board_csrf'] ?? null)
+            || !hash_equals($_SESSION['crm_lead_board_csrf'], $csrf)) {
+            http_response_code(403); exit('Ongeldige formulierbeveiliging.');
+        }
+        $routeId = $_GET['id'] ?? null;
+        $id = filter_var($_POST['lead_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $revision = filter_var($_POST['expected_revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
+        $reason = $_POST['change_reason'] ?? null;
+        $values = $_POST['fr201'] ?? null;
+        if (($_POST['fr201_action'] ?? null) !== 'save_supplement'
+            || !is_int($id) || !is_int($revision) || !is_string($reason)
+            || !is_string($routeId) || !ctype_digit($routeId) || (string)$id !== $routeId
+            || !is_array($values) || count($values) > 40) {
+            http_response_code(400); exit('Ongeldige formuliergegevens.');
+        }
+        // A lead supplement is editable only for its assigned owner while the
+        // lead remains active and has not been converted to a deal.
+        $exists = $db->prepare("SELECT owner_operator_id FROM office_crm_leads WHERE id=? AND status='active' AND converted_opportunity_id IS NULL");
+        $exists->execute([$id]);
+        $leadOwner = $exists->fetchColumn();
+        if ($leadOwner === false) { http_response_code(404); exit('Lead niet beschikbaar.'); }
+        if (!is_scalar($leadOwner) || (string)$leadOwner === '' || !hash_equals((string)$leadOwner, (string)$operator->operatorId)) {
+            http_response_code(403); exit('Alleen de toegewezen leadverantwoordelijke mag FR-201 aanvullen.');
+        }
+        require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+        try {
+            (new \Brebo\Office\Process\OfficeFr201Repository($db))->save(
+                (int)$id, (string)$operator->operatorId, (int)$revision, $values, $reason
+            );
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(400); exit('Ongeldige aanvulling of wijzigingsreden.');
+        } catch (\RuntimeException $e) {
+            http_response_code(409); exit('De intake is gewijzigd. Ververs de pagina.');
+        }
+        $_SESSION['crm_lead_board_csrf'] = bin2hex(random_bytes(32));
+        header('Location: '.$base.'/crm/aanvragen/detail?id='.(int)$id, true, 303);
+        exit;
+    }
     if ($path === $base.'/crm/aanvragen/detail') {
         $rawId = $_GET['id'] ?? null;
         if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int)$rawId < 1) {
             http_response_code(400); exit('Ongeldig aanvraagnummer.');
         }
-        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.contact_name,l.contact_email,l.converted_at,l.converted_opportunity_id,
+        $stmt = $db->prepare("SELECT l.id,l.title,l.stage,l.status,l.description,l.source_detail,l.campaign,l.received_at,l.owner_operator_id,l.relation_id,l.contact_name,l.contact_email,l.converted_at,l.converted_opportunity_id,
             s.label AS source_name,r.display_name AS relation_name
             FROM office_crm_leads l JOIN office_crm_lead_sources s ON s.id=l.source_id
             LEFT JOIN office_crm_relations r ON r.id=l.relation_id WHERE l.id=? LIMIT 1");
@@ -112,6 +167,60 @@ if (isset($item)) {
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
     echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    // FR-201 qualification readiness: read-only, feature-gated, no duplicate CRM writes.
+    if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled') {
+        try {
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201LeadReadiness.php';
+            $fr201Supplement = [];
+            if (getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') === 'enabled') {
+                require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+                $fr201Supplement = (new \Brebo\Office\Process\OfficeFr201Repository($db))->load((int)$item['id'])['data'];
+            }
+            $readiness = \Brebo\Office\Process\OfficeFr201LeadReadiness::assess([
+                'source_label' => $item['source_name'] ?? '',
+                'source_detail' => $item['source_detail'] ?? '',
+                'contact_name' => $item['contact_name'] ?? '',
+                'contact_email' => $item['contact_email'] ?? '',
+                'description' => $item['description'] ?? '',
+                'relation_id' => $item['relation_id'] ?? '',
+                'owner_user_id' => $item['owner_operator_id'] ?? '',
+                'received_at' => $item['received_at'] ?? '',
+            ], $fr201Supplement);
+            echo '<section aria-label="FR-201 intakecontrole"><h2>FR-201 · Intakecontrole (v1.0)</h2>';
+            if ($readiness['complete']) echo '<p>Alle verplichte intakevelden zijn geregistreerd.</p>';
+            else {
+                echo '<p>Deze lead is nog geen volledige intake. Ontbrekende onderdelen:</p><ul>';
+                require_once dirname(__DIR__).'/src/Process/OfficeFr201Intake.php';
+                $fields = \Brebo\Office\Process\OfficeFr201Intake::fields();
+                foreach ($readiness['missing'] as $field) {
+                    echo '<li>'.$h($fields[$field]['label'] ?? $field).'</li>';
+                }
+                echo '</ul><p>Aanvullen en vrijgeven voor overdracht gebeurt pas na bevoegde controle.</p>';
+            }
+            echo '</section>';
+        } catch (Throwable $ignored) {
+            // Missing optional component never exposes internal errors or bypasses access.
+        }
+    }
+    if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') === 'enabled') {
+        try {
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201Repository.php';
+            require_once dirname(__DIR__).'/src/Process/OfficeFr201FormView.php';
+            $fr201 = (new \Brebo\Office\Process\OfficeFr201Repository($db))->load((int)$item['id']);
+            $fr201CanEdit = getenv('OFFICE_TEST_FR201_WRITE_ENABLED') === 'enabled'
+                && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled'
+                && $item['status'] === 'active' && !$item['converted_opportunity_id']
+                && is_scalar($item['owner_operator_id']) && (string)$item['owner_operator_id'] !== ''
+                && hash_equals((string)$item['owner_operator_id'], (string)$operator->operatorId);
+            echo \Brebo\Office\Process\OfficeFr201FormView::render(
+                (int)$item['id'], $fr201['data'], $fr201['revision'],
+                $base.'/crm/aanvragen/detail?id='.(int)$item['id'],
+                (string)$_SESSION['crm_lead_board_csrf'], $fr201CanEdit
+            );
+        } catch (Throwable $ignored) {
+            // Fail closed when optional schema or view is unavailable.
+        }
+    }
     // Read-only linked messages: require both lead and message ACL checks.
     if ($base === '/office-test' && getenv('OFFICE_TEST_MAIL_CONTEXT_LINKS_ENABLED') === 'enabled') {
         try {
