@@ -30,6 +30,12 @@ try {
     if ($active->fetchColumn()===false) { http_response_code(403); exit('Geen toegang.'); }
     require_once dirname(__DIR__).'/src/Process/OfficeProcessFormCatalog.php';
     $catalog=\Brebo\Office\Process\OfficeProcessFormCatalog::all();
+    require_once dirname(__DIR__).'/src/Process/OfficeProcessFormContext.php';
+    // This route is project-scoped. CRM lead forms (FR-201), calculations
+    // and organization forms must never be created under a project ID.
+    $projectCatalog=array_filter($catalog,
+        static fn(string $code):bool=>\Brebo\Office\Process\OfficeProcessFormContext::accepts($code,'project'),
+        ARRAY_FILTER_USE_KEY);
     // Project-scoped catalog: never expose project context without membership.
     $csrfCookie=$_COOKIE['office_process_forms_csrf']??'';
     if (!is_string($csrfCookie) || !preg_match('/^[a-f0-9]{64}$/D',$csrfCookie)) {
@@ -73,7 +79,7 @@ try {
             $repository=new \Brebo\Office\Process\OfficeProcessFormRepository($db);
             if ($action==='create_concept') {
                 $code=$_POST['document_code']??null;
-                if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
+                if (!is_string($code) || !isset($projectCatalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
                 $initialData=[];
                 if ($code==='FR-201') {
                     require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
@@ -87,7 +93,7 @@ try {
                 if (!is_int($id) || !is_int($revision) || !is_string($reason)) { http_response_code(422); exit('Ongeldige beslissing.'); }
                 $form=$repository->load($id);
                 if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
-                    || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                    || !isset($projectCatalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
                 // A blank placeholder cannot be submitted as a completed form.
                 // Document-specific mandatory fields will be enabled only after
                 // the source form definitions have been verified.
@@ -122,7 +128,7 @@ try {
                 }
                 $form=$repository->load($id);
                 if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
-                    || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                    || !isset($projectCatalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
                 // Preserve existing fields when the UI submits only a subset.
                 // Never allow a browser to overwrite the entire stored payload
                 // by omitting fields it did not render.
@@ -159,7 +165,7 @@ try {
                 ORDER BY updated_at DESC,id DESC LIMIT 100");
             $formsStmt->execute([(int)$projectIdRaw]);
             $projectForms=array_values(array_filter($formsStmt->fetchAll(PDO::FETCH_ASSOC),
-                static fn(array $row):bool=>isset($catalog[(string)$row['document_code']])));
+                static fn(array $row):bool=>isset($projectCatalog[(string)$row['document_code']])));
             // The detail query is bound to the verified project; a foreign
             // form ID cannot be used to cross into another project dossier.
             $formIdRaw=(string)($_GET['form_id']??'');
@@ -172,7 +178,7 @@ try {
                     WHERE id=? AND context_type='project' AND context_id=? LIMIT 1");
                 $detail->execute([(int)$formIdRaw,(int)$projectIdRaw]);
                 $selectedForm=$detail->fetch(PDO::FETCH_ASSOC) ?: null;
-                if ($selectedForm===null || !isset($catalog[(string)$selectedForm['document_code']])) {
+                if ($selectedForm===null || !isset($projectCatalog[(string)$selectedForm['document_code']])) {
                     http_response_code(404); exit('Formulier niet gevonden.');
                 }
                 $decoded=json_decode((string)$selectedForm['data_json'],true,512,JSON_THROW_ON_ERROR);
@@ -208,7 +214,7 @@ if ($projectIdRaw!=='' && $canManageProject && getenv('OFFICE_TEST_PROCESS_FORMS
     echo '<h2>Nieuw concept</h2><form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
     echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="create_concept">';
     echo '<label>Formulier <select name="document_code">';
-    foreach ($catalog as $code=>$details) echo '<option value="'.$h($code).'">'.$h($code).' — '.$h($details[0]).'</option>';
+    foreach ($projectCatalog as $code=>$details) echo '<option value="'.$h($code).'">'.$h($code).' — '.$h($details[0]).'</option>';
     echo '</select></label> <button type="submit">Concept aanmaken</button></form>';
 }
 if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
