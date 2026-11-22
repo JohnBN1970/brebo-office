@@ -63,6 +63,24 @@ $out=OfficeNavigation::decorate($html,'/office-test/projecten',[],200,'text/html
 if(substr_count($out,'aria-label="Hoofdnavigatie"')!==1||!str_contains($out,'aria-label="Module"')){fwrite(STDERR,"Navigation regression".PHP_EOL);exit(1);}
 if (!str_contains($out,'class="existing-page office-ui"') || !str_contains($out,'data-office-theme="brebo-2026"') || substr_count($out,'class="office-app-bar"')!==1 || !str_contains($out,'name="csrf_token" value="preserved"')) throw new RuntimeException('Theme must preserve body, forms and one app bar');
 if (OfficeNavigation::decorate($out,'/office-test/projecten',[],200,'text/html')!==$out) throw new RuntimeException('Decoration must be idempotent');
+
+$previewScript=file_get_contents(dirname(__DIR__).'/resources/office-theme.js');
+if (!is_string($previewScript) || !str_contains($previewScript, "brebo-office-role-preview")
+    || !str_contains($previewScript, "sessionStorage.setItem(key, picker.value)")
+    || !str_contains($previewScript, "picker.addEventListener('change'")
+    || !str_contains($previewScript, 'Voorbeeld: ')
+    || !str_contains($out, 'id="office-role-preview"')
+    || !str_contains($out, 'id="office-role-preview-status"')) {
+    throw new RuntimeException('Role preview selection is not wired to visible Office-test UI');
+}
+if (str_contains($out, '<script>(function(){document.addEventListener("DOMContentLoaded",function(){var picker=')) {
+    throw new RuntimeException('CSP-blocked inline role preview must not be injected');
+}
+require_once dirname(__DIR__).'/src/Intake/OfficeTheme.php';
+$policy=\Brebo\Office\Intake\OfficeTheme::policy("default-src 'none'; script-src 'none'");
+$hash="'sha256-".base64_encode(hash('sha256',$previewScript,true))."'";
+if (!str_contains($policy,$hash)) throw new RuntimeException('CSP must authorize shared role preview script');
+
 if (OfficeNavigation::decorate($html,'/office-test/projecten',[],403,'text/html')!==$html) throw new RuntimeException('Error responses must be preserved');
 $home='<html><head></head><body><nav aria-label="Hoofdnavigatie">Old</nav><main><h1>Goedemorgen, welkom in Office</h1><p>Mijn werkplek</p></main></body></html>';
 $homeV2=OfficeNavigation::decorate($home,'/office-test/',[],200,'text/html');
