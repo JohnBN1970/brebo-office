@@ -29,6 +29,22 @@ try {
     if ($active->fetchColumn()===false) { http_response_code(403); exit('Geen toegang.'); }
     require_once dirname(__DIR__).'/src/Process/OfficeProcessFormCatalog.php';
     $catalog=\Brebo\Office\Process\OfficeProcessFormCatalog::all();
+    // Project-scoped catalog: never expose project context without membership.
+    $projectIdRaw=(string)($_GET['project_id']??'');
+    if ($projectIdRaw!=='') {
+        if (!preg_match('/^[1-9][0-9]{0,17}$/D',$projectIdRaw)) {
+            http_response_code(400); exit('Ongeldig project.');
+        }
+        $membership=$db->prepare("SELECT 1 FROM office_project_memberships m
+            INNER JOIN office_operator_accounts a ON a.id=m.operator_id
+            INNER JOIN office_projects p ON p.id=m.project_id
+            WHERE m.project_id=? AND m.operator_id=? AND m.permission IN ('read','manage') AND a.active=1 LIMIT 1");
+        $membership->execute([(int)$projectIdRaw,$operator->operatorId]);
+        if ($membership->fetchColumn()===false) { http_response_code(403); exit('Geen toegang tot dit project.'); }
+        require_once dirname(__DIR__).'/src/Process/OfficeProcessFormContext.php';
+        $catalog=array_filter($catalog,static fn(array $entry,string $code):bool=>
+            \Brebo\Office\Process\OfficeProcessFormContext::accepts($code,'project'),ARRAY_FILTER_USE_BOTH);
+    }
 } catch (\Throwable $e) { http_response_code(503); exit('Formuliercatalogus tijdelijk niet beschikbaar.'); }
 $h=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
