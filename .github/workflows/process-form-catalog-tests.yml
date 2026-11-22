@@ -62,3 +62,39 @@ jobs:
           for test in office-independent/tests/test_process_form_*.php office-independent/tests/test_fr201_*.php; do
             php "$test"
           done
+
+  vps-readonly-preflight:
+    name: Office-test VPS read-only preflight
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [forms, merge-compatibility]
+    runs-on: ubuntu-latest
+    environment: office-test-vps
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read-only active release diagnostics
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do
+            test -n "${!key}" || { echo "::error::Missing VPS credential: $key"; exit 1; }
+          done
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          test "$VPS_USER" = brebo-deploy
+          install -d -m 700 ~/.ssh
+          trap 'rm -f ~/.ssh/office_test_vps ~/.ssh/known_hosts' EXIT
+          printf '%s\\n' "$VPS_KEY" > ~/.ssh/office_test_vps
+          printf '%s\\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/office_test_vps ~/.ssh/known_hosts
+          ssh-keygen -y -f ~/.ssh/office_test_vps > /dev/null
+          ssh-keygen -F "$VPS_HOST" -f ~/.ssh/known_hosts > /dev/null
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \\
+            -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \\
+            'bash -s' < scripts/deployment/check_office_test_vps_readiness.sh
+          echo "VPS_READONLY_PREFLIGHT=PASS"
