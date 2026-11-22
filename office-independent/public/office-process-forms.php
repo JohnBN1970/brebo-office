@@ -5,7 +5,8 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { header('Allow: GET'); http_response_code(405); exit; }
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''),['GET','POST'],true)) { header('Allow: GET, POST'); http_response_code(405); exit; }
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED') !== 'enabled') { http_response_code(403); exit('Formuliermutaties uitgeschakeld.'); }
 if (getenv('OFFICE_BASE_PATH') !== '/office-test' || getenv('OFFICE_TEST_PROCESS_FORMS_CATALOG_ENABLED') !== 'enabled') {
     http_response_code(503); exit('Procesformulieren niet beschikbaar.');
 }
@@ -30,6 +31,11 @@ try {
     require_once dirname(__DIR__).'/src/Process/OfficeProcessFormCatalog.php';
     $catalog=\Brebo\Office\Process\OfficeProcessFormCatalog::all();
     // Project-scoped catalog: never expose project context without membership.
+    $csrfCookie=$_COOKIE['office_process_forms_csrf']??'';
+    if (!is_string($csrfCookie) || !preg_match('/^[a-f0-9]{64}$/D',$csrfCookie)) {
+        $csrfCookie=bin2hex(random_bytes(32));
+        setcookie('office_process_forms_csrf',$csrfCookie,['expires'=>0,'path'=>'/office-test','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+    }
     $projectForms=[];
     $selectedForm=null;
     $formEvents=[];
@@ -47,6 +53,25 @@ try {
         require_once dirname(__DIR__).'/src/Process/OfficeProcessFormContext.php';
         $catalog=array_filter($catalog,static fn(array $entry,string $code):bool=>
             \Brebo\Office\Process\OfficeProcessFormContext::accepts($code,'project'),ARRAY_FILTER_USE_BOTH);
+        if (($_SERVER['REQUEST_METHOD']??'')==='POST') {
+            if (getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')!=='enabled') { http_response_code(503); exit('Formulieropslag niet geverifieerd.'); }
+            require_once dirname(__DIR__).'/src/Process/OfficeProcessFormSchemaPreflight.php';
+            if (\Brebo\Office\Process\OfficeProcessFormSchemaPreflight::verify($db)['ready']!==true) { http_response_code(503); exit('Formulieropslag niet gereed.'); }
+            $submittedCsrf=$_POST['csrf_token']??null;
+            if (!is_string($submittedCsrf) || !hash_equals($csrfCookie,$submittedCsrf)) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
+            if (($_POST['action']??'')!=='create_concept') { http_response_code(400); exit('Onbekende formulieractie.'); }
+            $code=$_POST['document_code']??null;
+            if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
+            // Only real project managers may create controlled records.
+            $manage=$db->prepare("SELECT 1 FROM office_project_memberships WHERE project_id=? AND operator_id=? AND permission='manage' LIMIT 1");
+            $manage->execute([(int)$projectIdRaw,$operator->operatorId]);
+            if ($manage->fetchColumn()===false) { http_response_code(403); exit('Geen schrijfrechten voor dit project.'); }
+            require_once dirname(__DIR__).'/src/Process/OfficeProcessFormRepository.php';
+            $id=(new \Brebo\Office\Process\OfficeProcessFormRepository($db))->create(
+                $code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
+            header('Location: /office-test/procesformulieren?project_id='.rawurlencode($projectIdRaw).'&form_id='.$id,true,303);
+            exit;
+        }
         // No runtime migrations; never expose rows without project membership.
         if (getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
             require_once dirname(__DIR__).'/src/Process/OfficeProcessFormSchemaPreflight.php';
@@ -96,6 +121,14 @@ foreach ($catalog as $code=>$details) {
     echo '<tr><td>'.$h($code).'</td><td>'.$h($details[0]??'').'</td><td>'.$h($details[1]??'').'</td></tr>';
 }
 echo '</tbody></table>';
+if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled'
+    && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
+    echo '<h2>Nieuw concept</h2><form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
+    echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="create_concept">';
+    echo '<label>Formulier <select name="document_code">';
+    foreach ($catalog as $code=>$details) echo '<option value="'.$h($code).'">'.$h($code).' — '.$h($details[0]).'</option>';
+    echo '</select></label> <button type="submit">Concept aanmaken</button></form>';
+}
 if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')==='enabled') {
     echo '<h2>Opgeslagen projectformulieren</h2>';
     if ($projectForms===[]) echo '<p>Nog geen formulieren geregistreerd.</p>';
