@@ -9,7 +9,7 @@ foreach (['create','load','revise','transition'] as $method) {
     if (!$reflection->hasMethod($method) || !$reflection->getMethod($method)->isPublic()) throw new RuntimeException('Missing service method '.$method);
 }
 $source=file_get_contents(dirname(__DIR__).'/src/Process/OfficeProcessFormService.php');
-foreach (['OfficeProcessFormAuthorization::assertPermitted','if (!$csrfValid)','requireForm($id)',"fourEyesPolicyResolver", "resourceExistsResolver", "if ($exists !== true)", "is_bool($fourEyes)", "transition($id,$expectedRevision,$action,$actor,$fourEyes,true,$reason)"] as $invariant) {
+foreach (['OfficeProcessFormAuthorization::assertPermitted','if (!$csrfValid)','requireForm($id)','fourEyesPolicyResolver', 'resourceExistsResolver', 'if ($exists !== true)', 'is_bool($fourEyes)', 'transition($id,$expectedRevision,$action,$actor,$fourEyes,true,$reason)'] as $invariant) {
     if (!str_contains($source,$invariant)) throw new RuntimeException('Missing service boundary '.$invariant);
 }
 $transition=$reflection->getMethod('transition');
