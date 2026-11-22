@@ -78,6 +78,14 @@ try {
                 $form=$repository->load($id);
                 if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
                     || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                // A blank placeholder cannot be submitted as a completed form.
+                // Document-specific mandatory fields will be enabled only after
+                // the source form definitions have been verified.
+                if ($action==='submit_concept') {
+                    $filled=array_filter($form['data'],static fn(mixed $value):bool=>
+                        is_scalar($value) && trim((string)$value)!=='');
+                    if ($filled===[]) { http_response_code(422); exit('Vul het formulier in voordat het ter controle gaat.'); }
+                }
                 $workflowAction=$action==='submit_concept'?'submit':$action;
                 // Four-eyes remains the safe default; the approval action is
             // intentionally unavailable until independent reviewer mandate
@@ -94,6 +102,10 @@ try {
                 $form=$repository->load($id);
                 if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
                     || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                // Preserve existing fields when the UI submits only a subset.
+                // Never allow a browser to overwrite the entire stored payload
+                // by omitting fields it did not render.
+                $fields=array_replace($form['data'],$fields);
                 $repository->revise($id,$revision,(string)$operator->operatorId,$fields,$reason);
             }
             header('Location: /office-test/procesformulieren?project_id='.rawurlencode($projectIdRaw).'&form_id='.$id,true,303);
