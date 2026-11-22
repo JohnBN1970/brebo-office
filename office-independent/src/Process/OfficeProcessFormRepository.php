@@ -94,6 +94,27 @@ final class OfficeProcessFormRepository
     }
 
     /**
+     * Read immutable CL-204 revision events within an authorized building.
+     * The caller must first authorize access to the building.
+     */
+    public function listBuildingOpnameHistory(int $buildingId, int $formId): array
+    {
+        if ($buildingId < 1 || $formId < 1) {
+            throw new InvalidArgumentException('Invalid building or opname ID');
+        }
+        $stmt = $this->db->prepare(
+            "SELECT e.revision,e.actor_operator_id,e.event_type,e.reason,e.snapshot_json,e.created_at
+               FROM office_process_form_events e
+               INNER JOIN office_process_form_instances f ON f.id=e.form_id
+              WHERE f.id=? AND f.document_code='CL-204'
+                AND f.context_type='building' AND f.context_id=?
+              ORDER BY e.revision ASC,e.id ASC LIMIT 200"
+        );
+        $stmt->execute([$formId,$buildingId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Atomically revise a CL-204 draft only within its canonical building.
      * Prevents a stale or cross-building form ID from being updated.
      */
