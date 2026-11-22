@@ -50,7 +50,7 @@ final class OfficeProcessFormRepository
     public function revise(int $id, int $expectedRevision, string $actor, array $data, string $reason): int
     {
         if ($id < 1 || $expectedRevision < 1) throw new InvalidArgumentException('Invalid revision');
-        self::validate('1','project',1,$actor,$data,$reason);
+        self::validatePayload($actor,$data,$reason);
         $json = json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
         $this->db->beginTransaction();
         try {
@@ -119,11 +119,10 @@ final class OfficeProcessFormRepository
         $stmt->execute([$id,$revision,$actor,$type,$reason,$json]);
     }
 
-    private static function validate(string $version, string $contextType, int $contextId, string $actor, array $data, string $reason): void
+    private static function validatePayload(string $actor, array $data, string $reason): void
     {
-        if (trim($version)==='' || strlen($version)>32 || !preg_match('/^[a-z_]{2,32}$/',$contextType)
-            || $contextId<1 || trim($actor)==='' || strlen($actor)>128 || trim($reason)==='' || mb_strlen($reason)>500) {
-            throw new InvalidArgumentException('Invalid controlled form metadata');
+        if (trim($actor)==='' || strlen($actor)>128 || trim($reason)==='' || mb_strlen($reason)>500) {
+            throw new InvalidArgumentException('Invalid controlled form actor or reason');
         }
         if (count($data)>250) throw new InvalidArgumentException('Too many fields');
         foreach ($data as $key=>$value) {
@@ -132,5 +131,14 @@ final class OfficeProcessFormRepository
                 throw new InvalidArgumentException('Invalid controlled form field');
             }
         }
+    }
+
+    private static function validate(string $version, string $contextType, int $contextId, string $actor, array $data, string $reason): void
+    {
+        if (trim($version)==='' || strlen($version)>32 || !preg_match('/^[a-z_]{2,32}$/',$contextType)
+            || $contextId<1 || trim($actor)==='' || strlen($actor)>128 || trim($reason)==='' || mb_strlen($reason)>500) {
+            throw new InvalidArgumentException('Invalid controlled form metadata');
+        }
+        self::validatePayload($actor,$data,$reason);
     }
 }
