@@ -110,6 +110,14 @@ try {
                 // Preserve existing fields when the UI submits only a subset.
                 // Never allow a browser to overwrite the entire stored payload
                 // by omitting fields it did not render.
+                // Only the existing field set and the explicitly supported
+                // free-text note can be edited through this generic UI.
+                // Document-specific field schemas will be source-verified.
+                foreach (array_keys($fields) as $fieldKey) {
+                    if (!is_string($fieldKey) || (!array_key_exists($fieldKey,$form['data']) && $fieldKey!=='opmerking')) {
+                        http_response_code(422); exit('Onbekend formulierveld.');
+                    }
+                }
                 $fields=array_replace($form['data'],$fields);
                 $repository->revise($id,$revision,(string)$operator->operatorId,$fields,$reason);
             }
@@ -166,7 +174,7 @@ try {
 }
 $h=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Procesformulieren · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1050px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:22px}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #dbe1e8}a{color:#175a91}</style></head><body><main><p><a href="/office-test/">Office-overzicht</a></p><section><h1>Proceshandboek · formulieren</h1><p>Catalogus ter inzage. Invullen en goedkeuren zijn nog niet vrijgegeven; toegang tot individuele dossiers wordt afzonderlijk gecontroleerd.</p><table><thead><tr><th>Code</th><th>Formulier</th><th>Module</th></tr></thead><tbody>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Procesformulieren · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1050px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:22px}table{width:100%;border-collapse:collapse}th,td{padding:12px;text-align:left;border-bottom:1px solid #dbe1e8}a{color:#175a91}</style></head><body><main><p><a href="/office-test/">Office-overzicht</a></p><section><h1>Proceshandboek · formulieren</h1><p>Concepten kunnen binnen projecten worden aangemaakt, bewerkt en ter controle aangeboden wanneer schrijfrechten en testflags zijn geactiveerd. Definitieve goedkeuring is nog niet vrijgegeven.</p><table><thead><tr><th>Code</th><th>Formulier</th><th>Module</th></tr></thead><tbody>';
 foreach ($catalog as $code=>$details) {
     echo '<tr><td>'.$h($code).'</td><td>'.$h($details[0]??'').'</td><td>'.$h($details[1]??'').'</td></tr>';
 }
@@ -233,6 +241,6 @@ if ($selectedForm!==null) {
         }
         echo '</tbody></table>';
     }
-    echo '<p>Alleen lezen. Bewerken en goedkeuren zijn nog niet vrijgegeven.</p>';
+    echo '<p>Goedkeuring is nog niet vrijgegeven. Bewerken en statusacties zijn uitsluitend beschikbaar voor bevoegde projectmedewerkers in de testomgeving.</p>';
 }
 echo '</section></main></body></html>';
