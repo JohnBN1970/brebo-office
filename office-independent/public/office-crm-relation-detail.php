@@ -166,7 +166,7 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
                 // An unverified transfer is never displayed as an existing project.
             }
         }
-        echo '<details><summary>Projecten via deals ('.count($projects).')</summary>';
+        echo '<details><summary>Projecten via getoonde deals ('.count($projects).($dealCount>count($deals)?'; niet alle deals doorzocht':'').')</summary>';
         if (!$projects) echo '<p>Geen geverifieerde projectoverdrachten voor de getoonde deals.</p>';
         else {echo '<ul>';foreach($projects as $projectId=>$dealTitle) echo '<li><a href="/office-test/projecten/detail?id='.(int)$projectId.'">Project #'.(int)$projectId.'</a> · '.$h($dealTitle).'</li>';echo '</ul>';}
         echo '</details>';
