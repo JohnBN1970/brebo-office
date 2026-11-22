@@ -3,8 +3,9 @@ declare(strict_types=1);
 namespace Brebo\Office\Process;
 
 /**
- * Reusable CL-204 fragment for a host-authorized building/inspection screen.
+ * Reusable CL-204 fragment for a host-authorized building/opnames screen.
  * The host owns authentication, CSRF, form processing and building/project lookup.
+ * CL-204 is a projectopname, not a technical inspection assignment.
  * No direct route, DDL, write or CSS is introduced here.
  */
 final class OfficeCl204FormView
