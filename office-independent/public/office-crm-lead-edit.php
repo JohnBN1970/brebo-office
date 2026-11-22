@@ -28,6 +28,7 @@ try {
  if (!$lead) { http_response_code(404); exit('Lead niet gevonden.'); }
 } catch(Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Leadbewerking niet vrijgegeven.'); }
+$owners=$db->query("SELECT id,username FROM office_operator_accounts WHERE active=1 ORDER BY username,id")->fetchAll(PDO::FETCH_ASSOC);
 $relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
 if ($lead['status']!=='active'||$lead['converted_opportunity_id']!==null) { http_response_code(409); exit('Deze lead is niet bewerkbaar.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
@@ -57,6 +58,13 @@ if ($method==='POST') {
   $check=$db->prepare("SELECT 1 FROM office_crm_relations WHERE id=? AND status='active'");$check->execute([$relationId]);
   if (!$check->fetchColumn()) $error='Relatie niet beschikbaar.';
  }
+ $ownerRaw=$_POST['owner_operator_id']??'';
+ $ownerId=$ownerRaw===''?null:filter_var($ownerRaw,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+ if (!$error && $ownerRaw!=='' && !is_int($ownerId)) $error='Ongeldige verantwoordelijke.';
+ if (!$error && $ownerId!==null) {
+  $check=$db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1');$check->execute([$ownerId]);
+  if (!$check->fetchColumn()) $error='Verantwoordelijke is niet actief.';
+ }
  $expected=$_POST['expected_updated_at']??null;
  if (!$error && (!is_string($expected)||!hash_equals((string)$lead['updated_at'],$expected))) { http_response_code(409); exit('De lead is intussen gewijzigd. Ververs de pagina.'); }
  if (!$error) {
@@ -67,10 +75,11 @@ if ($method==='POST') {
    $changed=[];
    foreach ($fields as $key=>$_) if ((string)($current[$key]??'')!==$values[$key]) $changed[$key]=['old'=>$current[$key],'new'=>$values[$key]];
    if (($current['relation_id']===null?null:(int)$current['relation_id'])!==$relationId) $changed['relation_id']=['old'=>$current['relation_id'],'new'=>$relationId];
+   if (($current['owner_operator_id']===null?null:(string)$current['owner_operator_id'])!==($ownerId===null?null:(string)$ownerId)) $changed['owner_operator_id']=['old'=>$current['owner_operator_id'],'new'=>$ownerId];
    if ($changed) {
     $sets=implode(',',array_map(static fn($key)=>$key.'=?',array_keys($fields)));
-    $stmt=$db->prepare('UPDATE office_crm_leads SET '.$sets.',relation_id=?,updated_at=NOW() WHERE id=?');
-    $stmt->execute([...array_map(static fn($key)=>$values[$key]!==''?$values[$key]:null,array_keys($fields)),$relationId,$id]);
+    $stmt=$db->prepare('UPDATE office_crm_leads SET '.$sets.',relation_id=?,owner_operator_id=?,updated_at=NOW() WHERE id=?');
+    $stmt->execute([...array_map(static fn($key)=>$values[$key]!==''?$values[$key]:null,array_keys($fields)),$relationId,$ownerId,$id]);
     $note=json_encode(['reason'=>$reason,'changes'=>$changed],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     $stmt=$db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,note) VALUES (?,?,'edited',?)");
     $stmt->execute([$id,(string)$operator->operatorId,$note]);
@@ -81,6 +90,7 @@ if ($method==='POST') {
  }
  foreach ($fields as $key=>$_) if (isset($values[$key])) $lead[$key]=$values[$key];
  if (isset($relationRaw)) $lead['relation_id']=$relationId;
+ $lead['owner_operator_id']=$ownerId;
 }
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Lead bewerken</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a}main{max-width:760px;margin:32px auto;padding:24px;background:white;border-radius:12px}label{display:block;margin:14px 0}input,textarea{display:block;width:100%;box-sizing:border-box;padding:10px}button{background:#175a91;color:white;border:0;border-radius:6px;padding:12px 20px}</style></head><body><main><p><a href="/office-test/crm/aanvragen/detail?id='.$id.'">Terug naar lead</a></p><h1>Lead bewerken</h1>';
@@ -94,5 +104,8 @@ foreach ($fields as $key=>$max) {
 }
 echo '<label>Gekoppelde relatie<select name="relation_id"><option value="">Geen relatie</option>';
 foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)($lead['relation_id']??0)===(int)$relation['id']?' selected':'').'>'.$h($relation['display_name']).'</option>';
+echo '</select></label>';
+echo '<label>Leadverantwoordelijke<select name="owner_operator_id"><option value="">Niet toegewezen</option>';
+foreach ($owners as $owner) echo '<option value="'.(int)$owner['id'].'"'.((string)($lead['owner_operator_id']??'')===(string)$owner['id']?' selected':'').'>'.$h($owner['username']).'</option>';
 echo '</select></label>';
 echo '<label>Reden van wijziging *<input name="reason" maxlength="500" required></label><button type="submit">Wijzigingen opslaan</button></form></main></body></html>';
