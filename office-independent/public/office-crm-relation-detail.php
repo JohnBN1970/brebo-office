@@ -100,6 +100,22 @@ if (getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled') {
     }
     echo '</details>';
 }
+if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
+    echo '<section><h2>Bedrijfsstructuur</h2>';
+    try {
+        $stmt=$db->prepare('SELECT parent.id,parent.display_name FROM office_crm_relation_hierarchy h JOIN office_crm_relations parent ON parent.id=h.parent_relation_id WHERE h.child_relation_id=?');
+        $stmt->execute([$id]);$parent=$stmt->fetch(PDO::FETCH_ASSOC);
+        echo '<p>Moederbedrijf: '.($parent?'<a href="/office-test/crm/relaties/detail?id='.(int)$parent['id'].'">'.$h($parent['display_name']).'</a>':'Geen').'</p>';
+        $stmt=$db->prepare('SELECT child.id,child.display_name FROM office_crm_relation_hierarchy h JOIN office_crm_relations child ON child.id=h.child_relation_id WHERE h.parent_relation_id=? ORDER BY child.display_name');
+        $stmt->execute([$id]);$children=$stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo '<details><summary>Dochterbedrijven ('.count($children).')</summary>';
+        if (!$children) echo '<p>Geen dochterbedrijven gekoppeld.</p>';
+        else { echo '<ul>';foreach($children as $child) echo '<li><a href="/office-test/crm/relaties/detail?id='.(int)$child['id'].'">'.$h($child['display_name']).'</a></li>';echo '</ul>'; }
+        echo '</details>';
+        if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && $relation['status']==='active') echo '<p><a href="/office-test/crm/relaties/bedrijfsstructuur?relation_id='.$id.'">Moederbedrijf wijzigen</a></p>';
+    } catch(Throwable $ignored) { echo '<p>Bedrijfsstructuur tijdelijk niet beschikbaar.</p>'; }
+    echo '</section>';
+}
 echo '</section><section><h2>Vastgoedbeheerder</h2>';
 if (!$managers) echo '<p>Geen actieve vertegenwoordiging vastgelegd.</p>';
 else foreach ($managers as $manager) echo '<p>'.$h($manager['display_name']).'</p>';
