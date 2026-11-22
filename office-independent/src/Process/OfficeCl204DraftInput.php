@@ -44,7 +44,6 @@ final class OfficeCl204DraftInput
         // Preserve non-editable evidence and observations from the stored record.
         // The browser must not be able to forge a release decision or overwrite links.
         $data = $existing;
-        unset($data['release_status']);
         $data['controls'] = $controls;
         $data['disciplines'] = $disciplines;
         $errors = OfficeCl204Projectopname::validateDraft($data);
