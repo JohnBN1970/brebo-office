@@ -80,12 +80,7 @@ try {
             if ($action==='create_concept') {
                 $code=$_POST['document_code']??null;
                 if (!is_string($code) || !isset($projectCatalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
-                $initialData=[];
-                if ($code==='FR-201') {
-                    require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
-                    $initialData=array_fill_keys(array_keys(\Brebo\Office\Process\OfficeProcessFormFr201::FIELDS),'');
-                }
-                $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,$initialData,'Concept aangemaakt');
+                $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
             } elseif ($action!=='revise_concept') {
                 $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
