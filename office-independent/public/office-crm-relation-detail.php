@@ -136,23 +136,48 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
 }
 // Read-only relation context: link existing records, never duplicate them.
 if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
+    $pageSize=25;
+    $pageFor=static function(string $key): int {
+        $raw=$_GET[$key]??'1';
+        if (!is_string($raw) || !preg_match('/^[1-9][0-9]{0,5}$/D',$raw)) return 1;
+        return min(100000,(int)$raw);
+    };
+    $pagination=static function(string $key,int $page,int $total) use ($id,$pageSize): string {
+        $pages=max(1,(int)ceil($total/$pageSize));
+        $page=min($page,$pages);
+        if ($pages<=1) return '';
+        $base='/office-test/crm/relaties/detail?id='.$id;
+        foreach (['lead_page','deal_page','calc_page'] as $other) {
+            if ($other===$key) continue;
+            $value=$_GET[$other]??null;
+            if (is_string($value) && preg_match('/^[1-9][0-9]{0,5}$/D',$value)) $base.='&amp;'.$other.'='.(int)$value;
+        }
+        $out='<nav aria-label="Paginering '.htmlspecialchars($key,ENT_QUOTES,'UTF-8').'">Pagina '.$page.' van '.$pages.' ';
+        if ($page>1) $out.='<a href="'.$base.'&amp;'.$key.'='.($page-1).'">Vorige</a> ';
+        if ($page<$pages) $out.='<a href="'.$base.'&amp;'.$key.'='.($page+1).'">Volgende</a>';
+        return $out.'</nav>';
+    };
     echo '<section><h2>Gerelateerde CRM-gegevens</h2>';
     try {
         $countStmt=$db->prepare('SELECT COUNT(*) FROM office_crm_leads WHERE relation_id=?');
         $countStmt->execute([$id]);$leadCount=(int)$countStmt->fetchColumn();
-        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_leads WHERE relation_id=? ORDER BY received_at DESC,id DESC LIMIT 50');
+        $leadPage=min($pageFor('lead_page'),max(1,(int)ceil($leadCount/$pageSize)));
+        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_leads WHERE relation_id=? ORDER BY received_at DESC,id DESC LIMIT 25 OFFSET '.(($leadPage-1)*$pageSize));
         $stmt->execute([$id]);$leadRows=$stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo '<details><summary>Leads ('.$leadCount.'; maximaal 50 zichtbaar)</summary>';
+        echo '<details><summary>Leads ('.$leadCount.')</summary>';
         if (!$leadRows) echo '<p>Geen gekoppelde leads.</p>';
         else {echo '<ul>';foreach($leadRows as $lead) echo '<li><a href="/office-test/crm/aanvragen/detail?id='.(int)$lead['id'].'">'.$h($lead['title']).'</a> · '.$h($lead['stage']).' · '.$h($lead['status']).'</li>';echo '</ul>';}
+        echo $pagination('lead_page',$leadPage,$leadCount);
         echo '</details>';
         $countStmt=$db->prepare('SELECT COUNT(*) FROM office_crm_opportunities WHERE relation_id=?');
         $countStmt->execute([$id]);$dealCount=(int)$countStmt->fetchColumn();
-        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_opportunities WHERE relation_id=? ORDER BY updated_at DESC,id DESC LIMIT 50');
+        $dealPage=min($pageFor('deal_page'),max(1,(int)ceil($dealCount/$pageSize)));
+        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_opportunities WHERE relation_id=? ORDER BY updated_at DESC,id DESC LIMIT 25 OFFSET '.(($dealPage-1)*$pageSize));
         $stmt->execute([$id]);$deals=$stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo '<details><summary>Deals ('.$dealCount.'; maximaal 50 zichtbaar)</summary>';
+        echo '<details><summary>Deals ('.$dealCount.')</summary>';
         if (!$deals) echo '<p>Geen gekoppelde deals.</p>';
         else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen/fase?id='.(int)$deal['id'].'">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
+        echo $pagination('deal_page',$dealPage,$dealCount);
         echo '</details>';
         // Reuse the authoritative, verified deal-to-project transfer lookup.
         require_once dirname(__DIR__).'/src/Crm/OfficeCrmProjectHandoff.php';
@@ -166,7 +191,7 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
                 // An unverified transfer is never displayed as an existing project.
             }
         }
-        echo '<details><summary>Projecten via getoonde deals ('.count($projects).($dealCount>count($deals)?'; niet alle deals doorzocht':'').')</summary>';
+        echo '<details><summary>Projecten via getoonde deals ('.count($projects).'; huidige dealpagina'.')</summary>';
         if (!$projects) echo '<p>Geen geverifieerde projectoverdrachten voor de getoonde deals.</p>';
         else {echo '<ul>';foreach($projects as $projectId=>$dealTitle) echo '<li><a href="/office-test/projecten/detail?id='.(int)$projectId.'">Project #'.(int)$projectId.'</a> · '.$h($dealTitle).'</li>';echo '</ul>';}
         echo '</details>';
