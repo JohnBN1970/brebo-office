@@ -69,6 +69,10 @@ jobs:
                 fwrite(STDERR,"MISSING_CONTRACT ".$file." ".$marker.PHP_EOL);exit(1);
               }
             }
+            $detail=file_get_contents("office-independent/public/office-crm-relation-detail.php");
+            foreach(["office_crm_leads","office_crm_opportunities","OfficeCrmProjectHandoff","office_calc_crm_acceptance_transfers","OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED","office_crm_relation_contact_events"] as $marker) {
+              if(!str_contains($detail,$marker)){fwrite(STDERR,"MISSING_RELATION_CONTEXT ".$marker.PHP_EOL);exit(1);}
+            }
             $schema=file_get_contents("office-independent/src/Crm/OfficeCrmRelationsSchema.php");
             if(!str_contains($schema,"CREATE TABLE IF NOT EXISTS office_crm_relation_contact_events")) exit(1);
             foreach(["office_crm_relation_hierarchy","office_crm_relation_hierarchy_events"] as $table) if(!str_contains($schema,"CREATE TABLE IF NOT EXISTS ".$table)) exit(1);
