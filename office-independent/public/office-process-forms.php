@@ -224,10 +224,17 @@ if ($projectIdRaw!=='' && getenv('OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED')===
 }
 if ($selectedForm!==null) {
     echo '<h2>Formulier '.$h($selectedForm['document_code']).'</h2><p>Status: '.$h($selectedForm['status']).' · Revisie: '.$h($selectedForm['revision']).' · Versie: '.$h($selectedForm['document_version']).'</p>';
+    if ($selectedForm['document_code']==='FR-201') {
+        require_once dirname(__DIR__).'/src/Process/OfficeProcessFormFr201.php';
+        $missing=\Brebo\Office\Process\OfficeProcessFormFr201::missingRequired($selectedForm['data']);
+        if ($missing!==[]) echo '<p>Ontbrekende verplichte velden: '.$h(count($missing)).'. Concept opslaan kan; indienen pas na aanvullen.</p>';
+    }
     echo '<dl>';
     foreach ($selectedForm['data'] as $key=>$value) {
         if (!is_string($key) || !(is_scalar($value) || $value===null)) continue;
-        echo '<dt><strong>'.$h($key).'</strong></dt><dd>'.nl2br($h($value),false).'</dd>';
+        $displayLabel=$selectedForm['document_code']==='FR-201'
+            ? (\Brebo\Office\Process\OfficeProcessFormFr201::FIELDS[$key][0]??$key) : $key;
+        echo '<dt><strong>'.$h($displayLabel).'</strong></dt><dd>'.nl2br($h($value),false).'</dd>';
     }
     if ($selectedForm['status']==='concept' && $canManageProject && getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled') {
         echo '<h3>Concept bewerken</h3><form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
@@ -243,7 +250,8 @@ if ($selectedForm!==null) {
             $label=$definition[0]??$key;
             $help=$definition[1]??'';
             $required=$definition!==null && $definition[2]===true;
-            echo '<p><label>'.$h($label).($required?' *':'').' <textarea name="fields['.$h($key).']"'.($required?' required':'').'>'.$h($value).'</textarea></label>';
+            // Drafts may be saved partially; required fields are enforced on submission.
+            echo '<p><label>'.$h($label).($required?' *':'').' <textarea name="fields['.$h($key).']">'.$h($value).'</textarea></label>';
             if ($help!=='') echo '<small>'.$h($help).'</small>';
             echo '</p>';
         }
