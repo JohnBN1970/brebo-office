@@ -91,7 +91,7 @@ if (getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled') {
             foreach ($events as $event) {
                 $payload=json_decode((string)($event['note']??''),true);
                 $reason=is_array($payload)?($payload['reason']??''):'';
-                echo '<li>'.$h($event['created_at']).' · '.$h($event['event_type']).' · '.$h($event['actor_operator_id']).($reason!==''?' · '.$h($reason):'').'</li>';
+                echo '<li>'.$h($event['created_at']).' · '.$h($event['event_type']).' · '.$h($event['actor_operator_id']).($reason!==''?' · '.$h($reason):'').(!empty($payload['previous_primary_contact_ids'])?' · Vorige primaire contact-ID(s): '.$h(implode(', ',array_map('intval',$payload['previous_primary_contact_ids']))):'').'</li>';
             }
             echo '</ul>';
         }
@@ -114,6 +114,23 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
         else { echo '<ul>';foreach($children as $child) echo '<li><a href="/office-test/crm/relaties/detail?id='.(int)$child['id'].'">'.$h($child['display_name']).'</a></li>';echo '</ul>'; }
         echo '</details>';
         if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && $relation['status']==='active') echo '<p><a href="/office-test/crm/relaties/bedrijfsstructuur?relation_id='.$id.'">Moederbedrijf wijzigen</a></p>';
+        echo '<details><summary>Historie bedrijfsstructuur</summary>';
+        try {
+            $audit=$db->prepare('SELECT actor_operator_id,event_type,note,created_at FROM office_crm_relation_hierarchy_events WHERE child_relation_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
+            $audit->execute([$id]);$historyRows=$audit->fetchAll(PDO::FETCH_ASSOC);
+            if (!$historyRows) echo '<p>Geen wijzigingen geregistreerd.</p>';
+            else {
+                echo '<ul>';
+                foreach ($historyRows as $entry) {
+                    $detail=json_decode((string)($entry['note']??''),true);
+                    $reason=is_array($detail)?($detail['reason']??''):'';
+                    echo '<li>'.$h($entry['created_at']).' · '.$h($entry['event_type']).' · gebruiker '.$h($entry['actor_operator_id']).($reason!==''?' · '.$h($reason):'').'</li>';
+                }
+                echo '</ul>';
+            }
+        } catch (Throwable $ignored) { echo '<p>Historie tijdelijk niet beschikbaar.</p>'; }
+        echo '</details>';
+
     } catch(Throwable $ignored) { echo '<p>Bedrijfsstructuur tijdelijk niet beschikbaar.</p>'; }
     echo '</section>';
 }
