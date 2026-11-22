@@ -14,6 +14,9 @@ $required = [
     "loadBuildingOpname",
     "FILTER_VALIDATE_INT",
     "303",
+    "$cl204CanManage",
+    "$cl204RegisterReady",
+    "if ($cl204RegisterReady && $cl204CsrfReady)",
 ];
 foreach ($required as $contract) {
     if (!str_contains($source,$contract)) {
