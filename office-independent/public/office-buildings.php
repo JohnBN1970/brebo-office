@@ -209,6 +209,8 @@ if ($detail) {
   // Never interpret missing schema or inaccessible data as an empty confirmed register.
   if (getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled') {
     echo '<section class="office-building-opnames"><h2>Opnames</h2><p>CL-204 Projectopname. Inspecties blijven een afzonderlijk onderdeel.</p>';
+    $selectedOpname = null;
+    $cl204RegisterReady = false;
     try {
       require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
       $opnames = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->listBuildingOpnames((int)$buildingId);
@@ -225,6 +227,7 @@ if ($detail) {
           exit('Opname niet gevonden voor dit gebouw.');
         }
       }
+      $cl204RegisterReady = true;
       if ($opnames === []) {
         echo '<p>Voor dit gebouw zijn nog geen CL-204-opnames geregistreerd.</p>';
       } else {
@@ -238,7 +241,7 @@ if ($detail) {
       error_log('Office building CL-204 opnames unavailable: ' . $opnameError->getCode());
       echo '<p role="status">Opnames zijn tijdelijk niet beschikbaar; opslag of toegang moet nog worden gecontroleerd.</p>';
     }
-    if ($selectedOpname !== null) {
+    if ($cl204RegisterReady && $selectedOpname !== null) {
       echo '<section class="office-cl204-readonly"><h3>Opname CL-204 #' . (int)$selectedOpname['id'] . '</h3><p>Status: ' . $h($selectedOpname['status']) . ' · Revisie ' . (int)$selectedOpname['revision'] . '</p>';
       require_once dirname(__DIR__) . '/src/Process/OfficeCl204Projectopname.php';
       $controlData = is_array($selectedOpname['data']['controls'] ?? null) ? $selectedOpname['data']['controls'] : [];
@@ -248,7 +251,7 @@ if ($detail) {
       }
       echo '</tbody></table><h4>Disciplines</h4><p>' . $h(implode(', ', array_filter($selectedOpname['data']['disciplines'] ?? [], 'is_string'))) . '</p></section>';
     }
-    if ($cl204CsrfReady) {
+    if ($cl204RegisterReady && $cl204CsrfReady) {
       require_once dirname(__DIR__) . '/src/Process/OfficeCl204FormView.php';
       $draft = $selectedOpname !== null && $selectedOpname['status'] === 'concept' ? $selectedOpname['data'] : [];
       if ($selectedOpname === null || $selectedOpname['status'] === 'concept') {
