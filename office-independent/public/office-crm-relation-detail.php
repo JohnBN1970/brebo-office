@@ -116,15 +116,15 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
         if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && $relation['status']==='active') echo '<p><a href="/office-test/crm/relaties/bedrijfsstructuur?relation_id='.$id.'">Moederbedrijf wijzigen</a></p>';
         echo '<details><summary>Historie bedrijfsstructuur</summary>';
         try {
-            $audit=$db->prepare('SELECT actor_operator_id,event_type,note,created_at FROM office_crm_relation_hierarchy_events WHERE child_relation_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
+            $audit=$db->prepare('SELECT actor_operator_id,old_parent_relation_id,new_parent_relation_id,reason,created_at FROM office_crm_relation_hierarchy_events WHERE child_relation_id=? ORDER BY created_at DESC,id DESC LIMIT 50');
             $audit->execute([$id]);$historyRows=$audit->fetchAll(PDO::FETCH_ASSOC);
             if (!$historyRows) echo '<p>Geen wijzigingen geregistreerd.</p>';
             else {
                 echo '<ul>';
                 foreach ($historyRows as $entry) {
-                    $detail=json_decode((string)($entry['note']??''),true);
-                    $reason=is_array($detail)?($detail['reason']??''):'';
-                    echo '<li>'.$h($entry['created_at']).' · '.$h($entry['event_type']).' · gebruiker '.$h($entry['actor_operator_id']).($reason!==''?' · '.$h($reason):'').'</li>';
+                    $old=$entry['old_parent_relation_id']===null?'geen':('#'.(int)$entry['old_parent_relation_id']);
+                    $new=$entry['new_parent_relation_id']===null?'geen':('#'.(int)$entry['new_parent_relation_id']);
+                    echo '<li>'.$h($entry['created_at']).' · moederbedrijf '.$h($old).' → '.$h($new).' · gebruiker '.$h($entry['actor_operator_id']).' · '.$h($entry['reason']).'</li>';
                 }
                 echo '</ul>';
             }
