@@ -8,12 +8,13 @@ declare(strict_types=1);
  */
 if (PHP_SAPI !== 'cli') exit(2);
 $file = getenv('OFFICE_TEST_CONFIG_PATH');
-if (is_string($file) && is_file($file)) {
+$pool = getenv('OFFICE_TEST_FPM_POOL_PATH');
+// Explicitly selected FPM pool takes precedence over inherited config paths.
+if ((!is_string($pool) || $pool === '') && is_string($file) && is_file($file)) {
     $c = require $file;
 } else {
     // CLI does not inherit PHP-FPM pool env[] values. Read the existing pool
     // configuration only when explicitly requested; never print credentials.
-    $pool = getenv('OFFICE_TEST_FPM_POOL_PATH');
     if (!is_string($pool) || $pool === '' || !is_file($pool) || !is_readable($pool)) {
         echo "BLOCK_CONFIG\n"; exit(2);
     }
@@ -42,7 +43,11 @@ $dsn = (string)($c['OFFICE_INTAKE_PDO_DSN'] ?? '');
 if (($c['OFFICE_BASE_PATH'] ?? '') !== '/office-test'
     || !preg_match('/(?:^|;)dbname=brebo_office_test(?:;|$)/', $dsn)
     || !preg_match('/^mysql:host=(?:localhost|127[.]0[.]0[.]1);/', $dsn)) {
-    echo "BLOCK_TEST_SCOPE\n"; exit(3);
+    echo "BLOCK_TEST_SCOPE\n";
+    echo "SCOPE_DB=" . (preg_match('/(?:^|;)dbname=brebo_office_test(?:;|$)/', $dsn) ? "OK" : "FAIL") . "\n";
+    echo "SCOPE_HOST=" . (preg_match('/^mysql:host=(?:localhost|127[.]0[.]0[.]1);/', $dsn) ? "OK" : "FAIL") . "\n";
+    echo "SCOPE_BASE=" . (($c['OFFICE_BASE_PATH'] ?? '') === '/office-test' ? "OK" : "FAIL") . "\n";
+    exit(3);
 }
 try {
     $db = new PDO($dsn, (string)($c['OFFICE_INTAKE_DB_USER'] ?? ''), (string)($c['OFFICE_INTAKE_DB_PASSWORD'] ?? ''), [
