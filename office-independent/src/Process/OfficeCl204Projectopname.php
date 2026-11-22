@@ -30,6 +30,17 @@ final class OfficeCl204Projectopname
         ];
     }
 
+    /** Evidence references belong to the existing Office document store. */
+    public static function observationFields(): array
+    {
+        return [
+            'building_id','project_id','building_part','location','observed_at',
+            'observer_operator_id','observation','source_reference','interpretation',
+            'measurement','unit','measurement_method','measurement_uncertainty',
+            'risk','consequence_of_delay','follow_up_action','evidence_refs',
+        ];
+    }
+
     public static function applicability(): array
     {
         return ['open','gereed','niet_van_toepassing','onbekend'];
@@ -39,6 +50,10 @@ final class OfficeCl204Projectopname
     public static function validateDraft(array $data): array
     {
         $errors = [];
+        if (isset($data['controls']) && !is_array($data['controls'])) {
+            $errors['controls'] = 'Ongeldige controlelijst';
+            return $errors;
+        }
         foreach (($data['controls'] ?? []) as $key => $item) {
             if (!isset(self::controls()[$key]) || !is_array($item)
                 || !in_array($item['status'] ?? null, self::applicability(), true)) {
@@ -48,6 +63,17 @@ final class OfficeCl204Projectopname
         if (isset($data['disciplines']) && (!is_array($data['disciplines'])
             || count(array_filter($data['disciplines'], 'is_string')) !== count($data['disciplines']))) {
             $errors['disciplines'] = 'Ongeldige disciplines';
+        }
+        if (isset($data['observations'])) {
+            if (!is_array($data['observations'])) {
+                $errors['observations'] = 'Ongeldige bevindingenlijst';
+            } else {
+                foreach ($data['observations'] as $index => $observation) {
+                    if (!is_array($observation) || array_diff(array_keys($observation), self::observationFields())) {
+                        $errors['observations.'.$index] = 'Ongeldige bevinding';
+                    }
+                }
+            }
         }
         return $errors;
     }
