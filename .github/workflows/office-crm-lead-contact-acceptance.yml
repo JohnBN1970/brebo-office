@@ -60,7 +60,7 @@ jobs:
             foreach([
               "office-crm-lead-edit.php"=>["FOR UPDATE","crm_lead_edit_csrf","office_crm_lead_events","converted_opportunity_id"],
               "office-crm-lead-status.php"=>["FOR UPDATE","crm_lead_status_csrf","office_crm_lead_events","converted_opportunity_id"],
-              "office-crm-relation-contact-create.php"=>["beginTransaction","crm_contact_csrf","office_crm_relation_contact_events"],
+              "office-crm-relation-contact-create.php"=>["beginTransaction","crm_contact_csrf","office_crm_relation_contact_events","reason"],
               "office-crm-relation-contact-manage.php"=>["FOR UPDATE","crm_contact_manage_csrf","office_crm_relation_contact_events","OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED"],
               "office-crm-relation-hierarchy.php"=>["FOR UPDATE","crm_hierarchy_csrf","office_crm_relation_hierarchy_events","OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED"]
             ] as $file=>$markers){
