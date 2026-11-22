@@ -50,6 +50,7 @@ try {
         'expected_close_date'=>'DATE NULL',
         'next_action'=>'VARCHAR(255) NULL',
         'next_action_at'=>'DATETIME NULL',
+        'revision'=>'BIGINT UNSIGNED NOT NULL DEFAULT 1',
         'opname_required'=>'TINYINT(1) NOT NULL DEFAULT 0',
         'status'=>"VARCHAR(16) NOT NULL DEFAULT 'open'"
     ];
