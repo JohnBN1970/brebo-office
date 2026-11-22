@@ -50,6 +50,21 @@ jobs:
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
           php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
           php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+      - name: Read-only VPS schema gate contract
+        run: |
+          set -euo pipefail
+          php -r '
+            $s = file_get_contents("office-independent/deployment/vps/crm-calc-schema-preflight.php");
+            foreach (["information_schema.STATISTICS", "CRM_DRAFT_UNIQUE_OPPORTUNITY",
+                      "CRM_DRAFT_OPPORTUNITY_REQUIRED", "CRM_DRAFT_PROJECT_OPTIONAL",
+                      "office_crm_opportunities", "revision"] as $requirement) {
+              if (!str_contains($s, $requirement)) {
+                fwrite(STDERR, "Preflight contract missing: ".$requirement.PHP_EOL);
+                exit(1);
+              }
+            }
+            echo "CRM_CALC_PREFLIGHT_SOURCE_CONTRACT=PASS".PHP_EOL;
+          '
       - name: Explicit release boundary
         run: |
           echo 'SOURCE_CONTRACTS_ONLY=PASS'
