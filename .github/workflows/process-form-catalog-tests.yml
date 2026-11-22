@@ -4,6 +4,8 @@ on:
     paths:
       - 'office-independent/src/Process/OfficeProcessForm*.php'
       - 'office-independent/tests/test_process_form_*.php'
+      - 'office-independent/public/office-process-forms.php'
+      - 'office-independent/public/index.php'
       - '.github/workflows/process-form-catalog-tests.yml'
   workflow_dispatch:
 permissions:
@@ -20,7 +22,7 @@ jobs:
       - name: Lint and verify catalog contracts
         run: |
           set -eu
-          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/tests/test_process_form_*.php; do
+          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/tests/test_process_form_*.php office-independent/public/office-process-forms.php; do
             php -l "$file"
           done
           for test in office-independent/tests/test_process_form_*.php; do
