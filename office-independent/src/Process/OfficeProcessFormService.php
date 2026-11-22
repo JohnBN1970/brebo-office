@@ -14,7 +14,8 @@ final class OfficeProcessFormService
 {
     public function __construct(
         private readonly OfficeProcessFormRepository $repository,
-        private readonly \Closure $permissionResolver
+        private readonly \Closure $permissionResolver,
+        private readonly \Closure $fourEyesPolicyResolver
     ) {}
 
     public function create(string $code, string $version, string $contextType, int $contextId, string $actor, array $data, string $reason, bool $csrfValid): int
@@ -38,11 +39,13 @@ final class OfficeProcessFormService
         return $this->repository->revise($id,$expectedRevision,$actor,$data,$reason);
     }
 
-    public function transition(int $id, int $expectedRevision, string $action, string $actor, bool $fourEyes, string $reason, bool $csrfValid): array
+    public function transition(int $id, int $expectedRevision, string $action, string $actor, string $reason, bool $csrfValid): array
     {
         $form=$this->requireForm($id);
         $this->guard($csrfValid,$actor,$action,(string)$form['context_type'],(int)$form['context_id'],(string)$form['document_code']);
-        // The permission resolver was checked server-side immediately above.
+        // Four-eyes is an Office blueprint setting, never a client-supplied flag.
+        $fourEyes = ($this->fourEyesPolicyResolver)((string)$form['document_code'],(string)$form['context_type'],(int)$form['context_id']);
+        if (!is_bool($fourEyes)) throw new RuntimeException('Vierogenbeleid niet beschikbaar');
         return $this->repository->transition($id,$expectedRevision,$action,$actor,$fourEyes,true,$reason);
     }
 
