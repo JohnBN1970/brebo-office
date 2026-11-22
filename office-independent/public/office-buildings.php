@@ -95,13 +95,24 @@ if ($detail) {
   }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
+// Read access to a building does not imply permission to change its opnames.
+$cl204CanManage = false;
+if ($detail && is_int($buildingId)) {
+  $cl204Access = $db->prepare(
+    "SELECT 1 FROM office_project_buildings pb
+      JOIN office_project_memberships m ON m.project_id=pb.project_id
+      WHERE pb.building_id=? AND m.operator_id=? AND m.permission='manage' LIMIT 1"
+  );
+  $cl204Access->execute([$buildingId, $operator->operatorId]);
+  $cl204CanManage = (bool)$cl204Access->fetchColumn();
+}
 // CL-204 writes require explicit test-only activation and a session-bound HMAC CSRF token.
 $cl204WriteEnabled = getenv('OFFICE_BASE_PATH') === '/office-test'
   && getenv('OFFICE_TEST_CL204_OPNAMES_WRITE_ENABLED') === 'enabled'
   && getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled';
 $cl204Secret = getenv('OFFICE_CL204_CSRF_SECRET');
 $cl204SessionHash = isset($operator) ? (string)$operator->sessionId : '';
-$cl204CsrfReady = $cl204WriteEnabled && is_string($cl204Secret) && strlen($cl204Secret) >= 32
+$cl204CsrfReady = $cl204CanManage && $cl204WriteEnabled && is_string($cl204Secret) && strlen($cl204Secret) >= 32
   && strlen($cl204SessionHash) === 64;
 $cl204Csrf = $cl204CsrfReady
   ? hash_hmac('sha256', 'CL-204:building:' . (int)$buildingId, $cl204SessionHash . $cl204Secret)
