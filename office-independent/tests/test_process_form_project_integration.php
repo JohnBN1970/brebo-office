@@ -65,8 +65,7 @@ foreach ([
     if (!str_contains($catalog,$fragment)) throw new RuntimeException('FR-201 form integration missing: '.$fragment);
 }
 require_once $root.'/src/Process/OfficeProcessFormContext.php';
-use Brebo\Office\Process\OfficeProcessFormContext as Context;
-if (Context::accepts('FR-201','project') || !Context::accepts('FR-201','lead')) {
+if (\Brebo\Office\Process\OfficeProcessFormContext::accepts('FR-201','project') || !\Brebo\Office\Process\OfficeProcessFormContext::accepts('FR-201','lead')) {
     throw new RuntimeException('FR-201 must belong to CRM lead context');
 }
 foreach ([
