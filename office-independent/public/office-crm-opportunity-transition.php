@@ -88,9 +88,14 @@ if ($item['stage']==='won') {
             echo '<p>Office-project gekoppeld: <a href="/office-test/projecten/detail?id='.$linkedProject.'">Open project #'.$linkedProject.'</a></p>';
         } else {
             echo '<p>Deze deal is gegund, maar er is nog geen bevestigde projectoverdracht. Projectaanmaak moet afzonderlijk worden afgerond.</p>';
-            if ($directEnabled) {
-                // Do not offer creation when any direct/Calc mapping already exists,
-                // or if the schema or explicit actor permission is unavailable.
+            if (!$directEnabled) {
+                echo '<p role="status">Projectaanmaak is voor deze testomgeving nog niet geactiveerd. Laat de Office-test release- en featureflags controleren.</p>';
+            } elseif (!in_array($item['status'], ['won','closed'], true)) {
+                echo '<p role="status">Deze Deal heeft nog geen bevestigde akkoordstatus. Controleer de Dealstatus.</p>';
+            } else {
+                // No silent permission failure: the actor must explicitly have
+                // native projects/create, even when the VPS schema preflight passes.
+                // Never create a project on GET or grant permissions automatically.
                 $check=$db->prepare(
                     'SELECT (SELECT COUNT(*) FROM office_calc_crm_acceptance_transfers WHERE crm_opportunity_id=?) AS calc_count,
                             (SELECT COUNT(*) FROM office_crm_direct_project_transfers WHERE opportunity_id=?) AS direct_count'
@@ -98,11 +103,17 @@ if ($item['stage']==='won') {
                 $check->execute([$id,$id]);
                 $counts=$check->fetch(PDO::FETCH_ASSOC);
                 $permission=$db->prepare(
-                    "SELECT 1 FROM office_module_permissions WHERE operator_id=? AND module='projects' AND permission='create' LIMIT 1"
+                    "SELECT 1 FROM office_operator_accounts a
+                     JOIN office_module_permissions g ON g.operator_id=a.id
+                     WHERE a.id=? AND a.active=1 AND g.module='projects'
+                       AND g.permission='create' LIMIT 1"
                 );
                 $permission->execute([$operator->operatorId]);
-                if ((int)($counts['calc_count']??-1)===0 && (int)($counts['direct_count']??-1)===0
-                    && $permission->fetchColumn()!==false) {
+                if ((int)($counts['calc_count']??-1)>0 || (int)($counts['direct_count']??-1)>0) {
+                    echo '<p role="status">Er bestaat een overdrachtsregistratie die niet als geldig project kan worden geopend. Laat deze eerst controleren; er wordt geen tweede project aangemaakt.</p>';
+                } elseif ($permission->fetchColumn()===false) {
+                    echo '<p role="status">Projectaanmaak niet toegestaan voor het huidige Office-account. De beheerder moet de bevoegdheid Projecten: aanmaken controleren.</p>';
+                } else {
                     echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="action" value="create_direct_project"><button type="submit">Maak project voor directe opdracht</button></form>';
                 }
             }
