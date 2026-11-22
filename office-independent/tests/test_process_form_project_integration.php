@@ -40,4 +40,20 @@ foreach ([
 ] as $fragment) {
     if (!str_contains($catalog,$fragment)) throw new RuntimeException('Missing guarded concept creation: '.$fragment);
 }
+foreach ([
+    'revise_concept',
+    'submit_concept',
+    'start_review',
+    "'reject'",
+    "'reopen'",
+    'expected_revision',
+    'change_reason',
+    'array_replace($form[\'data\'],$fields)',
+    '$canManageProject',
+    'http_response_code(409)',
+    'http_response_code(422)',
+    'OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED',
+] as $fragment) {
+    if (!str_contains($catalog,$fragment)) throw new RuntimeException('Missing protected form editing or workflow: '.$fragment);
+}
 echo "Process form project integration and schema gate OK\n";
