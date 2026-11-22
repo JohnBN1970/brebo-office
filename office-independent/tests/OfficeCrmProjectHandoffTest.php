@@ -51,9 +51,9 @@ foreach (['kanban','list','calendar'] as $view) {
     // Calendar cards require a scheduled date; put one on the fixture.
     if ($view==='calendar') {
         $db->exec("UPDATE office_crm_opportunities SET next_action_at='2026-11-22' WHERE id IN (1,2,3,4,5)");
-        $rows=(new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityRepository($db))->listForViews();
+        $rows=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->listForViews();
     }
-    $markup=\\Brebo\\Office\\Crm\\OfficeCrmFunnelViews::render($rows,$view);
+    $markup=\Brebo\Office\Crm\OfficeCrmFunnelViews::render($rows,$view);
     foreach ([1,2,3,4,5] as $id) {
         if (!str_contains($markup, '/office-test/crm/verkoopkansen/fase?id='.$id)) {
             throw new RuntimeException('Deal #'.$id.' cannot be opened from '.$view);
