@@ -1,5 +1,16 @@
 name: Office process form catalog checks
 on:
+  push:
+    branches:
+      - 'feat/proceshandboek-formulieren-catalogus'
+    paths:
+      - 'office-independent/src/Process/OfficeProcessForm*.php'
+      - 'office-independent/src/Process/OfficeFr201*.php'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/tests/test_process_form_*.php'
+      - 'office-independent/public/office-process-forms.php'
+      - 'office-independent/public/index.php'
+      - '.github/workflows/process-form-catalog-tests.yml'
   pull_request:
     paths:
       - 'office-independent/src/Process/OfficeProcessForm*.php'
