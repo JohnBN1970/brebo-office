@@ -63,6 +63,9 @@ if ($method==='POST') {
     } else {
         try {
             $db->beginTransaction();
+            $lock=$db->prepare('SELECT id FROM office_crm_relations WHERE id=? AND status=\'active\' FOR UPDATE');
+            $lock->execute([$id]);
+            if (!$lock->fetchColumn()) throw new DomainException('Relatie is niet meer actief.');
             // An exact email match reuses an existing person, avoiding duplicate contacts across relations.
             $contactId=null;
             if ($values['email']!=='') {
@@ -86,6 +89,10 @@ if ($method==='POST') {
             $stmt=$db->prepare('SELECT 1 FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=?');
             $stmt->execute([$id,$contactId]);
             if ($stmt->fetchColumn()) throw new DomainException('Deze contactpersoon is al gekoppeld.');
+            if ($primary) {
+                $stmt=$db->prepare('UPDATE office_crm_relation_contacts SET is_primary=0 WHERE relation_id=?');
+                $stmt->execute([$id]);
+            }
             $stmt=$db->prepare('INSERT INTO office_crm_relation_contacts (relation_id,contact_id,job_title,is_primary) VALUES (?,?,?,?)');
             $stmt->execute([$id,$contactId,$values['job_title']?:null,$primary?1:0]);
             $audit=$db->prepare('INSERT INTO office_crm_relation_contact_events (relation_id,contact_id,actor_operator_id,event_type,note) VALUES (?,?,?,?,?)');
