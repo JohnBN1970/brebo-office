@@ -23,11 +23,12 @@ try {
  if (!$stmt->fetchColumn()) { http_response_code(403); exit('Geen CRM-toegang.'); }
  $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
  if (!is_int($id)) { http_response_code(400); exit('Ongeldig leadnummer.'); }
- $stmt=$db->prepare('SELECT id,title,source_detail,campaign,contact_name,contact_email,description,owner_operator_id,updated_at,converted_opportunity_id,status FROM office_crm_leads WHERE id=?');
+ $stmt=$db->prepare('SELECT id,title,source_detail,campaign,contact_name,contact_email,description,owner_operator_id,relation_id,updated_at,converted_opportunity_id,status FROM office_crm_leads WHERE id=?');
  $stmt->execute([$id]);$lead=$stmt->fetch(PDO::FETCH_ASSOC);
  if (!$lead) { http_response_code(404); exit('Lead niet gevonden.'); }
 } catch(Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Leadbewerking niet vrijgegeven.'); }
+$relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
 if ($lead['status']!=='active'||$lead['converted_opportunity_id']!==null) { http_response_code(409); exit('Deze lead is niet bewerkbaar.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
  session_name('BREBO_CRM_LEAD_EDIT');
@@ -49,6 +50,13 @@ if ($method==='POST') {
  if (!$error && ($values['title']===''||($values['contact_email']!==''&&!filter_var($values['contact_email'],FILTER_VALIDATE_EMAIL)))) $error='Controleer titel en e-mailadres.';
  $reason=trim(is_string($_POST['reason']??null)?$_POST['reason']:'');
  if (!$error && ($reason===''||mb_strlen($reason)>500)) $error='Geef een wijzigingsreden op (maximaal 500 tekens).';
+ $relationRaw=$_POST['relation_id']??'';
+ $relationId=$relationRaw===''?null:filter_var($relationRaw,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+ if (!$error && $relationRaw!=='' && !is_int($relationId)) $error='Ongeldige relatie.';
+ if (!$error && $relationId!==null) {
+  $check=$db->prepare("SELECT 1 FROM office_crm_relations WHERE id=? AND status='active'");$check->execute([$relationId]);
+  if (!$check->fetchColumn()) $error='Relatie niet beschikbaar.';
+ }
  $expected=$_POST['expected_updated_at']??null;
  if (!$error && (!is_string($expected)||!hash_equals((string)$lead['updated_at'],$expected))) { http_response_code(409); exit('De lead is intussen gewijzigd. Ververs de pagina.'); }
  if (!$error) {
@@ -58,10 +66,11 @@ if ($method==='POST') {
    if (!$current||$current['status']!=='active'||$current['converted_opportunity_id']!==null||!hash_equals((string)$current['updated_at'],$expected)) throw new RuntimeException('De lead is intussen gewijzigd.');
    $changed=[];
    foreach ($fields as $key=>$_) if ((string)($current[$key]??'')!==$values[$key]) $changed[$key]=['old'=>$current[$key],'new'=>$values[$key]];
+   if (($current['relation_id']===null?null:(int)$current['relation_id'])!==$relationId) $changed['relation_id']=['old'=>$current['relation_id'],'new'=>$relationId];
    if ($changed) {
     $sets=implode(',',array_map(static fn($key)=>$key.'=?',array_keys($fields)));
-    $stmt=$db->prepare('UPDATE office_crm_leads SET '.$sets.',updated_at=NOW() WHERE id=?');
-    $stmt->execute([...array_map(static fn($key)=>$values[$key]!==''?$values[$key]:null,array_keys($fields)),$id]);
+    $stmt=$db->prepare('UPDATE office_crm_leads SET '.$sets.',relation_id=?,updated_at=NOW() WHERE id=?');
+    $stmt->execute([...array_map(static fn($key)=>$values[$key]!==''?$values[$key]:null,array_keys($fields)),$relationId,$id]);
     $note=json_encode(['reason'=>$reason,'changes'=>$changed],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     $stmt=$db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,note) VALUES (?,?,'edited',?)");
     $stmt->execute([$id,(string)$operator->operatorId,$note]);
@@ -71,6 +80,7 @@ if ($method==='POST') {
   } catch(Throwable $e) { if ($db->inTransaction()) $db->rollBack();$error='Wijziging niet opgeslagen. Ververs de lead en probeer opnieuw.'; }
  }
  foreach ($fields as $key=>$_) if (isset($values[$key])) $lead[$key]=$values[$key];
+ if (isset($relationRaw)) $lead['relation_id']=$relationId;
 }
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><title>Lead bewerken</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a}main{max-width:760px;margin:32px auto;padding:24px;background:white;border-radius:12px}label{display:block;margin:14px 0}input,textarea{display:block;width:100%;box-sizing:border-box;padding:10px}button{background:#175a91;color:white;border:0;border-radius:6px;padding:12px 20px}</style></head><body><main><p><a href="/office-test/crm/aanvragen/detail?id='.$id.'">Terug naar lead</a></p><h1>Lead bewerken</h1>';
@@ -82,4 +92,7 @@ foreach ($fields as $key=>$max) {
  else echo '<input name="'.$key.'" value="'.$h($lead[$key]).'" maxlength="'.$max.'"'.($key==='contact_email'?' type="email"':'').($key==='title'?' required':'').'>';
  echo '</label>';
 }
+echo '<label>Gekoppelde relatie<select name="relation_id"><option value="">Geen relatie</option>';
+foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)($lead['relation_id']??0)===(int)$relation['id']?' selected':'').'>'.$h($relation['display_name']).'</option>';
+echo '</select></label>';
 echo '<label>Reden van wijziging *<input name="reason" maxlength="500" required></label><button type="submit">Wijzigingen opslaan</button></form></main></body></html>';
