@@ -14,7 +14,7 @@ foreach ([
 }
 foreach ([
     "if (\$action==='apply_profile')", "role_code", "confirm_role_change",
-    'applyProjectCreateProfile(', "hash_equals($csrf,$submitted)",
+    'applyProjectCreateProfile(', 'hash_equals($csrf,$submitted)',
     'een <strong>echte, geauditeerde wijziging',
     'Bekijk als is alleen een voorbeeld',
 ] as $marker) {
