@@ -32,6 +32,7 @@ try {
     // Project-scoped catalog: never expose project context without membership.
     $projectForms=[];
     $selectedForm=null;
+    $formEvents=[];
     $projectIdRaw=(string)($_GET['project_id']??'');
     if ($projectIdRaw!=='') {
         if (!preg_match('/^[1-9][0-9]{0,17}$/D',$projectIdRaw)) {
@@ -77,6 +78,13 @@ try {
                 if (!is_array($decoded)) throw new \RuntimeException('Invalid form payload');
                 $selectedForm['data']=$decoded;
                 unset($selectedForm['data_json']);
+                // Audit is read-only and strictly scoped to this form, which
+                // was already verified against the authenticated project.
+                $history=$db->prepare("SELECT revision,actor_operator_id,event_type,reason,created_at
+                    FROM office_process_form_events WHERE form_id=?
+                    ORDER BY revision DESC LIMIT 100");
+                $history->execute([(int)$selectedForm['id']]);
+                $formEvents=$history->fetchAll(PDO::FETCH_ASSOC);
             }
         }
     }
@@ -106,6 +114,15 @@ if ($selectedForm!==null) {
         if (!is_string($key) || !(is_scalar($value) || $value===null)) continue;
         echo '<dt><strong>'.$h($key).'</strong></dt><dd>'.nl2br($h($value),false).'</dd>';
     }
-    echo '</dl><p>Alleen lezen. Bewerken en goedkeuren zijn nog niet vrijgegeven.</p>';
+    echo '</dl><h3>Revisie- en besluitgeschiedenis</h3>';
+    if ($formEvents===[]) echo '<p>Geen geregistreerde gebeurtenissen.</p>';
+    else {
+        echo '<table><thead><tr><th>Revisie</th><th>Handeling</th><th>Medewerker-ID</th><th>Reden</th><th>Datum</th></tr></thead><tbody>';
+        foreach ($formEvents as $event) {
+            echo '<tr><td>'.$h($event['revision']).'</td><td>'.$h($event['event_type']).'</td><td>'.$h($event['actor_operator_id']).'</td><td>'.$h($event['reason']).'</td><td>'.$h($event['created_at']).'</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+    echo '<p>Alleen lezen. Bewerken en goedkeuren zijn nog niet vrijgegeven.</p>';
 }
 echo '</section></main></body></html>';
