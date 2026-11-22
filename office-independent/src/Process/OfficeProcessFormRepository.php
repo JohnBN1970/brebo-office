@@ -67,6 +67,47 @@ final class OfficeProcessFormRepository
         }
     }
 
+    /**
+     * Persist a controlled status decision and its immutable snapshot atomically.
+     * The caller must validate real Office role/mandate and CSRF before calling.
+     * Mandate is deliberately passed from the server-side authorization layer,
+     * never from a request parameter.
+     */
+    public function transition(int $id, int $expectedRevision, string $action, string $actor, bool $fourEyes, bool $mandateGranted, string $reason): array
+    {
+        if ($id < 1 || $expectedRevision < 1 || trim($actor) === '' || strlen($actor) > 128) {
+            throw new InvalidArgumentException('Invalid transition identity');
+        }
+        require_once __DIR__.'/OfficeProcessFormWorkflow.php';
+        $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare('SELECT status,revision,data_json FROM office_process_form_instances WHERE id=? FOR UPDATE');
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || (int)$row['revision'] !== $expectedRevision) {
+                throw new RuntimeException('Formulier gewijzigd; ververs voor een nieuw besluit');
+            }
+            // The latest submission, not the original creator, defines the
+            // independent-review boundary. Reopened forms can be resubmitted.
+            $submitter = '';
+            $stmt = $this->db->prepare("SELECT actor_operator_id FROM office_process_form_events WHERE form_id=? AND event_type='submit' ORDER BY revision DESC LIMIT 1");
+            $stmt->execute([$id]);
+            $submitter = (string)($stmt->fetchColumn() ?: '');
+            $next = OfficeProcessFormWorkflow::target((string)$row['status'],$action,$actor,$submitter,$fourEyes,$mandateGranted,$reason);
+            $revision = $expectedRevision + 1;
+            $stmt = $this->db->prepare('UPDATE office_process_form_instances SET status=?,revision=?,updated_by=? WHERE id=? AND revision=?');
+            $stmt->execute([$next,$revision,$actor,$id,$expectedRevision]);
+            if ($stmt->rowCount() !== 1) throw new RuntimeException('Concurrent form decision');
+            $snapshot = json_encode(['status'=>$next,'data'=>json_decode((string)$row['data_json'],true,512,JSON_THROW_ON_ERROR)],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+            $this->appendEvent($id,$revision,$actor,$action,trim($reason),$snapshot);
+            $this->db->commit();
+            return ['status'=>$next,'revision'=>$revision];
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
     private function appendEvent(int $id, int $revision, string $actor, string $type, string $reason, string $json): void
     {
         $stmt = $this->db->prepare('INSERT INTO office_process_form_events (form_id,revision,actor_operator_id,event_type,reason,snapshot_json) VALUES (?,?,?,?,?,?)');
