@@ -42,11 +42,18 @@ if (($_SERVER['REQUEST_METHOD']??'GET')==='POST') {
  if (!$error) {
   try {
    $db->beginTransaction();
+   $lock=$db->prepare("SELECT id FROM office_crm_relations WHERE id=? AND status='active' FOR UPDATE");
+   $lock->execute([$relationId]);
+   if (!$lock->fetchColumn()) throw new RuntimeException('Relatie is niet meer actief.');
    $stmt=$db->prepare('SELECT job_title,is_primary FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=? FOR UPDATE');$stmt->execute([$relationId,$contactId]);$previous=$stmt->fetch(PDO::FETCH_ASSOC);
    if (!$previous) throw new RuntimeException('Koppeling is al gewijzigd.');
    if ($action==='unlink') {
     $stmt=$db->prepare('DELETE FROM office_crm_relation_contacts WHERE relation_id=? AND contact_id=?');$stmt->execute([$relationId,$contactId]);
    } else {
+    if (($_POST['is_primary']??'')==='1') {
+     $stmt=$db->prepare('UPDATE office_crm_relation_contacts SET is_primary=0 WHERE relation_id=? AND contact_id<>?');
+     $stmt->execute([$relationId,$contactId]);
+    }
     $stmt=$db->prepare('UPDATE office_crm_relation_contacts SET job_title=?,is_primary=? WHERE relation_id=? AND contact_id=?');
     $stmt->execute([$job?:null,($_POST['is_primary']??'')==='1'?1:0,$relationId,$contactId]);
    }
