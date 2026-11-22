@@ -63,10 +63,12 @@ final class OfficeFr201Schema
         // The lead reference must match the parent key type exactly; mismatched
         // signedness prevents reliable FK installation on MySQL.
         try {
-            $stmt = $db->query("SELECT TABLE_NAME,COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_NAME='lead_id' AND TABLE_NAME IN ('office_crm_lead_fr201','office_crm_lead_fr201_events')");
-            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $column) {
+            $stmt = $db->query("SELECT TABLE_NAME,COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND ((COLUMN_NAME='lead_id' AND TABLE_NAME IN ('office_crm_lead_fr201','office_crm_lead_fr201_events')) OR (COLUMN_NAME='id' AND TABLE_NAME='office_crm_leads'))");
+            $typeRows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            if (count($typeRows) !== 3) $missing[] = 'lead_id.column_types.incomplete';
+            foreach ($typeRows as $column) {
                 if (strtolower((string)$column['COLUMN_TYPE']) !== 'bigint unsigned') {
-                    $missing[] = $column['TABLE_NAME'].'.lead_id.type';
+                    $missing[] = $column['TABLE_NAME'].'.'.($column['TABLE_NAME'] === 'office_crm_leads' ? 'id' : 'lead_id').'.type';
                 }
             }
         } catch (\PDOException $e) {
