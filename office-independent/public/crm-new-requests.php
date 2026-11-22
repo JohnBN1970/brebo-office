@@ -59,6 +59,12 @@ try {
     if ($active->fetchColumn() === false) {
         http_response_code(403); exit('Geen CRM-toegang.');
     }
+    // Resolve operator IDs to display names without changing stored ownership IDs.
+    $operatorNames = [];
+    $operatorRows = $db->query('SELECT id,username FROM office_operator_accounts')->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($operatorRows as $operatorRow) {
+        $operatorNames[(string)$operatorRow['id']] = (string)$operatorRow['username'];
+    }
     // Optional FR-201 write: only the authenticated detail endpoint, never board/list.
     if ($requestMethod === 'POST') {
         if ($path !== $base.'/crm/aanvragen/detail' || $base !== '/office-test') {
@@ -171,7 +177,7 @@ if (isset($item)) {
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
-    echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
+    echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($operatorNames[(string)$item['owner_operator_id']] ?? 'Gebruiker #'.$item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
     // FR-201 qualification readiness: read-only, feature-gated, no duplicate CRM writes.
     if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled') {
         try {
@@ -313,7 +319,7 @@ if (isset($item)) {
     echo '<section aria-label="Leads per eigenaar"><h2>KPI · Leadverantwoordelijke</h2><div class="lead-owner-grid">';
     foreach ($ownerStats as $ownerRow) {
         $ownerId = (string)$ownerRow['owner'];
-        $ownerName = $ownerId === '' ? 'Niet toegewezen' : $ownerId;
+        $ownerName = $ownerId === '' ? 'Niet toegewezen' : ($operatorNames[$ownerId] ?? 'Gebruiker #'.$ownerId);
         $ownerUrl = $base.'/crm/aanvragen?'.http_build_query(array_merge($filters,['eigenaar'=>$ownerId,'weergave'=>$view]));
         echo '<a class="lead-owner-link" href="'.$h($ownerUrl).'">'.$h($ownerName).' · '.(int)$ownerRow['total'].'</a>';
     }
