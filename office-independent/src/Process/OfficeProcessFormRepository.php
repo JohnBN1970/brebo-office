@@ -52,6 +52,47 @@ final class OfficeProcessFormRepository
         return $row;
     }
 
+
+    /**
+     * Fetch a CL-204 opname only within its building context.
+     * The host MUST authorize the current operator for this building first.
+     * Never use the unscoped load() with a browser-supplied form ID.
+     */
+    public function loadBuildingOpname(int $buildingId, int $formId): ?array
+    {
+        if ($buildingId < 1 || $formId < 1) {
+            throw new InvalidArgumentException('Invalid building or opname ID');
+        }
+        $stmt = $this->db->prepare(
+            "SELECT * FROM office_process_form_instances
+             WHERE id=? AND document_code='CL-204' AND context_type='building' AND context_id=?"
+        );
+        $stmt->execute([$formId, $buildingId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) return null;
+        $row['data'] = json_decode((string)$row['data_json'], true, 512, JSON_THROW_ON_ERROR);
+        unset($row['data_json']);
+        return $row;
+    }
+
+    /**
+     * List CL-204 opname metadata, restricted to an already authorized building.
+     * Missing schema is an error and must not be represented as an empty list.
+     */
+    public function listBuildingOpnames(int $buildingId, int $limit = 50): array
+    {
+        if ($buildingId < 1 || $limit < 1 || $limit > 200) {
+            throw new InvalidArgumentException('Invalid building or limit');
+        }
+        $stmt = $this->db->prepare(
+            "SELECT id,status,revision,updated_at FROM office_process_form_instances
+             WHERE document_code='CL-204' AND context_type='building' AND context_id=?
+             ORDER BY updated_at DESC,id DESC LIMIT " . $limit
+        );
+        $stmt->execute([$buildingId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function revise(int $id, int $expectedRevision, string $actor, array $data, string $reason): int
     {
         if ($id < 1 || $expectedRevision < 1) throw new InvalidArgumentException('Invalid revision');
