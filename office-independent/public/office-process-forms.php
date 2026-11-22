@@ -59,16 +59,30 @@ try {
             if (\Brebo\Office\Process\OfficeProcessFormSchemaPreflight::verify($db)['ready']!==true) { http_response_code(503); exit('Formulieropslag niet gereed.'); }
             $submittedCsrf=$_POST['csrf_token']??null;
             if (!is_string($submittedCsrf) || !hash_equals($csrfCookie,$submittedCsrf)) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
-            if (($_POST['action']??'')!=='create_concept') { http_response_code(400); exit('Onbekende formulieractie.'); }
-            $code=$_POST['document_code']??null;
-            if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
-            // Only real project managers may create controlled records.
+            $action=$_POST['action']??null;
+            if (!in_array($action,['create_concept','revise_concept'],true)) { http_response_code(400); exit('Onbekende formulieractie.'); }
             $manage=$db->prepare("SELECT 1 FROM office_project_memberships WHERE project_id=? AND operator_id=? AND permission='manage' LIMIT 1");
             $manage->execute([(int)$projectIdRaw,$operator->operatorId]);
             if ($manage->fetchColumn()===false) { http_response_code(403); exit('Geen schrijfrechten voor dit project.'); }
             require_once dirname(__DIR__).'/src/Process/OfficeProcessFormRepository.php';
-            $id=(new \Brebo\Office\Process\OfficeProcessFormRepository($db))->create(
-                $code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
+            $repository=new \Brebo\Office\Process\OfficeProcessFormRepository($db);
+            if ($action==='create_concept') {
+                $code=$_POST['document_code']??null;
+                if (!is_string($code) || !isset($catalog[$code])) { http_response_code(422); exit('Formuliercode niet toegestaan.'); }
+                $id=$repository->create($code,'1.0','project',(int)$projectIdRaw,(string)$operator->operatorId,[],'Concept aangemaakt');
+            } else {
+                $id=filter_var($_POST['form_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $reason=$_POST['change_reason']??null;
+                $fields=$_POST['fields']??null;
+                if (!is_int($id) || !is_int($revision) || !is_string($reason) || !is_array($fields)) {
+                    http_response_code(422); exit('Ongeldige formulierwijziging.');
+                }
+                $form=$repository->load($id);
+                if ($form===null || $form['context_type']!=='project' || (int)$form['context_id']!==(int)$projectIdRaw
+                    || !isset($catalog[(string)$form['document_code']])) { http_response_code(404); exit('Formulier niet gevonden.'); }
+                $repository->revise($id,$revision,(string)$operator->operatorId,$fields,$reason);
+            }
             header('Location: /office-test/procesformulieren?project_id='.rawurlencode($projectIdRaw).'&form_id='.$id,true,303);
             exit;
         }
@@ -146,6 +160,17 @@ if ($selectedForm!==null) {
     foreach ($selectedForm['data'] as $key=>$value) {
         if (!is_string($key) || !(is_scalar($value) || $value===null)) continue;
         echo '<dt><strong>'.$h($key).'</strong></dt><dd>'.nl2br($h($value),false).'</dd>';
+    }
+    if ($selectedForm['status']==='concept' && getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled') {
+        echo '<h3>Concept bewerken</h3><form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
+        echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="revise_concept">';
+        echo '<input type="hidden" name="form_id" value="'.$h($selectedForm['id']).'"><input type="hidden" name="expected_revision" value="'.$h($selectedForm['revision']).'">';
+        foreach ($selectedForm['data'] as $key=>$value) {
+            if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{0,79}$/D',$key) || !(is_scalar($value) || $value===null)) continue;
+            echo '<p><label>'.$h($key).' <textarea name="fields['.$h($key).']">'.$h($value).'</textarea></label></p>';
+        }
+        echo '<p><label>Opmerking <textarea name="fields[opmerking]">'.$h($selectedForm['data']['opmerking']??'').'</textarea></label></p>';
+        echo '<p><label>Reden wijziging <input name="change_reason" required maxlength="500"></label></p><button type="submit">Concept opslaan</button></form>';
     }
     echo '</dl><h3>Revisie- en besluitgeschiedenis</h3>';
     if ($formEvents===[]) echo '<p>Geen geregistreerde gebeurtenissen.</p>';
