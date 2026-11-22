@@ -40,6 +40,7 @@ try {
     $selectedForm=null;
     $formEvents=[];
     $projectIdRaw=(string)($_GET['project_id']??'');
+    if (($_SERVER['REQUEST_METHOD']??'')==='POST' && $projectIdRaw==='') { http_response_code(400); exit('Projectnummer verplicht.'); }
     if ($projectIdRaw!=='') {
         if (!preg_match('/^[1-9][0-9]{0,17}$/D',$projectIdRaw)) {
             http_response_code(400); exit('Ongeldig project.');
@@ -60,7 +61,7 @@ try {
             $submittedCsrf=$_POST['csrf_token']??null;
             if (!is_string($submittedCsrf) || !hash_equals($csrfCookie,$submittedCsrf)) { http_response_code(403); exit('Ongeldige formulierbeveiliging.'); }
             $action=$_POST['action']??null;
-            if (!in_array($action,['create_concept','revise_concept','submit_concept','start_review','return','reject'],true)) { http_response_code(400); exit('Onbekende formulieractie.'); }
+            if (!in_array($action,['create_concept','revise_concept','submit_concept','start_review','return','reject','reopen'],true)) { http_response_code(400); exit('Onbekende formulieractie.'); }
             $manage=$db->prepare("SELECT 1 FROM office_project_memberships WHERE project_id=? AND operator_id=? AND permission='manage' LIMIT 1");
             $manage->execute([(int)$projectIdRaw,$operator->operatorId]);
             if ($manage->fetchColumn()===false) { http_response_code(403); exit('Geen schrijfrechten voor dit project.'); }
@@ -200,10 +201,12 @@ if ($selectedForm!==null) {
         echo '<p><label>Reden wijziging <input name="change_reason" required maxlength="500"></label></p><button type="submit">Concept opslaan</button></form>';
     }
     if (getenv('OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED')==='enabled'
-        && in_array($selectedForm['status'],['concept','ingediend','controle'],true)) {
+        && in_array($selectedForm['status'],['concept','ingediend','controle','afgekeurd','akkoord'],true)) {
         $actions=['concept'=>['submit_concept'=>'Ter controle indienen'],
                   'ingediend'=>['start_review'=>'Controle starten','return'=>'Terug naar concept'],
-                  'controle'=>['reject'=>'Afwijzen','return'=>'Terug naar concept']];
+                  'controle'=>['reject'=>'Afwijzen','return'=>'Terug naar concept'],
+                  'afgekeurd'=>['reopen'=>'Opnieuw openen als concept'],
+                  'akkoord'=>['reopen'=>'Goedkeuring intrekken en heropenen']];
         foreach ($actions[$selectedForm['status']] as $action=>$label) {
             echo '<form method="post" action="/office-test/procesformulieren?project_id='.$h($projectIdRaw).'">';
             echo '<input type="hidden" name="csrf_token" value="'.$h($csrfCookie).'"><input type="hidden" name="action" value="'.$h($action).'">';
