@@ -49,6 +49,24 @@ final class OfficeProcessFormSchemaPreflight
                 $errors[]=$table.' indexen niet verifieerbaar';
             }
         }
+        // The event and evidence records must remain tied to a real form.
+        // Check database-enforced constraints, not just their SQL definitions.
+        foreach ([
+            'office_process_form_events'=>'fk_process_form_event_instance',
+            'office_process_form_evidence'=>'fk_process_form_evidence_instance',
+        ] as $table=>$constraint) {
+            try {
+                $stmt=$db->prepare("SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+                    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?
+                      AND CONSTRAINT_NAME=? AND COLUMN_NAME='form_id'
+                      AND REFERENCED_TABLE_NAME='office_process_form_instances'
+                      AND REFERENCED_COLUMN_NAME='id'");
+                $stmt->execute([$table,$constraint]);
+                if ((int)$stmt->fetchColumn()!==1) $errors[]=$table.'.'.$constraint.' foreign key ontbreekt';
+            } catch (\Throwable $e) {
+                $errors[]=$table.' foreign key niet verifieerbaar';
+            }
+        }
         return ['ready'=>$errors===[], 'errors'=>$errors];
     }
 }
