@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Process/OfficeProcessForm*.php'
+      - 'office-independent/src/Process/OfficeFr201*.php'
+      - 'office-independent/public/crm-new-requests.php'
       - 'office-independent/tests/test_process_form_*.php'
       - 'office-independent/public/office-process-forms.php'
       - 'office-independent/public/index.php'
@@ -22,7 +24,7 @@ jobs:
       - name: Lint and verify catalog contracts
         run: |
           set -eu
-          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/tests/test_process_form_*.php office-independent/public/office-process-forms.php; do
+          for file in office-independent/src/Process/OfficeProcessForm*.php office-independent/src/Process/OfficeFr201*.php office-independent/tests/test_process_form_*.php office-independent/public/office-process-forms.php office-independent/public/crm-new-requests.php; do
             php -l "$file"
           done
           for test in office-independent/tests/test_process_form_*.php; do
