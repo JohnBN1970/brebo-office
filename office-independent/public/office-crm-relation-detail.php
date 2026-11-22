@@ -138,15 +138,19 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
 if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
     echo '<section><h2>Gerelateerde CRM-gegevens</h2>';
     try {
+        $countStmt=$db->prepare('SELECT COUNT(*) FROM office_crm_leads WHERE relation_id=?');
+        $countStmt->execute([$id]);$leadCount=(int)$countStmt->fetchColumn();
         $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_leads WHERE relation_id=? ORDER BY received_at DESC,id DESC LIMIT 50');
         $stmt->execute([$id]);$leadRows=$stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo '<details><summary>Leads ('.count($leadRows).($leadRows && count($leadRows)===50?'+':'').'; maximaal 50 zichtbaar)</summary>';
+        echo '<details><summary>Leads ('.$leadCount.'; maximaal 50 zichtbaar)</summary>';
         if (!$leadRows) echo '<p>Geen gekoppelde leads.</p>';
         else {echo '<ul>';foreach($leadRows as $lead) echo '<li><a href="/office-test/crm/aanvragen/detail?id='.(int)$lead['id'].'">'.$h($lead['title']).'</a> · '.$h($lead['stage']).' · '.$h($lead['status']).'</li>';echo '</ul>';}
         echo '</details>';
+        $countStmt=$db->prepare('SELECT COUNT(*) FROM office_crm_opportunities WHERE relation_id=?');
+        $countStmt->execute([$id]);$dealCount=(int)$countStmt->fetchColumn();
         $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_opportunities WHERE relation_id=? ORDER BY updated_at DESC,id DESC LIMIT 50');
         $stmt->execute([$id]);$deals=$stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo '<details><summary>Deals ('.count($deals).($deals && count($deals)===50?'+':'').'; maximaal 50 zichtbaar)</summary>';
+        echo '<details><summary>Deals ('.$dealCount.'; maximaal 50 zichtbaar)</summary>';
         if (!$deals) echo '<p>Geen gekoppelde deals.</p>';
         else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen/fase?id='.(int)$deal['id'].'">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
         echo '</details>';
