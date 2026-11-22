@@ -9,4 +9,5 @@ if (count(CL204::releaseStatuses()) !== 6) throw new RuntimeException('CL-204 re
 if (!isset(CL204::validateDraft(['release_status'=>'V7'])['release_status'])) throw new RuntimeException('Invalid release status accepted');
 if (!isset(CL204::validateDraft(['controls'=>'bad'])['controls'])) throw new RuntimeException('Invalid control list accepted');
 if (!isset(CL204::validateDraft(['observations'=>[['invented'=>'x']]])['observations.0'])) throw new RuntimeException('Unknown observation field accepted');
+if (!isset(CL204::validateDraft(['observations'=>[['evidence_refs'=>[42]]]])['observations.0'])) throw new RuntimeException('Invalid evidence reference accepted');
 echo "CL-204 draft contract OK\n";
