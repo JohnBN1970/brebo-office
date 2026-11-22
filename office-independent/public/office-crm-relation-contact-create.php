@@ -54,7 +54,8 @@ if ($method==='POST') {
     }
     foreach ($values as $key=>$_) $values[$key]=is_string($_POST[$key]??null)?trim($_POST[$key]):'';
     $primary=($_POST['is_primary']??'')==='1';
-    if ($values['given_name']==='' || $values['family_name']===''
+    $reason=is_string($_POST['reason']??null)?trim($_POST['reason']):'';
+    if ($reason==='' || mb_strlen($reason)>500 || $values['given_name']==='' || $values['family_name']===''
         || mb_strlen($values['given_name'])>128 || mb_strlen($values['family_name'])>128
         || mb_strlen($values['job_title'])>128 || mb_strlen($values['phone'])>48
         || strlen($values['email'])>254 || ($values['email']!=='' && !filter_var($values['email'],FILTER_VALIDATE_EMAIL))) {
@@ -88,7 +89,7 @@ if ($method==='POST') {
             $stmt=$db->prepare('INSERT INTO office_crm_relation_contacts (relation_id,contact_id,job_title,is_primary) VALUES (?,?,?,?)');
             $stmt->execute([$id,$contactId,$values['job_title']?:null,$primary?1:0]);
             $audit=$db->prepare('INSERT INTO office_crm_relation_contact_events (relation_id,contact_id,actor_operator_id,event_type,note) VALUES (?,?,?,?,?)');
-            $audit->execute([$id,$contactId,(string)$operator->operatorId,'linked',json_encode(['job_title'=>$values['job_title'],'is_primary'=>$primary,'contact_id'=>$contactId],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+            $audit->execute([$id,$contactId,(string)$operator->operatorId,'linked',json_encode(['reason'=>$reason,'job_title'=>$values['job_title'],'is_primary'=>$primary,'contact_id'=>$contactId],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
             $db->commit();
             $_SESSION['crm_contact_csrf']=bin2hex(random_bytes(32));
             header('Location: /office-test/crm/relaties/detail?id='.$id,true,303); exit;
@@ -106,6 +107,7 @@ foreach (['given_name'=>'Voornaam *','family_name'=>'Achternaam *','email'=>'E-m
     echo '<label>'.$label.'<input name="'.$key.'" value="'.$h($values[$key]).'" maxlength="'.($key==='email'?254:($key==='phone'?48:128)).'"'.($key==='email'?' type="email"':'').(in_array($key,['given_name','family_name'],true)?' required':'').'></label>';
 }
 echo '<label><input type="checkbox" name="is_primary" value="1"> Primair contact</label>';
+echo '<label>Reden voor toevoegen of koppelen *<input name="reason" maxlength="500" required></label>';
 if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled' && getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')==='enabled') echo '<button type="submit">Contactpersoon opslaan</button>';
 else echo '<p>Schrijven is nog niet vrijgegeven.</p>';
 echo '</form></main></body></html>';
