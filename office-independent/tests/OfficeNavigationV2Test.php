@@ -66,7 +66,10 @@ if (OfficeNavigation::decorate($out,'/office-test/projecten',[],200,'text/html')
 
 $previewScript=file_get_contents(dirname(__DIR__).'/resources/office-theme.js');
 if (!is_string($previewScript) || !str_contains($previewScript, "brebo-office-role-preview")
-    || !str_contains($previewScript, "sessionStorage.setItem(key, picker.value)")
+    || !str_contains($previewScript, "localStorage.setItem(key, picker.value)")
+    || !str_contains($previewScript, "window.addEventListener('pageshow', restore)")
+    || !str_contains($previewScript, "window.addEventListener('storage'")
+    || !str_contains($previewScript, 'sessionStorage.getItem(key)')
     || !str_contains($previewScript, "picker.addEventListener('change'")
     || !str_contains($previewScript, 'Voorbeeld: ')
     || !str_contains($out, 'id="office-role-preview"')
