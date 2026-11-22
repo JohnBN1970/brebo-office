@@ -5,6 +5,7 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array($_SERVER['REQUEST_METHOD']??'GET',['GET','POST'],true)) { header('Allow: GET, POST'); http_response_code(405); exit; }
+if (getenv('OFFICE_TEST_CRM_CONTACT_AUDIT_VERIFIED')!=='enabled') { http_response_code(503); exit('Contactaudit nog niet vrijgegeven.'); }
 if (getenv('OFFICE_TEST_CRM_ENABLED')!=='enabled'||getenv('OFFICE_CRM_AUTH_MODE')!=='session_only'||getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')!=='enabled'||getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')!=='enabled') { http_response_code(503); exit('Contactbeheer niet beschikbaar.'); }
 $host=$_SERVER['HTTP_HOST']??'';$allowed=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($allowed)||$allowed===''||!hash_equals($allowed,(string)$host)||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') { http_response_code(403); exit; }
