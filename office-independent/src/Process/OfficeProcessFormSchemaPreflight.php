@@ -27,6 +27,28 @@ final class OfficeProcessFormSchemaPreflight
                 $errors[]=$table.' niet verifieerbaar';
             }
         }
+        // History must be append-only per revision; evidence and events must
+        // never become orphaned after a schema drift or incomplete migration.
+        foreach (['office_process_form_events'=>'uq_process_form_event_revision',
+                  'office_process_form_instances'=>'idx_process_forms_context',
+                  'office_process_form_evidence'=>'idx_process_form_evidence_form'] as $table=>$index) {
+            try {
+                $stmt=$db->query('SHOW INDEX FROM `'.$table.'`');
+                $indexes=$stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!is_array($indexes) || !in_array($index,array_column($indexes,'Key_name'),true)) {
+                    $errors[]=$table.'.'.$index.' index ontbreekt';
+                }
+                if ($index==='uq_process_form_event_revision') {
+                    $parts=array_values(array_filter($indexes,static fn(array $row): bool => ($row['Key_name']??'')===$index));
+                    usort($parts,static fn(array $a,array $b): int => (int)$a['Seq_in_index']<=>(int)$b['Seq_in_index']);
+                    if (array_column($parts,'Column_name')!==['form_id','revision'] || count(array_filter($parts,static fn(array $row): bool => (int)$row['Non_unique']!==0))>0) {
+                        $errors[]='Historie mist unieke formulier-revisiecontrole';
+                    }
+                }
+            } catch (\Throwable $e) {
+                $errors[]=$table.' indexen niet verifieerbaar';
+            }
+        }
         return ['ready'=>$errors===[], 'errors'=>$errors];
     }
 }
