@@ -1,0 +1,54 @@
+<?php
+declare(strict_types=1);
+namespace Brebo\Office\Process;
+
+/**
+ * CL-204 v1.0 projectopname: discipline-independent source checklist.
+ * A draft may be incomplete; completion checks are not deal-conversion gates.
+ * Context IDs reference Office records; no duplicate project/building master data.
+ */
+final class OfficeCl204Projectopname
+{
+    public const CODE = 'CL-204';
+    public const VERSION = '1.0';
+    public const CONTEXT = 'buildings_inspection';
+
+    /** Source checklist; applicability and evidence are stored per item, not hard-coded per trade. */
+    public static function controls(): array
+    {
+        return [
+            'opnameopdracht' => ['label'=>'Opnameopdracht', 'detail'=>'Doel, scope, gebouw(delen), vraagstelling, output, deadline en ontvangers'],
+            'bronstukken' => ['label'=>'Bronstukken', 'detail'=>'Tekeningen, bestek, MJOP, contract, historie, meldingen, fotos en ontbrekende stukken'],
+            'opnamevorm' => ['label'=>'Opnamevorm', 'detail'=>'Fysiek, digitaal of gecombineerd, motivering en verificatiegrens'],
+            'identiteit' => ['label'=>'Identiteit', 'detail'=>'Project-ID, adres, object, bouwdeel, locatie, datum, tijd en opnemer'],
+            'toegang' => ['label'=>'Toegang', 'detail'=>'Afspraak, sleutels, toestemming, bewonersbericht, begeleider en werktijden'],
+            'veiligheid' => ['label'=>'Veiligheid', 'detail'=>'LMRA, afzetting, hoogte, constructie, asbest/gevaarlijke stoffen en stopgrens'],
+            'bouwkundige_staat' => ['label'=>'Bouwkundige staat', 'detail'=>'Materiaal, detaillering, aansluitingen, schade, vervorming, vocht en vervuiling'],
+            'maatvoering' => ['label'=>'Maatvoering', 'detail'=>'Aantallen, lengtes, oppervlaktes, referentiemaat, meetmethode en tolerantie'],
+            'bereikbaarheid' => ['label'=>'Bereikbaarheid', 'detail'=>'Steiger, hoogwerker, hijsen, parkeren, opslag, stroom, water en afval'],
+            'omgeving_bewoners' => ['label'=>'Omgeving/bewoners', 'detail'=>'Gebruik, toegankelijkheid, privacy, geluid, hinder en communicatiebeperkingen'],
+        ];
+    }
+
+    public static function applicability(): array
+    {
+        return ['open','gereed','niet_van_toepassing','onbekend'];
+    }
+
+    /** Optional trade sections are additive, not a limitation on future disciplines. */
+    public static function validateDraft(array $data): array
+    {
+        $errors = [];
+        foreach (($data['controls'] ?? []) as $key => $item) {
+            if (!isset(self::controls()[$key]) || !is_array($item)
+                || !in_array($item['status'] ?? null, self::applicability(), true)) {
+                $errors['controls.'.$key] = 'Ongeldig controlepunt of status';
+            }
+        }
+        if (isset($data['disciplines']) && (!is_array($data['disciplines'])
+            || count(array_filter($data['disciplines'], 'is_string')) !== count($data['disciplines']))) {
+            $errors['disciplines'] = 'Ongeldige disciplines';
+        }
+        return $errors;
+    }
+}
