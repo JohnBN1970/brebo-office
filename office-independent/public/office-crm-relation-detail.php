@@ -148,7 +148,7 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         $stmt->execute([$id]);$deals=$stmt->fetchAll(PDO::FETCH_ASSOC);
         echo '<details><summary>Deals ('.count($deals).($deals && count($deals)===50?'+':'').'; maximaal 50 zichtbaar)</summary>';
         if (!$deals) echo '<p>Geen gekoppelde deals.</p>';
-        else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
+        else {echo '<ul>';foreach($deals as $deal) echo '<li><a href="/office-test/crm/verkoopkansen/fase?id='.(int)$deal['id'].'">'.$h($deal['title']).'</a> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
         echo '</details>';
     } catch(Throwable $ignored) {echo '<p>Gerelateerde CRM-gegevens tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
