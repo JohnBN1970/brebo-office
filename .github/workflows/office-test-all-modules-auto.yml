@@ -44,6 +44,7 @@ jobs:
         run: |
           php office-independent/tests/test_cl204_projectopname.php
           php office-independent/tests/test_cl204_draft_input.php
+          php office-independent/tests/test_cl204_building_route_contract.php
       - name: Verify canonical Calc building truth reader
         run: php office-independent/tests/OfficeCalcBuildingTruthReaderTest.php
       - name: Verify canonical native building columns
