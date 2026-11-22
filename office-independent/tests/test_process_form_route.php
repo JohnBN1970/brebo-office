@@ -6,6 +6,9 @@ $page=file_get_contents($root.'/public/office-process-forms.php');
 if (!str_contains($router,"'/office-test/procesformulieren' => 'office-process-forms.php'")) {
     throw new RuntimeException('Office-test router does not expose the catalog');
 }
+if (!str_contains($router,"'/office-test/instellingen/organisatie/projectrechten' => 'office-project-permission-settings.php'")) {
+    throw new RuntimeException('Project rights route was lost during process form integration');
+}
 foreach ([
     "OFFICE_TEST_PROCESS_FORMS_CATALOG_ENABLED",
     "OFFICE_BASE_PATH",
