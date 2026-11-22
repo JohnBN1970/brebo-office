@@ -28,4 +28,16 @@ foreach ([
 ] as $fragment) {
     if (!str_contains($preflight,$fragment)) throw new RuntimeException('Missing schema integrity check: '.$fragment);
 }
+foreach ([
+    'OFFICE_TEST_PROCESS_FORMS_WRITE_ENABLED',
+    'OFFICE_TEST_PROCESS_FORMS_SCHEMA_VERIFIED',
+    'hash_equals($csrfCookie,$submittedCsrf)',
+    "permission='manage'",
+    'create_concept',
+    'OfficeProcessFormRepository($db)',
+    "'Concept aangemaakt'",
+    '303',
+] as $fragment) {
+    if (!str_contains($catalog,$fragment)) throw new RuntimeException('Missing guarded concept creation: '.$fragment);
+}
 echo "Process form project integration and schema gate OK\n";
