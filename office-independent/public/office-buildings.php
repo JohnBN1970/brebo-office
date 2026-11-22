@@ -158,9 +158,8 @@ if ($detail) {
   if (getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled') {
     echo '<section class="office-building-opnames"><h2>Opnames</h2><p>CL-204 Projectopname. Inspecties blijven een afzonderlijk onderdeel.</p>';
     try {
-      $opnameStatement = $db->prepare("SELECT id, status, revision, updated_at FROM office_process_form_instances WHERE document_code='CL-204' AND context_type='building' AND context_id=? ORDER BY updated_at DESC, id DESC LIMIT 50");
-      $opnameStatement->execute([(int)$buildingId]);
-      $opnames = $opnameStatement->fetchAll(PDO::FETCH_ASSOC);
+      require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
+      $opnames = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->listBuildingOpnames((int)$buildingId);
       if ($opnames === []) {
         echo '<p>Voor dit gebouw zijn nog geen CL-204-opnames geregistreerd.</p>';
       } else {
