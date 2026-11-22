@@ -166,6 +166,21 @@ if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
         if (!$projects) echo '<p>Geen geverifieerde projectoverdrachten voor de getoonde deals.</p>';
         else {echo '<ul>';foreach($projects as $projectId=>$dealTitle) echo '<li><a href="/office-test/projecten/detail?id='.(int)$projectId.'">Project #'.(int)$projectId.'</a> · '.$h($dealTitle).'</li>';echo '</ul>';}
         echo '</details>';
+        // Only accepted calculation transfers are authoritative here.
+        try {
+            $stmt=$db->prepare('SELECT DISTINCT t.calculation_id,t.accepted_revision,o.title FROM office_calc_crm_acceptance_transfers t JOIN office_crm_opportunities o ON CAST(t.crm_opportunity_id AS UNSIGNED)=o.id WHERE o.relation_id=? AND t.crm_opportunity_id=CAST(o.id AS CHAR) ORDER BY t.calculation_id DESC LIMIT 50');
+            $stmt->execute([$id]);$acceptedCalcs=$stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo '<details><summary>Geaccepteerde calculaties ('.count($acceptedCalcs).($acceptedCalcs && count($acceptedCalcs)===50?'+':'').')</summary>';
+            if (!$acceptedCalcs) echo '<p>Geen geaccepteerde calculatieoverdrachten gekoppeld.</p>';
+            else {
+                echo '<ul>';
+                foreach($acceptedCalcs as $calc) echo '<li>Calculatie #'.(int)$calc['calculation_id'].' · revisie '.$h($calc['accepted_revision']).' · '.$h($calc['title']).'</li>';
+                echo '</ul>';
+            }
+            echo '</details>';
+        } catch(PDOException $ignored) {
+            echo '<p>Geaccepteerde calculaties niet beschikbaar: overdrachtstabel niet geverifieerd.</p>';
+        }
     } catch(Throwable $ignored) {echo '<p>Gerelateerde CRM-gegevens tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
 }
