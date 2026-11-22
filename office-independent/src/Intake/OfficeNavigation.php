@@ -243,7 +243,7 @@ final class OfficeNavigation {
     // Test-only role preview: presentation context, never an authorization identity.
     // The real Office operator and project ACL continue to govern every request.
     require_once dirname(__DIR__).'/Approval/OfficeTestRolePermissionPolicy.php';
-    $previewRoles=\\Brebo\\Office\\Approval\\OfficeTestRolePermissionPolicy::roles();
+    $previewRoles=\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::roles();
     $roleOptions='';
     foreach($previewRoles as $code=>$label)$roleOptions.='<option value="'.self::h($code).'">'.self::h($label).'</option>';
     $rolePreview='<label class="office-role-preview">Bekijk als <select id="office-role-preview" aria-label="Bekijk Office als functie">'.$roleOptions.'</select></label><span id="office-role-preview-status" role="status" aria-live="polite"></span>';
