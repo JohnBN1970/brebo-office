@@ -52,7 +52,7 @@ final class OfficeCl204BuildingDraftService
                 throw new RuntimeException('Opname is inmiddels gewijzigd');
             }
             $data = OfficeCl204DraftInput::parse($post,$stored['data']);
-            $revision = $repository->revise($formId,$expectedRevision,$actor,$data,$reason);
+            $revision = $repository->reviseBuildingOpname($buildingId,$formId,$expectedRevision,$actor,$data,$reason);
             return ['id'=>$formId,'revision'=>$revision];
     }
 }
