@@ -15,7 +15,8 @@ final class OfficeProcessFormService
     public function __construct(
         private readonly OfficeProcessFormRepository $repository,
         private readonly \Closure $permissionResolver,
-        private readonly \Closure $fourEyesPolicyResolver
+        private readonly \Closure $fourEyesPolicyResolver,
+        private readonly \Closure $resourceExistsResolver
     ) {}
 
     public function create(string $code, string $version, string $contextType, int $contextId, string $actor, array $data, string $reason, bool $csrfValid): int
@@ -63,6 +64,14 @@ final class OfficeProcessFormService
         if (!$csrfValid) throw new InvalidArgumentException('Ongeldige formulierbeveiliging');
         require_once __DIR__.'/OfficeProcessFormContext.php';
         if (!OfficeProcessFormContext::accepts($code,$contextType)) throw new InvalidArgumentException('Ongeldige formuliercontext');
+        // A valid resource ID must resolve to an existing canonical Office entity.
+        // Never accept a form linked to a deleted or fabricated record.
+        try {
+            $exists = ($this->resourceExistsResolver)($contextType,$contextId);
+        } catch (\\Throwable $e) {
+            throw new RuntimeException('Office-broncontrole niet beschikbaar',0,$e);
+        }
+        if ($exists !== true) throw new InvalidArgumentException('Gekoppelde Office-bron bestaat niet');
         require_once __DIR__.'/OfficeProcessFormAuthorization.php';
         OfficeProcessFormAuthorization::assertPermitted($this->permissionResolver,$actor,$action,$contextType,$contextId,$code);
     }
