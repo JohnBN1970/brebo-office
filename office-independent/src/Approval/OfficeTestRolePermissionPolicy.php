@@ -37,6 +37,7 @@ final class OfficeTestRolePermissionPolicy {
      */
     public static function expectedProjectCreate(string $role): ?bool {
         if ($role==='actual' || !array_key_exists($role,self::ROLES)) return null;
-        return in_array($role,['RL-001','RL-002','admin'],true);
+        // RG-007: R5 (technical administrator) never implies R4 or content authority.
+        return in_array($role,['RL-001','RL-002'],true);
     }
 }

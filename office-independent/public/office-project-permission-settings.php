@@ -45,7 +45,15 @@ try {
         $reason=$_POST['reason']??'';
         if (!is_string($target)||!is_string($action)||!is_string($reason)) {http_response_code(400);exit('Ongeldige aanvraag.');}
         try {
-            $permissions->change((string)$operator->operatorId,$target,$action,$reason);
+            if ($action==='apply_profile') {
+                $role=$_POST['role_code']??null;
+                if (!is_string($role) || ($_POST['confirm_role_change']??null)!=='yes') {
+                    throw new DomainException('Bevestiging van het echte testrecht vereist.');
+                }
+                $permissions->applyProjectCreateProfile((string)$operator->operatorId,$target,$role,$reason);
+            } else {
+                $permissions->change((string)$operator->operatorId,$target,$action,$reason);
+            }
         } catch (DomainException $e) {http_response_code(422);exit($h($e->getMessage()));}
         header('Location: /office-test/instellingen/organisatie/projectrechten?opgeslagen=1',true,303);
         exit;
@@ -65,10 +73,21 @@ foreach (\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::roles() as $code
     $expected=\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::expectedProjectCreate($code);
     $roleRows.='<tr><td>'.$h($name).'</td><td>'.$h($code).'</td><td>'.($expected===true?'Ja':'Nee').'</td></tr>';
 }
+$profileOptions='';
+foreach (\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::roles() as $code=>$label) {
+    if ($code==='actual') continue;
+    $allowed=\Brebo\Office\Approval\OfficeTestRolePermissionPolicy::expectedProjectCreate($code);
+    $profileOptions.='<option value="'.$h($code).'">'.$h($label).' | Projectaanmaak: '.($allowed?'Ja':'Nee').'</option>';
+}
+$operatorOptions='<option value="">Kies actief Office-account</option>';
+foreach ($rows as $row) {
+    $operatorOptions.='<option value="'.$h($row['id']).'">'.$h($row['username']).' (#'.$h($row['id']).')</option>';
+}
+$profileForm='<h2>Testprofiel toepassen op een Office-account</h2><p>Dit is een <strong>echte, geauditeerde wijziging</strong> van uitsluitend het recht <code>projects/create</code> voor het gekozen account. Andere rechten blijven ongewijzigd. Bekijk als is alleen een voorbeeld.</p><form method="post" action="/office-test/instellingen/organisatie/projectrechten"><input type="hidden" name="csrf" value="'.$h($csrf).'"><input type="hidden" name="permission_action" value="apply_profile"><label>Actief account<select name="operator_id" required>'.$operatorOptions.'</select></label><label>Testrol<select name="role_code" required>'.$profileOptions.'</select></label><label>Reden<input name="reason" type="text" required maxlength="160"></label><label><input type="checkbox" name="confirm_role_change" value="yes" required> Ik bevestig dat de werkelijke projectaanmaakbevoegdheid wordt gewijzigd</label><button type="submit">Testprofiel toepassen</button></form>';
 $saved=($_GET['opgeslagen']??'')==='1'?'<p role="status">Projectrechten gecontroleerd en opgeslagen.</p>':'';
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Organisatie · Projectrechten · BREBO Office</title><style>body{font:16px system-ui;background:#f5f7fb;color:#172838;max-width:900px;margin:3rem auto;padding:0 1rem}main{background:white;padding:2rem;border:1px solid #d7e0e9;border-radius:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:.7rem;border-bottom:1px solid #ddd}select,input,button{font:inherit;padding:.6rem}label{display:block;margin:1rem 0}button{background:#175a91;color:white;border:0;border-radius:5px}</style></head><body><main><p><a href="/office-test/">Office</a> / Instellingen / Organisatie &amp; rollen</p><h1>Projectrechten</h1>'.$saved.'<p>Alleen actieve Office-accounts. Rechten worden uitsluitend expliciet door de sitebeheerder ingesteld en met reden vastgelegd. Rolpreview geeft geen extra bevoegdheden.</p>';
 echo '<table><thead><tr><th>Office-operator</th><th>Project aanmaken</th></tr></thead><tbody>';
 foreach ($rows as $row) echo '<tr><td>'.$h($row['username']).' (#'.$h($row['id']).')</td><td>'.((int)$row['can_create']===1?'Ja':'Nee').'</td></tr>';
 echo '</tbody></table><h2>Functiematrix voor projectaanmaak (verwacht beleid)</h2><p>Deze matrix komt uit de procesrolcatalogus en is <strong>geen toekenning</strong>. Een rol selecteren bij Bekijk als wijzigt geen accountrechten. De kolom hierboven toont de daadwerkelijke serverrechten.</p><table><thead><tr><th>Functie</th><th>Rolcode</th><th>Mag projecten aanmaken</th></tr></thead><tbody>'.$roleRows.'</tbody></table><h2>Bevoegdheid aanpassen</h2><form method="post" action="/office-test/instellingen/organisatie/projectrechten"><input type="hidden" name="csrf" value="'.$h($csrf).'"><label>Medewerker<select required name="operator_id"><option value="">Kies medewerker</option>';
 foreach ($rows as $row) echo '<option value="'.$h($row['id']).'">'.$h($row['username']).' (#'.$h($row['id']).') ('.((int)$row['can_create']===1?'heeft recht':'geen recht').')</option>';
-echo '</select></label><label>Actie<select name="permission_action" required><option value="grant">Projecten aanmaken toestaan</option><option value="revoke">Recht op projectaanmaak intrekken</option></select></label><label>Reden<input type="text" name="reason" required maxlength="255" autocomplete="off"></label><button type="submit">Bevestig wijziging</button></form></main></body></html>';
+echo '</select></label><label>Actie<select name="permission_action" required><option value="grant">Projecten aanmaken toestaan</option><option value="revoke">Recht op projectaanmaak intrekken</option></select></label><label>Reden<input type="text" name="reason" required maxlength="255" autocomplete="off"></label><button type="submit">Bevestig wijziging</button></form>'.$profileForm.'</main></body></html>';

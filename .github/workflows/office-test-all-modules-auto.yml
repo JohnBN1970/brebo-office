@@ -123,6 +123,7 @@ jobs:
           php office-independent/tests/OfficeCrmDirectProjectHttpContractTest.php
           php office-independent/tests/OfficeTestProjectCreationRightsAdminContractTest.php
           php office-independent/tests/OfficeTestRolePermissionPolicyContractTest.php
+          php office-independent/tests/OfficeTestRoleProfileApplyContractTest.php
           php office-independent/tests/OfficeTestProjectRoleSchemaMigrationContractTest.php
           php office-independent/tests/OfficeCrmDirectVpsPreflightContractTest.php
           php -l office-independent/src/Crm/OfficeCrmDirectProjectAcceptance.php

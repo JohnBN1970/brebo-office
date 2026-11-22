@@ -17,6 +17,25 @@ final class OfficeTestProjectCreationPermissionAdmin {
         return $q->fetchColumn()!==false;
     }
 
+    /**
+     * Explicitly apply the first role-based test permission to an active operator.
+     * This is not the browser's "Bekijk als" preference: only a real, audited
+     * site administrator POST can change the underlying project grant.
+     */
+    public function applyProjectCreateProfile(
+        string $actorId,string $targetId,string $roleCode,string $reason
+    ): bool {
+        require_once __DIR__.'/OfficeTestRolePermissionPolicy.php';
+        $expected=OfficeTestRolePermissionPolicy::expectedProjectCreate($roleCode);
+        if ($expected===null) throw new DomainException('Onbekend of niet-toewijsbaar testprofiel.');
+        $reason=trim($reason);
+        if ($reason==='' || mb_strlen($reason)>160) throw new DomainException('Geef een reden (maximaal 160 tekens).');
+        return $this->change(
+            $actorId,$targetId,$expected?'grant':'revoke',
+            'Testprofiel '.$roleCode.': '.$reason
+        );
+    }
+
     public function change(string $actorId,string $targetId,string $action,string $reason): bool {
         if (!ctype_digit($actorId) || !ctype_digit($targetId)
             || (int)$actorId < 1 || (int)$targetId < 1
