@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__).'/src/Approval/OfficeTestRolePermissionPolicy.php';
 use Brebo\Office\Approval\OfficeTestRolePermissionPolicy;
 $roles=OfficeTestRolePermissionPolicy::roles();
-foreach (['RL-001'=>true,'RL-002'=>true,'admin'=>true,'medewerker'=>false,'RL-003'=>false,'RL-004'=>false,'RL-005'=>false] as $code=>$right) {
+foreach (['RL-001'=>true,'RL-002'=>true,'admin'=>false,'medewerker'=>false,'RL-003'=>false,'RL-004'=>false,'RL-005'=>false] as $code=>$right) {
     if (!array_key_exists($code,$roles) || OfficeTestRolePermissionPolicy::expectedProjectCreate($code)!==$right) {
         throw new RuntimeException('Incorrect project-create role contract '.$code);
     }
