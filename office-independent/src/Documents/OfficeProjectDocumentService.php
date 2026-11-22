@@ -37,7 +37,35 @@ final class OfficeProjectDocumentService
             throw new InvalidArgumentException('invalid_document_metadata');
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($tmpPath);
-        if (!is_string($mime) || !in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'text/plain'], true)) {
+        if (!is_string($mime) || !in_array($mime, ['application/pdf', 'image/jpeg', 'image/png', 'text/plain', 'text/csv', 'application/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream', 'message/rfc822'], true)) {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
+        if (in_array($mime, ['application/zip', 'application/octet-stream'], true) && strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'xlsx') {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
+        if (in_array($mime, ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'message/rfc822'], true)
+            && !in_array(strtolower(pathinfo($filename, PATHINFO_EXTENSION)), ['csv', 'eml'], true)) {
+            throw new InvalidArgumentException('unsupported_document_type');
+        }
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if ($extension === 'xlsx') {
+            if (!class_exists(\ZipArchive::class)) {
+                throw new InvalidArgumentException('xlsx_validation_unavailable');
+            }
+            $zip = new \ZipArchive();
+            if ($zip->open($tmpPath, \ZipArchive::RDONLY) !== true) {
+                throw new InvalidArgumentException('invalid_xlsx_container');
+            }
+            try {
+                if ($zip->locateName('xl/worksheets/sheet1.xml') === false
+                    && $zip->locateName('xl/workbook.xml') === false) {
+                    throw new InvalidArgumentException('invalid_xlsx_structure');
+                }
+            } finally {
+                $zip->close();
+            }
+        } elseif (in_array($mime, ['application/zip', 'application/octet-stream',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], true)) {
             throw new InvalidArgumentException('unsupported_document_type');
         }
         $stored = $this->storage->put($tmpPath);
@@ -46,6 +74,45 @@ final class OfficeProjectDocumentService
         $id = $this->registry->register($stored, $title, $filename, $mime, 'office_project_upload');
         $this->registry->attachContext($id, 'project', (string) $projectId, 'origin');
         return $id;
+    }
+
+    /**
+     * Authorized, review-only document evidence. Call after the proposal schema
+     * has been explicitly installed. No canonical building/resident mutations.
+     */
+    public function proposeProjectAddresses(int $operatorId, int $projectId, int $documentId): array
+    {
+        $this->requireProject($operatorId, $projectId, true);
+        $document = $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeSourceAddressExtractor.php';
+        require_once __DIR__ . '/OfficeAddressProposalService.php';
+        require_once dirname(__DIR__) . '/Buildings/OfficeIntakeBuildingResolver.php';
+        $service = new OfficeAddressProposalService(
+            $this->db,
+            new OfficeSourceAddressExtractor(),
+            new \Brebo\Office\Buildings\OfficeIntakeBuildingResolver($this->db)
+        );
+        return $service->propose(
+            $documentId, $document['path'], $document['mime_type'], $document['filename']
+        );
+    }
+
+    /** Authorized project-only evidence review; never changes canonical records. */
+    public function projectAddressProposals(int $operatorId, int $projectId, int $documentId): array
+    {
+        $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeAddressProposalReviewService.php';
+        return (new OfficeAddressProposalReviewService($this->db))->pendingForDocument($documentId);
+    }
+
+    /** Explicit human review, scoped to the same document and project grant. */
+    public function reviewProjectAddressProposal(
+        int $operatorId, int $projectId, int $documentId, int $proposalId, string $decision
+    ): bool {
+        $this->requireProject($operatorId, $projectId, true);
+        $this->authorizedDownload($operatorId, $projectId, $documentId);
+        require_once __DIR__ . '/OfficeAddressProposalReviewService.php';
+        return (new OfficeAddressProposalReviewService($this->db))->decide($documentId, $proposalId, $decision);
     }
 
     /** Returns the file path only after a trusted server-side Office project grant. */

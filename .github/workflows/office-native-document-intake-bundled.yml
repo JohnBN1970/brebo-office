@@ -1,0 +1,67 @@
+name: Office native document intake bundled acceptance
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/**'
+      - 'office-independent/public/office-document-address-proposals.php'
+      - 'office-independent/public/office-documents.php'
+      - 'office-independent/src/Buildings/OfficeIntakeBuildingResolver.php'
+      - 'office-independent/tests/OfficeSourceAddressExtractorTest.php'
+      - 'office-independent/tests/OfficeAddressProposalContractTest.php'
+      - 'office-independent/tests/OfficeAddressProposalMySqlTest.php'
+      - 'office-independent/tests/OfficeProjectDocumentAccessContractTest.php'
+      - '.github/workflows/office-native-document-intake-bundled.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  all-in-one:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_only_password
+          MYSQL_DATABASE: office_documents_ci_address
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest_only_password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      OFFICE_DOCUMENT_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_documents_ci_address;charset=utf8mb4
+      OFFICE_DOCUMENT_TEST_USER: root
+      OFFICE_DOCUMENT_TEST_PASSWORD: test_only_password
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP dependencies
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-mbstring php-xml php-zip php-mysql
+      - name: Lint all touched Office services and tests
+        run: |
+          set -eu
+          for file in \
+            office-independent/src/Documents/OfficeSourceAddressExtractor.php \
+            office-independent/src/Documents/OfficeAddressProposalSchema.php \
+            office-independent/src/Documents/OfficeAddressProposalService.php \
+            office-independent/src/Documents/OfficeAddressProposalReviewService.php \
+            office-independent/src/Documents/OfficeProjectDocumentService.php \
+            office-independent/public/office-document-address-proposals.php \
+            office-independent/public/office-documents.php \
+            office-independent/src/Buildings/OfficeIntakeBuildingResolver.php \
+            office-independent/tests/OfficeSourceAddressExtractorTest.php \
+            office-independent/tests/OfficeAddressProposalContractTest.php \
+            office-independent/tests/OfficeProjectDocumentAccessContractTest.php; do
+            php -l "$file"
+          done
+      - name: CSV XLSX EML extraction and duplicate names
+        run: php office-independent/tests/OfficeSourceAddressExtractorTest.php
+      - name: Proposal schema and source contracts
+        run: php office-independent/tests/OfficeAddressProposalContractTest.php
+      - name: Isolated MySQL proposal and idempotency acceptance
+        run: php office-independent/tests/OfficeAddressProposalMySqlTest.php
+      - name: Existing project access regression
+        run: php office-independent/tests/OfficeProjectDocumentAccessContractTest.php

@@ -1,0 +1,28 @@
+name: Office address evidence acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeSourceAddressExtractor.php'
+      - 'office-independent/src/Documents/OfficeProjectDocumentService.php'
+      - 'office-independent/src/Documents/OfficeAddressProposal*.php'
+      - 'office-independent/tests/OfficeSourceAddressExtractorTest.php'
+      - 'office-independent/tests/OfficeAddressProposalContractTest.php'
+      - '.github/workflows/office-address-evidence-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  address-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP extensions
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-mbstring php-xml php-zip
+      - name: Syntax and isolated extraction regression
+        run: |
+          for file in office-independent/src/Documents/OfficeSourceAddressExtractor.php office-independent/src/Documents/OfficeAddressProposalSchema.php office-independent/src/Documents/OfficeAddressProposalService.php office-independent/src/Documents/OfficeProjectDocumentService.php office-independent/tests/OfficeSourceAddressExtractorTest.php office-independent/tests/OfficeAddressProposalContractTest.php; do php -l "$file"; done
+          php office-independent/tests/OfficeSourceAddressExtractorTest.php
+          php office-independent/tests/OfficeAddressProposalContractTest.php
