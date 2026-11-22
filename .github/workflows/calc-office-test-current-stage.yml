@@ -1,0 +1,154 @@
+name: Calc Office-test current CRM-first private stage
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-office-test-current-stage.yml'
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-test-current-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-code-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check whether exact private archive is already verified
+        id: existing
+        shell: bash
+        env:
+          SSH_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SSH_USER" && test -n "$SSH_KEY"
+          install -d -m 700 ~/.ssh
+          keyfile=$(mktemp ~/.ssh/.calc_private_XXXXXX)
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s\n' "$SSH_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          result=$(ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -i "$keyfile" -p 65002 "$SSH_USER@77.37.34.160" 'sh -s' <<'REMOTE'
+          set -eu
+          root=/home/u213420663/domains/brebobv.nl/office_calc_test
+          target="$root/.calc-app-staging"
+          name=calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507
+          test -d "$root" && test -f "$root/config/config.php"
+          test ! -L "$root" && test ! -L "$target"
+          if [ -e "$target/$name.tgz" ] || [ -e "$target/$name.sha256" ]; then
+            test -f "$target/$name.tgz" && test -f "$target/$name.sha256"
+            (cd "$target" && sha256sum -c "$name.sha256" >/dev/null)
+            echo present
+          else
+            echo absent
+          fi
+          REMOTE
+          )
+          test "$result" = present -o "$result" = absent
+          echo "value=$result" >> "$GITHUB_OUTPUT"
+          echo "PRIVATE_CALC_CODE_PACKAGE=$result"
+      - name: Fetch exact verified Calc revision
+        if: steps.existing.outputs.value != 'present'
+        uses: actions/checkout@v4
+        with:
+          repository: JohnBN1970/calc
+          ref: 1c5148ae001a551e35febc9cfcd4ceca6c28c507
+          path: calc
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        if: steps.existing.outputs.value != 'present'
+        with:
+          node-version: '22'
+      - name: Build private program-only release without database operations
+        if: steps.existing.outputs.value != 'present'
+        working-directory: calc
+        env:
+          VITE_CALC_BASE_PATH: /
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '1c5148ae001a551e35febc9cfcd4ceca6c28c507'
+          npm install
+          npm run typecheck
+          npm run test --workspace=@brebo/calc-api
+          npm run build
+          npm prune --omit=dev
+          test -f apps/api/dist/index.js
+          test -f apps/web/dist/index.html
+          test -d node_modules
+      - name: Create hash-verified package with no user data
+        if: steps.existing.outputs.value != 'present'
+        shell: bash
+        run: |
+          set -euo pipefail
+          name=calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507
+          mkdir -p stage/apps/api stage/apps/web stage/scripts
+          cp calc/startup.js calc/package.json stage/
+          cp calc/apps/api/package.json stage/apps/api/
+          cp calc/apps/web/package.json stage/apps/web/
+          cp calc/scripts/preflight.mjs stage/scripts/
+          cp -a calc/apps/api/dist stage/apps/api/
+          cp -a calc/apps/web/dist stage/apps/web/
+          cp -a calc/node_modules stage/
+          cp calc/package-lock.json stage/
+          if find stage -type f | grep -E '([.]env($|[.])|[.]sql$|[.]sqlite$|[.]pem$|[.]key$)'; then
+            echo 'Unexpected database or secret file'; exit 1
+          fi
+          tar -czf "$name.tgz" -C stage .
+          tar -tzf "$name.tgz" > "$name.manifest"
+          grep -Fx './apps/api/dist/index.js' "$name.manifest"
+          grep -Fx './apps/web/dist/index.html' "$name.manifest"
+          grep -Fx './node_modules/express/package.json' "$name.manifest"
+          sha256sum "$name.tgz" > "$name.sha256"
+          echo "CALC_STAGE_ARCHIVE_CREATED=YES"
+      - name: Verify private staging path and refuse overwrite
+        if: steps.existing.outputs.value != 'present'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            target="$root/.calc-app-staging"
+            test -d "$root" && test -f "$root/config/config.php"
+            test ! -L "$root" && test ! -L "$target"
+            mkdir -p -m 700 "$target"
+            test ! -e "$target/calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz"
+            test ! -e "$target/calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256"
+            echo "CALC_STAGING_PRIVATE_PATH=READY"
+      - name: Upload code archive to private Office-test staging only
+        if: steps.existing.outputs.value != 'present'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz,calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-app-staging"
+          overwrite: false
+      - name: Verify uploaded archive without unpacking or starting it
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            target=/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-app-staging
+            cd "$target"
+            sha256sum -c calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.sha256
+            test -s calc-code-only-1c5148ae001a551e35febc9cfcd4ceca6c28c507.tgz
+            echo "CALC_PRIVATE_ARCHIVE_INTEGRITY=PASS"
+            echo "CALC_NODE_WEBSITE_STARTED=NO"
+            echo "CALC_OFFICE_TEST_ROUTER_CHANGED=NO"
+            echo "CALC_DATABASE_CHANGED=NO"
+            echo "CALC_EXISTING_CALCULATIONS_IMPORTED=NO"

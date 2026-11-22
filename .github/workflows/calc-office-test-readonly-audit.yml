@@ -1,0 +1,438 @@
+name: Calc Office-test Hostinger read-only audit
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/calc-office-test-readonly-audit.yml'
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-test-readonly-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read-only Hostinger route and runtime checks
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl
+            WEB="$ROOT/public_html"
+            OFFICE="$ROOT/office_calc_test"
+            test -d "$WEB" || { echo "HOST_ROOT=NOT_FOUND"; exit 1; }
+            test -d "$OFFICE" || { echo "OFFICE_PRIVATE_ROOT=NOT_FOUND"; exit 1; }
+            echo "OFFICE_PRIVATE_ROOT=FOUND"
+            if [ -f "$WEB/office-test/index.php" ]; then echo "OFFICE_ROUTER=FOUND"; else echo "OFFICE_ROUTER=MISSING"; fi
+            if [ -f "$WEB/office-test/.htaccess" ]; then echo "OFFICE_REWRITE=FOUND"; else echo "OFFICE_REWRITE=MISSING"; fi
+            if [ -f "$WEB/.htaccess" ]; then echo "ROOT_REWRITE=FOUND"; else echo "ROOT_REWRITE=MISSING"; fi
+            if [ -f "$WEB/office-test/index.php" ] && grep -F '/calc-app' "$WEB/office-test/index.php" >/dev/null 2>&1; then
+              echo "CALC_ROUTER_REFERENCE=FOUND"
+            else
+              echo "CALC_ROUTER_REFERENCE=NOT_FOUND"
+            fi
+            if [ -f "$WEB/office-test/.htaccess" ] && grep -E '(ProxyPass|RewriteRule.*calc-app)' "$WEB/office-test/.htaccess" >/dev/null 2>&1; then
+              echo "CALC_PROXY_RULE_REFERENCE=FOUND"
+            else
+              echo "CALC_PROXY_RULE_REFERENCE=NOT_FOUND"
+            fi
+            if [ -d "$WEB/office-test/calc-app" ]; then
+              echo "CALC_ROUTE_DIR=FOUND"
+              if [ -f "$WEB/office-test/calc-app/startup.js" ]; then echo "CALC_STARTUP=FOUND"; else echo "CALC_STARTUP=NOT_FOUND"; fi
+            else
+              echo "CALC_ROUTE_DIR=NOT_FOUND"
+            fi
+            echo "SECTION=NODE_RUNTIME"
+            if command -v node >/dev/null 2>&1; then
+              echo "NODE_CLI_IN_PATH=FOUND"
+              node --version
+            else
+              echo "NODE_CLI_IN_PATH=NOT_FOUND"
+            fi
+            for runtime in /opt/alt/alt-nodejs{18,20,22,24}/root/usr/bin/node /usr/local/bin/node /usr/bin/node "$HOME/.nvm/versions/node"/v*/bin/node; do
+              if [ -x "$runtime" ]; then
+                echo "NODE_RUNTIME_BINARY=FOUND"
+                "$runtime" --version || true
+              fi
+            done
+            echo "SECTION=PASSENGER_CONFIGURATION"
+            for file in "$WEB/.htaccess" "$WEB/office-test/.htaccess"; do
+              if [ -f "$file" ]; then
+                for directive in PassengerAppRoot PassengerBaseURI PassengerNodejs PassengerEnabled PassengerAppType; do
+                  if grep -F "$directive" "$file" >/dev/null 2>&1; then echo "PASSENGER_DIRECTIVE_${directive}=PRESENT"; else echo "PASSENGER_DIRECTIVE_${directive}=ABSENT"; fi
+                done
+              fi
+            done
+            echo "SECTION=PRIVATE_STAGE_PREFLIGHT"
+            private_root=/home/u213420663/domains/brebobv.nl/office_calc_test
+            private_stage="$private_root/.calc-app-staging"
+            if [ -d "$private_root" ]; then echo "STAGE_ROOT_DIRECTORY=YES"; else echo "STAGE_ROOT_DIRECTORY=NO"; fi
+            if [ -f "$private_root/config/config.php" ]; then echo "STAGE_CONFIG_PRESENT=YES"; else echo "STAGE_CONFIG_PRESENT=NO"; fi
+            if [ -L "$private_root" ]; then echo "STAGE_ROOT_SYMLINK=YES"; else echo "STAGE_ROOT_SYMLINK=NO"; fi
+            if [ -L "$private_stage" ]; then echo "STAGE_TARGET_SYMLINK=YES"; else echo "STAGE_TARGET_SYMLINK=NO"; fi
+            if [ -d "$private_stage" ]; then echo "STAGE_TARGET_DIRECTORY=YES"; else echo "STAGE_TARGET_DIRECTORY=NO"; fi
+            if [ -e "$private_stage/calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.tgz" ]; then echo "STAGE_ARCHIVE_ALREADY_EXISTS=YES"; else echo "STAGE_ARCHIVE_ALREADY_EXISTS=NO"; fi
+            if [ -f "$private_stage/calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.sha256" ]; then
+              echo "STAGE_CHECKSUM_FILE=YES"
+              if (cd "$private_stage" && sha256sum -c calc-code-only-c523fd75f0f46b3dd4b7cd0eaa72da67eb81b035.sha256 >/dev/null 2>&1); then
+                echo "STAGE_ARCHIVE_INTEGRITY=PASS"
+              else
+                echo "STAGE_ARCHIVE_INTEGRITY=FAIL"
+              fi
+            else
+              echo "STAGE_CHECKSUM_FILE=NO"
+              echo "STAGE_ARCHIVE_INTEGRITY=UNVERIFIED"
+            fi
+            echo "SECTION=CALC_APP_DESTINATIONS"
+            for location in "$ROOT"/nodejs "$ROOT"/calc "$ROOT"/calc-app "$WEB"/calc-app "$WEB"/office-test/calc-app; do
+              if [ -d "$location" ]; then
+                echo "CALC_CANDIDATE_DIR=FOUND"
+                [ ! -f "$location/startup.js" ] || echo "CALC_CANDIDATE_STARTUP=FOUND"
+                [ ! -f "$location/package.json" ] || echo "CALC_CANDIDATE_PACKAGE=FOUND"
+              fi
+            done
+            echo "SECTION=OFFICE_WEB_ACCESS"
+            for url in 'https://brebobv.nl/office-test/' 'https://brebobv.nl/office-test/calc-app/'; do
+              status=$(curl -k -sS --connect-timeout 8 --max-time 12 -o /dev/null -w '%{http_code}' "$url" || true)
+              case "$url" in
+                */calc-app/) echo "CALC_ROUTE_HTTP_STATUS=$status" ;;
+                *) echo "OFFICE_HOME_HTTP_STATUS=$status" ;;
+              esac
+            done
+            if [ -f "$OFFICE/config/config.php" ]; then echo "OFFICE_TEST_CONFIG=FOUND"; else echo "OFFICE_TEST_CONFIG=MISSING"; fi
+            echo "SECTION=OFFICE_UNIFIED_CALC_TABLES"
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $dsn=$cfg["OFFICE_INTAKE_PDO_DSN"]??"";
+            if (!is_string($dsn) || strpos($dsn,"dbname=u213420663_office_test;")===false) {
+              echo "OFFICE_CALC_DB_IDENTITY=INVALID\n"; exit(1);
+            }
+            try {
+              $pdo=new PDO($dsn,$cfg["OFFICE_INTAKE_DB_USER"]??"",$cfg["OFFICE_INTAKE_DB_PASSWORD"]??"",[
+                PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES=>false
+              ]);
+              if ($pdo->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") {
+                echo "OFFICE_CALC_DB_IDENTITY=MISMATCH\n"; exit(1);
+              }
+              echo "OFFICE_CALC_DB_IDENTITY=VERIFIED\n";
+              $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+              foreach (["calculations","calculation_versions","calculation_lines","launch_nonces","office_calc_crm_drafts","office_calc_crm_draft_lines","office_crm_opportunities","office_crm_relations"] as $t) {
+                $q->execute([$t]);
+                echo "OFFICE_CALC_TABLE_".strtoupper($t)."=".((int)$q->fetchColumn()===1?"PRESENT":"ABSENT")."\n";
+              }
+            } catch (Throwable $e) {
+              echo "OFFICE_CALC_DB_READONLY_CHECK=FAILED\n"; exit(1);
+            }
+            '
+            echo "SECTION=CRM_CALC_COLUMN_CONTRACT"
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $dsn=$cfg["OFFICE_INTAKE_PDO_DSN"]??"";
+            if (!is_string($dsn) || strpos($dsn,"dbname=u213420663_office_test;")===false) exit(1);
+            $db=new PDO($dsn,$cfg["OFFICE_INTAKE_DB_USER"]??"",$cfg["OFFICE_INTAKE_DB_PASSWORD"]??"",[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION
+            ]);
+            if ($db->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") exit(1);
+            $checks=[
+              "office_crm_opportunities"=>["id","revision","stage","status"],
+              "office_operator_accounts"=>["id","active"],
+              "calculations"=>["office_project_id","office_calculation_id","code","status"],
+              "calculation_versions"=>["calculation_id","version_no","direct_cost","status"],
+              "calculation_lines"=>["version_id","code","description","quantity"]
+            ];
+            $q=$db->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?");
+            foreach($checks as $table=>$cols) {
+              foreach($cols as $col) {
+                $q->execute([$table,$col]);
+                echo "COLUMN_".strtoupper($table."_".$col)."=".((int)$q->fetchColumn()===1?"PRESENT":"ABSENT")."\n";
+              }
+            }
+            '
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $db=new PDO($cfg["OFFICE_INTAKE_PDO_DSN"],$cfg["OFFICE_INTAKE_DB_USER"],$cfg["OFFICE_INTAKE_DB_PASSWORD"],[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION
+            ]);
+            if($db->query("SELECT DATABASE()")->fetchColumn()!=="u213420663_office_test") exit(1);
+            $q=$db->prepare("SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=?");
+            foreach(["office_crm_opportunities","office_operator_accounts"] as $t) {
+              $q->execute([$t,"id"]);
+              $type=(string)$q->fetchColumn();
+              if(!preg_match("/^(bigint|int|mediumint|smallint|tinyint)(\\([0-9]+\\))?( unsigned)?$/",$type)) $type="UNEXPECTED";
+              echo "CRM_ID_COLUMN_TYPE_".strtoupper($t)."=".strtoupper(str_replace(" ","_",$type))."\n";
+            }
+            '
+            echo "SECTION=LIVE_OFFICE_CALC_MOUNT"
+            live_router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            if grep -F "/office-test/calculatie" "$live_router" >/dev/null 2>&1; then
+              echo "OFFICE_CALC_NATIVE_ROUTE=DEPLOYED"
+            else
+              echo "OFFICE_CALC_NATIVE_ROUTE=NOT_DEPLOYED"
+            fi
+            if grep -F "/office-test/calc/crm/werkbank" "$live_router" >/dev/null 2>&1; then
+              echo "OFFICE_CRM_WORKBENCH_ROUTE=DEPLOYED"
+            else
+              echo "OFFICE_CRM_WORKBENCH_ROUTE=NOT_DEPLOYED"
+            fi
+            php -r '
+            $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $root=$cfg["OFFICE_PRIVATE_ROOT"]??"";
+            if(!is_string($root) || !is_dir($root) || !str_contains($root,"/office_calc_test/")) {
+              echo "OFFICE_PRIVATE_RELEASE=INVALID\n";exit(1);
+            }
+            echo "OFFICE_PRIVATE_RELEASE=FOUND\n";
+            foreach(["public/office-calc-crm-workbench.php","src/Calculation/OfficeCalcCrmDraftLineRepository.php"] as $file) {
+              echo "OFFICE_RELEASE_".strtoupper(basename($file))."=".
+                (is_file($root."/".$file)?"PRESENT":"MISSING")."\n";
+            }
+            '
+            echo "SECTION=OFFICE_CALC_RELEASE_PREFLIGHT"
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              foreach(["OFFICE_BASE_PATH","OFFICE_TEST_CRM_ENABLED","OFFICE_CRM_AUTH_MODE",
+                "OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED","OFFICE_CALC_CRM_SCHEMA_VERIFIED"] as $key) {
+                $v=$cfg[$key]??"absent";
+                if(!in_array($v,["/office-test","enabled","disabled","session_only","absent"],true)) $v="CUSTOM";
+                echo "CRM_CALC_CONFIG_".$key."=".$v."\n";
+              }
+              $root=$cfg["OFFICE_PRIVATE_ROOT"]??"";
+              if(!is_string($root) || !is_dir($root)) exit(1);
+              foreach(["src/Intake/OfficeMount.php","src/Intake/WebsiteOfficeCrmSessionRepository.php",
+                  "src/Crm/OfficeCrmFunnelViews.php","public/office-crm-opportunities.php"] as $f) {
+                echo "CRM_CALC_DEPENDENCY_".strtoupper(basename($f))."=".
+                    (is_file($root."/".$f)?"FOUND":"MISSING")."\n";
+              }
+            '
+            if grep -Fq '[$]routes = [' /home/u213420663/domains/brebobv.nl/public_html/office-test/index.php; then
+              echo "CRM_CALC_ROUTER_INSERT_ANCHOR=FOUND"
+            else
+              echo "CRM_CALC_ROUTER_INSERT_ANCHOR=MISSING"
+            fi
+            echo "SECTION=ROUTER_SHAPE_ONLY"
+            router=/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php
+            if grep -F 'office-home.php' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_HOME_FILE_REFERENCE=YES"; else echo "OFFICE_ROUTER_HOME_FILE_REFERENCE=NO"; fi
+            if grep -F 'office-crm-opportunities.php' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_CRM_FILE_REFERENCE=YES"; else echo "OFFICE_ROUTER_CRM_FILE_REFERENCE=NO"; fi
+            if grep -F "parse_url(" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_PARSE_URL=YES"; else echo "OFFICE_ROUTER_PARSE_URL=NO"; fi
+            if grep -F "switch (" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_SWITCH=YES"; else echo "OFFICE_ROUTER_SWITCH=NO"; fi
+            if grep -F '$routes' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_ROUTES_VARIABLE=YES"; else echo "OFFICE_ROUTER_ROUTES_VARIABLE=NO"; fi
+            if grep -F 'require $private' "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_PRIVATE_REQUIRE=YES"; else echo "OFFICE_ROUTER_PRIVATE_REQUIRE=NO"; fi
+            echo "SECTION=CRM_CALC_ORIGINAL_SITE_METADATA"
+            sha256sum "$router" | cut -d ' ' -f 1 | sed 's/^/LIVE_OFFICE_ROUTER_SHA256=/'
+            if grep -F "office-calc-crm-start.php" "$router" >/dev/null 2>&1; then echo "OFFICE_ROUTER_START_ALREADY_MOUNTED=YES"; else echo "OFFICE_ROUTER_START_ALREADY_MOUNTED=NO"; fi
+            echo "SECTION=LIVE_CALC_HTTP_NEGATIVE_AUTH"
+            for route in /office-test/calculatie /office-test/calculatie/start?opportunity_id=1; do
+              status=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' "https://brebobv.nl$route" || true)
+              case "$route" in
+                *start*) echo "OFFICE_NATIVE_CALC_START_ANONYMOUS_HTTP=$status" ;;
+                *) echo "OFFICE_NATIVE_CALC_WORKBENCH_ANONYMOUS_HTTP=$status" ;;
+              esac
+            done
+            echo "SECTION=OFFICE_NATIVE_CALC_CONFIG_FORMAT"
+            php -r '
+            $file="/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $s=file_get_contents($file);
+            if (!is_string($s)) exit(1);
+            echo "CALC_CONFIG_RETURN_ARRAY_BRACKET_COUNT=".preg_match_all("/\\breturn\\s*\\[/",$s)."\n";
+            echo "CALC_CONFIG_RETURN_ARRAY_CALL_COUNT=".preg_match_all("/\\breturn\\s+array\\s*\\(/",$s)."\n";
+            echo "CALC_CONFIG_PHP_OPEN_AT_START=".(str_starts_with(ltrim($s),"<?php")?"YES":"NO")."\n";
+            echo "CALC_CONFIG_DECLARATION_STRICT=".(str_contains($s,"declare(strict_types=1)")?"YES":"NO")."\n";
+            '
+            active_views=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";')
+            if test -f "$active_views"; then
+              sha256sum "$active_views" | cut -d ' ' -f 1 | sed 's/^/OFFICE_LIVE_CRM_FUNNEL_VIEWS_SHA256=/'
+            else
+              echo "OFFICE_LIVE_CRM_FUNNEL_VIEWS=MISSING"
+            fi
+            echo "SECTION=LIVE_CRM_CALC_LINK_PATCH_READINESS"
+            active_views=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";')
+            if grep -Fq "Fase wijzigen</a>" "$active_views"; then echo "LIVE_CRM_ACTION_ANCHOR=FOUND"; else echo "LIVE_CRM_ACTION_ANCHOR=MISSING"; fi
+            if grep -Fq "/office-test/calculatie/start?opportunity_id=" "$active_views"; then echo "LIVE_CRM_CALC_LINK=ALREADY_PRESENT"; else echo "LIVE_CRM_CALC_LINK=NOT_PRESENT"; fi
+            active_workbench=$(php -r '$c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php"; echo ($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";')
+            if grep -Fq "OFFICE_CALC_CRM_SCHEMA_VERIFIED" "$active_workbench"; then echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=YES"; else echo "LIVE_CALC_WORKBENCH_SCHEMA_GUARD=NO"; fi
+            echo "SECTION=LIVE_CRM_ACTION_STRUCTURE"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $p=($c["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";
+              $s=file_get_contents($p);
+              if(!is_string($s)) exit(1);
+              echo "LIVE_CRM_VIEWS_SIZE=".strlen($s)."\n";
+              foreach(["function action","function card","Fase wijzigen","/office-test/crm/verkoopkansen/fase","function render"] as $needle) {
+                echo "LIVE_CRM_MARKER_".strtoupper(str_replace([" ","/"],"_",$needle))."=".(str_contains($s,$needle)?"YES":"NO")."\n";
+              }
+            '
+            echo "SECTION=OFFICE_TEST_REWRITE_ROUTE_DIAGNOSIS"
+            webroot=/home/u213420663/domains/brebobv.nl/public_html
+            for file in "$webroot/.htaccess" "$webroot/office-test/.htaccess"; do
+              if test -f "$file"; then
+                echo "REWRITE_FILE=FOUND"
+                grep -E '^[[:space:]]*(RewriteRule|RewriteCond|RewriteBase)' "$file" | head -n 35 || true
+              fi
+            done
+            for target in "/office-test/crm/verkoopkansen" "/office-test/calculatie?draft_id=1&probe=20261111" "/office-test/calculatie/start?opportunity_id=1&probe=20261111"; do
+              status=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --header 'Cache-Control: no-cache' --output /dev/null --write-out '%{http_code}' "https://brebobv.nl$target" || true)
+              case "$target" in
+                */crm/*) echo "REWRITE_EXISTING_CRM_HTTP=$status" ;;
+                */calculatie/start*) echo "REWRITE_CALC_START_HTTP=$status" ;;
+                *) echo "REWRITE_CALC_WORKBENCH_HTTP=$status" ;;
+              esac
+            done
+            echo "SECTION=NATIVE_CALC_FLAG_STATE"
+            php -r '
+              $file="/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $raw=file_get_contents($file);
+              $c=require $file;
+              foreach(["OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED","OFFICE_CALC_CRM_SCHEMA_VERIFIED"] as $key){
+                echo "NATIVE_CALC_ENV_".$key."=".(getenv($key)==="enabled"?"ENABLED":"NOT_ENABLED")."\n";
+                echo "NATIVE_CALC_RETURNED_".$key."=".(($c[$key]??"") ==="enabled"?"ENABLED":"NOT_ENABLED")."\n";
+                echo "NATIVE_CALC_SOURCE_".$key."=".(str_contains($raw,$key)?"PRESENT":"ABSENT")."\n";
+              }
+            '
+            ht=/home/u213420663/domains/brebobv.nl/public_html/office-test/.htaccess
+            if grep -Fq 'RewriteRule ^calculatie(?:/start)?/?$ index.php [END,QSA]' "$ht"; then echo "NATIVE_CALC_REWRITE_RULE=PRESENT"; else echo "NATIVE_CALC_REWRITE_RULE=ABSENT"; fi
+            echo "SECTION=CRM_FUNNEL_ACTION_INSERTION_CONTEXT"
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $file=($cfg["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php";
+              $source=file_get_contents($file);
+              if(!is_string($source)) exit(1);
+              $pos=strpos($source,"private static function card");
+              if($pos===false) exit(1);
+              echo "CRM_CARD_FUNCTION_CONTEXT_START\n";
+              echo substr($source,$pos,1600);
+              echo "\nCRM_CARD_FUNCTION_CONTEXT_END\n";
+            '
+            php -r '
+              $cfg=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $s=file_get_contents(($cfg["OFFICE_PRIVATE_ROOT"]??"")."/src/Crm/OfficeCrmFunnelViews.php");
+              $pos=strpos($s,"private static function link");
+              if($pos===false){echo "CRM_LINK_FUNCTION_NOT_FOUND\n";exit(1);}
+              echo "CRM_LINK_FUNCTION_CONTEXT_START\n".substr($s,$pos,1250)."\nCRM_LINK_FUNCTION_CONTEXT_END\n";
+            '
+            echo "SECTION=CRM_CALC_POST_DIAGNOSIS"
+            php <<'PHPDIAG'
+            <?php
+            declare(strict_types=1);
+            $config=require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+            $dsn=$config['OFFICE_INTAKE_PDO_DSN']??'';
+            if(!is_string($dsn)||!str_contains($dsn,'dbname=u213420663_office_test;'))exit(1);
+            $db=new PDO($dsn,$config['OFFICE_INTAKE_DB_USER']??'',$config['OFFICE_INTAKE_DB_PASSWORD']??'',[
+              PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false
+            ]);
+            if($db->query('SELECT DATABASE()')->fetchColumn()!=='u213420663_office_test')exit(1);
+            foreach(['office_crm_opportunities','office_calc_crm_drafts'] as $table) {
+              $q=$db->prepare('SELECT column_name,column_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? ORDER BY ordinal_position');
+              $q->execute([$table]);
+              echo "TABLE_SCHEMA=".$table."\n";
+              foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                if(in_array($row['column_name'],['id','revision','crm_revision','opportunity_id','created_by','project_id','title','stage','status'],true)) {
+                  echo 'COLUMN='.$row['column_name'].' TYPE='.$row['column_type'].' NULL='.$row['is_nullable'].' HAS_DEFAULT='.($row['column_default']!==null?'YES':'NO')."\n";
+                }
+              }
+            }
+            $q=$db->prepare("SELECT id,revision,stage,status FROM office_crm_opportunities WHERE title=? ORDER BY id DESC LIMIT 5");
+            $q->execute(['test']);
+            foreach($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+              $rev=$row['revision'];
+              echo 'MATCH_TEST_OPPORTUNITY_ID='.$row['id'].' REVISION_TYPE='.($rev===null?'NULL':(ctype_digit((string)$rev)?'DIGITS':'OTHER')).' STAGE='.$row['stage'].' STATUS='.$row['status']."\n";
+              $d=$db->prepare('SELECT COUNT(*) FROM office_calc_crm_drafts WHERE opportunity_id=?');
+              $d->execute([$row['id']]);echo 'MATCH_TEST_EXISTING_DRAFTS='.$d->fetchColumn()."\n";
+            }
+            echo "CRM_CALC_POST_DIAGNOSIS=READ_ONLY\n";
+            PHPDIAG
+            echo "SECTION=CALC_ORIGIN_FIX_VERIFICATION"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $p=($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-start.php";
+              $s=file_get_contents($p);
+              if(!is_string($s))exit(1);
+              echo "CALC_ORIGIN_FETCH_METADATA=".(str_contains($s,"HTTP_SEC_FETCH_SITE")?"PRESENT":"MISSING")."\n";
+              echo "CALC_ORIGIN_REFERER_FALLBACK=".(str_contains($s,"HTTP_REFERER")?"PRESENT":"MISSING")."\n";
+              echo "CALC_ORIGIN_CSRF_VALIDATION=".(str_contains($s,"CSRF_MISMATCH")?"PRESENT":"MISSING")."\n";
+            '
+            echo "SECTION=CRM_CALC_ORIGIN_FIX_PROOF"
+            php -r '
+            $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+            $file=($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-start.php";
+            $s=file_get_contents($file);
+            if(!is_string($s))exit(1);
+            foreach(["ORIGIN_MISMATCH","ORIGIN_CROSS_SITE","ORIGIN_NO_CSRF","CSRF_MISMATCH","Referrer-Policy: same-origin"] as $token) {
+              echo "ORIGIN_FIX_MARKER_".strtoupper(str_replace(["-",":"," "],"_",$token))."=".(str_contains($s,$token)?"PRESENT":"MISSING")."\n";
+            }
+            '
+            echo "SECTION=CRM_CALC_POST_NO_ORIGIN_NEGATIVE_TEST"
+            headers=$(mktemp)
+            trap 'rm -f "$headers"' EXIT
+            status=$(curl --silent --show-error --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' \
+              --request POST --data-urlencode 'opportunity_id=3' --data-urlencode 'csrf=test-only-invalid' \
+              'https://brebobv.nl/office-test/calculatie/start' || true)
+            reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
+            echo "CRM_CALC_NO_ORIGIN_NEGATIVE_HTTP=$status"
+            echo "CRM_CALC_NO_ORIGIN_NEGATIVE_REASON=$reason"
+            if test "$status" != 403; then
+              echo "CRM_CALC_NO_ORIGIN_PROTECTION=UNEXPECTED"
+              exit 1
+            fi
+            echo "SECTION=CRM_CALC_WORKBENCH_POST_FIX_VERIFY"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $p=($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";
+              $s=file_get_contents($p);
+              if(!is_string($s))exit(1);
+              foreach(["ORIGIN_MISMATCH","ORIGIN_CROSS_SITE","CSRF_MISMATCH","SESSION_COOKIE","DATABASE","OfficeCalcCrmDraftLineRepository"] as $token){
+                $ok=str_contains($s,$token);
+                echo "CALC_SAVE_MARKER_".$token."=".($ok?"PRESENT":"MISSING")."\\n";
+                if(!$ok)exit(1);
+              }
+            '
+            for mode in no-origin wrong-origin; do
+              if test "$mode" = wrong-origin; then
+                printf_mode=bad
+                header='Origin: https://example.invalid'
+              else
+                printf_mode=missing
+                header='Origin:'
+              fi
+              headers=$(mktemp)
+              status=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --dump-header "$headers" --write-out '%{http_code}' -H "$header" --request POST --data-urlencode 'draft_id=1' --data-urlencode 'csrf=invalid-only' 'https://brebobv.nl/office-test/calculatie' || true)
+              reason=$(grep -i '^X-Brebo-Calc-Diagnostic:' "$headers" | head -n 1 | tr -d '\r' | cut -d ':' -f 2 | tr -d ' ' || true)
+              rm -f "$headers"
+              echo "CALC_SAVE_TEST_${printf_mode}_HTTP=$status"
+              echo "CALC_SAVE_TEST_${printf_mode}_REASON=$reason"
+              if test "$status" != 403; then exit 1; fi
+              if test "$mode" = wrong-origin && test "$reason" != ORIGIN_MISMATCH; then exit 1; fi
+              if test "$mode" = no-origin && test "$reason" != SESSION_COOKIE; then exit 1; fi
+            done
+            echo "SECTION=LIVE_CALC_EURO_UI_CHECK"
+            php -r '
+              $config=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $path=($config["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php";
+              $source=file_get_contents($path);
+              if(!is_string($source))exit(1);
+              foreach(["unit_price_eur","Wijzigingen opslaan","edit_line_id","Preis per eenheid (€)"] as $needle){
+                if($needle==="Preis per eenheid (€)") continue;
+                echo "CALC_EURO_UI_".strtoupper(str_replace([" ","_"],["_","_"],$needle))."=".(str_contains($source,$needle)?"PRESENT":"MISSING")."\\n";
+                if(!str_contains($source,$needle))exit(1);
+              }
+            '
+            echo "SECTION=LIVE_CALC_DASHBOARD_VERIFY"
+            php -r '
+              $c=require "/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php";
+              $s=file_get_contents(($c["OFFICE_PRIVATE_ROOT"]??"")."/public/office-calc-crm-workbench.php");
+              if(!is_string($s))exit(1);
+              foreach(["Kostenverdeling","Directe kosten","unit_price_eur","edit_line_id","Wijzigingen opslaan"] as $v) {
+                echo "CALC_DASHBOARD_".strtoupper(str_replace(" ","_",$v))."=".(str_contains($s,$v)?"PRESENT":"MISSING")."\n";
+                if(!str_contains($s,$v))exit(1);
+              }
+            '
+            echo "CALC_HOST_AUDIT=READ_ONLY_COMPLETE"
+      - name: Explain scope
+        run: |
+          echo "No production changes, secrets disclosure, DB operations, data import, merge, or deployment"

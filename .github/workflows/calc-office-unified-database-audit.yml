@@ -1,0 +1,84 @@
+name: Calc unified Office-test database preflight
+on:
+  push:
+    branches: [audit/calc-office-test-host-access-20261111]
+    paths:
+      - '.github/workflows/calc-office-unified-database-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read-only Office schema namespace and same-origin router audit
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          script: |
+            set -eu
+            root=/home/u213420663/domains/brebobv.nl
+            config="$root/office_calc_test/config/config.php"
+            router="$root/public_html/office-test/index.php"
+            test -f "$config"
+            test -f "$router"
+            echo "OFFICE_TEST_PRIVATE_CONFIG=FOUND"
+            echo "OFFICE_TEST_ROUTER=FOUND"
+            php <<'PHP'
+            <?php
+            declare(strict_types=1);
+            $config=require '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+            if (!is_array($config)) { echo "OFFICE_TEST_CONFIG=INVALID\n"; exit(1); }
+            $dsn=$config['OFFICE_INTAKE_PDO_DSN']??'';
+            $name='u213420663_office_test';
+            if (!is_string($dsn) || strpos($dsn,'dbname='.$name.';')===false) {
+                echo "OFFICE_TEST_DATABASE_IDENTITY=NOT_VERIFIED\n"; exit(1);
+            }
+            $username=$config['OFFICE_INTAKE_DB_USER']??'';
+            $password=$config['OFFICE_INTAKE_DB_PASSWORD']??'';
+            if (!is_string($username) || !is_string($password)) {
+                echo "OFFICE_TEST_DATABASE_CREDENTIALS=INVALID\n"; exit(1);
+            }
+            try {
+                $pdo=new PDO($dsn,$username,$password,[
+                    PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_EMULATE_PREPARES=>false,
+                    PDO::ATTR_TIMEOUT=>5
+                ]);
+                $actual=$pdo->query('SELECT DATABASE()')->fetchColumn();
+                if ($actual!==$name) {
+                    echo "OFFICE_TEST_DATABASE_IDENTITY=MISMATCH\n"; exit(1);
+                }
+                echo "OFFICE_TEST_DATABASE_IDENTITY=VERIFIED\n";
+                $names=['calculations','calculation_versions','calculation_lines','launch_nonces',
+                    'office_calc_crm_drafts','office_calc_crm_grants',
+                    'office_projects','office_buildings'];
+                $query=$pdo->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
+                foreach ($names as $table) {
+                    $query->execute([$table]);
+                    echo 'OFFICE_SCHEMA_TABLE_'.strtoupper($table).'='.
+                        ((int)$query->fetchColumn()===0?'ABSENT':'PRESENT')."\n";
+                }
+                echo "CALC_UNIFIED_SCHEMA_AUDIT=READ_ONLY_COMPLETE\n";
+            } catch (Throwable $e) {
+                echo "OFFICE_TEST_DATABASE_CONNECTION=FAILED\n";
+                exit(1);
+            }
+            PHP
+            if grep -F '/office-test/calc/crm/open' "$router" >/dev/null 2>&1; then
+              echo "LIVE_OFFICE_CRM_CALC_ROUTE=FOUND"
+            else
+              echo "LIVE_OFFICE_CRM_CALC_ROUTE=NOT_FOUND"
+            fi
+            if grep -F '/office-test/calculatie' "$router" >/dev/null 2>&1; then
+              echo "LIVE_OFFICE_UNIFIED_CALC_ROUTE=FOUND"
+            else
+              echo "LIVE_OFFICE_UNIFIED_CALC_ROUTE=NOT_FOUND"
+            fi
+            echo "DATABASE_MUTATIONS=NONE"
+            echo "WEBROOT_MUTATIONS=NONE"

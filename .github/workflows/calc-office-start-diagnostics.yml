@@ -1,0 +1,81 @@
+name: Office-test CRM Calc start diagnostics install
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scoped-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: JohnBN1970/brebo-office
+          ref: d5669e6f262dc9876eb123671924efc09a8a29af
+          persist-credentials: false
+      - name: Verify same-origin POST safety contract
+        run: |
+          php office-independent/tests/OfficeCalcCrmOriginPolicyTest.php
+      - name: Verify single start handler
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-calc-crm-start.php
+          grep -Fq 'X-Brebo-Calc-Diagnostic:' office-independent/public/office-calc-crm-start.php
+          grep -Fq 'CSRF_MISMATCH' office-independent/public/office-calc-crm-start.php
+          grep -Fq 'DATABASE' office-independent/public/office-calc-crm-start.php
+      - name: Upload only start handler to private stage
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          source: "office-independent/public/office-calc-crm-start.php"
+          target: "/home/u213420663/domains/brebobv.nl/office_calc_test/.calc-start-diagnostic-stage"
+          overwrite: true
+      - name: Safely patch Office-test start handler with backup and anonymous smoke
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: false
+          command_timeout: 5m
+          script: |
+            set -eu
+            base=/home/u213420663/domains/brebobv.nl/office_calc_test
+            config="$base/config/config.php"
+            stage="$base/.calc-start-diagnostic-stage"
+            test -f "$config" && test ! -L "$config"
+            active=$(php -r '$c=require $argv[1]; if(($c["OFFICE_BASE_PATH"]??"")!=="/office-test")exit(1);echo $c["OFFICE_PRIVATE_ROOT"]??"";' "$config")
+            case "$active" in "$base"/release-*/private) ;; *) echo "CALC_START_SCOPE=REJECTED";exit 1;; esac
+            source="$stage/office-independent/public/office-calc-crm-start.php"
+            target="$active/public/office-calc-crm-start.php"
+            test -f "$source" && test -f "$target" && test ! -L "$target"
+            php -l "$source"
+            grep -Fq "office_calc_crm_drafts" "$target"
+            grep -Fq 'office_calc_crm_drafts' "$target"
+            if cmp -s "$source" "$target";then
+              echo "CALC_START_DIAGNOSTICS=ALREADY_CURRENT"
+              exit 0
+            fi
+            backup="$stage/start-before-diagnostics-$(date -u +%Y%m%dT%H%M%SZ).php"
+            cp -p "$target" "$backup"
+            cp -p "$source" "$stage/start-ready.php"
+            chmod --reference="$target" "$stage/start-ready.php"
+            mv "$stage/start-ready.php" "$target"
+            if ! php -l "$target" >/dev/null;then
+              cp -p "$backup" "$target"
+              echo "CALC_START_DIAGNOSTICS=ROLLED_BACK"
+              exit 1
+            fi
+            status=$(curl --silent --connect-timeout 6 --max-time 12 --output /dev/null --write-out '%{http_code}' 'https://brebobv.nl/office-test/calculatie/start?opportunity_id=3&diagnostic=1' || true)
+            echo "CALC_START_ANONYMOUS_HTTP=$status"
+            if test "$status" != 403;then
+              cp -p "$backup" "$target"
+              echo "CALC_START_DIAGNOSTICS=ROLLED_BACK_AUTH"
+              exit 1
+            fi
+            echo "CALC_START_PRIVACY_ORIGIN_FIX=INSTALLED"
+            echo "CALC_START_DATABASE_MUTATIONS=NONE"
