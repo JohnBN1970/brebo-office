@@ -160,18 +160,41 @@ if ($detail) {
     try {
       require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
       $opnames = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->listBuildingOpnames((int)$buildingId);
+      $selectedOpnameId = filter_input(INPUT_GET, 'opname_id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      $selectedOpname = null;
+      if (isset($_GET['opname_id'])) {
+        if (!is_int($selectedOpnameId)) {
+          http_response_code(404);
+          exit('Opname niet gevonden.');
+        }
+        $selectedOpname = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->loadBuildingOpname((int)$buildingId, $selectedOpnameId);
+        if ($selectedOpname === null) {
+          http_response_code(404);
+          exit('Opname niet gevonden voor dit gebouw.');
+        }
+      }
       if ($opnames === []) {
         echo '<p>Voor dit gebouw zijn nog geen CL-204-opnames geregistreerd.</p>';
       } else {
         echo '<table><thead><tr><th>Opname</th><th>Formulierstatus</th><th>Revisie</th><th>Bijgewerkt</th></tr></thead><tbody>';
         foreach ($opnames as $opname) {
-          echo '<tr><td>CL-204 #' . (int)$opname['id'] . '</td><td>' . $h($opname['status']) . '</td><td>' . (int)$opname['revision'] . '</td><td>' . $h($opname['updated_at']) . '</td></tr>';
+          echo '<tr><td><a href="/office-test/gebouwen?id=' . (int)$buildingId . '&amp;opname_id=' . (int)$opname['id'] . '">CL-204 #' . (int)$opname['id'] . '</a></td><td>' . $h($opname['status']) . '</td><td>' . (int)$opname['revision'] . '</td><td>' . $h($opname['updated_at']) . '</td></tr>';
         }
         echo '</tbody></table>';
       }
     } catch (PDOException $opnameError) {
       error_log('Office building CL-204 opnames unavailable: ' . $opnameError->getCode());
       echo '<p role="status">Opnames zijn tijdelijk niet beschikbaar; opslag of toegang moet nog worden gecontroleerd.</p>';
+    }
+    if ($selectedOpname !== null) {
+      echo '<section class="office-cl204-readonly"><h3>Opname CL-204 #' . (int)$selectedOpname['id'] . '</h3><p>Status: ' . $h($selectedOpname['status']) . ' · Revisie ' . (int)$selectedOpname['revision'] . '</p>';
+      require_once dirname(__DIR__) . '/src/Process/OfficeCl204Projectopname.php';
+      $controlData = is_array($selectedOpname['data']['controls'] ?? null) ? $selectedOpname['data']['controls'] : [];
+      echo '<table><thead><tr><th>Controle</th><th>Stand</th></tr></thead><tbody>';
+      foreach (\Brebo\Office\Process\OfficeCl204Projectopname::controls() as $controlKey => $definition) {
+        echo '<tr><td>' . $h($definition['label']) . '</td><td>' . $h($controlData[$controlKey]['status'] ?? 'Niet vastgelegd') . '</td></tr>';
+      }
+      echo '</tbody></table><h4>Disciplines</h4><p>' . $h(implode(', ', array_filter($selectedOpname['data']['disciplines'] ?? [], 'is_string'))) . '</p></section>';
     }
     echo '<p>Nieuwe opname en bewerken volgen na controle van rechten, CSRF en opslag.</p></section>';
   }
