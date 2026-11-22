@@ -134,6 +134,25 @@ if (getenv('OFFICE_TEST_CRM_HIERARCHY_SCHEMA_VERIFIED')==='enabled') {
     } catch(Throwable $ignored) { echo '<p>Bedrijfsstructuur tijdelijk niet beschikbaar.</p>'; }
     echo '</section>';
 }
+// Read-only relation context: link existing records, never duplicate them.
+if (getenv('OFFICE_TEST_CRM_ENABLED')==='enabled') {
+    echo '<section><h2>Gerelateerde CRM-gegevens</h2>';
+    try {
+        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_leads WHERE relation_id=? ORDER BY received_at DESC,id DESC LIMIT 50');
+        $stmt->execute([$id]);$leadRows=$stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo '<details><summary>Leads ('.count($leadRows).($leadRows && count($leadRows)===50?'+':'').')</summary>';
+        if (!$leadRows) echo '<p>Geen gekoppelde leads.</p>';
+        else {echo '<ul>';foreach($leadRows as $lead) echo '<li><a href="/office-test/crm/aanvragen/detail?id='.(int)$lead['id'].'">'.$h($lead['title']).'</a> · '.$h($lead['stage']).' · '.$h($lead['status']).'</li>';echo '</ul>';}
+        echo '</details>';
+        $stmt=$db->prepare('SELECT id,title,stage,status FROM office_crm_opportunities WHERE relation_id=? ORDER BY updated_at DESC,id DESC LIMIT 50');
+        $stmt->execute([$id]);$deals=$stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo '<details><summary>Deals ('.count($deals).($deals && count($deals)===50?'+':'').')</summary>';
+        if (!$deals) echo '<p>Geen gekoppelde deals.</p>';
+        else {echo '<ul>';foreach($deals as $deal) echo '<li><strong>'.$h($deal['title']).'</strong> · '.$h($deal['stage']).' · '.$h($deal['status']).'</li>';echo '</ul>';}
+        echo '</details>';
+    } catch(Throwable $ignored) {echo '<p>Gerelateerde CRM-gegevens tijdelijk niet beschikbaar.</p>';}
+    echo '</section>';
+}
 echo '<section><h2>Vastgoedbeheerder</h2>';
 if (!$managers) echo '<p>Geen actieve vertegenwoordiging vastgelegd.</p>';
 else foreach ($managers as $manager) echo '<p>'.$h($manager['display_name']).'</p>';
