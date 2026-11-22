@@ -74,6 +74,7 @@ $routes = [
   '/office-test/materialen' => 'office-materials.php',
   '/office-test/calculatie' => 'office-calc-crm-workbench.php',
   '/office-test/calculatie/samenwerken' => 'office-calc-crm-workbench.php',
+  '/office-test/calculatie/start' => 'office-calc-crm-start.php',
   '/office-test' => 'office-home.php',
   '/office-test/' => 'office-home.php',
   '/office-test/inloggen' => 'office-login.php',
