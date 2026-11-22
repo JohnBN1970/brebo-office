@@ -64,11 +64,17 @@ if ($method==='POST') {
             // An exact email match reuses an existing person, avoiding duplicate contacts across relations.
             $contactId=null;
             if ($values['email']!=='') {
-                $stmt=$db->prepare("SELECT id FROM office_crm_contact_people WHERE LOWER(email)=LOWER(?) AND status='active' LIMIT 2");
+                $stmt=$db->prepare("SELECT id,given_name,family_name FROM office_crm_contact_people WHERE LOWER(email)=LOWER(?) AND status='active' LIMIT 2");
                 $stmt->execute([$values['email']]);
-                $matches=$stmt->fetchAll(PDO::FETCH_COLUMN);
+                $matches=$stmt->fetchAll(PDO::FETCH_ASSOC);
                 if (count($matches)>1) throw new DomainException('Meerdere contactpersonen met dit e-mailadres. Koppel handmatig.');
-                if (count($matches)===1) $contactId=(int)$matches[0];
+                if (count($matches)===1) {
+                    if (mb_strtolower(trim((string)$matches[0]['given_name']))!==mb_strtolower($values['given_name'])
+                        || mb_strtolower(trim((string)$matches[0]['family_name']))!==mb_strtolower($values['family_name'])) {
+                        throw new DomainException('E-mailadres hoort bij een andere naam. Controleer de bestaande contactpersoon.');
+                    }
+                    $contactId=(int)$matches[0]['id'];
+                }
             }
             if ($contactId===null) {
                 $stmt=$db->prepare("INSERT INTO office_crm_contact_people (given_name,family_name,email,phone,status) VALUES (?,?,?,?,'active')");
