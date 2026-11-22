@@ -334,7 +334,12 @@ try {
       exit('Ongeldige invoer.');
     }
     require_once dirname(__DIR__) . '/src/Project/OfficeHousingTypeWriter.php';
-    (new \Brebo\Office\Project\OfficeHousingTypeWriter($db))->assign($projectId, $buildingId, $code, $name, $count);
+    try {
+      (new \Brebo\Office\Project\OfficeHousingTypeWriter($db))->assign($projectId, $buildingId, $code, $name, $count);
+    } catch (\InvalidArgumentException|\DomainException $housingError) {
+      http_response_code(422);
+      exit('Woningtype niet opgeslagen: ' . htmlspecialchars($housingError->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
     header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test/projecten/detail?id=' : '/office/projecten/detail?id=') . $projectId . '&tab=gebouwen', true, 303);
     exit;
   }
@@ -451,6 +456,24 @@ if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()) {
   }
 }
 $buildingHtml .= '</section>';
+$formHtml = '';
+if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
+    && $housingTypes !== null && $buildings !== []) {
+  $formHtml = '<section class="project-buildings-panel"><h2>Woningtype toewijzen</h2>'
+    . '<p>Leg het woningtype en het aantal woningen vast bij een bestaand projectgebouw.</p>'
+    . '<form method="post"><input type="hidden" name="action" value="housing_type">'
+    . '<input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
+    . '<label>Gebouw<select name="building_id" required>';
+  foreach ($buildings as $building) {
+    $formHtml .= '<option value="' . (int)$building['id'] . '">' . $escape((string)$building['name']) . '</option>';
+  }
+  $formHtml .= '</select></label>'
+    . '<label>Woningtypecode<input name="code" maxlength="100" required placeholder="Bijv. TYPE-A"></label>'
+    . '<label>Naam woningtype<input name="name" maxlength="255" required placeholder="Bijv. Appartement type A"></label>'
+    . '<label>Aantal woningen<input type="number" name="dwelling_count" min="1" max="100000" required></label>'
+    . '<button type="submit">Woningtype opslaan</button></form></section>';
+}
 $housingHtml = '<section class="project-buildings-panel"><h2>Woningtypen en deelcalculaties</h2>';
 $canPrepareScopes = $canManage && $housingTypes !== null && $calculationScopes !== null
   && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
