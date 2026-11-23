@@ -80,7 +80,7 @@ if ($method==='POST') {
                 $id,$buildingId,$typeId,$count,(int)$operator->operatorId,$revision
             );
             $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
-            header('Location: /office-test/crm/verkoopkansen/wijzigen?id='.$id,true,303); exit;
+            header('Location: /office-test/crm/verkoopkansen/fase?id='.$id,true,303); exit;
         } catch (DomainException|InvalidArgumentException $e) {
             http_response_code(409); exit('Woningtype niet opgeslagen: '.$h($e->getMessage()));
         } catch (Throwable $e) {
