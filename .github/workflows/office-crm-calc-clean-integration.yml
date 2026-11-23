@@ -10,6 +10,7 @@ on:
       - 'office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php'
       - 'office-independent/src/Calculation/OfficeCalcDraftCollaboration.php'
       - 'office-independent/deployment/vps/sql/office-crm-calc-shared-identity-REVIEW.sql'
+      - 'office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh'
       - 'office-independent/tests/OfficeCalcSharedIdentityContractTest.php'
       - 'office-independent/tests/OfficeCalcDraftCollaborationTest.php'
       - 'office-independent/tests/OfficeCalcDraftMaterialSourceTest.php'
@@ -84,6 +85,13 @@ jobs:
             }
             echo "CRM_CALC_PREFLIGHT_SOURCE_CONTRACT=PASS".PHP_EOL;
           '
+      - name: Guarded test database installer syntax
+        run: |
+          set -euo pipefail
+          bash -n office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          grep -q 'CRM_CALC_SCHEMA_INSTALL=PASS' office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          grep -q 'brebo_office_test' office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          echo 'TEST_DB_INSTALLER_SOURCE=PASS'
       - name: Explicit release boundary
         run: |
           echo 'SOURCE_CONTRACTS_ONLY=PASS'
