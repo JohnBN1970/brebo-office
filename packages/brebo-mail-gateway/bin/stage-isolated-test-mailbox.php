@@ -26,8 +26,8 @@ try {
   $pdo = new PDO('sqlite:' . $dbFile, null, null, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
   ]);
-  $pdo->beginTransaction();
   $repo = new SqliteGatewayProvisioningRepository($pdo);
+  $pdo->beginTransaction();
   $existingDomains = $repo->domains();
   $existingMailboxes = $repo->mailboxes();
   $existingAliases = $repo->aliases();
