@@ -5,11 +5,13 @@ if (!in_array('sqlite',PDO::getAvailableDrivers(),true)) { echo "DEAL_HOUSING_WR
 $db=new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_crm_opportunities (id INTEGER PRIMARY KEY,stage TEXT,status TEXT)');
+$db->exec('CREATE TABLE office_crm_deal_buildings (opportunity_id INTEGER,building_id INTEGER)');
 $db->exec('CREATE TABLE office_housing_types (id INTEGER PRIMARY KEY,building_id INTEGER)');
 $db->exec('CREATE TABLE office_crm_deal_housing_types (opportunity_id INTEGER,building_id INTEGER,housing_type_id INTEGER,dwelling_count INTEGER,revision INTEGER,updated_by INTEGER,PRIMARY KEY(opportunity_id,building_id,housing_type_id))');
 $db->exec('CREATE TABLE office_crm_deal_housing_events (opportunity_id INTEGER,building_id INTEGER,housing_type_id INTEGER,old_count INTEGER,new_count INTEGER,revision INTEGER,changed_by INTEGER)');
 $db->exec("INSERT INTO office_crm_opportunities VALUES (1,'proposal','open'),(2,'won','closed')");
 $db->exec('INSERT INTO office_housing_types VALUES (10,5)');
+$db->exec('INSERT INTO office_crm_deal_buildings VALUES (1,5)');
 $writer=new \Brebo\Office\Crm\OfficeCrmDealHousingWriter($db);
 if ($writer->save(1,5,10,8,3,0)!==1) throw new RuntimeException('First revision');
 if ($writer->save(1,5,10,8,3,1)!==1) throw new RuntimeException('No-op revision');
