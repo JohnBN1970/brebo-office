@@ -28,5 +28,6 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcDealHousingReader.php
           php -l office-independent/public/office-crm-opportunity-transition.php
           php -l office-independent/public/office-calc-crm-workbench.php
+          php office-independent/tests/OfficeCrmDealHousingWriterTest.php
           php office-independent/tests/OfficeCrmDealHousingHttpContractTest.php
           php office-independent/tests/OfficeCrmDealHousingProjectTransferTest.php
