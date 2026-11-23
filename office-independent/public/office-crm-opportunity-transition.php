@@ -71,6 +71,14 @@ if ($method==='POST') {
         if (!is_int($buildingId)) { http_response_code(400); exit('Ongeldig gebouw.'); }
         try {
             $db->beginTransaction();
+            // Serialize against a concurrent Deal acceptance before linking.
+            $dealLock=$db->prepare('SELECT stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $dealLock->execute([$id]);
+            $dealState=$dealLock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($dealState) || $dealState['status']!=='open'
+                || in_array($dealState['stage'],['won','lost'],true)) {
+                throw new DomainException('Deal is niet wijzigbaar.');
+            }
             $building=$db->prepare('SELECT id FROM office_buildings WHERE id=? AND active=1');
             $building->execute([$buildingId]);
             if ($building->fetchColumn()===false) throw new DomainException('Gebouw niet actief.');
