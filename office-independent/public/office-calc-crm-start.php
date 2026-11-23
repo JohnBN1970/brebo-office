@@ -103,7 +103,14 @@ try {
     $q = $db->prepare('SELECT id,crm_revision,created_by,project_id FROM office_calc_crm_drafts WHERE opportunity_id=?');
     $q->execute([$opportunityId]);
     $draft = $q->fetch(PDO::FETCH_ASSOC);
-    if (is_array($draft) && ((int)$draft['created_by'] !== $actor
+    $mayOpen = !is_array($draft) || (int)$draft['created_by'] === $actor;
+    if (!$mayOpen && getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED') === 'enabled'
+        && getenv('OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED') === 'enabled') {
+        require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcDraftCollaboration.php';
+        $collaboration = new \Brebo\Office\Calculation\OfficeCalcDraftCollaboration($db);
+        $mayOpen = $collaboration->canEdit($actor, (int)$draft['id']);
+    }
+    if (is_array($draft) && (!$mayOpen
         || (int)$draft['crm_revision'] !== (int)$deal['revision']
         || $draft['project_id'] !== null)) {
         if ($db->inTransaction()) $db->rollBack();
