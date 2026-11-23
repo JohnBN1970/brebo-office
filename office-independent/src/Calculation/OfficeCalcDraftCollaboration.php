@@ -22,7 +22,7 @@ final class OfficeCalcDraftCollaboration
     /** Raw canonical state is also the audit evidence, never a second editable calculation. */
     public function state(int $draft):array
     {
-        $q=$this->db->prepare('SELECT id,status FROM calculations WHERE office_calculation_id=? AND office_project_id IS NULL');$q->execute([$draft]);$calculation=$q->fetch(PDO::FETCH_ASSOC)?:null;
+        $q=$this->db->prepare('SELECT c.id,c.status FROM calculations c INNER JOIN office_calc_crm_drafts d ON d.calculation_id=c.office_calculation_id WHERE d.id=? AND c.office_project_id IS NULL');$q->execute([$draft]);$calculation=$q->fetch(PDO::FETCH_ASSOC)?:null;
         $version=null;$lines=[];
         if($calculation!==null){$q=$this->db->prepare('SELECT * FROM calculation_versions WHERE calculation_id=? ORDER BY version_no DESC LIMIT 1');$q->execute([$calculation['id']]);$version=$q->fetch(PDO::FETCH_ASSOC)?:null;}
         if($version!==null){$q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? ORDER BY sort_order,id');$q->execute([$version['id']]);$lines=$q->fetchAll(PDO::FETCH_ASSOC);}
