@@ -76,7 +76,7 @@ if ($method==='POST') {
         }
         try {
             require_once dirname(__DIR__).'/src/Crm/OfficeCrmDealHousingWriter.php';
-            (new \\Brebo\\Office\\Crm\\OfficeCrmDealHousingWriter($db))->save(
+            (new \Brebo\Office\Crm\OfficeCrmDealHousingWriter($db))->save(
                 $id,$buildingId,$typeId,$count,(int)$operator->operatorId,$revision
             );
             $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
@@ -148,7 +148,7 @@ if ($item['stage']==='won') {
 }
 
 // Deal quantities are the commercial source; project quantities are not edited here.
-if (\\Brebo\\Office\\Intake\\OfficeMount::isTest()
+if (\Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
     && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled') {
     try {
