@@ -82,7 +82,8 @@ try {
   $attachmentDuplicateCounts = [];
   $savedDrafts = [];
   $mailStatesEnabled = getenv('OFFICE_MAIL_STATES_SCHEMA_VERIFIED') === 'enabled';
-  $mailFolder = in_array(($_GET['folder'] ?? 'inbox'), ['inbox','unread','archive','trash','spam','drafts','sent'], true) ? $_GET['folder'] : 'inbox';
+  $requestedFolder = $_GET['folder'] ?? 'inbox';
+  $mailFolder = is_string($requestedFolder) && in_array($requestedFolder, ['inbox','unread','archive','trash','spam','drafts','sent'], true) ? $requestedFolder : 'inbox';
   $mailStates = [];
   $folderDrafts = [];
   $mailView = (($_GET['view'] ?? '') === 'board') ? 'board' : 'inbox';

@@ -79,7 +79,8 @@ final class OfficeMailBoardRepository {
     if ($statesEnabled) $params[':state_operator']=$operatorId;
     if ($mailboxId !== null) { $sql.=" AND m.mailbox_id=:mailbox"; $params[':mailbox']=$mailboxId; }
     if ($folder==='unread') $sql.=" AND ".$folderExpr."='inbox' AND ".$readExpr."=0";
-    else { $sql.=" AND ".$folderExpr."=:folder"; $params[':folder']=$folder; }
+    else if ($statesEnabled) { $sql.=" AND ".$folderExpr."=:folder"; $params[':folder']=$folder; }
+    else if ($folder !== 'inbox') { $sql.=" AND 1=0"; }
     if ($search!=='') {
       $sql.=" AND (m.subject LIKE :subject_search OR m.sender LIKE :sender_search)";
       $params[':subject_search']='%'.$search.'%';
