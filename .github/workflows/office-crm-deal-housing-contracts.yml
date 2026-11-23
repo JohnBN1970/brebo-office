@@ -9,6 +9,7 @@ on:
       - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/public/office-calc-crm-workbench.php'
       - 'office-independent/tests/OfficeCrmDealHousing*.php'
+      - 'office-independent/tests/OfficeCalcDealHousingReaderTest.php'
       - 'office-independent/deployment/hostinger/sql/office-test-deal-housing-scope-review.sql'
       - '.github/workflows/office-crm-deal-housing-contracts.yml'
   push:
@@ -32,6 +33,7 @@ jobs:
           php -l office-independent/deployment/hostinger/audit-deal-housing-readiness.php
           php -l office-independent/public/office-crm-opportunity-transition.php
           php -l office-independent/public/office-calc-crm-workbench.php
+          php office-independent/tests/OfficeCalcDealHousingReaderTest.php
           php office-independent/tests/OfficeCrmDealHousingWriterTest.php
           php office-independent/tests/OfficeCrmDealHousingHttpContractTest.php
           php office-independent/tests/OfficeCrmDealHousingProjectTransferTest.php
