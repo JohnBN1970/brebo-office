@@ -65,7 +65,7 @@ foreach ($userLines as $line) {
   }
   $seen[$address] = true;
   $password = (string) $fields[1];
-  if (!preg_match('/^\\{(ARGON2ID|BLF-CRYPT|SHA512-CRYPT)\\}[^\\s:]{20,}$/', $password)) {
+  if (!preg_match('/^\\{ARGON2ID\\}\\$argon2id\\$v=19\\$m=[0-9]+,t=[0-9]+,p=[0-9]+\\$[A-Za-z0-9+\\/]+\\$[A-Za-z0-9+\\/]+$/D', $password)) {
     fwrite(STDERR, "MAIL_AUTH_PREFLIGHT=BLOCKED: missing supported password hash\n");
     exit(2);
   }
