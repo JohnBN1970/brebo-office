@@ -45,7 +45,7 @@ final class OfficeMailBoardRepository {
         (SELECT 1 FROM office_mail_mailbox_access a WHERE a.mailbox_id=b.id AND a.operator_id=:operator AND a.can_read=1))
         OR (b.mailbox_type='personal' AND b.owner_operator_id=:owner))"
       . ($mailboxId !== null ? " AND m.mailbox_id=:mailbox" : "")
-      . " GROUP BY ".$folder.", ".$read;
+      . ($statesEnabled ? " GROUP BY ".$folder.", ".$read : "");
     $params=[':operator'=>$operatorId,':owner'=>$operatorId];
     if ($statesEnabled) $params[':state_operator']=$operatorId;
     if ($mailboxId !== null) $params[':mailbox']=$mailboxId;
