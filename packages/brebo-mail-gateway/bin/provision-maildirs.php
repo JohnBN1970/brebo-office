@@ -47,7 +47,8 @@ $ensure = static function (string $path): void {
   if (!is_dir($path) && !mkdir($path, 0700)) {
     throw new RuntimeException('Unable to create Maildir directory');
   }
-  if (!is_dir($path) || !chmod($path, 0700)) {
+  $stat = stat($path);
+  if (!is_dir($path) || $stat === false || $stat['uid'] !== posix_geteuid() || !chmod($path, 0700)) {
     throw new RuntimeException('Unsafe Maildir directory');
   }
 };
