@@ -597,13 +597,13 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   }
   // Reference codes are not building quantities: only prefill a new draft line.
   document.querySelectorAll(".calc-element-select").forEach(button=>button.addEventListener("click",()=>{
-    const description=document.querySelector('#calc-inline-new [name="description"], input[form="calc-inline-new"][name="description"]');
+    const description=document.querySelector("input[form=calc-inline-new][name=description]");
     if(!description){return;}
     const selected=button.dataset.element||"";
     if(!selected){return;}
     if(description.value.trim()!==""&&!window.confirm("Bestaande omschrijving vervangen door de gekozen referentiecode?"))return;
     description.value=selected;
-    document.querySelector('[data-calc-tab="data"]')?.click();
+    document.querySelector("[data-calc-tab=data]")?.click();
     description.focus();
   }));
   const search=document.getElementById("calc-element-search");
