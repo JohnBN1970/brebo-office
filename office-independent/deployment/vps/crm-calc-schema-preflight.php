@@ -98,6 +98,7 @@ try {
         'office_crm_opportunity_activities' => ['id', 'opportunity_id', 'scheduled_at'],
         'office_operator_accounts' => ['id', 'active', 'can_edit_crm'],
         'office_calc_calculations' => ['id', 'project_id'],
+        'office_calc_project_access' => ['calculation_id', 'project_id', 'operator_id', 'permission'],
         'office_calc_crm_drafts' => ['id', 'opportunity_id', 'crm_revision', 'project_id', 'created_by', 'calculation_id'],
         'calculations' => ['id', 'office_project_id', 'office_calculation_id', 'status'],
         'calculation_versions' => ['id', 'calculation_id', 'version_no', 'status'],
