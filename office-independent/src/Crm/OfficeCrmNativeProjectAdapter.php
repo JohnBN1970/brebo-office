@@ -72,6 +72,13 @@ final class OfficeCrmNativeProjectAdapter
             "INSERT INTO office_project_memberships (project_id,operator_id,permission) VALUES (?,?,'manage')"
         );
         $membership->execute([$projectId,$this->operatorId]);
+        // Optional Deal housing handoff runs atomically with project creation.
+        // Never overwrite an existing project's housing distribution.
+        if (getenv('OFFICE_TEST_CRM_DEAL_HOUSING_TRANSFER_ENABLED')==='enabled'
+            && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled') {
+            require_once __DIR__.'/OfficeCrmDealHousingProjectTransfer.php';
+            (new OfficeCrmDealHousingProjectTransfer($db))->transfer($opportunityId,$projectId);
+        }
         return $projectId;
     }
 
