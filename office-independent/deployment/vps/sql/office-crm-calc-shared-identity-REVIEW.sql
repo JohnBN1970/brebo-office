@@ -8,8 +8,9 @@
 --   office_operator_accounts.id BIGINT UNSIGNED; two closed Deals;
 --   no acceptance transfers or work-budget lines.
 -- Backup restore smoke test passed. Revalidate immediately before any installation.
--- Check whether office_calc_calculations / office_calc_project_access exist
--- and match these definitions; do not blindly CREATE over existing structure.
+-- Verified read-only VPS preflight (2026-11-23): both Office identity/access tables,
+-- four CRM Calc storage tables and CRM revision are all MISSING.
+-- This remains a proposal; revalidate on the chosen connection before applying.
 -- CRM revision ALTER is a SEPARATE reviewed migration.
 --
 -- Identity:
@@ -26,6 +27,23 @@ CREATE TABLE office_calc_calculations (
   PRIMARY KEY(id),
   UNIQUE KEY uq_office_calc_id_project(id, project_id),
   KEY idx_office_calc_project(project_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Project calculation grants use the SAME Office identity but are never
+-- inherited by a projectless Deal. No implicit permissions or seed rows.
+-- Existing project launch additionally checks native project-manage permission.
+CREATE TABLE office_calc_project_access (
+  calculation_id BIGINT UNSIGNED NOT NULL,
+  project_id BIGINT UNSIGNED NOT NULL,
+  operator_id BIGINT UNSIGNED NOT NULL,
+  permission ENUM('read','manage') NOT NULL DEFAULT 'read',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (calculation_id,project_id,operator_id),
+  KEY idx_office_calc_access_operator (operator_id,project_id),
+  CONSTRAINT fk_office_calc_access_calculation_project
+    FOREIGN KEY (calculation_id,project_id)
+    REFERENCES office_calc_calculations (id,project_id)
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE office_calc_crm_drafts (
