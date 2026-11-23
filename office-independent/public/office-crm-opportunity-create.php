@@ -23,6 +23,10 @@ try {
     if (getenv('OFFICE_CRM_OPPORTUNITIES_WRITE_ENABLED')!=='enabled') { http_response_code(403); exit('Deals invoeren niet ingeschakeld.'); }
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmFunnel.php';
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
+    $buildings=[];
+    if (getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
+        $buildings=$db->query("SELECT id,building_name FROM office_buildings ORDER BY building_name,id LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+    }
     $relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
@@ -33,7 +37,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $relationId=filter_var($_GET['relation_id']??0,FILTER_VALIDATE_INT)?:0;
-$title=''; $error='';
+$title=''; $error=''; $buildingId=0;
 $leadId=filter_var($_GET['lead_id']??0,FILTER_VALIDATE_INT)?:0;
 if ($method==='GET' && $leadId>0) {
     $leadStmt=$db->prepare("SELECT title,relation_id,stage,status,converted_opportunity_id FROM office_crm_leads WHERE id=?");
@@ -47,13 +51,17 @@ if ($method==='POST') {
     $relationId=filter_var($_POST['relation_id']??0,FILTER_VALIDATE_INT)?:0;
     $leadId=filter_var($_POST['lead_id']??0,FILTER_VALIDATE_INT)?:0;
     $title=is_string($_POST['title']??null)?trim($_POST['title']):'';
+    $buildingId=filter_var($_POST['building_id']??0,FILTER_VALIDATE_INT)?:0;
+    $validBuilding=$buildingId===0;
+    foreach ($buildings as $building) if ((int)$building['id']===$buildingId) $validBuilding=true;
     $validRelation=false;
     foreach ($relations as $relation) if ((int)$relation['id']===$relationId) $validRelation=true;
-    if (!$validRelation || $title==='' || mb_strlen($title,'UTF-8')>255) $error='Kies een actieve relatie en vul een geldige titel in.';
+    if (!$validBuilding || ($buildingId>0 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled')) $error='Kies een geldig gebouw.';
+    elseif (!$validRelation || $title==='' || mb_strlen($title,'UTF-8')>255) $error='Kies een actieve relatie en vul een geldige titel in.';
     else {
         try {
+            $db->beginTransaction();
             if ($leadId>0) {
-                $db->beginTransaction();
                 $lock=$db->prepare("SELECT id,relation_id,stage,status,converted_opportunity_id FROM office_crm_leads WHERE id=? FOR UPDATE");
                 $lock->execute([$leadId]); $lead=$lock->fetch(PDO::FETCH_ASSOC);
                 if (!$lead || $lead['stage']!=='qualified' || $lead['status']!=='active'
@@ -62,14 +70,18 @@ if ($method==='POST') {
                 }
             }
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
+            if ($buildingId>0) {
+                $link=$db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
+                $link->execute([$id,$buildingId]);
+            }
             if ($leadId>0) {
                 $update=$db->prepare("UPDATE office_crm_leads SET converted_opportunity_id=?,converted_at=NOW(),status='converted' WHERE id=? AND converted_opportunity_id IS NULL");
                 $update->execute([$id,$leadId]);
                 if ($update->rowCount()!==1) throw new DomainException('Lead is al omgezet.');
                 $event=$db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,old_stage,new_stage,note) VALUES (?,?,'converted','qualified','converted',?)");
                 $event->execute([$leadId,(string)$operator->operatorId,'Omgezet naar deal #'.$id]);
-                $db->commit();
             }
+            $db->commit();
             $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
             header('Location: /office-test/crm/verkoopkansen?created='.$id,true,303); exit;
         } catch (Throwable $e) { if ($db->inTransaction()) $db->rollBack(); $error='Deal opslaan mislukt. Controleer of de lead nog gekwalificeerd en niet omgezet is.'; }
@@ -80,4 +92,10 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
 echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$leadId.'"><label>Relatie<select name="relation_id" required><option value="">Kies een relatie</option>';
 foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)$relation['id']===$relationId?' selected':'').'>'.$h($relation['display_name']).'</option>';
-echo '</select></label><label>Naam deal<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Deal aanmaken</button></form></section></main></body></html>';
+echo '</select></label>';
+if ($buildings!==[]) {
+    echo '<label>Gebouw<select name="building_id"><option value="0">Nog geen gebouw gekoppeld</option>';
+    foreach ($buildings as $building) echo '<option value="'.(int)$building['id'].'"'.((int)$building['id']===$buildingId?' selected':'').'>'.$h($building['building_name']).'</option>';
+    echo '</select></label>';
+}
+echo '<label>Naam deal<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Deal aanmaken</button></form></section></main></body></html>';
