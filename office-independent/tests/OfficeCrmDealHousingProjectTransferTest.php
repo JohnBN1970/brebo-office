@@ -14,7 +14,8 @@ $db->exec('CREATE TABLE office_project_buildings (project_id INTEGER,building_id
 $db->exec('CREATE TABLE office_project_housing_types (project_id INTEGER,building_id INTEGER,housing_type_id INTEGER,dwelling_count INTEGER)');
 $db->exec('INSERT INTO office_housing_types VALUES (10,5),(11,5)');
 $db->exec('INSERT INTO office_crm_deal_buildings VALUES (1,5)');
-$db->exec('INSERT INTO office_crm_deal_housing_types VALUES (1,5,10,8),(1,5,11,12)');
+$db->exec('INSERT INTO office_crm_deal_housing_types VALUES (1,5,10,8),(1,5,11,12),(1,6,12,99)');
+$db->exec('INSERT INTO office_housing_types VALUES (12,6)');
 $service=new \Brebo\Office\Crm\OfficeCrmDealHousingProjectTransfer($db);
 try { $service->transfer(1,20); throw new RuntimeException('No transaction guard'); }
 catch (DomainException) {}
@@ -23,6 +24,7 @@ if ($service->transfer(1,20)!==2) throw new RuntimeException('Wrong transferred 
 $db->commit();
 if ((int)$db->query('SELECT COUNT(*) FROM office_project_buildings')->fetchColumn()!==1) throw new RuntimeException('Duplicate building');
 if ((int)$db->query('SELECT SUM(dwelling_count) FROM office_project_housing_types')->fetchColumn()!==20) throw new RuntimeException('Wrong quantities');
+if ((int)$db->query('SELECT COUNT(*) FROM office_project_housing_types WHERE building_id=6')->fetchColumn()!==0) throw new RuntimeException('Unlinked building transferred');
 $db->beginTransaction();
 if ($service->transfer(1,20)!==2) throw new RuntimeException('Exact replay not accepted');
 $db->exec('UPDATE office_project_housing_types SET dwelling_count=99 WHERE housing_type_id=10');
