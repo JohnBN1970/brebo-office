@@ -128,7 +128,7 @@ try {
             if($collaboration===null||$materialSource===null)throw new DomainException('Geen materiaalrecht.');
             $articleId=filter_var($_POST['supplier_article_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$priceId=filter_var($_POST['price_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             $materialQuantity=str_replace(',','.',trim((string)($_POST['material_quantity']??'1')));
-            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
+            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
             $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
             $targetLine=trim((string)($_POST['material_line_id']??''));
             if($targetLine!==''&&!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$targetLine))$deny(400,'INVALID_LINE_ID');
@@ -156,14 +156,14 @@ try {
         $exactQuantity=null;$exactUnitCost=null;$unit=null;
         if($collaborationEnabled){
             $exactQuantity=str_replace(',','.',trim((string)($_POST['quantity']??'')));
-            if(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
+            if(!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
             $quantity=1;$unit=trim((string)($_POST['unit']??''));
         }else $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
         // Legacy callers use cents; reviewed native inputs preserve four decimal places.
         $price=$_POST['unit_price_eur']??null;
         if (!is_string($price)) $deny(400,'INVALID_PRICE');
         $price=trim(str_replace(',', '.', $price));
-        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
+        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
         [$whole,$fraction]=array_pad(explode('.',$price,2),2,'');
         $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
         if($collaborationEnabled)$exactUnitCost=$price;
@@ -185,14 +185,14 @@ try {
                 if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
                 if($loss!==''){
                     if((string)($_POST['cost_type']??'')!=='material')$deny(400,'ADJUSTMENT_TYPE');
-                    if(!preg_match('/^[0-9]{1,3}(?:\\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
+                    if(!preg_match('/^[0-9]{1,3}(?:\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
                     $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
                     $exactQuantity=$calc['gross_quantity'];
                     $adjustmentMetadata=['net_quantity'=>$calc['net_quantity'],'material_loss_percent'=>$loss,'extra_labor_hours'=>null];
                 }else{
                     if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
-                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
+                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
                     $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
                     $exactQuantity=$calc['total_hours'];
@@ -234,7 +234,7 @@ try {
                 $raw=$_POST['component_'.$kind]??null;
                 if(!is_string($raw))$deny(400,'INVALID_COMPONENT');
                 $amount=str_replace(',','.',trim($raw));
-                if(!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
+                if(!preg_match('/^[0-9]{1,8}(?:\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
                 $components[$kind]=$amount;
             }
             if($labor!==null||trim((string)($_POST['material_loss_percent']??''))!==''||trim((string)($_POST['extra_labor_hours']??''))!=='')$deny(400,'COMPONENT_MODE_CONFLICT');
@@ -257,7 +257,7 @@ if(getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
     && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled'){
     try{
         require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDealHousingReader.php';
-        $dealHousingRows=(new \\Brebo\\Office\\Calculation\\OfficeCalcDealHousingReader($db))->forDraft($draft);
+        $dealHousingRows=(new \Brebo\Office\Calculation\OfficeCalcDealHousingReader($db))->forDraft($draft);
     }catch(Throwable){$dealHousingWarning='Woningtypeverdeling uit Deal tijdelijk niet beschikbaar.';}
 }
 $calcHeadings=[];$calcHeadingWarning='';
@@ -620,7 +620,7 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   const status=document.getElementById("calc-element-search-status");
   if(!search||!list||!status)return;
   const items=Array.from(list.querySelectorAll("li"));
-  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   const filter=()=>{
     const query=normalize(search.value);
     let visible=0;
