@@ -63,6 +63,30 @@ if ($method==='POST') {
             http_response_code(503); exit('Projectoverdracht nog niet beschikbaar; geen project bevestigd.');
         }
     }
+    if ($action==='save_deal_housing') {
+        if (getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')!=='enabled'
+            || getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')!=='enabled'
+            || $item['status']!=='open') { http_response_code(403); exit('Woningtypen wijzigen niet beschikbaar.'); }
+        $buildingId=filter_var($_POST['building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $typeId=filter_var($_POST['housing_type_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $count=filter_var($_POST['dwelling_count']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>100000]]);
+        $revision=filter_var($_POST['expected_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>0]]);
+        if (!is_int($buildingId)||!is_int($typeId)||!is_int($count)||!is_int($revision)) {
+            http_response_code(400); exit('Ongeldige woningtypegegevens.');
+        }
+        try {
+            require_once dirname(__DIR__).'/src/Crm/OfficeCrmDealHousingWriter.php';
+            (new \\Brebo\\Office\\Crm\\OfficeCrmDealHousingWriter($db))->save(
+                $id,$buildingId,$typeId,$count,(int)$operator->operatorId,$revision
+            );
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/verkoopkansen/wijzigen?id='.$id,true,303); exit;
+        } catch (DomainException|InvalidArgumentException $e) {
+            http_response_code(409); exit('Woningtype niet opgeslagen: '.$h($e->getMessage()));
+        } catch (Throwable $e) {
+            http_response_code(503); exit('Woningtype opslaan tijdelijk niet beschikbaar.');
+        }
+    }
     if ($action!=='') { http_response_code(400); exit('Ongeldige opdracht.'); }
     if ($item['status'] !== 'open') { http_response_code(409); exit('Afgesloten deal kan niet worden gewijzigd.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
@@ -123,6 +147,38 @@ if ($item['stage']==='won') {
     }
 }
 
+// Deal quantities are the commercial source; project quantities are not edited here.
+if (\\Brebo\\Office\\Intake\\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
+    && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled') {
+    try {
+        $types=$db->query('SELECT ht.id,ht.building_id,ht.code,ht.name,b.building_name FROM office_housing_types ht JOIN office_buildings b ON b.id=ht.building_id ORDER BY b.building_name,ht.code LIMIT 1000')->fetchAll(PDO::FETCH_ASSOC);
+        $current=$db->prepare('SELECT building_id,housing_type_id,dwelling_count,revision FROM office_crm_deal_housing_types WHERE opportunity_id=?');
+        $current->execute([$id]);
+        $existing=[];
+        foreach ($current->fetchAll(PDO::FETCH_ASSOC) as $record) {
+            $existing[(int)$record['housing_type_id'].'-'.(int)$record['building_id']]=$record;
+        }
+        echo '<section><h2>Woningtypen en aantallen</h2><p>Commerciële scope van deze Deal, vóór calculatie en projectaanmaak.</p>';
+        if ($types===[]) echo '<p>Maak eerst woningtypen aan bij Gebouwen.</p>';
+        foreach ($types as $type) {
+            $key=(int)$type['id'].'-'.(int)$type['building_id'];
+            $record=$existing[$key]??null;
+            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'">'
+                .'<input type="hidden" name="action" value="save_deal_housing">'
+                .'<input type="hidden" name="building_id" value="'.(int)$type['building_id'].'">'
+                .'<input type="hidden" name="housing_type_id" value="'.(int)$type['id'].'">'
+                .'<input type="hidden" name="expected_revision" value="'.(int)($record['revision']??0).'">'
+                .'<label>'.$h($type['building_name']).' — '.$h($type['code']).' '.$h($type['name'])
+                .'<input type="number" name="dwelling_count" min="1" max="100000" required value="'.$h($record['dwelling_count']??'').'"'.($item['status']!=='open'?' disabled':'').'></label>';
+            if ($item['status']==='open') echo '<button type="submit">Aantal opslaan</button>';
+            echo '</form>';
+        }
+        echo '</section>';
+    } catch (Throwable $e) {
+        echo '<p role="status">Woningtypen niet beschikbaar. Controleer eerst de schema-acceptatie.</p>';
+    }
+}
 if ($next===[]) echo '<p>Geen volgende fase beschikbaar.</p>';
 else {
     echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><label>Volgende fase<select name="stage">';
