@@ -20,17 +20,18 @@ final class OfficeCrmDealHousingWriter
         if ($this->db->inTransaction()) throw new DomainException('Transactie al actief.');
         $this->db->beginTransaction();
         try {
-            $deal = $this->db->prepare('SELECT stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql' ? ' FOR UPDATE' : '';
+            $deal = $this->db->prepare('SELECT stage,status FROM office_crm_opportunities WHERE id=?'.$lock);
             $deal->execute([$dealId]);
             $state = $deal->fetch(PDO::FETCH_ASSOC);
-            if (!is_array($state) || in_array($state['stage'], ['won','lost'], true)
-                || in_array($state['status'], ['won','closed'], true)) {
+            if (!is_array($state) || (string)$state['status'] !== 'open'
+                || in_array($state['stage'], ['won','lost'], true)) {
                 throw new DomainException('Deal is niet wijzigbaar.');
             }
             $type = $this->db->prepare('SELECT id FROM office_housing_types WHERE id=? AND building_id=?');
             $type->execute([$housingTypeId,$buildingId]);
             if ($type->fetchColumn() === false) throw new DomainException('Woningtype hoort niet bij dit gebouw.');
-            $current = $this->db->prepare('SELECT dwelling_count,revision FROM office_crm_deal_housing_types WHERE opportunity_id=? AND building_id=? AND housing_type_id=? FOR UPDATE');
+            $current = $this->db->prepare('SELECT dwelling_count,revision FROM office_crm_deal_housing_types WHERE opportunity_id=? AND building_id=? AND housing_type_id=?'.$lock);
             $current->execute([$dealId,$buildingId,$housingTypeId]);
             $row = $current->fetch(PDO::FETCH_ASSOC);
             $revision = $row === false ? 0 : (int)$row['revision'];
