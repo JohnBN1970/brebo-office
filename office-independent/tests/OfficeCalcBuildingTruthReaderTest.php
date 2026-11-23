@@ -46,4 +46,25 @@ try {
 } catch (InvalidArgumentException) {
     // Expected.
 }
+
+$building = $reader->forBuilding(1);
+if ($building !== [
+    'building_id' => 1,
+    'name' => 'Blok A',
+    'housing_types' => [
+        ['id' => 11, 'code' => 'NLSFB-01', 'name' => 'Appartement'],
+        ['id' => 12, 'code' => 'STABU-02', 'name' => 'Studio'],
+    ],
+]) {
+    throw new RuntimeException('Projectless building snapshot mismatch: ' . json_encode($building));
+}
+if ($reader->forBuilding(2)['housing_types'] !== [] || $reader->forBuilding(999) !== null) {
+    throw new RuntimeException('Projectless building empty/missing handling failed');
+}
+try {
+    $reader->forBuilding(0);
+    throw new RuntimeException('Invalid building ID accepted');
+} catch (InvalidArgumentException) {
+    // Expected.
+}
 echo "OFFICE_CALC_BUILDING_TRUTH_READER_PASS\n";
