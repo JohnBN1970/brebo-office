@@ -18,6 +18,7 @@ final class OfficeCrmDealHousingProjectTransfer
         $read=$this->db->prepare(
             'SELECT h.building_id,h.housing_type_id,h.dwelling_count FROM office_crm_deal_housing_types h ' .
             'INNER JOIN office_housing_types t ON t.id=h.housing_type_id AND t.building_id=h.building_id ' .
+            'INNER JOIN office_crm_deal_buildings dl ON dl.opportunity_id=h.opportunity_id AND dl.building_id=h.building_id ' .
             'WHERE h.opportunity_id=? ORDER BY h.building_id,h.housing_type_id'
         );
         $read->execute([$dealId]);
