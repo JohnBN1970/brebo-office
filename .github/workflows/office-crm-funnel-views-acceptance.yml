@@ -7,6 +7,8 @@ on:
     paths:
       - 'office-independent/src/Crm/OfficeCrmFunnel*.php'
       - 'office-independent/tests/OfficeCrmFunnelViewsTest.php'
+      - 'office-independent/tests/OfficeCrmDealCalcVisibilityTest.php'
+      - 'office-independent/public/office-crm-opportunities.php'
       - '.github/workflows/office-crm-funnel-views-acceptance.yml'
 permissions:
   contents: read
@@ -19,3 +21,4 @@ jobs:
           php -l office-independent/src/Crm/OfficeCrmFunnel.php
           php -l office-independent/src/Crm/OfficeCrmFunnelViews.php
           php office-independent/tests/OfficeCrmFunnelViewsTest.php
+          php office-independent/tests/OfficeCrmDealCalcVisibilityTest.php
