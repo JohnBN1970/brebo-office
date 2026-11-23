@@ -8,10 +8,12 @@ if (!in_array('sqlite',PDO::getAvailableDrivers(),true)) {
 $db=new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_crm_deal_housing_types (opportunity_id INTEGER,building_id INTEGER,housing_type_id INTEGER,dwelling_count INTEGER)');
+$db->exec('CREATE TABLE office_crm_deal_buildings (opportunity_id INTEGER,building_id INTEGER)');
 $db->exec('CREATE TABLE office_housing_types (id INTEGER,building_id INTEGER)');
 $db->exec('CREATE TABLE office_project_buildings (project_id INTEGER,building_id INTEGER,PRIMARY KEY(project_id,building_id))');
 $db->exec('CREATE TABLE office_project_housing_types (project_id INTEGER,building_id INTEGER,housing_type_id INTEGER,dwelling_count INTEGER)');
 $db->exec('INSERT INTO office_housing_types VALUES (10,5),(11,5)');
+$db->exec('INSERT INTO office_crm_deal_buildings VALUES (1,5)');
 $db->exec('INSERT INTO office_crm_deal_housing_types VALUES (1,5,10,8),(1,5,11,12)');
 $service=new \Brebo\Office\Crm\OfficeCrmDealHousingProjectTransfer($db);
 try { $service->transfer(1,20); throw new RuntimeException('No transaction guard'); }
