@@ -1,3 +1,12 @@
+-- HARD BLOCKER (2026-11-23): DO NOT EXECUTE THIS FILE AS-IS.
+-- The existing Office project calculation identity contract documents
+-- calculations.office_calculation_id -> office_calc_calculations.id.
+-- The proposed FK below instead points to office_calc_crm_drafts.id.
+-- This could prevent project calculations from using the same canonical store.
+-- The correct shared identity / project-free Deal mapping must be implemented,
+-- covered by integration tests, and explicitly approved before installation.
+-- The restored Office-test backup passed, but that does NOT resolve this blocker.
+--
 -- BREBO Office-test CRM -> Calc canonical draft bootstrap (REVIEW ONLY).
 -- NOT AN AUTOMATIC MIGRATION. Never apply to production or to an unverified schema.
 -- Prerequisites: backup, isolated DB identity = brebo_office_test, zero existing target
