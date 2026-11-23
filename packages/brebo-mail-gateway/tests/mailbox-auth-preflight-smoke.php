@@ -21,7 +21,7 @@ $run = static function (string $mailboxes, string $users) use ($directory, $scri
   return [$status, implode("\n", $output)];
 };
 
-$hash = '{ARGON2ID}' . str_repeat('x', 40);
+$hash = '{ARGON2ID}' . password_hash('test-only-long-password-1234', PASSWORD_ARGON2ID);
 $cases = [
   'empty maps blocked' => ['', '', false],
   'placeholder blocked' => ["test@example.invalid 1\n", "test@example.invalid:*::::::\n", false],
