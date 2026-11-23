@@ -45,7 +45,7 @@ final class OfficeCrmFunnelViews {
         $out .= '<div class="crm-calendar">';
         foreach ($calendar as $date=>$rows) {
             $out .= '<section><h2>'.self::h($date).'</h2>';
-            foreach ($rows as $item) $out .= self::card($item);
+            foreach ($rows as $item) $out .= self::card($item, $calcEnabled);
             $out .= '</section>';
         }
         return $out.'</div>';
@@ -70,6 +70,6 @@ final class OfficeCrmFunnelViews {
         return $dealLink;
     }
     private static function card(array $item, bool $calcEnabled): string {
-        return '<article draggable="true" data-crm-id="'.(int)($item['id']??0).'" data-crm-stage="'.self::h($item['stage']??'').'" style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px;cursor:grab"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
+        return '<article draggable="true" data-crm-id="'.(int)($item['id']??0).'" data-crm-stage="'.self::h($item['stage']??'').'" style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px;cursor:grab"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item, $calcEnabled).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
     }
 }
