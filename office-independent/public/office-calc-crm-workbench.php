@@ -252,6 +252,14 @@ try {
 catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
 catch (PDOException) { $deny(503,'DATABASE'); }
 catch (Throwable) { $deny(503,'RUNTIME'); }
+$dealHousingRows=[];$dealHousingWarning='';
+if(getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
+    && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled'){
+    try{
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDealHousingReader.php';
+        $dealHousingRows=(new \\Brebo\\Office\\Calculation\\OfficeCalcDealHousingReader($db))->forDraft($draft);
+    }catch(Throwable){$dealHousingWarning='Woningtypeverdeling uit Deal tijdelijk niet beschikbaar.';}
+}
 $calcHeadings=[];$calcHeadingWarning='';
 if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
     try{
@@ -340,6 +348,19 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
 .calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}</style></head><body><main><nav class="calc-topbar" aria-label="Werkbalk calculatie"><a href="/office-test/">← Terug naar hoofdmenu</a><div class="calc-topbar-right"><details class="calc-account-menu"><summary aria-label="Profiel en account">👤 Profiel ▾</summary><div class="calc-account-dropdown"><span class="unavailable" aria-disabled="true">Mijn profiel · binnenkort</span><a href="/office-test/inloggen">Inloggen</a><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details><span class="calc-topbar-settings" title="Instellingen worden later ingericht" aria-disabled="true">⚙ Instellingen</span></div></nav><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+if($dealHousingRows!==[]||$dealHousingWarning!==''){
+    $housingEscape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+    echo '<section class="calc-deal-housing"><h2>Woningtypen vanuit Deal</h2><p>Commerciële aantallen, alleen-lezen. De calculatie blijft een concept zonder project.</p>';
+    if($dealHousingWarning!=='')echo '<p role="status">'.$housingEscape($dealHousingWarning).'</p>';
+    if($dealHousingRows!==[]){
+        echo '<table><thead><tr><th>Gebouw</th><th>Woningtype</th><th>Aantal</th><th>Revisie</th></tr></thead><tbody>';
+        foreach($dealHousingRows as $housing){
+            echo '<tr><td>'.$housingEscape($housing['building_name']).'</td><td>'.$housingEscape($housing['housing_type_code']).' — '.$housingEscape($housing['housing_type_name']).'</td><td>'.(int)$housing['dwelling_count'].'</td><td>'.(int)$housing['revision'].'</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+    echo '</section>';
+}
 echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
 echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
