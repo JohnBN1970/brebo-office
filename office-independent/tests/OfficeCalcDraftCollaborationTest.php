@@ -6,14 +6,15 @@ $db=new PDO('sqlite::memory:',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTI
 foreach([
  'CREATE TABLE office_operator_accounts(id INTEGER PRIMARY KEY,username TEXT,active INTEGER,can_edit_crm INTEGER)',
  'CREATE TABLE office_crm_opportunities(id INTEGER PRIMARY KEY,revision INTEGER,stage TEXT,status TEXT)',
- 'CREATE TABLE office_calc_crm_drafts(id INTEGER PRIMARY KEY,opportunity_id INTEGER,crm_revision INTEGER,project_id INTEGER,created_by INTEGER)',
+ 'CREATE TABLE office_calc_calculations(id INTEGER PRIMARY KEY,project_id INTEGER)',
+ 'CREATE TABLE office_calc_crm_drafts(id INTEGER PRIMARY KEY,opportunity_id INTEGER,crm_revision INTEGER,project_id INTEGER,created_by INTEGER,calculation_id INTEGER UNIQUE)',
  'CREATE TABLE calculations(id INTEGER PRIMARY KEY AUTOINCREMENT,office_project_id INTEGER,office_calculation_id INTEGER UNIQUE,code TEXT UNIQUE,title TEXT,status TEXT)',
  'CREATE TABLE calculation_versions(id INTEGER PRIMARY KEY AUTOINCREMENT,calculation_id INTEGER,version_no INTEGER,status TEXT,direct_cost NUMERIC DEFAULT 0)',
  'CREATE TABLE calculation_lines(id INTEGER PRIMARY KEY AUTOINCREMENT,version_id INTEGER,parent_id INTEGER,sort_order INTEGER,line_type TEXT,code TEXT,description TEXT,unit TEXT,quantity NUMERIC,labour_unit_cost NUMERIC DEFAULT 0,material_unit_cost NUMERIC DEFAULT 0,equipment_unit_cost NUMERIC DEFAULT 0,subcontracting_unit_cost NUMERIC DEFAULT 0,other_unit_cost NUMERIC DEFAULT 0)',
  'CREATE TABLE office_calc_crm_draft_collaborators(draft_id INTEGER,operator_id TEXT,granted_by TEXT,PRIMARY KEY(draft_id,operator_id))',
  'CREATE TABLE office_calc_crm_draft_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,draft_id INTEGER,actor_id TEXT,event_kind TEXT,reason TEXT,before_json TEXT,after_json TEXT,content_hash TEXT,created_at TEXT)'
 ]as$sql)$db->exec($sql);
-$db->exec("INSERT INTO office_operator_accounts VALUES(7,'Owner',1,1),(8,'Calculator',1,1),(9,'Other',1,1),(10,'Inactive',0,1); INSERT INTO office_crm_opportunities VALUES(11,4,'proposal','open'); INSERT INTO office_calc_crm_drafts VALUES(1,11,4,NULL,7),(2,11,4,NULL,9)");
+$db->exec("INSERT INTO office_operator_accounts VALUES(7,'Owner',1,1),(8,'Calculator',1,1),(9,'Other',1,1),(10,'Inactive',0,1); INSERT INTO office_crm_opportunities VALUES(11,4,'proposal','open'); INSERT INTO office_calc_calculations VALUES(101,NULL),(102,NULL); INSERT INTO office_calc_crm_drafts VALUES(1,11,4,NULL,7,101),(2,11,4,NULL,9,102)");
 putenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED=enabled');$repo=new OfficeCalcCrmDraftLineRepository($db);$collab=new OfficeCalcDraftCollaboration($db);
 $rights=static fn(PDO $db,int $actor,int $opp):bool=>$opp===11&&$collab->canEdit($actor,1);
 $expect=static function(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);};
