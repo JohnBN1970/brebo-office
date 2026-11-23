@@ -15,6 +15,49 @@ final class OfficeCalcBuildingTruthReader
     {
     }
 
+    /**
+     * Deal-stage building truth without inventing a project or dwelling counts.
+     * Housing types belong to the building; project-specific counts are unavailable
+     * until a verified project assignment exists.
+     *
+     * @return array{building_id:int,name:string,housing_types:list<array{id:int,code:string,name:string}>}|null
+     */
+    public function forBuilding(int $buildingId): ?array
+    {
+        if ($buildingId < 1) {
+            throw new \InvalidArgumentException('Invalid building ID');
+        }
+
+        $statement = $this->db->prepare(
+            'SELECT b.id AS building_id, b.building_name AS building_name,
+                    ht.id AS housing_type_id, ht.code AS housing_type_code,
+                    ht.name AS housing_type_name
+             FROM office_buildings b
+             LEFT JOIN office_housing_types ht ON ht.building_id = b.id
+             WHERE b.id = :building_id
+             ORDER BY ht.name, ht.id'
+        );
+        $statement->execute([':building_id' => $buildingId]);
+        $building = null;
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if ($building === null) {
+                $building = [
+                    'building_id' => (int) $row['building_id'],
+                    'name' => (string) $row['building_name'],
+                    'housing_types' => [],
+                ];
+            }
+            if ($row['housing_type_id'] !== null) {
+                $building['housing_types'][] = [
+                    'id' => (int) $row['housing_type_id'],
+                    'code' => (string) $row['housing_type_code'],
+                    'name' => (string) $row['housing_type_name'],
+                ];
+            }
+        }
+        return $building;
+    }
+
     /** @return array{project_id:int,buildings:list<array{id:int,name:string,housing_types:list<array{id:int,code:string,name:string,dwelling_count:int}>}>} */
     public function forProject(int $projectId): array
     {
