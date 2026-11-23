@@ -7,7 +7,7 @@ final class OfficeCrmFunnelViews {
     private static function h(mixed $value): string {
         return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
-    public static function render(array $items, string $view, string $base = '/office-test/crm/funnel'): string {
+    public static function render(array $items, string $view, string $base = '/office-test/crm/funnel', bool $calcEnabled = false): string {
         $view = OfficeCrmFunnel::normalizeView($view);
         $out = '<nav class="crm-view-switch" aria-label="CRM-weergave">';
         foreach (['kanban'=>'Kanban','list'=>'Lijst','calendar'=>'Kalender'] as $key=>$label) {
@@ -23,7 +23,7 @@ final class OfficeCrmFunnelViews {
             $out .= '<div class="crm-kanban" style="display:flex;gap:12px;overflow-x:auto">';
             foreach ($groups as $stage=>$rows) {
                 $out .= '<section data-crm-stage="'.self::h($stage).'" style="min-width:210px;flex:1;border:1px solid #ddd;padding:12px;border-radius:8px"><h2>'.self::h(OfficeCrmFunnel::label($stage)).' ('.count($rows).')</h2>';
-                foreach ($rows as $item) $out .= self::card($item);
+                foreach ($rows as $item) $out .= self::card($item, $calcEnabled);
                 $out .= '</section>';
             }
             return $out.'</div>';
@@ -31,7 +31,7 @@ final class OfficeCrmFunnelViews {
         if ($view === 'list') {
             $out .= '<table><thead><tr><th>Relatie / lead</th><th>Fase</th><th>Volgende actie</th><th>Datum</th></tr></thead><tbody>';
             foreach ($items as $item) {
-                $out .= '<tr><td>'.self::h($item['name']??'').self::action($item).'</td><td>'.self::h(OfficeCrmFunnel::label((string)($item['stage']??''))).'</td><td>'.self::h($item['next_action']??'').'</td><td>'.self::h($item['due_date']??'').'</td></tr>';
+                $out .= '<tr><td>'.self::h($item['name']??'').self::action($item, $calcEnabled).'</td><td>'.self::h(OfficeCrmFunnel::label((string)($item['stage']??''))).'</td><td>'.self::h($item['next_action']??'').'</td><td>'.self::h($item['due_date']??'').'</td></tr>';
             }
             return $out.'</tbody></table>';
         }
@@ -50,7 +50,7 @@ final class OfficeCrmFunnelViews {
         }
         return $out.'</div>';
     }
-    private static function action(array $item): string {
+    private static function action(array $item, bool $calcEnabled): string {
         $id=filter_var($item['id']??null,FILTER_VALIDATE_INT);
         if ($id===false || $id<1) return '';
         // Every Deal remains reachable from list, calendar and Kanban, even
@@ -63,9 +63,13 @@ final class OfficeCrmFunnelViews {
                 : ' <span class="crm-project-handoff-pending">Projectoverdracht nog niet bevestigd</span>');
         }
         if ((string)($item['stage']??'')==='lost') return $dealLink;
+        $open = (string)($item['status']??'open') === 'open';
+        if ($open && $calcEnabled && in_array((string)($item['stage']??''), ['prospect','opportunity','proposal','negotiation'],true)) {
+            return $dealLink.' <a href="/office-test/calculatie/start?opportunity_id='.$id.'">Calculatie starten of openen</a>';
+        }
         return $dealLink;
     }
-    private static function card(array $item): string {
+    private static function card(array $item, bool $calcEnabled): string {
         return '<article draggable="true" data-crm-id="'.(int)($item['id']??0).'" data-crm-stage="'.self::h($item['stage']??'').'" style="padding:10px;margin:8px 0;background:#f4f6f9;border-radius:6px;cursor:grab"><strong>'.self::h($item['name']??'').'</strong>'.self::action($item).'<p>'.self::h($item['next_action']??'').'</p><small>'.self::h($item['due_date']??'').'</small></article>';
     }
 }
