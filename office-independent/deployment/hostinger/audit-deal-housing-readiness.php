@@ -15,6 +15,7 @@ try {
         'office_housing_types'=>['id','building_id','code','name'],
         'office_project_buildings'=>['project_id','building_id'],
         'office_project_housing_types'=>['project_id','building_id','housing_type_id','dwelling_count'],
+        'office_crm_deal_buildings'=>['opportunity_id','building_id','linked_by'],
         'office_crm_deal_housing_types'=>['opportunity_id','building_id','housing_type_id','dwelling_count','revision','updated_by'],
         'office_crm_deal_housing_events'=>['opportunity_id','building_id','housing_type_id','old_count','new_count','revision','changed_by'],
     ];
