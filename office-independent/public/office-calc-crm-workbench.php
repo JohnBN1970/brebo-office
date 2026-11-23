@@ -128,7 +128,7 @@ try {
             if($collaboration===null||$materialSource===null)throw new DomainException('Geen materiaalrecht.');
             $articleId=filter_var($_POST['supplier_article_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$priceId=filter_var($_POST['price_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             $materialQuantity=str_replace(',','.',trim((string)($_POST['material_quantity']??'1')));
-            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
+            if(!is_int($articleId)||!is_int($priceId)||!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$materialQuantity)||bccomp($materialQuantity,'0',4)<=0)$deny(400,'INVALID_MATERIAL');
             $source=$materialSource->choose($operator->operatorId,$articleId,$priceId,(new DateTimeImmutable('now',new DateTimeZone('Europe/Amsterdam')))->format('Y-m-d'));
             $targetLine=trim((string)($_POST['material_line_id']??''));
             if($targetLine!==''&&!preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$targetLine))$deny(400,'INVALID_LINE_ID');
@@ -156,14 +156,14 @@ try {
         $exactQuantity=null;$exactUnitCost=null;$unit=null;
         if($collaborationEnabled){
             $exactQuantity=str_replace(',','.',trim((string)($_POST['quantity']??'')));
-            if(!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
+            if(!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$exactQuantity)||bccomp($exactQuantity,'0',4)<=0)$deny(400,'INVALID_QUANTITY_OR_COST');
             $quantity=1;$unit=trim((string)($_POST['unit']??''));
         }else $quantity=filter_var($_POST['quantity']??null,FILTER_VALIDATE_INT);
         // Legacy callers use cents; reviewed native inputs preserve four decimal places.
         $price=$_POST['unit_price_eur']??null;
         if (!is_string($price)) $deny(400,'INVALID_PRICE');
         $price=trim(str_replace(',', '.', $price));
-        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
+        if (!preg_match($collaborationEnabled?'/^[0-9]{1,8}(?:\.[0-9]{1,4})?$/D':'/^(?:0|[1-9][0-9]{0,9})(?:\.[0-9]{1,2})?$/D',$price)) $deny(400,'INVALID_PRICE');
         [$whole,$fraction]=array_pad(explode('.',$price,2),2,'');
         $cost=((int)$whole)*100+(int)substr(str_pad($fraction,2,'0'),0,2);
         if($collaborationEnabled)$exactUnitCost=$price;
@@ -185,14 +185,14 @@ try {
                 if($loss!==''&&$extra!=='')$deny(400,'ADJUSTMENT_CONFLICT');
                 if($loss!==''){
                     if((string)($_POST['cost_type']??'')!=='material')$deny(400,'ADJUSTMENT_TYPE');
-                    if(!preg_match('/^[0-9]{1,3}(?:\\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
+                    if(!preg_match('/^[0-9]{1,3}(?:\.[0-9]{1,2})?$/D',$loss)||bccomp($loss,'100',2)>0)$deny(400,'INVALID_MATERIAL_LOSS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::material($exactQuantity,$loss,$price);
                     $adjustmentReason='Netto '.$calc['net_quantity'].' + '.$loss.'% materiaalverlies = '.$calc['gross_quantity'].' '.$unit;
                     $exactQuantity=$calc['gross_quantity'];
                     $adjustmentMetadata=['net_quantity'=>$calc['net_quantity'],'material_loss_percent'=>$loss,'extra_labor_hours'=>null];
                 }else{
                     if((string)($_POST['cost_type']??'')!=='labor')$deny(400,'ADJUSTMENT_TYPE');
-                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
+                    if($unit!=='uur'||!preg_match('/^[0-9]{1,6}(?:\.[0-9]{1,4})?$/D',$extra))$deny(400,'INVALID_EXTRA_HOURS');
                     $calc=\Brebo\Office\Calculation\OfficeCalcQuantityAdjustments::labor($exactQuantity,$extra,$price);
                     $adjustmentReason='Basis '.$calc['base_hours'].' + '.$extra.' extra uren = '.$calc['total_hours'].' uur';
                     $exactQuantity=$calc['total_hours'];
@@ -234,7 +234,7 @@ try {
                 $raw=$_POST['component_'.$kind]??null;
                 if(!is_string($raw))$deny(400,'INVALID_COMPONENT');
                 $amount=str_replace(',','.',trim($raw));
-                if(!preg_match('/^[0-9]{1,8}(?:\\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
+                if(!preg_match('/^[0-9]{1,8}(?:\.[0-9]{1,4})?$/D',$amount))$deny(400,'INVALID_COMPONENT');
                 $components[$kind]=$amount;
             }
             if($labor!==null||trim((string)($_POST['material_loss_percent']??''))!==''||trim((string)($_POST['extra_labor_hours']??''))!=='')$deny(400,'COMPONENT_MODE_CONFLICT');
@@ -252,6 +252,14 @@ try {
 catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
 catch (PDOException) { $deny(503,'DATABASE'); }
 catch (Throwable) { $deny(503,'RUNTIME'); }
+$dealHousingRows=[];$dealHousingWarning='';
+if(getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
+    && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled'){
+    try{
+        require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDealHousingReader.php';
+        $dealHousingRows=(new \Brebo\Office\Calculation\OfficeCalcDealHousingReader($db))->forDraft($draft);
+    }catch(Throwable){$dealHousingWarning='Woningtypeverdeling uit Deal tijdelijk niet beschikbaar.';}
+}
 $calcHeadings=[];$calcHeadingWarning='';
 if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
     try{
@@ -340,6 +348,19 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
 .calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}</style></head><body><main><nav class="calc-topbar" aria-label="Werkbalk calculatie"><a href="/office-test/">← Terug naar hoofdmenu</a><div class="calc-topbar-right"><details class="calc-account-menu"><summary aria-label="Profiel en account">👤 Profiel ▾</summary><div class="calc-account-dropdown"><span class="unavailable" aria-disabled="true">Mijn profiel · binnenkort</span><a href="/office-test/inloggen">Inloggen</a><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details><span class="calc-topbar-settings" title="Instellingen worden later ingericht" aria-disabled="true">⚙ Instellingen</span></div></nav><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+if($dealHousingRows!==[]||$dealHousingWarning!==''){
+    $housingEscape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+    echo '<section class="calc-deal-housing"><h2>Woningtypen vanuit Deal</h2><p>Commerciële aantallen, alleen-lezen. De calculatie blijft een concept zonder project.</p>';
+    if($dealHousingWarning!=='')echo '<p role="status">'.$housingEscape($dealHousingWarning).'</p>';
+    if($dealHousingRows!==[]){
+        echo '<table><thead><tr><th>Gebouw</th><th>Woningtype</th><th>Aantal</th><th>Revisie</th></tr></thead><tbody>';
+        foreach($dealHousingRows as $housing){
+            echo '<tr><td>'.$housingEscape($housing['building_name']).'</td><td>'.$housingEscape($housing['housing_type_code']).' — '.$housingEscape($housing['housing_type_name']).'</td><td>'.(int)$housing['dwelling_count'].'</td><td>'.(int)$housing['revision'].'</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+    echo '</section>';
+}
 echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li>'.$h($element).'</li>';}
 echo '</ul><p class="muted">Classificatie als referentie; koppeling aan calculatieparagrafen volgt.</p></aside><div class="workspace"><div class="metrics">';
@@ -599,7 +620,7 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   const status=document.getElementById("calc-element-search-status");
   if(!search||!list||!status)return;
   const items=Array.from(list.querySelectorAll("li"));
-  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   const filter=()=>{
     const query=normalize(search.value);
     let visible=0;

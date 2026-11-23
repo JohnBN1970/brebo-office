@@ -1,0 +1,39 @@
+name: CRM Deal housing contracts
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmDealHousing*.php'
+      - 'office-independent/src/Calculation/OfficeCalcDealHousingReader.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmTransferService.php'
+      - 'office-independent/deployment/hostinger/audit-deal-housing-readiness.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/public/office-calc-crm-workbench.php'
+      - 'office-independent/tests/OfficeCrmDealHousing*.php'
+      - 'office-independent/tests/OfficeCalcDealHousingReaderTest.php'
+      - 'office-independent/deployment/hostinger/sql/office-test-deal-housing-scope-review.sql'
+      - '.github/workflows/office-crm-deal-housing-contracts.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'office-independent/src/Crm/OfficeCrmDealHousing*.php'
+      - 'office-independent/src/Calculation/OfficeCalcDealHousingReader.php'
+      - 'office-independent/tests/OfficeCrmDealHousing*.php'
+      - '.github/workflows/office-crm-deal-housing-contracts.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax and Deal housing contracts
+        run: |
+          php -l office-independent/src/Crm/OfficeCrmDealHousingWriter.php
+          php -l office-independent/src/Crm/OfficeCrmDealHousingProjectTransfer.php
+          php -l office-independent/src/Calculation/OfficeCalcDealHousingReader.php
+          php -l office-independent/src/Calculation/OfficeCalcCrmTransferService.php
+          php -l office-independent/deployment/hostinger/audit-deal-housing-readiness.php
+          php -l office-independent/public/office-crm-opportunity-transition.php
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php office-independent/tests/OfficeCalcDealHousingReaderTest.php
+          php office-independent/tests/OfficeCrmDealHousingWriterTest.php
+          php office-independent/tests/OfficeCrmDealHousingHttpContractTest.php
+          php office-independent/tests/OfficeCrmDealHousingProjectTransferTest.php

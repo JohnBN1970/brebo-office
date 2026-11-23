@@ -1,0 +1,76 @@
+<?php
+declare(strict_types=1);
+namespace Brebo\Office\Crm;
+
+use DomainException;
+use PDO;
+
+/** Copies accepted Deal housing quantities in the existing project-creation transaction. */
+final class OfficeCrmDealHousingProjectTransfer
+{
+    public function __construct(private readonly PDO $db) {}
+
+    public function transfer(int $dealId, int $projectId): int
+    {
+        if ($dealId < 1 || $projectId < 1 || !$this->db->inTransaction()) {
+            throw new DomainException('Housing transfer requires an active acceptance transaction');
+        }
+        $read=$this->db->prepare(
+            'SELECT h.building_id,h.housing_type_id,h.dwelling_count FROM office_crm_deal_housing_types h ' .
+            'INNER JOIN office_housing_types t ON t.id=h.housing_type_id AND t.building_id=h.building_id ' .
+            'INNER JOIN office_crm_deal_buildings dl ON dl.opportunity_id=h.opportunity_id AND dl.building_id=h.building_id ' .
+            'WHERE h.opportunity_id=? ORDER BY h.building_id,h.housing_type_id'
+        );
+        $read->execute([$dealId]);
+        $rows=$read->fetchAll(PDO::FETCH_ASSOC);
+        // Never silently discard a commercial quantity if its building/type
+        // association is invalid. Acceptance must be corrected before project creation.
+        $total=$this->db->prepare('SELECT COUNT(*) FROM office_crm_deal_housing_types WHERE opportunity_id=?');
+        $total->execute([$dealId]);
+        if ((int)$total->fetchColumn()!==count($rows)) {
+            throw new DomainException('Deal housing scope contains unlinked or invalid building types');
+        }
+        if ($rows===[]) return 0;
+        $check=$this->db->prepare('SELECT 1 FROM office_project_housing_types WHERE project_id=? LIMIT 1');
+        $check->execute([$projectId]);
+        if ($check->fetchColumn()!==false) {
+            // The native project adapter may already have copied the exact
+            // same Deal scope in this transaction. Verify, never overwrite.
+            $actual=$this->db->prepare(
+                'SELECT building_id,housing_type_id,dwelling_count FROM office_project_housing_types ' .
+                'WHERE project_id=? ORDER BY building_id,housing_type_id'
+            );
+            $actual->execute([$projectId]);
+            $stored=$actual->fetchAll(PDO::FETCH_ASSOC);
+            if (count($stored)!==count($rows)) throw new DomainException('Project housing distribution differs from Deal');
+            foreach ($rows as $index=>$row) {
+                $value=$stored[$index];
+                foreach (['building_id','housing_type_id','dwelling_count'] as $field) {
+                    if ((int)$value[$field] !== (int)$row[$field]) {
+                        throw new DomainException('Project housing distribution differs from Deal');
+                    }
+                }
+            }
+            return count($rows);
+        }
+        $link=$this->db->prepare('INSERT INTO office_project_buildings (project_id,building_id) VALUES (?,?)');
+        $existing=$this->db->prepare('SELECT 1 FROM office_project_buildings WHERE project_id=? AND building_id=? LIMIT 1');
+        $insert=$this->db->prepare(
+            'INSERT INTO office_project_housing_types (project_id,building_id,housing_type_id,dwelling_count) VALUES (?,?,?,?)'
+        );
+        $linked=[];
+        foreach ($rows as $row) {
+            $building=(int)$row['building_id'];
+            $type=(int)$row['housing_type_id'];
+            $count=(int)$row['dwelling_count'];
+            if ($building<1 || $type<1 || $count<1) throw new DomainException('Invalid accepted Deal housing scope');
+            if (!isset($linked[$building])) {
+                $existing->execute([$projectId,$building]);
+                if ($existing->fetchColumn()===false) $link->execute([$projectId,$building]);
+                $linked[$building]=true;
+            }
+            $insert->execute([$projectId,$building,$type,$count]);
+        }
+        return count($rows);
+    }
+}
