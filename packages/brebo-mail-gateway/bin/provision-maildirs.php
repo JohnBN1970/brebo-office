@@ -9,7 +9,8 @@ declare(strict_types=1);
  */
 $mapPath = (string) getenv('BREBO_MAILDIR_MAILBOX_MAP');
 $root = rtrim((string) (getenv('BREBO_MAILDIR_ROOT') ?: '/var/vmail'), '/');
-if ($mapPath === '' || !is_file($mapPath) || !is_readable($mapPath) || is_link($mapPath) ||\n    $root === '' || $root === '/' || !is_dir($root) || is_link($root)) {
+if ($mapPath === '' || !is_file($mapPath) || !is_readable($mapPath) || is_link($mapPath) ||
+    $root === '' || $root === '/' || !is_dir($root) || is_link($root)) {
   fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: invalid storage configuration\n");
   exit(2);
 }
