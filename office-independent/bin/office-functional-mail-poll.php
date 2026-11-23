@@ -19,7 +19,7 @@ $dsn = getenv('OFFICE_INTAKE_PDO_DSN') ?: '';
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '',
   getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
   [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
-if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'u213420663_office_test') {
+if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'brebo_office_test') {
   fwrite(STDERR, "Wrong database.\n"); exit(2);
 }
 $lock = fopen(sys_get_temp_dir() . '/brebo-office-functional-mail.lock', 'c');

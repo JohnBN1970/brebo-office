@@ -26,7 +26,7 @@ try {
     PDO::ATTR_EMULATE_PREPARES => false,
   ]);
   $name = $db->query('SELECT DATABASE()')->fetchColumn();
-  if ($name !== 'u213420663_office_test') { echo "DATABASE=WRONG_TARGET\n"; exit(2); }
+  if ($name !== 'brebo_office_test') { echo "DATABASE=WRONG_TARGET\n"; exit(2); }
   echo "DATABASE=OK\n";
   $required = [
     'office_mail_mailboxes', 'office_mail_messages', 'office_mail_attachments',
