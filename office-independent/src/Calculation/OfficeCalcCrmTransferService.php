@@ -116,6 +116,14 @@ final class OfficeCalcCrmTransferService
             if (!is_int($projectId) || $projectId < 1) {
                 throw new DomainException('Project creation did not return a valid ID');
             }
+            // Carry the accepted Deal housing scope into the same atomic
+            // project + locked-budget transaction. Never modify existing rows.
+            if (getenv('OFFICE_TEST_CRM_DEAL_HOUSING_TRANSFER_ENABLED')==='enabled'
+                && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled') {
+                require_once dirname(__DIR__).'/Crm/OfficeCrmDealHousingProjectTransfer.php';
+                $housingTransfer = new \Brebo\Office\Crm\OfficeCrmDealHousingProjectTransfer($this->db);
+                $housingTransfer->transfer((int)$acceptance['crm_opportunity_id'],$projectId);
+            }
             $insert = $this->db->prepare(
                 'INSERT INTO office_calc_crm_acceptance_transfers ' .
                 '(crm_opportunity_id, acceptance_key, calculation_id, accepted_revision, office_project_id) ' .
