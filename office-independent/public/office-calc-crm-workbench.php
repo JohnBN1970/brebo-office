@@ -294,7 +294,8 @@ if($conflict!==''&&($_POST['action']??'save_line')==='save_line'){
 }
 $h=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+$scriptNonce = base64_encode(random_bytes(18));
+header("Content-Security-Policy: default-src 'none'; script-src 'nonce-{$scriptNonce}'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 $typeLabels=['labor'=>'Arbeid','material'=>'Materiaal','equipment'=>'Materieel','subcontract'=>'Onderaanneming','other'=>'Overig'];
 $categoryTotals=array_fill_keys(array_keys($typeLabels),$collaborationEnabled?'0':0);
 $lineAmount=static function(array $line)use($collaborationEnabled):string|int{
@@ -465,7 +466,7 @@ if($edit===null){
         echo '<td><input form="'.$inlineForm.'" name="labor_norm" type="number" min="0" step="0.0001" placeholder="Norm"></td><td><input form="'.$inlineForm.'" name="labor_hours" type="number" min="0" step="0.0001" placeholder="Uren"></td>';
         if($laborRateCatalog!==null){
             $rateOptions='<option value="">Handmatig tarief</option>';
-            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'">'.$h((string)$rate['code'].' · '.$rate['description'].' (€ '.$rate['hourly_rate'].'/uur)').'</option>';
+            foreach($laborRates as $rate)if((int)$rate['active']===1)$rateOptions.='<option value="'.$h((string)$rate['code']).'" data-hourly-rate="'.$h((string)$rate['hourly_rate']).'">'.$h((string)$rate['code'].' · '.$rate['description'].' (€ '.$rate['hourly_rate'].'/uur)').'</option>';
             echo '<td><select form="'.$inlineForm.'" name="labor_rate_code" class="calc-labor-discipline">'.$rateOptions.'</select></td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
         }else echo '<td>—</td><td><input form="'.$inlineForm.'" name="labor_hourly_rate" type="number" min="0" step="0.0001" placeholder="€/uur"></td>';
     }else echo '<td>—</td><td>—</td><td>—</td><td>—</td>';
@@ -521,7 +522,7 @@ if($materialWarning!=='')echo '<section class="panel"><p role="status">'.$h($mat
 echo '<details class="calc-support-panel"><summary>Revisies, samenwerking en wijzigingen</summary>';
 require __DIR__.'/office-calc-crm-collaboration-panels.php';
 echo '</details>';
-echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-tail" hidden><section id="calc-tail" class="panel"><h2>Staart · kostenoverzicht</h2><p>Directe kostprijs: <strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></p><p class="muted">Staartopslagen en MAMO-verdeling worden hier gekoppeld. Er worden nog geen opslagen berekend.</p></section></div></div></div><script>
+echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-tail" hidden><section id="calc-tail" class="panel"><h2>Staart · kostenoverzicht</h2><p>Directe kostprijs: <strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></p><p class="muted">Staartopslagen en MAMO-verdeling worden hier gekoppeld. Er worden nog geen opslagen berekend.</p></section></div></div></div><script nonce="'.$scriptNonce.'">
 (function(){
   "use strict";
   const wb=document.getElementById("calc-workbench"),panel=document.getElementById("calc-elements");
@@ -613,6 +614,6 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   search.addEventListener("input",filter);
   search.addEventListener("keydown",event=>{if(event.key==="Escape"){search.value="";filter();}});
 })();
-</script><script>
+</script><script nonce="'.$scriptNonce.'">
 (function(){const rows=()=>Array.from(document.querySelectorAll(".calc-collapsible-line"));const apply=(row,collapsed)=>{const button=row.querySelector(".calc-line-toggle");const detail=button?document.getElementById(button.getAttribute("aria-controls")):null;if(detail)detail.hidden=collapsed;if(button){button.textContent=collapsed?"▸":"▾";button.setAttribute("aria-expanded",String(!collapsed));button.setAttribute("aria-label",collapsed?"Kostenopbouw tonen":"Kostenopbouw verbergen");}};document.getElementById("calc-lines-expand")?.addEventListener("click",()=>rows().forEach(row=>apply(row,false)));document.getElementById("calc-lines-collapse")?.addEventListener("click",()=>rows().forEach(row=>apply(row,true)));rows().forEach(row=>row.querySelector(".calc-line-toggle")?.addEventListener("click",()=>apply(row,row.querySelector(".calc-line-toggle")?.getAttribute("aria-expanded")==="true")));})();
 </script></main></body></html>';
