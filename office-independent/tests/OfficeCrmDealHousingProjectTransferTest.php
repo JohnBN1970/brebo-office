@@ -22,6 +22,8 @@ $db->commit();
 if ((int)$db->query('SELECT COUNT(*) FROM office_project_buildings')->fetchColumn()!==1) throw new RuntimeException('Duplicate building');
 if ((int)$db->query('SELECT SUM(dwelling_count) FROM office_project_housing_types')->fetchColumn()!==20) throw new RuntimeException('Wrong quantities');
 $db->beginTransaction();
-try { $service->transfer(1,20); throw new RuntimeException('Overwrite not blocked'); }
+if ($service->transfer(1,20)!==2) throw new RuntimeException('Exact replay not accepted');
+$db->exec('UPDATE office_project_housing_types SET dwelling_count=99 WHERE housing_type_id=10');
+try { $service->transfer(1,20); throw new RuntimeException('Mismatched overwrite not blocked'); }
 catch (DomainException) { $db->rollBack(); }
 echo "DEAL_HOUSING_TRANSFER=PASS\n";
