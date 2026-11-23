@@ -28,6 +28,13 @@ final class OfficeCrmDealHousingWriter
                 || in_array($state['stage'], ['won','lost'], true)) {
                 throw new DomainException('Deal is niet wijzigbaar.');
             }
+            $building = $this->db->prepare(
+                'SELECT 1 FROM office_crm_deal_buildings WHERE opportunity_id=? AND building_id=?'
+            );
+            $building->execute([$dealId,$buildingId]);
+            if ($building->fetchColumn()===false) {
+                throw new DomainException('Koppel het gebouw eerst expliciet aan de Deal.');
+            }
             $type = $this->db->prepare('SELECT id FROM office_housing_types WHERE id=? AND building_id=?');
             $type->execute([$housingTypeId,$buildingId]);
             if ($type->fetchColumn() === false) throw new DomainException('Woningtype hoort niet bij dit gebouw.');
