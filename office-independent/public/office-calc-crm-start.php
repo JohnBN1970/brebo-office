@@ -115,8 +115,14 @@ try {
         } else {
             // The unique opportunity key must exist on the verified test schema.
             // Locking the Deal row serializes creation; a conflicting INSERT fails closed.
-            $insert = $db->prepare('INSERT INTO office_calc_crm_drafts (opportunity_id,crm_revision,created_by,project_id) VALUES (?,?,?,NULL)');
-            $insert->execute([$opportunityId,(int)$deal['revision'],$actor]);
+            // One canonical Office calculation identity for both Deal and project contexts.
+            // Deal lock and this transaction prevent duplicate project-free creation.
+            $identity = $db->prepare('INSERT INTO office_calc_calculations (project_id) VALUES (NULL)');
+            $identity->execute();
+            $calculationId = (int)$db->lastInsertId();
+            if ($calculationId < 1) throw new RuntimeException('Office calculation identity unavailable');
+            $insert = $db->prepare('INSERT INTO office_calc_crm_drafts (opportunity_id,crm_revision,created_by,project_id,calculation_id) VALUES (?,?,?,NULL,?)');
+            $insert->execute([$opportunityId,(int)$deal['revision'],$actor,$calculationId]);
             $draftId = (int)$db->lastInsertId();
         }
         if ($draftId < 1) throw new RuntimeException('Draft identity unavailable');
