@@ -32,6 +32,7 @@ $expect(str_contains($project,'office_calc_project_access')
     'Existing project calculation launch needs both explicit rights');
 foreach (['CREATE TABLE office_calc_calculations','CREATE TABLE office_calc_crm_drafts',
     'CREATE TABLE calculations','CREATE TABLE calculation_versions','CREATE TABLE calculation_lines',
+    'CREATE TABLE office_calc_project_access', 'REFERENCES office_calc_calculations (id,project_id)',
     'UNIQUE KEY uq_calc_draft_opportunity','UNIQUE KEY uq_calc_draft_calculation',
     'REFERENCES office_calc_calculations(id)'] as $token) {
     $expect(str_contains($schema,$token),'Shared identity DDL missing: '.$token);
