@@ -63,6 +63,26 @@ if ($method==='POST') {
             http_response_code(503); exit('Projectoverdracht nog niet beschikbaar; geen project bevestigd.');
         }
     }
+    if ($action==='link_deal_building') {
+        if (getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')!=='enabled'
+            || getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')!=='enabled'
+            || $item['status']!=='open') { http_response_code(403); exit('Gebouw koppelen niet beschikbaar.'); }
+        $buildingId=filter_var($_POST['building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if (!is_int($buildingId)) { http_response_code(400); exit('Ongeldig gebouw.'); }
+        try {
+            $db->beginTransaction();
+            $building=$db->prepare('SELECT id FROM office_buildings WHERE id=? AND active=1');
+            $building->execute([$buildingId]);
+            if ($building->fetchColumn()===false) throw new DomainException('Gebouw niet actief.');
+            $link=$db->prepare('INSERT IGNORE INTO office_crm_deal_buildings (opportunity_id,building_id,linked_by) VALUES (?,?,?)');
+            $link->execute([$id,$buildingId,(int)$operator->operatorId]);
+            $db->commit();
+            header('Location: /office-test/crm/verkoopkansen/fase?id='.$id,true,303); exit;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            http_response_code(503); exit('Gebouw koppelen niet beschikbaar.');
+        }
+    }
     if ($action==='save_deal_housing') {
         if (getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')!=='enabled'
             || getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')!=='enabled'
@@ -152,7 +172,10 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_ENABLED')==='enabled'
     && getenv('OFFICE_TEST_CRM_DEAL_HOUSING_SCHEMA_VERIFIED')==='enabled') {
     try {
-        $types=$db->query('SELECT ht.id,ht.building_id,ht.code,ht.name,b.building_name FROM office_housing_types ht JOIN office_buildings b ON b.id=ht.building_id ORDER BY b.building_name,ht.code LIMIT 1000')->fetchAll(PDO::FETCH_ASSOC);
+        $typesQuery=$db->prepare('SELECT ht.id,ht.building_id,ht.code,ht.name,b.building_name FROM office_crm_deal_buildings dl JOIN office_housing_types ht ON ht.building_id=dl.building_id JOIN office_buildings b ON b.id=dl.building_id WHERE dl.opportunity_id=? ORDER BY b.building_name,ht.code LIMIT 1000');
+        $typesQuery->execute([$id]);
+        $types=$typesQuery->fetchAll(PDO::FETCH_ASSOC);
+        $buildings=$db->query('SELECT id,building_name FROM office_buildings WHERE active=1 ORDER BY building_name LIMIT 1000')->fetchAll(PDO::FETCH_ASSOC);
         $current=$db->prepare('SELECT building_id,housing_type_id,dwelling_count,revision FROM office_crm_deal_housing_types WHERE opportunity_id=?');
         $current->execute([$id]);
         $existing=[];
@@ -160,7 +183,12 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
             $existing[(int)$record['housing_type_id'].'-'.(int)$record['building_id']]=$record;
         }
         echo '<section><h2>Woningtypen en aantallen</h2><p>Commerciële scope van deze Deal, vóór calculatie en projectaanmaak.</p>';
-        if ($types===[]) echo '<p>Maak eerst woningtypen aan bij Gebouwen.</p>';
+        if ($item['status']==='open') {
+            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="action" value="link_deal_building"><label>Gebouw koppelen aan Deal <select name="building_id" required>';
+            foreach($buildings as $building) echo '<option value="'.(int)$building['id'].'">'.$h($building['building_name']).'</option>';
+            echo '</select></label><button type="submit">Gebouw koppelen</button></form>';
+        }
+        if ($types===[]) echo '<p>Koppel eerst een gebouw aan deze Deal en definieer daar de woningtypen.</p>';
         foreach ($types as $type) {
             $key=(int)$type['id'].'-'.(int)$type['building_id'];
             $record=$existing[$key]??null;
