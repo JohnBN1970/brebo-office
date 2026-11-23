@@ -1,3 +1,10 @@
+-- SUPERSEDED / BLOCKED 2026-11-23: Do NOT execute or CALL procedures from this proposal.
+-- This historical design does not implement the current canonical identity contract:
+-- office_calc_calculations.id <-> office_calc_crm_drafts.calculation_id
+-- and calculations.office_calculation_id -> office_calc_calculations.id.
+-- Source of truth for review: deployment/vps/sql/office-crm-calc-shared-identity-REVIEW.sql
+-- Feature flags remain disabled; migration requires separately approved runbook.
+--
 -- REVIEW ONLY: Office-test VPS canonical Calc core bootstrap proposal.
 -- Do NOT execute automatically. Requires DBA approval, backup, and schema inventory review.
 -- Target database: brebo_office_test. Existing project Calc records must never be overwritten.
