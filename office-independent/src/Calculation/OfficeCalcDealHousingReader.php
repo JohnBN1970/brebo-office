@@ -18,6 +18,7 @@ final class OfficeCalcDealHousingReader
             'FROM office_calc_crm_drafts d ' .
             'INNER JOIN office_crm_opportunities o ON o.id=d.opportunity_id ' .
             'INNER JOIN office_crm_deal_housing_types h ON h.opportunity_id=d.opportunity_id ' .
+            'INNER JOIN office_crm_deal_buildings dl ON dl.opportunity_id=h.opportunity_id AND dl.building_id=h.building_id ' .
             'INNER JOIN office_housing_types t ON t.id=h.housing_type_id AND t.building_id=h.building_id ' .
             'INNER JOIN office_buildings b ON b.id=h.building_id ' .
             "WHERE d.id=? AND d.project_id IS NULL AND o.status='open' " .
