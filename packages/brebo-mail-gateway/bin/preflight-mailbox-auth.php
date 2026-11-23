@@ -34,9 +34,9 @@ if (count($mailboxLines) !== count($userLines)) {
   exit(2);
 }
 
-foreach ($userLines as $line) {
+$expected = [];\nforeach ($mailboxLines as $line) {\n  $parts = preg_split('/\\s+/', $line);\n  $address = strtolower((string) ($parts[0] ?? ''));\n  if (!filter_var($address, FILTER_VALIDATE_EMAIL) || isset($expected[$address])) {\n    fwrite(STDERR, "MAIL_AUTH_PREFLIGHT=BLOCKED: invalid or duplicate mailbox map\\n");\n    exit(2);\n  }\n  $expected[$address] = true;\n}\n\n$seen = [];\nforeach ($userLines as $line) {
   $fields = explode(':', $line);
-  $password = $fields[1] ?? '';
+  $address = strtolower((string) ($fields[0] ?? ''));\n  if (!isset($expected[$address]) || isset($seen[$address])) {\n    fwrite(STDERR, "MAIL_AUTH_PREFLIGHT=BLOCKED: unexpected or duplicate user\\n");\n    exit(2);\n  }\n  $seen[$address] = true;\n  $password = $fields[1] ?? '';
   if (count($fields) < 2 || $password === '' || $password === '*' || $password === '!' || !str_starts_with($password, '{')) {
     fwrite(STDERR, "MAIL_AUTH_PREFLIGHT=BLOCKED: missing usable password hash\n");
     exit(2);
