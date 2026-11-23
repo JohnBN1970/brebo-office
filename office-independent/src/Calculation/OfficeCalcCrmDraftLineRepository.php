@@ -29,13 +29,17 @@ final class OfficeCalcCrmDraftLineRepository
 
     private function version(int $draftId, bool $create): ?int
     {
-        $q=$this->db->prepare('SELECT id,status FROM calculations WHERE office_calculation_id=? AND office_project_id IS NULL');
+        $q=$this->db->prepare('SELECT c.id,c.status FROM calculations c INNER JOIN office_calc_crm_drafts d ON d.calculation_id=c.office_calculation_id WHERE d.id=? AND c.office_project_id IS NULL');
         $q->execute([$draftId]);
         $calc=$q->fetch(PDO::FETCH_ASSOC);
         if (!is_array($calc)) {
             if (!$create) return null;
             $insert=$this->db->prepare('INSERT INTO calculations(office_project_id,office_calculation_id,code,title,status) VALUES(NULL,?,?,?,?)');
-            $insert->execute([$draftId,'CRM-DRAFT-'.$draftId,'CRM calculatie #'.$draftId,'draft']);
+            $identity=$this->db->prepare('SELECT calculation_id FROM office_calc_crm_drafts WHERE id=? AND project_id IS NULL');
+            $identity->execute([$draftId]);
+            $officeCalcId=$identity->fetchColumn();
+            if ($officeCalcId===false || (int)$officeCalcId<1) throw new DomainException('Office Calc identity missing');
+            $insert->execute([(int)$officeCalcId,'CRM-DRAFT-'.$draftId,'CRM calculatie #'.$draftId,'draft']);
             $calc=['id'=>(int)$this->db->lastInsertId(),'status'=>'draft'];
         }
         if ($calc['status']!=='draft') throw new DomainException('Calc is locked');

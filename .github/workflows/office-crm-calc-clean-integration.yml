@@ -1,0 +1,100 @@
+name: Office CRM Calc clean integration contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/index.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/public/office-calc-crm-start.php'
+      - 'office-independent/public/office-crm-opportunity-transition.php'
+      - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php'
+      - 'office-independent/src/Calculation/OfficeCalcDraftCollaboration.php'
+      - 'office-independent/deployment/vps/sql/office-crm-calc-shared-identity-REVIEW.sql'
+      - 'office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh'
+      - 'office-independent/tests/OfficeCalcSharedIdentityContractTest.php'
+      - 'office-independent/tests/OfficeCalcDraftCollaborationTest.php'
+      - 'office-independent/tests/OfficeCalcDraftMaterialSourceTest.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php'
+      - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
+      - 'office-independent/deployment/vps/crm-calc-schema-preflight.php'
+      - 'office-independent/tests/OfficeCalcDealStartRouteContractTest.php'
+      - 'office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionTransitionTest.php'
+      - 'office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php'
+      - 'office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php'
+      - '.github/workflows/office-crm-calc-clean-integration.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: PHP syntax
+        run: |
+          set -euo pipefail
+          for file in \
+            office-independent/public/index.php \
+            office-independent/deployment/hostinger/office-test-index.php \
+            office-independent/public/office-calc-crm-start.php \
+            office-independent/public/office-crm-opportunity-transition.php \
+            office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php \
+            office-independent/src/Calculation/OfficeCalcDraftCollaboration.php \
+            office-independent/tests/OfficeCalcSharedIdentityContractTest.php \
+            office-independent/tests/OfficeCalcDraftCollaborationTest.php \
+            office-independent/tests/OfficeCalcDraftMaterialSourceTest.php \
+            office-independent/src/Crm/OfficeCrmOpportunitySchema.php \
+            office-independent/src/Crm/OfficeCrmOpportunityRepository.php \
+            office-independent/deployment/vps/crm-calc-schema-preflight.php \
+            office-independent/tests/OfficeCalcDealStartRouteContractTest.php \
+            office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php \
+            office-independent/tests/OfficeCrmDealRevisionTransitionTest.php \
+            office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php \
+            office-independent/deployment/hostinger/migrate-office-crm-legacy-opportunities-test.php; do
+            php -l "$file"
+          done
+      - name: Projectless Deal Calc contracts
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeCalcSharedIdentityContractTest.php
+          php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
+          php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
+          php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
+          php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
+          php office-independent/tests/OfficeCrmDealRevisionMigrationContractTest.php
+      - name: Read-only VPS schema gate contract
+        run: |
+          set -euo pipefail
+          php -r '
+            $s = file_get_contents("office-independent/deployment/vps/crm-calc-schema-preflight.php");
+            foreach (["information_schema.STATISTICS", "CRM_DRAFT_UNIQUE_OPPORTUNITY",
+                      "CRM_DRAFT_OPPORTUNITY_REQUIRED", "CRM_DRAFT_PROJECT_OPTIONAL",
+                      "office_crm_opportunities", "revision"] as $requirement) {
+              if (!str_contains($s, $requirement)) {
+                fwrite(STDERR, "Preflight contract missing: ".$requirement.PHP_EOL);
+                exit(1);
+              }
+            }
+            echo "CRM_CALC_PREFLIGHT_SOURCE_CONTRACT=PASS".PHP_EOL;
+          '
+      - name: Guarded test database installer syntax
+        run: |
+          set -euo pipefail
+          bash -n office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          grep -q 'CRM_CALC_SCHEMA_INSTALL=PASS' office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          grep -q 'brebo_office_test' office-independent/deployment/vps/install-crm-calc-shared-schema-test.sh
+          echo 'TEST_DB_INSTALLER_SOURCE=PASS'
+      - name: Explicit release boundary
+        run: |
+          echo 'SOURCE_CONTRACTS_ONLY=PASS'
+          echo 'VPS_SCHEMA_PREFLIGHT=NOT_EXECUTED'
+          echo 'AUTHENTICATED_BROWSER_E2E=NOT_EXECUTED'
+          echo 'RELEASE_APPROVAL=BLOCKED'

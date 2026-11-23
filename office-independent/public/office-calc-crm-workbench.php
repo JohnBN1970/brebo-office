@@ -256,7 +256,7 @@ $calcHeadings=[];$calcHeadingWarning='';
 if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
     try{
         require_once dirname(__DIR__).'/src/Calculation/OfficeCalcHeadingRepository.php';
-        $versionQuery=$db->prepare('SELECT v.id FROM calculations c JOIN calculation_versions v ON v.calculation_id=c.id WHERE c.office_calculation_id=? AND c.office_project_id IS NULL ORDER BY v.version_no DESC LIMIT 1');
+        $versionQuery=$db->prepare('SELECT v.id FROM office_calc_crm_drafts d JOIN calculations c ON c.office_calculation_id=d.calculation_id JOIN calculation_versions v ON v.calculation_id=c.id WHERE d.id=? AND d.project_id IS NULL AND c.office_project_id IS NULL ORDER BY v.version_no DESC LIMIT 1');
         $versionQuery->execute([$draft]);
         $headingVersion=$versionQuery->fetchColumn();
         if($headingVersion!==false)$calcHeadings=(new \Brebo\Office\Calculation\OfficeCalcHeadingRepository($db))->list((int)$headingVersion);

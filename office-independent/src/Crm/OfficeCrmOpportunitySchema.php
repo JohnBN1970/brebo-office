@@ -12,6 +12,7 @@ final class OfficeCrmOpportunitySchema {
                 contact_id BIGINT UNSIGNED NULL,
                 title VARCHAR(255) NOT NULL,
                 currency CHAR(3) NOT NULL DEFAULT 'EUR',
+                revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
                 stage VARCHAR(32) NOT NULL DEFAULT 'prospect',
                 description TEXT NULL,
                 expected_value DECIMAL(14,2) NULL,
