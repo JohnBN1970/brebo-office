@@ -1,3 +1,10 @@
+-- SUPERSEDED / BLOCKED 2026-11-23: Do NOT execute or CALL procedures from this proposal.
+-- This historical design does not implement the current canonical identity contract:
+-- office_calc_calculations.id <-> office_calc_crm_drafts.calculation_id
+-- and calculations.office_calculation_id -> office_calc_calculations.id.
+-- Source of truth for review: deployment/vps/sql/office-crm-calc-shared-identity-REVIEW.sql
+-- Feature flags remain disabled; migration requires separately approved runbook.
+--
 -- BREBO Office-test VPS: REVIEW-ONLY migration proposal, NOT automatically executed.
 -- Target: brebo_office_test exclusively. Requires DBA review, backup, maintenance window.
 -- This installs ONLY CRM revision and Deal-to-Calc identity; canonical Calc core is a separate phase.
