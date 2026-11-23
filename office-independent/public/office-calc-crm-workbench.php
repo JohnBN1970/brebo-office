@@ -263,9 +263,9 @@ if($method==='GET' && getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'
             require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDealBuildingResolver.php';
             require_once dirname(__DIR__).'/src/Project/OfficeCalcBuildingTruthReader.php';
             $verified=getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled';
-            $buildingId=(new \\Brebo\\Office\\Calculation\\OfficeCalcDealBuildingResolver($db,$verified))->resolve($dealId);
+            $buildingId=(new \Brebo\Office\Calculation\OfficeCalcDealBuildingResolver($db,$verified))->resolve($dealId);
             if($buildingId!==null){
-                $calcDealBuilding=(new \\Brebo\\Office\\Project\\OfficeCalcBuildingTruthReader($db))->forBuilding($buildingId);
+                $calcDealBuilding=(new \Brebo\Office\Project\OfficeCalcBuildingTruthReader($db))->forBuilding($buildingId);
                 $calcDealBuildingNotice=$calcDealBuilding===null?'Gekoppeld gebouw ontbreekt.':'';
             }else{$calcDealBuildingNotice='Geen eenduidig gebouw gekoppeld aan deze deal.';}
         }
