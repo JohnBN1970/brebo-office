@@ -25,7 +25,26 @@ final class OfficeCrmDealHousingProjectTransfer
         if ($rows===[]) return 0;
         $check=$this->db->prepare('SELECT 1 FROM office_project_housing_types WHERE project_id=? LIMIT 1');
         $check->execute([$projectId]);
-        if ($check->fetchColumn()!==false) throw new DomainException('Project housing distribution already exists');
+        if ($check->fetchColumn()!==false) {
+            // The native project adapter may already have copied the exact
+            // same Deal scope in this transaction. Verify, never overwrite.
+            $actual=$this->db->prepare(
+                'SELECT building_id,housing_type_id,dwelling_count FROM office_project_housing_types ' .
+                'WHERE project_id=? ORDER BY building_id,housing_type_id'
+            );
+            $actual->execute([$projectId]);
+            $stored=$actual->fetchAll(PDO::FETCH_ASSOC);
+            if (count($stored)!==count($rows)) throw new DomainException('Project housing distribution differs from Deal');
+            foreach ($rows as $index=>$row) {
+                $value=$stored[$index];
+                foreach (['building_id','housing_type_id','dwelling_count'] as $field) {
+                    if ((int)$value[$field] !== (int)$row[$field]) {
+                        throw new DomainException('Project housing distribution differs from Deal');
+                    }
+                }
+            }
+            return count($rows);
+        }
         $link=$this->db->prepare('INSERT INTO office_project_buildings (project_id,building_id) VALUES (?,?)');
         $existing=$this->db->prepare('SELECT 1 FROM office_project_buildings WHERE project_id=? AND building_id=? LIMIT 1');
         $insert=$this->db->prepare(
