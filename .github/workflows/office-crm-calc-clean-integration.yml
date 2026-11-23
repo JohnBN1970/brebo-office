@@ -7,6 +7,12 @@ on:
       - 'office-independent/public/office-calc-crm-start.php'
       - 'office-independent/public/office-crm-opportunity-transition.php'
       - 'office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php'
+      - 'office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php'
+      - 'office-independent/src/Calculation/OfficeCalcDraftCollaboration.php'
+      - 'office-independent/deployment/vps/sql/office-crm-calc-shared-identity-REVIEW.sql'
+      - 'office-independent/tests/OfficeCalcSharedIdentityContractTest.php'
+      - 'office-independent/tests/OfficeCalcDraftCollaborationTest.php'
+      - 'office-independent/tests/OfficeCalcDraftMaterialSourceTest.php'
       - 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php'
       - 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php'
       - 'office-independent/deployment/vps/crm-calc-schema-preflight.php'
@@ -38,6 +44,11 @@ jobs:
             office-independent/public/office-calc-crm-start.php \
             office-independent/public/office-crm-opportunity-transition.php \
             office-independent/src/Calculation/OfficeCalcOpportunityLaunchInput.php \
+            office-independent/src/Calculation/OfficeCalcCrmDraftLineRepository.php \
+            office-independent/src/Calculation/OfficeCalcDraftCollaboration.php \
+            office-independent/tests/OfficeCalcSharedIdentityContractTest.php \
+            office-independent/tests/OfficeCalcDraftCollaborationTest.php \
+            office-independent/tests/OfficeCalcDraftMaterialSourceTest.php \
             office-independent/src/Crm/OfficeCrmOpportunitySchema.php \
             office-independent/src/Crm/OfficeCrmOpportunityRepository.php \
             office-independent/deployment/vps/crm-calc-schema-preflight.php \
@@ -51,6 +62,9 @@ jobs:
       - name: Projectless Deal Calc contracts
         run: |
           set -euo pipefail
+          php office-independent/tests/OfficeCalcSharedIdentityContractTest.php
+          php office-independent/tests/OfficeCalcDraftCollaborationTest.php
+          php office-independent/tests/OfficeCalcDraftMaterialSourceTest.php
           php office-independent/tests/OfficeCalcOpportunityLaunchInputTest.php
           php office-independent/tests/OfficeCalcDealStartRouteContractTest.php
           php office-independent/tests/OfficeCrmDealRevisionTransitionTest.php
