@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 /**
- * Provision Maildir directories for already registered gateway mailboxes.
- * Run as dedicated vmail user after creating /var/vmail securely.
+ * Provision Maildir directories from an exported mailbox map.
+ * Run as dedicated vmail user with a separately staged read-only map.\n * Never grant vmail access to gateway.sqlite or credential files.
  * Does not modify Postfix, Dovecot, DNS, or service state.
  */
-$dataDir = rtrim((string) getenv('BREBO_MAIL_GATEWAY_DATA_DIR'), '/');
+$mapPath = (string) getenv('BREBO_MAILDIR_MAILBOX_MAP');
 $root = rtrim((string) (getenv('BREBO_MAILDIR_ROOT') ?: '/var/vmail'), '/');
-if ($dataDir === '' || $root === '' || $root === '/' || !is_dir($root) || is_link($root)) {
+if ($mapPath === '' || !is_file($mapPath) || !is_readable($mapPath) || is_link($mapPath) ||\n    $root === '' || $root === '/' || !is_dir($root) || is_link($root)) {
   fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: invalid storage configuration\n");
   exit(2);
 }
@@ -18,10 +18,24 @@ if ($stat === false || $stat['uid'] !== posix_geteuid() || posix_geteuid() === 0
   fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: storage must belong to invoking non-root account\n");
   exit(2);
 }
-$pdo = new PDO('sqlite:' . $dataDir . '/gateway.sqlite', null, null, [
-  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
-$addresses = $pdo->query('SELECT address FROM mailbox ORDER BY address')->fetchAll(PDO::FETCH_COLUMN);
+$lines = file($mapPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+if ($lines === false) {
+  fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: mailbox map unreadable\n");
+  exit(2);
+}
+$addresses = [];
+foreach ($lines as $line) {
+  $fields = preg_split('/\\s+/', trim($line));
+  if (count($fields) !== 2 || $fields[1] !== '1') {
+    fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: invalid mailbox map entry\n");
+    exit(2);
+  }
+  $addresses[] = $fields[0];
+}
+if (count($addresses) !== count(array_unique($addresses))) {
+  fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: duplicate mailboxes\n");
+  exit(2);
+}
 if ($addresses === []) {
   fwrite(STDERR, "MAILDIR_PROVISION=BLOCKED: no mailboxes registered\n");
   exit(2);
