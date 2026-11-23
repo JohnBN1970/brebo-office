@@ -97,7 +97,8 @@ try {
         ],
         'office_crm_opportunity_activities' => ['id', 'opportunity_id', 'scheduled_at'],
         'office_operator_accounts' => ['id', 'active', 'can_edit_crm'],
-        'office_calc_crm_drafts' => ['id', 'opportunity_id', 'crm_revision', 'project_id', 'created_by'],
+        'office_calc_calculations' => ['id', 'project_id'],
+        'office_calc_crm_drafts' => ['id', 'opportunity_id', 'crm_revision', 'project_id', 'created_by', 'calculation_id'],
         'calculations' => ['id', 'office_project_id', 'office_calculation_id', 'status'],
         'calculation_versions' => ['id', 'calculation_id', 'version_no', 'status'],
         'calculation_lines' => ['id', 'version_id', 'code', 'quantity', 'unit'],
@@ -131,6 +132,33 @@ try {
     $check('CRM_DRAFT_OPPORTUNITY_REQUIRED',
         isset($columns['office_calc_crm_drafts']['opportunity_id'])
         && $columns['office_calc_crm_drafts']['opportunity_id']['IS_NULLABLE'] === 'NO');
+    // The CRM draft and the Calc row must refer to the *same* canonical Office identity.
+    $check('OFFICE_CANONICAL_CALC_PROJECT_OPTIONAL',
+        isset($columns['office_calc_calculations']['project_id'])
+        && $columns['office_calc_calculations']['project_id']['IS_NULLABLE'] === 'YES');
+    $check('CRM_DRAFT_CALC_ID_REQUIRED',
+        isset($columns['office_calc_crm_drafts']['calculation_id'])
+        && $columns['office_calc_crm_drafts']['calculation_id']['IS_NULLABLE'] === 'NO');
+    $check('CRM_DRAFT_UNIQUE_CALC_ID',
+        isset($byName['uq_calc_draft_calculation'])
+        && $byName['uq_calc_draft_calculation']['unique']
+        && $byName['uq_calc_draft_calculation']['columns'] === ['calculation_id']);
+    $foreignKeys = $pdo->query(
+        "SELECT TABLE_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME
+           FROM information_schema.KEY_COLUMN_USAGE
+          WHERE TABLE_SCHEMA=DATABASE()
+            AND REFERENCED_TABLE_SCHEMA=DATABASE()
+            AND TABLE_NAME IN ('office_calc_crm_drafts','calculations')"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $relations = [];
+    foreach ($foreignKeys as $fk) {
+        $relations[$fk['TABLE_NAME'].'.'.$fk['COLUMN_NAME']] =
+            $fk['REFERENCED_TABLE_NAME'].'.'.$fk['REFERENCED_COLUMN_NAME'];
+    }
+    $check('DRAFT_LINKS_CANONICAL_CALC',
+        ($relations['office_calc_crm_drafts.calculation_id'] ?? '') === 'office_calc_calculations.id');
+    $check('CALC_LINKS_CANONICAL_OFFICE_CALC',
+        ($relations['calculations.office_calculation_id'] ?? '') === 'office_calc_calculations.id');
     $check('CRM_DRAFT_PROJECT_OPTIONAL',
         isset($columns['office_calc_crm_drafts']['project_id'])
         && $columns['office_calc_crm_drafts']['project_id']['IS_NULLABLE'] === 'YES');
