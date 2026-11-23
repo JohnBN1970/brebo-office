@@ -11,6 +11,10 @@ if (!mkdir($root, 0700)) {
   throw new RuntimeException('Cannot create temporary test directory');
 }
 $script = dirname(__DIR__) . '/bin/stage-isolated-test-mailbox.php';
+$autoload = dirname(__DIR__, 3) . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+  throw new RuntimeException('Composer autoload required for bootstrap test');
+}
 $dbFile = $root . '/gateway.sqlite';
 $cleanup = static function () use ($root, $dbFile): void {
   foreach ([$dbFile, $dbFile . '-wal', $dbFile . '-shm'] as $file) {
