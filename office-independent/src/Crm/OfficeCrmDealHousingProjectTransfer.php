@@ -23,6 +23,13 @@ final class OfficeCrmDealHousingProjectTransfer
         );
         $read->execute([$dealId]);
         $rows=$read->fetchAll(PDO::FETCH_ASSOC);
+        // Never silently discard a commercial quantity if its building/type
+        // association is invalid. Acceptance must be corrected before project creation.
+        $total=$this->db->prepare('SELECT COUNT(*) FROM office_crm_deal_housing_types WHERE opportunity_id=?');
+        $total->execute([$dealId]);
+        if ((int)$total->fetchColumn()!==count($rows)) {
+            throw new DomainException('Deal housing scope contains unlinked or invalid building types');
+        }
         if ($rows===[]) return 0;
         $check=$this->db->prepare('SELECT 1 FROM office_project_housing_types WHERE project_id=? LIMIT 1');
         $check->execute([$projectId]);
