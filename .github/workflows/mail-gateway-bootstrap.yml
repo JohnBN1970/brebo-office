@@ -1,0 +1,43 @@
+name: Mail gateway isolated bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'packages/brebo-mail-gateway/**'
+      - '.github/workflows/mail-gateway-bootstrap.yml'
+  workflow_dispatch:
+
+jobs:
+  bootstrap-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP and SQLite
+        run: |
+          php -v
+          php -m | grep -E '^pdo_sqlite$|^PDO$'
+      - name: Minimal gateway autoloader for isolated CLI test
+        run: |
+          mkdir -p vendor
+          cat > vendor/autoload.php <<'PHP'
+          <?php
+          spl_autoload_register(static function (string $class): void {
+              $prefix = 'Brebo\\MailGateway\\';
+              if (!str_starts_with($class, $prefix)) {
+                  return;
+              }
+              $relative = substr($class, strlen($prefix));
+              $file = dirname(__DIR__) . '/packages/brebo-mail-gateway/src/' . str_replace('\\', '/', $relative) . '.php';
+              if (is_file($file)) {
+                  require $file;
+              }
+          });
+          PHP
+      - name: Syntax checks
+        run: |
+          php -l packages/brebo-mail-gateway/bin/stage-isolated-test-mailbox.php
+          php -l packages/brebo-mail-gateway/bin/provision-maildirs.php
+          php -l packages/brebo-mail-gateway/bin/preflight-maildir-storage.php
+          php -l packages/brebo-mail-gateway/tests/isolated-mailbox-bootstrap-smoke.php
+      - name: Isolated bootstrap regression
+        run: php packages/brebo-mail-gateway/tests/isolated-mailbox-bootstrap-smoke.php
