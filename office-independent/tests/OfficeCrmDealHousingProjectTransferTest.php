@@ -20,6 +20,11 @@ $service=new \Brebo\Office\Crm\OfficeCrmDealHousingProjectTransfer($db);
 try { $service->transfer(1,20); throw new RuntimeException('No transaction guard'); }
 catch (DomainException) {}
 $db->beginTransaction();
+try { $service->transfer(1,20); throw new RuntimeException('Unlinked Deal scope accepted'); }
+catch (DomainException) { $db->rollBack(); }
+if ((int)$db->query('SELECT COUNT(*) FROM office_project_housing_types')->fetchColumn()!==0) throw new RuntimeException('Partial project housing written');
+$db->exec('DELETE FROM office_crm_deal_housing_types WHERE building_id=6');
+$db->beginTransaction();
 if ($service->transfer(1,20)!==2) throw new RuntimeException('Wrong transferred count');
 $db->commit();
 if ((int)$db->query('SELECT COUNT(*) FROM office_project_buildings')->fetchColumn()!==1) throw new RuntimeException('Duplicate building');
