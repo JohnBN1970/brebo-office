@@ -35,11 +35,15 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
     if (!session_start()) { http_response_code(503); exit('Formuliersessie niet beschikbaar.'); }
 }
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+$calcEnabled=$operator->canEditCrm
+    && getenv('OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED')==='enabled'
+    && getenv('OFFICE_CALC_CRM_SCHEMA_VERIFIED')==='enabled';
 $view=\Brebo\Office\Crm\OfficeCrmFunnel::normalizeView((string)($_GET['view']??'kanban'));
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deals · BREBO Office</title><link rel="stylesheet" href="/office-test/crm/board.css"><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1400px;margin:32px auto;padding:20px}a{color:#175a91}table{width:100%;border-collapse:collapse;background:#fff}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left}.crm-view-switch{display:flex;gap:16px;margin:20px 0}</style></head><body><main><h1>Deals</h1><p><a href="/office-test/crm/verkoopkansen/nieuw">Nieuwe deal</a></p><p>Van prospect naar offerte en opdracht. Opnamen zijn optioneel.</p>';
+if (!$calcEnabled && $operator->canEditCrm) echo '<p role="status">Calculatie vanuit Deals is nog niet geactiveerd op Office-test. De Deals blijven beschikbaar; projectaanmaak wordt hierdoor niet gestart.</p>';
 echo '<div class="crm-board-toolbar"><label for="crm-board-search">Zoek deals <input id="crm-board-search" type="search" placeholder="Zoek op relatie of actie" autocomplete="off"></label><label for="crm-board-stage">Fase <select id="crm-board-stage"><option value="">Alle fasen</option>'; foreach (\Brebo\Office\Crm\OfficeCrmFunnel::STAGES as $stage=>$label) echo '<option value="'.htmlspecialchars((string)$stage,ENT_QUOTES,'UTF-8').'">'.htmlspecialchars((string)$label,ENT_QUOTES,'UTF-8').'</option>'; echo '</select></label><span id="crm-board-count" aria-live="polite"></span></div>';
 echo '<div id="crm-kanban-drag" data-csrf="'.htmlspecialchars((string)$_SESSION['crm_opportunity_csrf'],ENT_QUOTES,'UTF-8').'">';
-echo \Brebo\Office\Crm\OfficeCrmFunnelViews::render($items,$view,'/office-test/crm/verkoopkansen');
+echo \Brebo\Office\Crm\OfficeCrmFunnelViews::render($items,$view,'/office-test/crm/verkoopkansen',$calcEnabled);
 echo '</div><p id="crm-drag-feedback" role="status" aria-live="polite"></p><script src="/office-test/crm/verkoopkansen/drag.js" defer></script>';
 echo '</main></body></html>';
