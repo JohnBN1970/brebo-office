@@ -1,0 +1,20 @@
+name: Office Calc productivity norm conversion
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcProductivityNorm.php'
+      - 'office-independent/tests/OfficeCalcProductivityNormTest.php'
+      - '.github/workflows/office-calc-productivity-norm.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  norm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y php-bcmath
+      - run: |
+          php -l office-independent/src/Calculation/OfficeCalcProductivityNorm.php
+          php -l office-independent/tests/OfficeCalcProductivityNormTest.php
+          php office-independent/tests/OfficeCalcProductivityNormTest.php
