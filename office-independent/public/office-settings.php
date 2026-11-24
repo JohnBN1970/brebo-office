@@ -32,7 +32,11 @@ try {
   $result=null;
   $csrf='';
   if ($enabled) {
-    session_start(['cookie_secure'=>true,'cookie_httponly'=>true,'cookie_samesite'=>'Strict','use_strict_mode'=>true]);
+    if (!session_start(['cookie_secure'=>true,'cookie_httponly'=>true,'cookie_samesite'=>'Strict','use_strict_mode'=>true])) throw new RuntimeException('Session unavailable');
+    if (($_SESSION['mail_provision_operator']??null)!==(string)$operator->operatorId) {
+      $_SESSION['mail_provision_operator']=(string)$operator->operatorId;
+      unset($_SESSION['mail_provision_csrf']);
+    }
     $csrf=$_SESSION['mail_provision_csrf']??=bin2hex(random_bytes(32));
     if ($method==='POST') {
       if (!is_string($_POST['csrf']??null) || !hash_equals($csrf,$_POST['csrf'])) {http_response_code(403);exit('Ongeldig formulier.');}
@@ -42,7 +46,9 @@ try {
         require_once dirname(__DIR__).'/src/Mail/OfficeGatewayHttpClient.php';
         require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxProvisioning.php';
         $gateway=new \Brebo\Mail\Infrastructure\HttpMailGateway(new \Brebo\Office\Mail\OfficeGatewayHttpClient());
-        $result=(new \Brebo\Office\Mail\OfficeTestMailboxProvisioning($gateway))->stage(is_string($_POST['address']??null)?$_POST['address']:'');
+        require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxRegistration.php';
+        $provisioning=new \Brebo\Office\Mail\OfficeTestMailboxProvisioning($gateway);
+        $result=(new \Brebo\Office\Mail\OfficeTestMailboxRegistration($db,$provisioning))->register(is_string($_POST['address']??null)?$_POST['address']:'');
       } catch (Throwable $e) {
         error_log('Office mailbox staging failed: '.$e::class);
         $result=['status'=>'failed'];
@@ -96,7 +102,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php if ($enabled): ?>
 <section class="card"><h2>Testmailbox aanvragen</h2>
 <p class="muted">Alleen testmail.brebobv.nl. Aanvragen activeren geen mailbox.</p>
-<?php if ($result!==null): ?><p role="status"><?= $result['status']==='staged'?'Aanvraag geregistreerd bij gateway; activering nog niet bevestigd.':'Aanvraag mislukt; controleer de gateway.' ?></p><?php endif; ?>
+<?php if ($result!==null): ?><p role="status"><?= $result['status']==='staged'?'Mailbox geregistreerd in Office en Gateway; nog inactief.':'Aanvraag niet bevestigd; controleer Office en Gateway voordat opnieuw wordt geprobeerd.' ?></p><?php endif; ?>
 <form method="post" action="/office-test/instellingen/email">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
 <label for="address">E-mailadres</label>
