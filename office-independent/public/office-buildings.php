@@ -142,7 +142,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
   if(!$detail||$elementCsrf===''||!is_string($_POST['csrf_token']??null)||!hash_equals($elementCsrf,$_POST['csrf_token'])){http_response_code(403);exit('Bouwdeel opslaan niet toegestaan.');}
   try{
     require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
-    (new \Brebo\Office\Project\OfficeBuildingElementRepository($db))->create((int)$buildingId,null,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
+    $housingType=null;
+    if(($_POST['housing_type_id']??'')!==''){
+      $housingType=filter_var($_POST['housing_type_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if(!is_int($housingType))throw new InvalidArgumentException('Ongeldig woningtype');
+    }
+    (new \Brebo\Office\Project\OfficeBuildingElementRepository($db))->create((int)$buildingId,$housingType,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
     header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#building-elements',true,303);exit;
   }catch(InvalidArgumentException $e){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
   catch(Throwable $e){http_response_code(503);exit('Bouwdeel niet opgeslagen.');}
@@ -244,7 +249,11 @@ if ($detail) {
       foreach($elements as $element)echo '<tr><td>'.$h($element['classification_code']).'</td><td>'.$h($element['element_code']).'</td><td>'.$h($element['description']).'</td><td>'.$h($element['quantity']).' '.$h($element['unit']).'</td><td>'.($element['housing_type_id']===null?'Gebouwtotaal':'Woningtype #'.(int)$element['housing_type_id']).'</td></tr>';
       echo '</tbody></table>';
       if($elements===[])echo '<p>Geen bouwdelen geregistreerd.</p>';
-      if($elementCsrf!=='')echo '<details><summary>Bouwdeel toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="action" value="create_building_element"><input type="hidden" name="csrf_token" value="'.$h($elementCsrf).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" maxlength="2" required></label> <label>Code <input name="code" maxlength="100" required></label></p><p><label>Omschrijving <input name="description" maxlength="255" required></label></p><p><label>Eenheid <input name="unit" maxlength="30" required></label> <label>Hoeveelheid voor het hele gebouw <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></details>';
+      $housingOptions='<option value="">Gebouwtotaal</option>';
+      $housingQuery=$db->prepare('SELECT id,code,name FROM office_housing_types WHERE building_id=? ORDER BY name,id');
+      $housingQuery->execute([$buildingId]);
+      foreach($housingQuery->fetchAll(PDO::FETCH_ASSOC) as $housing)$housingOptions.='<option value="'.(int)$housing['id'].'">'.$h($housing['code'].' · '.$housing['name']).'</option>';
+      if($elementCsrf!=='')echo '<details><summary>Bouwdeel toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="action" value="create_building_element"><input type="hidden" name="csrf_token" value="'.$h($elementCsrf).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" maxlength="2" required></label> <label>Code <input name="code" maxlength="100" required></label></p><p><label>Omschrijving <input name="description" maxlength="255" required></label></p><p><label>Scope <select name="housing_type_id">'.$housingOptions.'</select></label></p><p><label>Eenheid <input name="unit" maxlength="30" required></label> <label>Hoeveelheid voor gekozen scope <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></details>';
     }catch(Throwable $e){echo '<p>Bouwdelen tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
   }
