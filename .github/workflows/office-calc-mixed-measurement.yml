@@ -1,0 +1,22 @@
+name: Office Calc mixed measurement scope
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcMeasurementScope.php'
+      - 'office-independent/tests/OfficeCalcMeasurementScopeTest.php'
+      - '.github/workflows/office-calc-mixed-measurement.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  measurement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install BCMath
+        run: sudo apt-get update -qq && sudo apt-get install -y php-bcmath
+      - name: Syntax and contract
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcMeasurementScope.php
+          php -l office-independent/tests/OfficeCalcMeasurementScopeTest.php
+          php office-independent/tests/OfficeCalcMeasurementScopeTest.php
