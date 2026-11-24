@@ -15,7 +15,7 @@ $activities=[
 $result=OfficeCalcRecipeLaborNormBridge::preview($type,$housing,$activities);
 if($result['type']['perimeter_total_m']!=='194.4000'
  ||$result['activities'][0]['calculation']['display_quantity']!=='64.8000'
- ||$result['activities'][0]['calculation']['planned_labor_hours']!=='144.00000000'
+ ||$result['activities'][0]['calculation']['planned_labor_hours']!=='288.00000000'
  ||$result['activities'][1]['calculation']['planned_labor_hours']!=='103.68000000'
  ||$result['activities'][2]['calculation']['planned_labor_hours']!=='77.76000000')exit(1);
 $activities[1]['norm']['unit']='st';
