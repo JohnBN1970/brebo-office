@@ -45,10 +45,13 @@ try {
         foreach (['Contract/GatewayHttpClientInterface.php','Contract/MailGatewayInterface.php','Domain/GatewayRequestSignature.php','Infrastructure/HttpMailGateway.php'] as $file) require_once $core.$file;
         require_once dirname(__DIR__).'/src/Mail/OfficeGatewayHttpClient.php';
         require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxProvisioning.php';
-        $gateway=new \Brebo\Mail\Infrastructure\HttpMailGateway(new \Brebo\Office\Mail\OfficeGatewayHttpClient());
+        $client=new \Brebo\Office\Mail\OfficeGatewayHttpClient();
+        $gateway=new \Brebo\Mail\Infrastructure\HttpMailGateway($client);
         require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxRegistration.php';
         $provisioning=new \Brebo\Office\Mail\OfficeTestMailboxProvisioning($gateway);
-        $result=(new \Brebo\Office\Mail\OfficeTestMailboxRegistration($db,$provisioning))->register(is_string($_POST['address']??null)?$_POST['address']:'');
+        $registration=new \Brebo\Office\Mail\OfficeTestMailboxRegistration($db,$provisioning);
+        $address=is_string($_POST['address']??null)?$_POST['address']:'';
+        $result=($_POST['action']??'')==='reconcile' ? $registration->reconcile($address,$client) : $registration->register($address);
       } catch (Throwable $e) {
         error_log('Office mailbox staging failed: '.$e::class);
         $result=['status'=>'failed'];
@@ -111,7 +114,8 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
 <label for="address">E-mailadres</label>
 <input id="address" name="address" type="email" required maxlength="100" placeholder="naam@testmail.brebobv.nl">
-<button type="submit">Testmailbox aanvragen</button>
+<button type="submit" name="action" value="register">Testmailbox aanvragen</button>
+<button type="submit" name="action" value="reconcile">Bestaande reservering herstellen</button>
 </form></section>
 <?php endif; ?>
 <section class="card"><h2>Geregistreerde mailboxen</h2>
