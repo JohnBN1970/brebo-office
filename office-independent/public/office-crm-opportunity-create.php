@@ -37,7 +37,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $relationId=filter_var($_GET['relation_id']??0,FILTER_VALIDATE_INT)?:0;
-$title=''; $error=''; $buildingId=0;
+$title=''; $error=''; $buildingIds=[]; $multiBuilding=getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled';
 $leadId=filter_var($_GET['lead_id']??0,FILTER_VALIDATE_INT)?:0;
 if ($method==='GET' && $leadId>0) {
     $leadStmt=$db->prepare("SELECT title,relation_id,stage,status,converted_opportunity_id FROM office_crm_leads WHERE id=?");
@@ -51,12 +51,19 @@ if ($method==='POST') {
     $relationId=filter_var($_POST['relation_id']??0,FILTER_VALIDATE_INT)?:0;
     $leadId=filter_var($_POST['lead_id']??0,FILTER_VALIDATE_INT)?:0;
     $title=is_string($_POST['title']??null)?trim($_POST['title']):'';
-    $buildingId=filter_var($_POST['building_id']??0,FILTER_VALIDATE_INT)?:0;
-    $validBuilding=$buildingId===0;
-    foreach ($buildings as $building) if ((int)$building['id']===$buildingId) $validBuilding=true;
+    $rawBuildings=$multiBuilding ? ($_POST['building_ids']??[]) : [$_POST['building_id']??'0'];
+    $validBuilding=is_array($rawBuildings);
+    $allowedBuildings=array_map(static fn($b)=>(int)$b['id'],$buildings);
+    foreach (is_array($rawBuildings)?$rawBuildings:[] as $raw) {
+        $value=is_scalar($raw)?filter_var($raw,FILTER_VALIDATE_INT):false;
+        if (!$multiBuilding && $value===0) continue;
+        if ($value===false || !in_array($value,$allowedBuildings,true)) {$validBuilding=false; continue;}
+        $buildingIds[]=$value;
+    }
+    $buildingIds=array_values(array_unique($buildingIds));
     $validRelation=false;
     foreach ($relations as $relation) if ((int)$relation['id']===$relationId) $validRelation=true;
-    if (!$validBuilding || ($buildingId>0 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled')) $error='Kies een geldig gebouw.';
+    if (!$validBuilding || ($buildingIds!==[] && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled')) $error='Kies een geldig gebouw.';
     elseif (!$validRelation || $title==='' || mb_strlen($title,'UTF-8')>255) $error='Kies een actieve relatie en vul een geldige titel in.';
     else {
         try {
@@ -70,9 +77,9 @@ if ($method==='POST') {
                 }
             }
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
-            if ($buildingId>0) {
+            if ($buildingIds!==[]) {
                 $link=$db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
-                $link->execute([$id,$buildingId]);
+                foreach ($buildingIds as $buildingId) $link->execute([$id,$buildingId]);
             }
             if ($leadId>0) {
                 $update=$db->prepare("UPDATE office_crm_leads SET converted_opportunity_id=?,converted_at=NOW(),status='converted' WHERE id=? AND converted_opportunity_id IS NULL");
@@ -94,8 +101,8 @@ echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION
 foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)$relation['id']===$relationId?' selected':'').'>'.$h($relation['display_name']).'</option>';
 echo '</select></label>';
 if ($buildings!==[]) {
-    echo '<label>Gebouw<select name="building_id"><option value="0">Nog geen gebouw gekoppeld</option>';
-    foreach ($buildings as $building) echo '<option value="'.(int)$building['id'].'"'.((int)$building['id']===$buildingId?' selected':'').'>'.$h($building['building_name']).'</option>';
+    echo $multiBuilding ? '<label>Gebouwen<select name="building_ids[]" multiple size="8">' : '<label>Gebouw<select name="building_id"><option value="0">Nog geen gebouw gekoppeld</option>';
+    foreach ($buildings as $building) echo '<option value="'.(int)$building['id'].'"'.(in_array((int)$building['id'],$buildingIds,true)?' selected':'').'>'.$h($building['building_name']).'</option>';
     echo '</select></label>';
 }
 echo '<label>Naam deal<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Deal aanmaken</button></form></section></main></body></html>';
