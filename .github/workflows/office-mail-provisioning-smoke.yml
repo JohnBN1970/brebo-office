@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       mariadb:
         image: mariadb:10.11
@@ -18,7 +18,7 @@ jobs:
           MARIADB_PASSWORD: ci-mail-only
         ports:
           - 3306:3306
-        options: --health-cmd='healthcheck.sh --connect --innodb_initialized' --health-interval=5s --health-timeout=5s --health-retries=20
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - name: Verify PHP and run provisioning regression
