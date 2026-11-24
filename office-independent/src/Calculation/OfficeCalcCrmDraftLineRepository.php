@@ -58,7 +58,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null,?int $buildingElementId=null,?int $buildingElementRevision=null,?int $sourceBuildingId=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -125,6 +125,21 @@ final class OfficeCalcCrmDraftLineRepository
                 $collaboration=new OfficeCalcDraftCollaboration($this->db);
                 $before=$collaboration->state($draftId);$collaboration->expect($expectedRevision,$before);
             }
+            if($buildingElementId!==null || $buildingElementRevision!==null || $sourceBuildingId!==null){
+                if(!$buildingElementId || !$buildingElementRevision || !$sourceBuildingId
+                    || getenv('OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED')!=='enabled'
+                    || getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled'){
+                    throw new DomainException('Bouwdeelbronopslag niet vrijgegeven.');
+                }
+                $scope=$this->db->prepare('SELECT 1 FROM office_building_elements e
+                    JOIN office_crm_deal_buildings b ON b.building_id=e.building_id
+                    JOIN office_calc_crm_drafts d ON d.opportunity_id=b.opportunity_id
+                    LEFT JOIN office_housing_types h ON h.id=e.housing_type_id AND h.building_id=e.building_id
+                    WHERE d.id=? AND e.id=? AND e.building_id=? AND e.revision=?
+                    AND (e.housing_type_id IS NULL OR h.id IS NOT NULL) LIMIT 1');
+                $scope->execute([$draftId,$buildingElementId,$sourceBuildingId,$buildingElementRevision]);
+                if(!$scope->fetchColumn())throw new DomainException('Bouwdeel hoort niet bij de Deal of is gewijzigd.');
+            }
             $version=$this->version($draftId,true);
             $codes=array_map(static fn(string $prefix):string=>$prefix.':'.$lineId,array_values(self::TYPES));
             $holders=implode(',',array_fill(0,count($codes),'?'));
@@ -168,6 +183,20 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['labour_unit_cost'],$costs['material_unit_cost'],
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
+            }
+            if(getenv('OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED')==='enabled'){
+                $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
+                if($buildingElementId!==null){
+                    $sourceWrite=$this->db->prepare('INSERT INTO office_calc_line_building_sources
+                        (calculation_line_id,building_id,building_element_id,building_element_revision)
+                        VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE building_id=VALUES(building_id),
+                        building_element_id=VALUES(building_element_id),building_element_revision=VALUES(building_element_revision)');
+                    $sourceWrite->execute([$lineRowId,$sourceBuildingId,$buildingElementId,$buildingElementRevision]);
+                } elseif($existing===false){
+                    // A new manually entered line has no building source.
+                } else {
+                    // Preserve the prior source on ordinary edits.
+                }
             }
             if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
