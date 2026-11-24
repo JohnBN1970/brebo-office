@@ -243,8 +243,14 @@ try {
             if(!isset($components[$primary]))$deny(400,'INVALID_COMPONENT');
             $exactUnitCost=$components[$primary];
         }
+        $buildingElementId=null;$buildingElementRevision=null;
+        if(($_POST['building_element_id']??'')!==''){
+            $buildingElementId=filter_var($_POST['building_element_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            $buildingElementRevision=filter_var($_POST['building_element_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if(!is_int($buildingElementId)||!is_int($buildingElementRevision))$deny(400,'INVALID_ELEMENT');
+        }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components,$buildingElementId,$buildingElementRevision);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -273,6 +279,20 @@ if($method==='GET' && getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'
             $calcDealBuildingNotice=$calcDealBuildings===[]?'Geen eenduidige gebouwen gekoppeld aan deze deal.':'';
         }
     }catch(Throwable){$calcDealBuildings=[];$calcDealBuildingNotice='Gebouwgegevens konden niet worden gelezen.';}
+}
+$buildingElements=[];$buildingElementsNotice='Bouwdelenregister nog niet vrijgegeven.';
+if($calcDealBuildings!==[] && getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled'){
+    try{
+        require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
+        $elementRepository=new \\Brebo\\Office\\Project\\OfficeBuildingElementRepository($db);
+        foreach($calcDealBuildings as $building){
+            foreach($elementRepository->forBuilding((int)$building['building_id']) as $entry){
+                $entry['source_building_name']=$building['name'];
+                $buildingElements[$entry['classification_code']][]=$entry;
+            }
+        }
+        $buildingElementsNotice=$buildingElements===[]?'Geen bouwdelen geregistreerd.':'Bouwdelen per gekoppeld gebouw; hoeveelheden zijn brongegevens.';
+    }catch(Throwable){$buildingElements=[];$buildingElementsNotice='Bouwdelen konden niet worden gelezen.';}
 }
 $calcHeadings=[];$calcHeadingWarning='';
 if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
@@ -362,12 +382,20 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
-.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
 if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     echo '<section class="panel" aria-label="Gebouwen bij deal"><h2>Gebouwen bij deal</h2>';
     if($calcDealBuildings===[]){echo '<p>'.$h($calcDealBuildingNotice).'</p>';}
     else foreach($calcDealBuildings as $calcDealBuilding){
         echo '<p><strong>'.$h((string)$calcDealBuilding['name']).'</strong> · Gebouw #'.(int)$calcDealBuilding['building_id'].'</p>';
+        if(isset($dealId)&&getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled'){
+            try{
+                require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementAccess.php';
+                if((new \\Brebo\\Office\\Project\\OfficeBuildingElementAccess($db))->canManageBeforeProject($actor,(int)$calcDealBuilding['building_id'],(int)$dealId)){
+                    echo '<p><a href="/office-test/gebouwen?id='.(int)$calcDealBuilding['building_id'].'&amp;deal_id='.(int)$dealId.'">Bouwdelen beheren</a></p>';
+                }
+            }catch(Throwable){ /* Optional register access must not interrupt calculation. */ }
+        }
         if($calcDealBuilding['housing_types']===[])echo '<p>Geen woningtypen geregistreerd.</p>';
         else{
             echo '<ul>';
@@ -381,8 +409,14 @@ if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     echo '</section>';
 }
 echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
-foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){echo '<li><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'" title="Neem classificatie over in nieuwe calculatieregel">'.$h($element).'</a></li>';}
-echo '</ul><p class="muted">Referentieclassificatie: kies een code om een nieuwe regel voor te vullen. Dit is nog geen koppeling aan gebouwgebonden bouwdelen of hoeveelheden.</p></aside><div class="workspace"><div class="metrics">';
+foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){$group=substr($element,0,2);$children=$buildingElements[$group]??[];
+echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
+foreach($children as $entry){
+    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-revision="'.(int)$entry['revision'].'" data-building-id="'.(int)$entry['id'].'" data-building-total="'.($entry['housing_type_id']===null&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' ('.$h((string)$entry['source_building_name']).') <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
+}
+if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</small>';
+echo '</details></li>';}
+echo '</ul><p class="muted">'.$h($buildingElementsNotice).' Selectie vult omschrijving voor. Gebouwtotalen vullen ook eenheid en hoeveelheid voor; woningtypehoeveelheden worden niet automatisch vermenigvuldigd. Bij vrijgegeven bronopslag wordt het bouwdeel met revisie vastgelegd; controleer de invoer.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
@@ -520,7 +554,7 @@ if($edit!==null){
  echo '</form>';
 }
 if($edit===null){
- echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+ echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="building_element_id" value=""><input type="hidden" name="building_element_revision" value=""><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
  if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<input type="hidden" name="labor_driver" value="norm">';
@@ -643,6 +677,19 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
     if(!selected){return;}
     if(description.value.trim()!==""&&!window.confirm("Bestaande omschrijving vervangen door de gekozen referentiecode?"))return;
     description.value=selected;
+    const source=document.querySelector("#calc-inline-new [name=building_element_id]");
+    const revision=document.querySelector("#calc-inline-new [name=building_element_revision]");
+    if(source)source.value="";
+    if(revision)revision.value="";
+    const unit=document.querySelector("input[form=calc-inline-new][name=unit]");
+    const quantity=document.querySelector("input[form=calc-inline-new][name=quantity]");
+    if(unit&&quantity&&button.dataset.buildingTotal==="true"&&Number(button.dataset.quantity)>0&&Number(button.dataset.quantity)<1000000){
+      if(source)source.value=button.dataset.buildingId||"";
+      if(revision)revision.value=button.dataset.buildingRevision||"";
+      unit.value=button.dataset.unit;
+      quantity.value=button.dataset.quantity;
+      quantity.dispatchEvent(new Event("input",{bubbles:true}));
+    }
     document.querySelectorAll(".calc-element-select").forEach(link=>link.removeAttribute("aria-current"));
     button.setAttribute("aria-current","true");
     document.querySelector("[data-calc-tab=data]")?.click();
@@ -660,6 +707,7 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
     for(const item of items){
       const match=normalize(item.textContent||"").includes(query);
       item.hidden=!match;
+      if(query&&match){const group=item.querySelector("details");if(group)group.open=true;}
       if(match)visible++;
     }
     status.textContent=query?(visible+" van "+items.length+" elementen gevonden"):"";
