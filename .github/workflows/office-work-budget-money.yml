@@ -1,0 +1,13 @@
+name: Office work budget currency display
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/WorkingBudget/ProjectBudgetPanel.php'
+      - '.github/workflows/office-work-budget-money.yml'
+  workflow_dispatch:
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/src/WorkingBudget/ProjectBudgetPanel.php
