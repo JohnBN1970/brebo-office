@@ -20,4 +20,20 @@ rejected(fn()=> $r->register('pending@testmail.brebobv.nl'));
 $row=$db->query("SELECT gateway_ref,active FROM office_mail_mailboxes WHERE address='pending@testmail.brebobv.nl'")->fetch(PDO::FETCH_ASSOC);
 check(is_array($row) && $row['gateway_ref']===null && (int)$row['active']===0);
 check(count($g->calls)===1);
+require __DIR__.'/../../packages/brebo-mail-core/src/Contract/GatewayHttpClientInterface.php';
+$client = new class implements Brebo\Mail\Contract\GatewayHttpClientInterface {
+    public ?string $reference = null;
+    public function get(string $path): array { throw new LogicException('Unexpected GET'); }
+    public function post(string $path, array $payload): array {
+        check($path==='/v1/mailboxes/lookup');
+        return ['address'=>$payload['address'],'reference'=>$this->reference];
+    }
+};
+rejected(fn()=> $r->reconcile('pending@testmail.brebobv.nl',$client));
+$client->reference='recovered-reference';
+$r->reconcile('pending@testmail.brebobv.nl',$client);
+$row=$db->query("SELECT gateway_ref,active FROM office_mail_mailboxes WHERE address='pending@testmail.brebobv.nl'")->fetch(PDO::FETCH_ASSOC);
+check($row['gateway_ref']==='recovered-reference' && (int)$row['active']===0);
+rejected(fn()=> $r->reconcile('pending@testmail.brebobv.nl',$client));
+check(count($g->calls)===1);
 echo "MAIL_REGISTRATION_INTEGRATION=PASS\n";
