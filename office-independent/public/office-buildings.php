@@ -93,6 +93,28 @@ if ($detail) {
   foreach ($buildings as $candidate) {
     if ((int)$candidate['id'] === $buildingId) { $selectedBuilding = $candidate; break; }
   }
+  if ($selectedBuilding === null && !isset($_GET['deal_id'])) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
+}
+// Validate opname selection before writing any HTML, so invalid IDs return a real 404.
+$requestedCl204OpnameId = null;
+if ($detail && isset($_GET['opname_id'])) {
+  $requestedCl204OpnameId = filter_input(INPUT_GET, 'opname_id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+  if (!is_int($requestedCl204OpnameId) || getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') !== 'enabled') {
+    http_response_code(404);
+    exit('Opname niet gevonden.');
+  }
+  try {
+    require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
+    $requestedCl204Opname = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->loadBuildingOpname((int)$buildingId, $requestedCl204OpnameId);
+    if ($requestedCl204Opname === null) { http_response_code(404); exit('Opname niet gevonden.'); }
+  } catch (PDOException $e) {
+    http_response_code(503);
+    exit('Opnames tijdelijk niet beschikbaar.');
+  }
+}
+
+if ($detail && isset($_GET['deal_id'])) {
+  if(isset($_GET['opname_id'])){http_response_code(404);exit('Opname niet gevonden.');}
   // Deal-scoped access is deliberately restricted to the element register.
   if (isset($_GET['deal_id']) && getenv('OFFICE_BASE_PATH')==='/office-test' && getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled') {
     try {
@@ -139,26 +161,9 @@ if ($detail) {
     http_response_code(403);exit('Geen toegang tot bouwdelen voor deze deal.');
     } catch (Throwable $e) { http_response_code(503);exit('Bouwdelen tijdelijk niet beschikbaar.'); }
   }
-  if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
-}
-// Validate opname selection before writing any HTML, so invalid IDs return a real 404.
-$requestedCl204OpnameId = null;
-if ($detail && isset($_GET['opname_id'])) {
-  $requestedCl204OpnameId = filter_input(INPUT_GET, 'opname_id', FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-  if (!is_int($requestedCl204OpnameId) || getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') !== 'enabled') {
-    http_response_code(404);
-    exit('Opname niet gevonden.');
-  }
-  try {
-    require_once dirname(__DIR__) . '/src/Process/OfficeProcessFormRepository.php';
-    $requestedCl204Opname = (new \Brebo\Office\Process\OfficeProcessFormRepository($db))->loadBuildingOpname((int)$buildingId, $requestedCl204OpnameId);
-    if ($requestedCl204Opname === null) { http_response_code(404); exit('Opname niet gevonden.'); }
-  } catch (PDOException $e) {
-    http_response_code(503);
-    exit('Opnames tijdelijk niet beschikbaar.');
-  }
-}
 
+  http_response_code(403);exit('Geen toegang tot bouwdelen voor deze deal.');
+}
 // Read access to a building does not imply permission to change its opnames.
 $cl204CanManage = false;
 if ($detail && is_int($buildingId)) {
