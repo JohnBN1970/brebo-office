@@ -63,6 +63,10 @@ try {
   if (parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email') {
     $mailboxes=$db->query("SELECT id,address,label,mailbox_type,active,credential_ref
       FROM office_mail_mailboxes ORDER BY id LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+    if ($enabled) {
+      $mailboxes=$db->query("SELECT id,address,label,mailbox_type,active,credential_ref,gateway_ref
+        FROM office_mail_mailboxes ORDER BY id LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+    }
     $mailCounts=$db->query('SELECT mailbox_id,COUNT(*) AS total FROM office_mail_messages GROUP BY mailbox_id')->fetchAll(PDO::FETCH_KEY_PAIR);
   }
 } catch (Throwable $e) {
@@ -114,8 +118,8 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <p class="muted">Actuele Office-test-databasegegevens. Inloggegevens worden nooit getoond.</p>
 <table><thead><tr><th>Mailbox</th><th>Type</th><th>Status</th><th>Configuratiereferentie</th><th>Berichten</th></tr></thead><tbody>
 <?php foreach($mailboxes as $box): ?><tr><td><?= $h($box['address']) ?><br><span class="muted"><?= $h($box['label']) ?></span></td>
-<td><?= $h($box['mailbox_type']) ?></td><td><span class="tag"><?= (int)$box['active']===1?'Actief':'Inactief' ?></span></td>
-<td><?= $h($box['credential_ref']) ?></td><td><?= (int)($mailCounts[$box['id']]??0) ?></td></tr><?php endforeach; ?>
+<td><?= $h($box['mailbox_type']) ?></td><td><span class="tag"><?= (int)$box['active']===1?'Actief':($enabled && str_ends_with($box['address'],'@testmail.brebobv.nl') ? (empty($box['gateway_ref'])?'Controle vereist':'Geregistreerd, inactief'):'Inactief') ?></span></td>
+<td><?= $enabled && !empty($box['gateway_ref'])?'Gateway geregistreerd':($box['credential_ref']!==''?'Credential ingesteld':'Niet ingesteld') ?></td><td><?= (int)($mailCounts[$box['id']]??0) ?></td></tr><?php endforeach; ?>
 <?php if (!$mailboxes): ?><tr><td colspan="5">Geen mailboxen geregistreerd.</td></tr><?php endif; ?>
 </tbody></table></section>
 <div class="grid" style="margin-top:16px">
