@@ -4,6 +4,8 @@ on:
     paths:
       - 'office-independent/src/Calculation/OfficeCalcMeasurementScope.php'
       - 'office-independent/tests/OfficeCalcMeasurementScopeTest.php'
+      - 'office-independent/src/Calculation/OfficeCalcTypeQuantities.php'
+      - 'office-independent/tests/OfficeCalcTypeQuantitiesTest.php'
       - '.github/workflows/office-calc-mixed-measurement.yml'
   workflow_dispatch:
 permissions:
@@ -20,3 +22,6 @@ jobs:
           php -l office-independent/src/Calculation/OfficeCalcMeasurementScope.php
           php -l office-independent/tests/OfficeCalcMeasurementScopeTest.php
           php office-independent/tests/OfficeCalcMeasurementScopeTest.php
+          php -l office-independent/src/Calculation/OfficeCalcTypeQuantities.php
+          php -l office-independent/tests/OfficeCalcTypeQuantitiesTest.php
+          php office-independent/tests/OfficeCalcTypeQuantitiesTest.php
