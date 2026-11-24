@@ -35,7 +35,7 @@ jobs:
         env:
           MYSQL_PWD: testroot
         run: |
-          mysql -h 127.0.0.1 -u root brebo_office_test <<'SQL'
+          mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test <<'SQL'
           CREATE TABLE calculation_lines (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             description VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ jobs:
           MYSQL_PWD: testroot
         run: |
           for pass in 1 2; do
-            mysql -h 127.0.0.1 -u root brebo_office_test < office-independent/deployment/vps/sql/office-calc-collaboration-REVIEW.sql
+            mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test < office-independent/deployment/vps/sql/office-calc-collaboration-REVIEW.sql
           done
       - name: Run schema preflight
         env:
@@ -68,7 +68,7 @@ jobs:
         env:
           MYSQL_PWD: testroot
         run: |
-          mysql -h 127.0.0.1 -u root brebo_office_test <<'SQL'
+          mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test <<'SQL'
           INSERT INTO calculation_lines
             (description,quantity,unit,calc_net_quantity,calc_quantity_source,calc_quantity_source_ref)
           VALUES ('Kunststof kozijnen',300,'m²',300,'building_element','1');
@@ -77,5 +77,5 @@ jobs:
           WHERE description='Kunststof kozijnen' AND quantity=300
             AND unit='m²' AND calc_net_quantity=300;
           SQL
-          result=$(mysql -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Kunststof kozijnen' AND quantity=300 AND unit='m²' AND calc_net_quantity=300")
+          result=$(mysql --skip-ssl -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Kunststof kozijnen' AND quantity=300 AND unit='m²' AND calc_net_quantity=300")
           test "$result" = 1
