@@ -4,8 +4,11 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') { header('Allow: GET'); http_response_code(405); exit; }
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+$method=$_SERVER['REQUEST_METHOD']??'';
+$isEmail=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email';
+$enabled=$isEmail && getenv('OFFICE_TEST_MAIL_PROVISIONING_ENABLED')==='enabled';
+if ($method!=='GET' && !($method==='POST' && $enabled)) { header('Allow: GET'); http_response_code(405); exit; }
 require_once dirname(__DIR__).'/src/Intake/OfficeMount.php';
 if (!\Brebo\Office\Intake\OfficeMount::isTest()) { http_response_code(404); exit; }
 foreach (['WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php',
@@ -26,6 +29,29 @@ try {
   if ($operator===null) {http_response_code(401);exit('Aanmelden vereist.');}
   if (!(new \Brebo\Office\Approval\OfficeTestSiteAdministratorAccess($db))
     ->isAuthorized((string)$operator->operatorId,true)) {http_response_code(403);exit('Alleen sitebeheerder.');}
+  $result=null;
+  $csrf='';
+  if ($enabled) {
+    session_start(['cookie_secure'=>true,'cookie_httponly'=>true,'cookie_samesite'=>'Strict','use_strict_mode'=>true]);
+    $csrf=$_SESSION['mail_provision_csrf']??=bin2hex(random_bytes(32));
+    if ($method==='POST') {
+      if (!is_string($_POST['csrf']??null) || !hash_equals($csrf,$_POST['csrf'])) {http_response_code(403);exit('Ongeldig formulier.');}
+      try {
+        $core=dirname(__DIR__,2).'/packages/brebo-mail-core/src/';
+        foreach (['Contract/GatewayHttpClientInterface.php','Contract/MailGatewayInterface.php','Domain/GatewayRequestSignature.php','Infrastructure/HttpMailGateway.php'] as $file) require_once $core.$file;
+        require_once dirname(__DIR__).'/src/Mail/OfficeGatewayHttpClient.php';
+        require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxProvisioning.php';
+        $gateway=new \Brebo\Mail\Infrastructure\HttpMailGateway(new \Brebo\Office\Mail\OfficeGatewayHttpClient());
+        $result=(new \Brebo\Office\Mail\OfficeTestMailboxProvisioning($gateway))->stage(is_string($_POST['address']??null)?$_POST['address']:'');
+      } catch (Throwable $e) {
+        error_log('Office mailbox staging failed: '.$e::class);
+        $result=['status'=>'failed'];
+      }
+      $_SESSION['mail_provision_csrf']=bin2hex(random_bytes(32));
+      $csrf=$_SESSION['mail_provision_csrf'];
+    }
+    session_write_close();
+  }
   $mailboxes=[];
   $mailCounts=[];
   if (parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email') {
@@ -67,6 +93,17 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Veldenbeheer</h2><p class="muted">Eigen velden, keuzelijsten en formulieren</p><span class="tag">Nog niet aangesloten</span></section>
 </div>
 <?php else: ?>
+<?php if ($enabled): ?>
+<section class="card"><h2>Testmailbox aanvragen</h2>
+<p class="muted">Alleen testmail.brebobv.nl. Aanvragen activeren geen mailbox.</p>
+<?php if ($result!==null): ?><p role="status"><?= $result['status']==='staged'?'Aanvraag geregistreerd bij gateway; activering nog niet bevestigd.':'Aanvraag mislukt; controleer de gateway.' ?></p><?php endif; ?>
+<form method="post" action="/office-test/instellingen/email">
+<input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
+<label for="address">E-mailadres</label>
+<input id="address" name="address" type="email" required maxlength="100" placeholder="naam@testmail.brebobv.nl">
+<button type="submit">Testmailbox aanvragen</button>
+</form></section>
+<?php endif; ?>
 <section class="card"><h2>Geregistreerde mailboxen</h2>
 <p class="muted">Actuele Office-test-databasegegevens. Inloggegevens worden nooit getoond.</p>
 <table><thead><tr><th>Mailbox</th><th>Type</th><th>Status</th><th>Configuratiereferentie</th><th>Berichten</th></tr></thead><tbody>
@@ -80,6 +117,6 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Synchronisatie</h2><p class="muted">Automatische verwerking wordt pas na verbindingscontrole vrijgegeven.</p><span class="tag">Geen bediening beschikbaar</span></section>
 <section class="card"><h2>Toegangsrechten</h2><p class="muted">Mailboxrechten worden via de bestaande Office-autorisatie afgedwongen.</p></section>
 </div>
-<p class="notice">Deze eerste versie is alleen-lezen. Mailboxen activeren, credentials wijzigen en synchronisatie starten is bewust nog niet mogelijk.</p>
+<p class="notice">Mailboxactivering, credentials wijzigen en synchronisatie starten zijn nog niet beschikbaar.</p>
 <?php endif; ?>
 </main></body></html>
