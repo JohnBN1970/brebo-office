@@ -39,8 +39,21 @@ jobs:
             echo "DATABASE_PREFLIGHT=MYSQL_CLIENT_UNAVAILABLE"
             exit 1
           fi
+          # A failed default mysql connection does not establish missing grants:
+          # brebo-deploy may simply have no client credentials. Never log secrets.
           if ! mysql --batch --skip-column-names brebo_office_test -e 'SELECT DATABASE()' >/dev/null 2>&1; then
-            echo "DATABASE_PREFLIGHT=ACCESS_NOT_AVAILABLE_TO_DEPLOY_USER"
+            echo "DATABASE_PREFLIGHT=DEFAULT_CLIENT_CONNECTION_FAILED"
+            if test -f /etc/brebo/office-test-db.env; then
+              echo "ROOT_PRIVATE_DB_CONFIG=PRESENT"
+            else
+              echo "ROOT_PRIVATE_DB_CONFIG=NOT_VISIBLE_TO_DEPLOY_USER"
+            fi
+            if command -v sudo >/dev/null && sudo -n -l >/dev/null 2>&1; then
+              echo "NONINTERACTIVE_SUDO=AVAILABLE_CHECK_EXACT_ALLOWLIST"
+            else
+              echo "NONINTERACTIVE_SUDO=NOT_AVAILABLE"
+            fi
+            echo "::error::Provision a narrowly scoped root-owned read-only Calc preflight helper and exact sudoers allowlist; do not grant brebo-deploy unrestricted DB access."
             exit 1
           fi
           mysql --batch brebo_office_test -e "
