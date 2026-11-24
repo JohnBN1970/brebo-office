@@ -18,16 +18,19 @@ SELECT TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_C
  AND TABLE_NAME IN ('calculation_lines','office_buildings','office_building_elements')
  AND REFERENCED_TABLE_NAME IS NOT NULL;
 -- STOP if any required column or type differs. The DDL below is illustrative,
--- not approved until its BIGINT UNSIGNED / INT types match the live schema.
+-- not approved until its BIGINT UNSIGNED types match the live schema.
 -- Referential integrity must be reviewed before setting the feature flag.
 CREATE TABLE office_calc_line_building_sources (
   calculation_line_id BIGINT UNSIGNED NOT NULL,
   building_id BIGINT UNSIGNED NOT NULL,
   building_element_id BIGINT UNSIGNED NOT NULL,
-  building_element_revision INT NOT NULL,
+  building_element_revision BIGINT UNSIGNED NOT NULL,
   PRIMARY KEY (calculation_line_id),
   KEY idx_calc_line_building_sources_building (building_id),
-  KEY idx_calc_line_building_sources_element (building_element_id)
+  KEY idx_calc_line_building_sources_element (building_element_id),
+  CONSTRAINT fk_calc_source_line FOREIGN KEY (calculation_line_id) REFERENCES calculation_lines(id) ON DELETE CASCADE,
+  CONSTRAINT fk_calc_source_building FOREIGN KEY (building_id) REFERENCES office_buildings(id),
+  CONSTRAINT fk_calc_source_element FOREIGN KEY (building_element_id) REFERENCES office_building_elements(id)
 ) ENGINE=InnoDB;
--- FK constraints must be added only after confirming actual source column types.
+-- Source ID types confirmed on Office-test; review existing constraints before execution.
 -- Enable OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED only after inspection.
