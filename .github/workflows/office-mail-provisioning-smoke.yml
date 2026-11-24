@@ -1,0 +1,19 @@
+name: Office mailbox provisioning smoke
+on:
+  pull_request:
+  push:
+    branches: [develop]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PHP and run provisioning regression
+        run: |
+          php -v
+          php -l office-independent/src/Mail/OfficeGatewayHttpClient.php
+          php -l office-independent/src/Mail/OfficeTestMailboxProvisioning.php
+          php -l office-independent/public/office-settings.php
+          php office-independent/tests/mail-provisioning-smoke.php
