@@ -16,13 +16,20 @@ final class OfficeCrmDealBuildingLink
 {
     public function __construct(private PDO $db) {}
 
-    public function buildingId(int $dealId): ?int
+    /** @return list<int> */
+    public function buildingIds(int $dealId): array
     {
         if ($dealId < 1) throw new InvalidArgumentException('Invalid deal');
-        $stmt = $this->db->prepare('SELECT building_id FROM office_crm_deal_buildings WHERE opportunity_id=?');
+        $stmt = $this->db->prepare('SELECT building_id FROM office_crm_deal_buildings WHERE opportunity_id=? ORDER BY building_id');
         $stmt->execute([$dealId]);
-        $value = $stmt->fetchColumn();
-        return $value === false ? null : (int)$value;
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    public function buildingId(int $dealId): ?int
+    {
+        $ids = $this->buildingIds($dealId);
+        if (count($ids) > 1) throw new RuntimeException('Multiple buildings: use buildingIds');
+        return $ids[0] ?? null;
     }
 
     public function assign(int $dealId, int $buildingId, int $expectedRevision): void
