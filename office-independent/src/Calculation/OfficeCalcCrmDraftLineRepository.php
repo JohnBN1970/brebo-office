@@ -181,6 +181,7 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
             }
+            $savedLineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
             if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_norm=?,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver=? WHERE id=? AND version_id=?');
@@ -199,12 +200,12 @@ final class OfficeCalcCrmDraftLineRepository
                     $quantityAdjustment['material_loss_percent']??null,
                     $quantityAdjustment['extra_labor_hours']??null,
                     'manual',
-                    null,
+                    (is_array($existingRow)&&str_starts_with((string)($existingRow['calc_quantity_source_ref']??''),'building_element:'))?$existingRow['calc_quantity_source_ref']:null,
                     $lineRowId,$version
                 ]);
             }
             if($elementSource!==null){
-                $lineRowId=(int)$this->db->lastInsertId();
+                $lineRowId=$savedLineRowId;
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_quantity_source_ref=? WHERE id=? AND version_id=?');
                 $q->execute(['building_element:'.$elementSource['id'].':'.$elementSource['revision'],$lineRowId,$version]);
             }
@@ -276,6 +277,7 @@ final class OfficeCalcCrmDraftLineRepository
                 'source_reference'=>(string)($row['source_reference']??''),
                 'source_details'=>(string)($row['source_details']??''),
                 'unit_cost_cents'=>(int)round((float)$row[self::COST_COLUMNS[$type]]*100),
+                'quantity_source_ref'=>(string)($row['calc_quantity_source_ref']??''),
                 'activity_ref'=>null,
             ];
         }
