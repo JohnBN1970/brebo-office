@@ -1,0 +1,21 @@
+name: Office Calc recipe choices contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcRecipeChoices.php'
+      - 'office-independent/tests/OfficeCalcRecipeChoicesTest.php'
+      - '.github/workflows/office-calc-recipe-choices-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  choices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcRecipeChoices.php
+          php -l office-independent/tests/OfficeCalcRecipeChoicesTest.php
+      - name: Validate optional sections and alternatives
+        run: php office-independent/tests/OfficeCalcRecipeChoicesTest.php
