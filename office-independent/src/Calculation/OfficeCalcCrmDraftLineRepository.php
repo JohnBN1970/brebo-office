@@ -255,13 +255,26 @@ final class OfficeCalcCrmDraftLineRepository
         $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND line_type=? ORDER BY sort_order,id');
         $q->execute([$version,'item']);
         $results=[];
+        $sourceLookup=null;
+        if(getenv('OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED')==='enabled'){
+            $sourceLookup=$this->db->prepare('SELECT building_id,building_element_id,building_element_revision FROM office_calc_line_building_sources WHERE calculation_line_id=?');
+        }
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $buildingSource=null;
+            if($sourceLookup!==null){
+                $sourceLookup->execute([(int)$row['id']]);
+                $buildingSource=$sourceLookup->fetch(PDO::FETCH_ASSOC)?:null;
+                $sourceLookup->closeCursor();
+            }
             $code=(string)$row['code'];
             $prefix=substr($code,0,1);
             $type=array_search($prefix,self::TYPES,true);
             if ($type===false || substr($code,1,1)!==':') continue;
             $results[]=[
                 'line_id'=>substr($code,2),
+                'source_building_id'=>$buildingSource!==null?(int)$buildingSource['building_id']:null,
+                'building_element_id'=>$buildingSource!==null?(int)$buildingSource['building_element_id']:null,
+                'building_element_revision'=>$buildingSource!==null?(int)$buildingSource['building_element_revision']:null,
                 'cost_type'=>$type,
                 'description'=>$row['description'],
                 'quantity'=>(int)$row['quantity'],
