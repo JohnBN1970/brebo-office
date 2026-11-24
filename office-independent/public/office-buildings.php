@@ -113,7 +113,12 @@ if ($detail) {
           if($_SERVER['REQUEST_METHOD']==='POST'){
             if(!is_string($_POST['csrf_token']??null)||!hash_equals($token,$_POST['csrf_token'])){http_response_code(403);exit;}
             try{
-              $repo->create($buildingId,null,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
+              $housingType=null;
+              if(($_POST['housing_type_id']??'')!==''){
+                $housingType=filter_var($_POST['housing_type_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if(!is_int($housingType))throw new InvalidArgumentException('Ongeldig woningtype');
+              }
+              $repo->create($buildingId,$housingType,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
               header('Location: '.$url,true,303);exit;
             }catch(InvalidArgumentException){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
           }
@@ -121,7 +126,11 @@ if ($detail) {
           header('Content-Type: text/html; charset=utf-8');
           echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>Bouwdelen</title><main><h1>'.$esc($dealBuilding['building_name']).' — Bouwdelen</h1><p>Deal #'.$dealId.'</p><ul>';
           foreach($repo->forBuilding($buildingId) as $element)echo '<li>'.$esc($element['classification_code'].' '.$element['description'].' — '.$element['quantity'].' '.$element['unit']).'</li>';
-          echo '</ul><form method="post" action="'.$esc($url).'"><input type="hidden" name="csrf_token" value="'.$esc($token).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" required></label></p><p><label>Code <input name="code" required></label></p><p><label>Omschrijving <input name="description" required></label></p><p><label>Eenheid <input name="unit" required></label></p><p><label>Gebouwtotaal <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></main></html>';exit;
+          $housingOptions='<option value="">Gebouwtotaal</option>';
+          $q=$db->prepare('SELECT id,code,name FROM office_housing_types WHERE building_id=? ORDER BY name,id');
+          $q->execute([$buildingId]);
+          foreach($q->fetchAll(PDO::FETCH_ASSOC) as $housing)$housingOptions.='<option value="'.(int)$housing['id'].'">'.$esc($housing['code'].' · '.$housing['name']).'</option>';
+          echo '</ul><form method="post" action="'.$esc($url).'"><input type="hidden" name="csrf_token" value="'.$esc($token).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" required></label></p><p><label>Code <input name="code" required></label></p><p><label>Omschrijving <input name="description" required></label></p><p><label>Eenheid <input name="unit" required></label></p><p><label>Scope <select name="housing_type_id">'.$housingOptions.'</select></label></p><p><label>Hoeveelheid voor gekozen scope <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></main></html>';exit;
         }
       }
     }
