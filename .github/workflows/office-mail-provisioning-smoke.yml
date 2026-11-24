@@ -16,4 +16,5 @@ jobs:
           php -l office-independent/src/Mail/OfficeGatewayHttpClient.php
           php -l office-independent/src/Mail/OfficeTestMailboxProvisioning.php
           php -l office-independent/public/office-settings.php
+          php -l office-independent/src/Mail/OfficeTestMailboxRegistration.php
           php office-independent/tests/mail-provisioning-smoke.php
