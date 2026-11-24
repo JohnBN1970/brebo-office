@@ -58,7 +58,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null,?int $buildingElementId=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null,?int $buildingElementId=null,?int $buildingElementRevision=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -141,7 +141,7 @@ final class OfficeCalcCrmDraftLineRepository
                 $q=$this->db->prepare('SELECT id,revision,quantity,unit FROM office_building_elements WHERE id=? AND building_id=? AND housing_type_id IS NULL'.($driver==='mysql'?' FOR UPDATE':''));
                 $q->execute([$buildingElementId,$buildingId]);
                 $elementSource=$q->fetch(PDO::FETCH_ASSOC);
-                if(!$elementSource||$unit!==$elementSource['unit']||bccomp($exactQuantity,(string)$elementSource['quantity'],4)!==0)throw new DomainException('Bouwdeelbron gewijzigd of ongeldig.');
+                if(!$elementSource||$buildingElementRevision===null||(int)$elementSource['revision']!==$buildingElementRevision||$unit!==$elementSource['unit']||bccomp($exactQuantity,(string)$elementSource['quantity'],4)!==0)throw new DomainException('Bouwdeelbron gewijzigd of ongeldig.');
             }
             // Do not silently invalidate a persisted adjustment when an existing line is edited.
             // Require explicit correction metadata for edits of adjusted rows, so the stored snapshot cannot be invalidated.
