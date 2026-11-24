@@ -248,6 +248,18 @@ try {
             $buildingElementId=filter_var($_POST['building_element_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             $buildingElementRevision=filter_var($_POST['building_element_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             if(!is_int($buildingElementId)||!is_int($buildingElementRevision))$deny(400,'INVALID_ELEMENT');
+            // Never trust the browser's building context: bind the element to this draft's Deal.
+            $sourceBuildingId=filter_var($_POST['source_building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if(!is_int($sourceBuildingId)||getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled'
+                ||getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')!=='enabled')$deny(409,'BUILDING_CONTEXT');
+            $elementScope=$db->prepare('SELECT 1 FROM office_building_elements e
+                JOIN office_crm_deal_buildings b ON b.building_id=e.building_id
+                JOIN office_calc_crm_drafts d ON d.opportunity_id=b.opportunity_id
+                LEFT JOIN office_housing_types h ON h.id=e.housing_type_id AND h.building_id=e.building_id
+                WHERE d.id=? AND e.id=? AND e.building_id=? AND e.revision=?
+                AND (e.housing_type_id IS NULL OR h.id IS NOT NULL) LIMIT 1');
+            $elementScope->execute([$draft,$buildingElementId,$sourceBuildingId,$buildingElementRevision]);
+            if(!$elementScope->fetchColumn())$deny(409,'ELEMENT_SCOPE');
         }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
             $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components,$buildingElementId,$buildingElementRevision);
