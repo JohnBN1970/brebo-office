@@ -135,6 +135,18 @@ $cl204CsrfReady = $cl204CanManage && $cl204WriteEnabled && is_string($cl204Secre
 $cl204Csrf = $cl204CsrfReady
   ? hash_hmac('sha256', 'CL-204:building:' . (int)$buildingId, $cl204SessionHash . $cl204Secret)
   : '';
+$elementsEnabled=getenv('OFFICE_BASE_PATH')==='/office-test'&&getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled';
+$elementCsrf=$elementsEnabled&&$cl204CanManage&&is_string($cl204Secret)&&strlen($cl204Secret)>=32&&strlen($cl204SessionHash)===64
+  ?hash_hmac('sha256','building-elements:'.(int)$buildingId,$cl204SessionHash.$cl204Secret):'';
+if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='create_building_element') {
+  if(!$detail||$elementCsrf===''||!is_string($_POST['csrf_token']??null)||!hash_equals($elementCsrf,$_POST['csrf_token'])){http_response_code(403);exit('Bouwdeel opslaan niet toegestaan.');}
+  try{
+    require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
+    (new \Brebo\Office\Project\OfficeBuildingElementRepository($db))->create((int)$buildingId,null,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#building-elements',true,303);exit;
+  }catch(InvalidArgumentException $e){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
+  catch(Throwable $e){http_response_code(503);exit('Bouwdeel niet opgeslagen.');}
+}
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   if (!$detail || !$cl204CsrfReady || !is_string($_POST['csrf_token'] ?? null)
     || !hash_equals($cl204Csrf, $_POST['csrf_token'])) {
@@ -223,6 +235,19 @@ header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
 if ($detail) {
   echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  if($elementsEnabled){
+    echo '<section id="building-elements"><h2>Bouwdelen</h2>';
+    try{
+      require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
+      $elements=(new \Brebo\Office\Project\OfficeBuildingElementRepository($db))->forBuilding((int)$buildingId);
+      echo '<table><thead><tr><th>Groep</th><th>Code</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Scope</th></tr></thead><tbody>';
+      foreach($elements as $element)echo '<tr><td>'.$h($element['classification_code']).'</td><td>'.$h($element['element_code']).'</td><td>'.$h($element['description']).'</td><td>'.$h($element['quantity']).' '.$h($element['unit']).'</td><td>'.($element['housing_type_id']===null?'Gebouwtotaal':'Woningtype #'.(int)$element['housing_type_id']).'</td></tr>';
+      echo '</tbody></table>';
+      if($elements===[])echo '<p>Geen bouwdelen geregistreerd.</p>';
+      if($elementCsrf!=='')echo '<details><summary>Bouwdeel toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="action" value="create_building_element"><input type="hidden" name="csrf_token" value="'.$h($elementCsrf).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" maxlength="2" required></label> <label>Code <input name="code" maxlength="100" required></label></p><p><label>Omschrijving <input name="description" maxlength="255" required></label></p><p><label>Eenheid <input name="unit" maxlength="30" required></label> <label>Hoeveelheid voor het hele gebouw <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></details>';
+    }catch(Throwable $e){echo '<p>Bouwdelen tijdelijk niet beschikbaar.</p>';}
+    echo '</section>';
+  }
   // CL-204 register remains readable; authorized concept drafts may be revised.
   // Never interpret missing schema or inaccessible data as an empty confirmed register.
   if (getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled') {
