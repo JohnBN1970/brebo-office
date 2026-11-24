@@ -18,6 +18,10 @@ final class ProjectBudgetPanel
         if (!is_int($projectId) || $projectId < 1 || !isset($view['kpis'], $view['source_status'])) {
             throw new InvalidArgumentException('Invalid project budget view.');
         }
+        require_once dirname(__DIR__).'/Finance/OfficeMoneyDisplay.php';
+        $currency = $view['currency'] ?? 'EUR';
+        $locale = $view['money_locale'] ?? 'nl-NL';
+        $money = static fn(int $cents): string => \Brebo\Office\Finance\OfficeMoneyDisplay::formatCents($cents, $currency, $locale);
         $kpis = $view['kpis'];
         $status = $view['source_status'];
         $fields = [
@@ -38,7 +42,7 @@ final class ProjectBudgetPanel
         foreach ($fields as $key=>$label) {
             $amount = $kpis[$key] ?? null;
             if ($amount !== null && !is_int($amount)) throw new InvalidArgumentException('Invalid KPI value.');
-            $value = $amount === null ? 'Nog niet beschikbaar' : '€ '.number_format($amount / 100, 2, ',', '.');
+            $value = $amount === null ? 'Nog niet beschikbaar' : $money($amount);
             $html .= '<div class="office-work-budget__kpi"><strong>'.self::e($label).'</strong><span>'.self::e($value).'</span></div>';
         }
         $html .= '</div><h3>Bronstatus</h3><dl>';
@@ -123,25 +127,23 @@ final class ProjectBudgetPanel
                 $totalBudget += $totals[$type];
                 $actualCell = '—';
                 if ($type === 'labor' && $actualLabor !== null && $actualLabor['entries'] > 0) {
-                    $actualCell = '€ '.number_format($actualLabor['actual_cost_cents'] / 100, 2, ',', '.');
+                    $actualCell = $money($actualLabor['actual_cost_cents']);
                 }
-                $html .= '<tr><th scope="row">'.self::e($label).'</th><td>€ '
-                    .number_format($totals[$type] / 100, 2, ',', '.')
+                $html .= '<tr><th scope="row">'.self::e($label).'</th><td>'.self::e($money($totals[$type]))
                     .'</td><td>—</td><td>'.self::e($actualCell).'</td><td>—</td></tr>';
             }
             $lockedTotal = $kpis['baseline_cents'] ?? null;
             if ($lockedTotal !== null && (!is_int($lockedTotal) || $lockedTotal !== $totalBudget)) {
                 throw new InvalidArgumentException('Locked budget total differs from cost lines.');
             }
-            $aggregate = static function (mixed $cents): string {
+            $aggregate = static function (mixed $cents) use ($money): string {
                 if ($cents === null) return '—';
                 if (!is_int($cents) || $cents < 0) {
                     throw new InvalidArgumentException('Invalid aggregate cost amount.');
                 }
-                return '€ '.number_format($cents / 100, 2, ',', '.');
+                return $money($cents);
             };
-            $html .= '<tr><th scope="row">Totaal</th><td>€ '
-                .number_format($totalBudget / 100, 2, ',', '.')
+            $html .= '<tr><th scope="row">Totaal</th><td>'.self::e($money($totalBudget))
                 .'</td><td>'.self::e($aggregate($kpis['awarded_cents'] ?? null))
                 .'</td><td>'.self::e($aggregate($kpis['actual_cents'] ?? null))
                 .'</td><td>'.self::e($aggregate($kpis['forecast_cents'] ?? null))
