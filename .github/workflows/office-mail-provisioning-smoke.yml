@@ -8,6 +8,17 @@ permissions:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-only
+          MARIADB_DATABASE: brebo_office_test
+          MARIADB_USER: ci_mail
+          MARIADB_PASSWORD: ci-mail-only
+        ports:
+          - 3306:3306
+        options: --health-cmd='healthcheck.sh --connect --innodb_initialized' --health-interval=5s --health-timeout=5s --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - name: Verify PHP and run provisioning regression
@@ -18,3 +29,11 @@ jobs:
           php -l office-independent/public/office-settings.php
           php -l office-independent/src/Mail/OfficeTestMailboxRegistration.php
           php office-independent/tests/mail-provisioning-smoke.php
+
+      - name: Run isolated MariaDB integration
+        env:
+          MAIL_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=brebo_office_test
+          MAIL_TEST_USER: ci_mail
+          MAIL_TEST_PASSWORD: ci-mail-only
+        run: |
+          php office-independent/tests/mail-registration-integration.php
