@@ -1,0 +1,64 @@
+name: Office-test Calc schema preflight (read only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: office-test-vps
+    timeout-minutes: 5
+    steps:
+      - name: Check test release and schema without changes
+        env:
+          HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in HOST PORT USER KEY HOST_KEY; do
+            test -n "${!name}" || { echo "::error::Missing VPS credential: $name"; exit 1; }
+          done
+          test "$USER" = brebo-deploy
+          [[ "$PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/office_test_key
+          chmod 600 ~/.ssh/office_test_key
+          printf '%s\n' "$HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_key -p "$PORT" "$USER@$HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          base=/srv/brebo/office-test/current
+          echo "RELEASE=$(readlink -f "$base")"
+          test -f "$base/deployment/vps/sql/office-calc-collaboration-REVIEW.sql" || { echo "MIGRATION_FILE=MISSING"; exit 1; }
+          echo "MIGRATION_FILE=OK"
+          if ! command -v mysql >/dev/null; then
+            echo "DATABASE_PREFLIGHT=MYSQL_CLIENT_UNAVAILABLE"
+            exit 1
+          fi
+          # A failed default mysql connection does not establish missing grants:
+          # brebo-deploy may simply have no client credentials. Never log secrets.
+          if ! mysql --batch --skip-column-names brebo_office_test -e 'SELECT DATABASE()' >/dev/null 2>&1; then
+            echo "DATABASE_PREFLIGHT=DEFAULT_CLIENT_CONNECTION_FAILED"
+            if test -f /etc/brebo/office-test-db.env; then
+              echo "ROOT_PRIVATE_DB_CONFIG=PRESENT"
+            else
+              echo "ROOT_PRIVATE_DB_CONFIG=NOT_VISIBLE_TO_DEPLOY_USER"
+            fi
+            if command -v sudo >/dev/null && sudo -n -l >/dev/null 2>&1; then
+              echo "NONINTERACTIVE_SUDO=AVAILABLE_CHECK_EXACT_ALLOWLIST"
+            else
+              echo "NONINTERACTIVE_SUDO=NOT_AVAILABLE"
+            fi
+            echo "::error::Provision a narrowly scoped root-owned read-only Calc preflight helper and exact sudoers allowlist; do not grant brebo-deploy unrestricted DB access."
+            exit 1
+          fi
+          mysql --batch brebo_office_test -e "
+          SHOW TABLES LIKE 'office_calc_crm_draft%';
+          SHOW COLUMNS FROM calculation_lines LIKE 'calc_%';
+          "
+          echo "DATABASE_PREFLIGHT=READ_ONLY_COMPLETE"
+          REMOTE

@@ -50,7 +50,10 @@ final class OfficeCrmDealBuildingLink
         sort($ids, SORT_NUMERIC);
         $this->db->beginTransaction();
         try {
-            $deal = $this->db->prepare('SELECT revision,stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $deal = $this->db->prepare(
+                'SELECT revision,stage,status FROM office_crm_opportunities WHERE id=?'
+                . ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite' ? '' : ' FOR UPDATE')
+            );
             $deal->execute([$dealId]);
             $row = $deal->fetch(PDO::FETCH_ASSOC);
             if (!$row || (int)$row['revision'] !== $expectedRevision ||
@@ -88,7 +91,10 @@ final class OfficeCrmDealBuildingLink
         }
         $this->db->beginTransaction();
         try {
-            $deal = $this->db->prepare('SELECT revision,stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $deal = $this->db->prepare(
+                'SELECT revision,stage,status FROM office_crm_opportunities WHERE id=?'
+                . ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='sqlite' ? '' : ' FOR UPDATE')
+            );
             $deal->execute([$dealId]);
             $row = $deal->fetch(PDO::FETCH_ASSOC);
             if (!$row || (int)$row['revision'] !== $expectedRevision ||

@@ -296,7 +296,7 @@ $buildingElements=[];$buildingElementsNotice='Bouwdelenregister nog niet vrijgeg
 if($calcDealBuildings!==[] && getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled'){
     try{
         require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
-        $elementRepository=new \\Brebo\\Office\\Project\\OfficeBuildingElementRepository($db);
+        $elementRepository=new \Brebo\Office\Project\OfficeBuildingElementRepository($db);
         foreach($calcDealBuildings as $building){
             foreach($elementRepository->forBuilding((int)$building['building_id']) as $entry){
                 $entry['source_building_name']=$building['name'];
@@ -305,7 +305,10 @@ if($calcDealBuildings!==[] && getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')
             }
         }
         $buildingElementsNotice=$buildingElements===[]?'Geen bouwdelen geregistreerd.':'Bouwdelen per gekoppeld gebouw; hoeveelheden zijn brongegevens.';
-    }catch(Throwable){$buildingElements=[];$buildingElementsNotice='Bouwdelen konden niet worden gelezen.';}
+    }catch(Throwable){
+        $buildingElements=[];
+        $buildingElementsNotice='Bouwdelen konden niet worden gelezen.';
+    }
 }
 $calcHeadings=[];$calcHeadingWarning='';
 if(getenv('OFFICE_CALC_HEADINGS_SCHEMA_VERIFIED')==='enabled'){
@@ -404,7 +407,7 @@ if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
         if(isset($dealId)&&getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled'){
             try{
                 require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementAccess.php';
-                if((new \\Brebo\\Office\\Project\\OfficeBuildingElementAccess($db))->canManageBeforeProject($actor,(int)$calcDealBuilding['building_id'],(int)$dealId)){
+                if((new \Brebo\Office\Project\OfficeBuildingElementAccess($db))->canManageBeforeProject($actor,(int)$calcDealBuilding['building_id'],(int)$dealId)){
                     echo '<p><a href="/office-test/gebouwen?id='.(int)$calcDealBuilding['building_id'].'&amp;deal_id='.(int)$dealId.'">Bouwdelen beheren</a></p>';
                 }
             }catch(Throwable){ /* Optional register access must not interrupt calculation. */ }
@@ -425,7 +428,7 @@ echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elem
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){$group=substr($element,0,2);$children=$buildingElements[$group]??[];
 echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
 foreach($children as $entry){
-    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-revision="'.(int)$entry['revision'].'" data-building-id="'.(int)$entry['id'].'" data-source-building-id="'.(int)$entry['source_building_id'].'" data-building-total="'.($entry['housing_type_id']===null&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' ('.$h((string)$entry['source_building_name']).') <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
+    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-revision="'.(int)$entry['revision'].'" data-building-id="'.(int)$entry['id'].'" data-source-building-id="'.(int)$entry['source_building_id'].'" data-building-total="'.($entry['housing_type_id']===null&&getenv('OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED')==='enabled'&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' ('.$h((string)$entry['source_building_name']).') <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
 }
 if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</small>';
 echo '</details></li>';}

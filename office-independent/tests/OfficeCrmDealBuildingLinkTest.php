@@ -13,7 +13,7 @@ $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $db->exec('CREATE TABLE office_crm_opportunities (id INTEGER PRIMARY KEY, revision INTEGER NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL)');
 $db->exec('CREATE TABLE office_buildings (id INTEGER PRIMARY KEY)');
-$db->exec('CREATE TABLE office_crm_deal_buildings (opportunity_id INTEGER PRIMARY KEY, building_id INTEGER NOT NULL)');
+$db->exec('CREATE TABLE office_crm_deal_buildings (opportunity_id INTEGER NOT NULL, building_id INTEGER NOT NULL, PRIMARY KEY(opportunity_id,building_id))');
 $db->exec("INSERT INTO office_crm_opportunities VALUES (1,1,'prospect','open'),(2,1,'won','closed')");
 $db->exec('INSERT INTO office_buildings VALUES (10),(11)');
 $link = new OfficeCrmDealBuildingLink($db);
@@ -32,4 +32,47 @@ foreach ([[1,11,1],[1,999,2],[2,10,1]] as [$deal,$building,$revision]) {
     }
 }
 if ($link->buildingId(1) !== 10) throw new RuntimeException('Rejected assignment modified link');
+
+$db->exec('INSERT INTO office_buildings VALUES (12)');
+$link->replaceBuildings(1,[12,10,11,10],2);
+
+if ($link->buildingIds(1)!==[10,11,12])
+    throw new RuntimeException('Multiple buildings failed');
+
+if ((int)$db->query('SELECT revision FROM office_crm_opportunities WHERE id=1')->fetchColumn()!==3)
+    throw new RuntimeException('Multiple building revision failed');
+
+$link->replaceBuildings(1,[11,12,10],3);
+
+if ((int)$db->query('SELECT revision FROM office_crm_opportunities WHERE id=1')->fetchColumn()!==3)
+    throw new RuntimeException('Idempotency failed');
+
+$reject = static function(callable $action): void {
+    try {
+        $action();
+    } catch (RuntimeException $e) {
+        return;
+    }
+    throw new RuntimeException('Unsafe operation accepted');
+};
+
+$reject(fn()=> $link->replaceBuildings(1,[10],2));
+$reject(fn()=> $link->replaceBuildings(1,[10,999],3));
+$reject(fn()=> $link->replaceBuildings(2,[10,11],1));
+$reject(fn()=> $link->assign(1,10,3));
+$reject(fn()=> $link->buildingId(1));
+
+if ($link->buildingIds(1)!==[10,11,12])
+    throw new RuntimeException('Rejected operation modified links');
+
+$link->replaceBuildings(1,[10,12],3);
+
+if ($link->buildingIds(1)!==[10,12])
+    throw new RuntimeException('Building removal failed');
+
+if ((int)$db->query('SELECT revision FROM office_crm_opportunities WHERE id=1')->fetchColumn()!==4)
+    throw new RuntimeException('Removal revision failed');
+
+echo "MULTIPLE_BUILDINGS_TEST=PASS\\n";
+
 echo "OFFICE_CRM_DEAL_BUILDING_LINK_PASS\n";

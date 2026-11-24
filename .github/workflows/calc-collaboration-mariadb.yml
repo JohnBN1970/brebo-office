@@ -1,0 +1,81 @@
+name: Calc collaboration MariaDB migration
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/deployment/vps/sql/office-calc-collaboration-REVIEW.sql'
+      - 'office-independent/deployment/vps/audit-calc-collaboration.php'
+      - '.github/workflows/calc-collaboration-mariadb.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: testroot
+          MARIADB_DATABASE: brebo_office_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MariaDB client and PHP MySQL driver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client php-mysql
+      - name: Build isolated schema fixture
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test <<'SQL'
+          CREATE TABLE calculation_lines (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            description VARCHAR(255) NOT NULL,
+            quantity DECIMAL(18,4) NOT NULL,
+            unit VARCHAR(20) NOT NULL
+          );
+          CREATE TABLE office_calc_crm_drafts (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            created_by BIGINT UNSIGNED NULL,
+            opportunity_id BIGINT UNSIGNED NULL,
+            calculation_id BIGINT UNSIGNED NULL,
+            crm_revision BIGINT UNSIGNED NULL,
+            project_id BIGINT UNSIGNED NULL
+          );
+          SQL
+      - name: Run migration twice to verify repeatability
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          for pass in 1 2; do
+            mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test < office-independent/deployment/vps/sql/office-calc-collaboration-REVIEW.sql
+          done
+      - name: Run schema preflight
+        env:
+          OFFICE_INTAKE_PDO_DSN: mysql:host=127.0.0.1;port=3306;dbname=brebo_office_test
+          OFFICE_INTAKE_DB_USER: root
+          OFFICE_INTAKE_DB_PASSWORD: testroot
+        run: php office-independent/deployment/vps/audit-calc-collaboration.php
+      - name: Check quantity and unit survive a database roundtrip
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test <<'SQL'
+          INSERT INTO calculation_lines
+            (description,quantity,unit,calc_net_quantity,calc_quantity_source,calc_quantity_source_ref)
+          VALUES ('Kunststof kozijnen',300,'m²',300,'building_element','1');
+          SELECT IF(COUNT(*)=1,'PASS','FAIL') AS quantity_roundtrip
+          FROM calculation_lines
+          WHERE description='Kunststof kozijnen' AND quantity=300
+            AND unit='m²' AND calc_net_quantity=300;
+          SQL
+          result=$(mysql --skip-ssl -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Kunststof kozijnen' AND quantity=300 AND unit='m²' AND calc_net_quantity=300")
+          test "$result" = 1
