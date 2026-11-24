@@ -32,6 +32,55 @@ final class OfficeCrmDealBuildingLink
         return $ids[0] ?? null;
     }
 
+    /**
+     * Replace the explicitly selected set atomically. Requires composite PK,
+     * caller authorization, CSRF and audit integration before UI activation.
+     * Empty sets are allowed for deals not yet scoped.
+     * @param list<int> $buildingIds
+     */
+    public function replaceBuildings(int $dealId, array $buildingIds, int $expectedRevision): void
+    {
+        if ($dealId < 1 || $expectedRevision < 1) {
+            throw new InvalidArgumentException('Invalid deal or revision');
+        }
+        foreach ($buildingIds as $id) {
+            if (!is_int($id) || $id < 1) throw new InvalidArgumentException('Invalid building');
+        }
+        $ids = array_values(array_unique($buildingIds));
+        sort($ids, SORT_NUMERIC);
+        $this->db->beginTransaction();
+        try {
+            $deal = $this->db->prepare('SELECT revision,stage,status FROM office_crm_opportunities WHERE id=? FOR UPDATE');
+            $deal->execute([$dealId]);
+            $row = $deal->fetch(PDO::FETCH_ASSOC);
+            if (!$row || (int)$row['revision'] !== $expectedRevision ||
+                $row['status'] !== 'open' || in_array($row['stage'], ['won','lost'], true)) {
+                throw new RuntimeException('Deal unavailable or changed');
+            }
+            $check = $this->db->prepare('SELECT id FROM office_buildings WHERE id=?');
+            foreach ($ids as $id) {
+                $check->execute([$id]);
+                if (!$check->fetchColumn()) throw new RuntimeException('Building not found');
+                $check->closeCursor();
+            }
+            $existing = $this->buildingIds($dealId);
+            if ($existing !== $ids) {
+                $remove = $this->db->prepare('DELETE FROM office_crm_deal_buildings WHERE opportunity_id=? AND building_id=?');
+                foreach (array_diff($existing, $ids) as $id) $remove->execute([$dealId, $id]);
+                $add = $this->db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
+                foreach (array_diff($ids, $existing) as $id) $add->execute([$dealId, $id]);
+                if ($this->buildingIds($dealId) !== $ids) throw new RuntimeException('Building set mismatch');
+                $update = $this->db->prepare('UPDATE office_crm_opportunities SET revision=revision+1 WHERE id=? AND revision=?');
+                $update->execute([$dealId,$expectedRevision]);
+                if ($update->rowCount() !== 1) throw new RuntimeException('Deal revision conflict');
+            }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
     public function assign(int $dealId, int $buildingId, int $expectedRevision): void
     {
         if ($dealId < 1 || $buildingId < 1 || $expectedRevision < 1) {
@@ -51,8 +100,11 @@ final class OfficeCrmDealBuildingLink
             if (!$building->fetchColumn()) throw new RuntimeException('Building not found');
             $existing = $this->buildingId($dealId);
             if ($existing !== $buildingId) {
-                $write = $this->db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id)
-                    VALUES (?,?) ON DUPLICATE KEY UPDATE building_id=VALUES(building_id)');
+                if ($existing !== null) {
+                    $delete = $this->db->prepare('DELETE FROM office_crm_deal_buildings WHERE opportunity_id=? AND building_id=?');
+                    $delete->execute([$dealId,$existing]);
+                }
+                $write = $this->db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
                 $write->execute([$dealId,$buildingId]);
                 $update = $this->db->prepare('UPDATE office_crm_opportunities SET revision=revision+1 WHERE id=? AND revision=?');
                 $update->execute([$dealId,$expectedRevision]);
