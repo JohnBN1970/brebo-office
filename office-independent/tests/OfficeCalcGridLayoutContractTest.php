@@ -46,9 +46,11 @@ if(!str_contains($source,'grid-template-columns:minmax(0,1fr) 300px') && !str_co
 if(substr_count($source,"echo '<!doctype")!==2)throw new RuntimeException('List and draft views must both exist');
 if(!str_contains($source,'colspan="19"'))throw new RuntimeException('Empty grid column count mismatch');
 foreach(['calc-inline-new','calc-inline-row','Verliesfactor %','name="material_loss_percent"'] as $inline)if(!str_contains($source,$inline))throw new RuntimeException('Inline entry missing: '.$inline);
-foreach(['calc-topbar','Terug naar hoofdmenu','calc-account-menu','/office-test/uitloggen','calc-topbar-settings','calc-inline-material-picker'] as $uiContract){
+foreach(['calc-inline-material-picker','class="calc-element-select"','href="#calc-inline-new"','aria-current'] as $uiContract){
  if(!str_contains($source,$uiContract))throw new RuntimeException('Calculator UI regression: '.$uiContract);
 }
+if(str_contains($source,'<nav class="calc-topbar"'))throw new RuntimeException('Duplicate calculator toolbar must not return');
+if(str_contains($source,'<button type="button" class="calc-element-select"'))throw new RuntimeException('Classification must use text links');
 if(substr_count($source,"require __DIR__.'/office-calc-crm-material-panel.php'")!==2)throw new RuntimeException('Material picker must be available in new and edit rows');
 foreach(['$materialLineId=(string)$line[\'line_id\']','Materiaal vervangen','Materiaal kiezen','NOT_MATERIAL_LINE','material_line_id'] as $contract)if(!str_contains($source,$contract))throw new RuntimeException('Line-level material picker missing: '.$contract);
 if(str_contains($source,'<tr class="calc-material-row"><td colspan="19">'))throw new RuntimeException('Standalone material row must not return');
