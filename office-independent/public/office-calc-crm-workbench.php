@@ -381,6 +381,14 @@ if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     if($calcDealBuilding===null){echo '<p>'.$h($calcDealBuildingNotice).'</p>';}
     else{
         echo '<p><strong>'.$h((string)$calcDealBuilding['name']).'</strong> · Gebouw #'.(int)$calcDealBuilding['building_id'].'</p>';
+        if(isset($dealId)&&getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled'){
+            try{
+                require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementAccess.php';
+                if((new \Brebo\Office\Project\OfficeBuildingElementAccess($db))->canManageBeforeProject($actor,(int)$calcDealBuilding['building_id'],(int)$dealId)){
+                    echo '<p><a href="/office-test/gebouwen?id='.(int)$calcDealBuilding['building_id'].'&amp;deal_id='.(int)$dealId.'">Bouwdelen beheren</a></p>';
+                }
+            }catch(Throwable){ /* Optional register access must not interrupt calculation. */ }
+        }
         if($calcDealBuilding['housing_types']===[])echo '<p>Geen woningtypen geregistreerd.</p>';
         else{
             echo '<ul>';
