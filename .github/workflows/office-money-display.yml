@@ -1,0 +1,20 @@
+name: Office money display contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/OfficeMoneyDisplay.php'
+      - 'office-independent/src/Project/OfficeProjectBudgetKpiView.php'
+      - 'office-independent/tests/OfficeMoneyDisplayTest.php'
+      - '.github/workflows/office-money-display.yml'
+  workflow_dispatch:
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate currency formatting and project KPI PHP
+        run: |
+          php -l office-independent/src/Finance/OfficeMoneyDisplay.php
+          php -l office-independent/src/Project/OfficeProjectBudgetKpiView.php
+          php -l office-independent/tests/OfficeMoneyDisplayTest.php
+          php office-independent/tests/OfficeMoneyDisplayTest.php
