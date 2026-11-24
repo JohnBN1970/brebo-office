@@ -111,7 +111,7 @@ final class ProjectBudgetPanel
                 if (!is_string($activity)) throw new InvalidArgumentException('Invalid activity.');
                 $html .= '<tr><td>'.self::e($line['code']).'</td><td>'
                     . self::e($types[$line['cost_type']]).'</td><td>'.self::e($activity)
-                    . '</td><td>€ '.number_format($line['baseline_cents'] / 100, 2, ',', '.').'</td></tr>';
+                    . '</td><td>'.self::e($money($line['baseline_cents'])).'</td></tr>';
             }
             $html .= '</tbody></table><h3>Kostenverdeling en bewaking per kostensoort</h3>'
                 . '<p>Begroot is afkomstig uit de vergrendelde werkbegroting. Verplicht, werkelijk en prognose worden pas per kostensoort getoond na gecontroleerde bronkoppeling.</p>'
