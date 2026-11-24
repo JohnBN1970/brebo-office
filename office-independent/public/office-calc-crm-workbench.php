@@ -391,11 +391,11 @@ echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elem
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){$group=substr($element,0,2);$children=$buildingElements[$group]??[];
 echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
 foreach($children as $entry){
-    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
+    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-total="'.($entry['housing_type_id']===null?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
 }
 if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</small>';
 echo '</details></li>';}
-echo '</ul><p class="muted">'.$h($buildingElementsNotice).' Selectie vult alleen de omschrijving voor; hoeveelheden worden nog niet overgenomen.</p></aside><div class="workspace"><div class="metrics">';
+echo '</ul><p class="muted">'.$h($buildingElementsNotice).' Selectie vult omschrijving voor. Gebouwtotalen vullen ook eenheid en hoeveelheid voor; woningtypehoeveelheden worden niet automatisch vermenigvuldigd. Controleer de invoer; bronkoppeling is nog niet opgeslagen.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
 echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
@@ -656,6 +656,13 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
     if(!selected){return;}
     if(description.value.trim()!==""&&!window.confirm("Bestaande omschrijving vervangen door de gekozen referentiecode?"))return;
     description.value=selected;
+    const unit=document.querySelector("input[form=calc-inline-new][name=unit]");
+    const quantity=document.querySelector("input[form=calc-inline-new][name=quantity]");
+    if(unit&&quantity&&button.dataset.buildingTotal==="true"&&Number(button.dataset.quantity)>0&&Number(button.dataset.quantity)<1000000){
+      unit.value=button.dataset.unit;
+      quantity.value=button.dataset.quantity;
+      quantity.dispatchEvent(new Event("input",{bubbles:true}));
+    }
     document.querySelectorAll(".calc-element-select").forEach(link=>link.removeAttribute("aria-current"));
     button.setAttribute("aria-current","true");
     document.querySelector("[data-calc-tab=data]")?.click();
