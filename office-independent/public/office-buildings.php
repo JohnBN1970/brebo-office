@@ -93,6 +93,39 @@ if ($detail) {
   foreach ($buildings as $candidate) {
     if ((int)$candidate['id'] === $buildingId) { $selectedBuilding = $candidate; break; }
   }
+  // Deal-scoped access is deliberately restricted to the element register.
+  if ($selectedBuilding === null && getenv('OFFICE_BASE_PATH')==='/office-test' && getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')==='enabled') {
+    $dealId=filter_input(INPUT_GET,'deal_id',FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    if(is_int($dealId)){
+      require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementAccess.php';
+      if((new \Brebo\Office\Project\OfficeBuildingElementAccess($db))->canManageBeforeProject((int)$operator->operatorId,$buildingId,$dealId)){
+        $q=$db->prepare('SELECT id,building_name FROM office_buildings WHERE id=?');
+        $q->execute([$buildingId]);
+        $dealBuilding=$q->fetch(PDO::FETCH_ASSOC);
+        if($dealBuilding){
+          require_once dirname(__DIR__).'/src/Project/OfficeBuildingElementRepository.php';
+          $secret=getenv('OFFICE_CL204_CSRF_SECRET');
+          $session=(string)$operator->sessionId;
+          if(!is_string($secret)||strlen($secret)<32||strlen($session)!==64){http_response_code(503);exit('Beveiligde opslag niet beschikbaar.');}
+          $token=hash_hmac('sha256','deal-elements:'.$dealId.':'.$buildingId,$session.$secret);
+          $url='/office-test/gebouwen?id='.$buildingId.'&deal_id='.$dealId;
+          $repo=new \Brebo\Office\Project\OfficeBuildingElementRepository($db);
+          if($_SERVER['REQUEST_METHOD']==='POST'){
+            if(!is_string($_POST['csrf_token']??null)||!hash_equals($token,$_POST['csrf_token'])){http_response_code(403);exit;}
+            try{
+              $repo->create($buildingId,null,(string)($_POST['classification']??''),(string)($_POST['code']??''),(string)($_POST['description']??''),(string)($_POST['unit']??''),str_replace(',','.',(string)($_POST['quantity']??'')),'manual');
+              header('Location: '.$url,true,303);exit;
+            }catch(InvalidArgumentException){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
+          }
+          $esc=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+          header('Content-Type: text/html; charset=utf-8');
+          echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>Bouwdelen</title><main><h1>'.$esc($dealBuilding['building_name']).' — Bouwdelen</h1><p>Deal #'.$dealId.'</p><ul>';
+          foreach($repo->forBuilding($buildingId) as $element)echo '<li>'.$esc($element['classification_code'].' '.$element['description'].' — '.$element['quantity'].' '.$element['unit']).'</li>';
+          echo '</ul><form method="post" action="'.$esc($url).'"><input type="hidden" name="csrf_token" value="'.$esc($token).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" required></label></p><p><label>Code <input name="code" required></label></p><p><label>Omschrijving <input name="description" required></label></p><p><label>Eenheid <input name="unit" required></label></p><p><label>Gebouwtotaal <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></main></html>';exit;
+        }
+      }
+    }
+  }
   if ($selectedBuilding === null) { http_response_code(404); exit('Gebouw niet gevonden of niet toegankelijk.'); }
 }
 // Validate opname selection before writing any HTML, so invalid IDs return a real 404.
