@@ -69,6 +69,7 @@ jobs:
           php office-independent/tests/OfficeCalcDecimalBudgetMapperTest.php
           php office-independent/tests/OfficeCalcDecimalTransferContractTest.php
           php office-independent/tests/OfficeBuildingElementRepositoryTest.php
+          php office-independent/tests/OfficeBuildingElementAccessTest.php
           php -l office-independent/public/office-buildings.php
           php -l office-independent/src/Project/OfficeBuildingElementRepository.php
           php office-independent/tests/OfficeCalcDecimalBaselineReadContractTest.php
