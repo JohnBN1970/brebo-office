@@ -15,7 +15,7 @@ final class OfficeProjectBudgetKpiView
         $locale=$comparison['money_locale']??'nl-NL';
         $fmt=static function(mixed $cents) use ($currency,$locale):string {
             if (!is_int($cents)) return 'Niet beschikbaar';
-            return \\Brebo\\Office\\Finance\\OfficeMoneyDisplay::formatCents($cents,$currency,$locale);
+            return \Brebo\Office\Finance\OfficeMoneyDisplay::formatCents($cents,$currency,$locale);
         };
         $awarded=$comparison['commitment_cents']??null;
         if (!is_int($awarded)||$awarded<0)throw new \InvalidArgumentException('Ongeldige verplichtingen.');
