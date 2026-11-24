@@ -58,7 +58,7 @@ final class OfficeCalcCrmDraftLineRepository
 
     public function save(int $draftId,int $actorId,string $lineId,string $costType,
         string $description,int $quantity,int $unitCostCents,?string $activityRef,
-        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null): void
+        callable $canManageOpportunity,?string $expectedRevision=null,string $reason='Calculatieregel gewijzigd',?string $exactQuantity=null,?string $exactUnitCost=null,?string $unit=null,?array $priceSource=null,?array $quantityAdjustment=null,?array $labor=null,?array $costComponents=null,?int $buildingElementId=null,?int $buildingElementRevision=null): void
     {
         if ($draftId<1 || $actorId<1 || !preg_match('/^[a-zA-Z0-9_-]{1,60}$/D',$lineId)
             || !isset(self::TYPES[$costType]) || trim($description)==='' || mb_strlen($description)>500
@@ -131,6 +131,18 @@ final class OfficeCalcCrmDraftLineRepository
             $q=$this->db->prepare('SELECT * FROM calculation_lines WHERE version_id=? AND code IN ('.$holders.') LIMIT 1');
             $q->execute(array_merge([$version],$codes));
             $existingRow=$q->fetch(PDO::FETCH_ASSOC);$existing=$existingRow===false?false:$existingRow['id'];
+            $elementSource=null;
+            if($buildingElementId!==null){
+                if($existing!==false||$exactQuantity===null||getenv('OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED')!=='enabled'||getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')!=='enabled')throw new DomainException('Bouwdeelbron niet beschikbaar.');
+                require_once __DIR__.'/OfficeCalcDealBuildingResolver.php';
+                $q=$this->db->prepare('SELECT opportunity_id FROM office_calc_crm_drafts WHERE id=?');
+                $q->execute([$draftId]);
+                $buildingId=(new OfficeCalcDealBuildingResolver($this->db,getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled'))->resolve((int)$q->fetchColumn());
+                $q=$this->db->prepare('SELECT id,revision,quantity,unit FROM office_building_elements WHERE id=? AND building_id=? AND housing_type_id IS NULL'.($driver==='mysql'?' FOR UPDATE':''));
+                $q->execute([$buildingElementId,$buildingId]);
+                $elementSource=$q->fetch(PDO::FETCH_ASSOC);
+                if(!$elementSource||$buildingElementRevision===null||(int)$elementSource['revision']!==$buildingElementRevision||$unit!==$elementSource['unit']||bccomp($exactQuantity,(string)$elementSource['quantity'],4)!==0)throw new DomainException('Bouwdeelbron gewijzigd of ongeldig.');
+            }
             // Do not silently invalidate a persisted adjustment when an existing line is edited.
             // Require explicit correction metadata for edits of adjusted rows, so the stored snapshot cannot be invalidated.
             if($adjustmentEnabled&&$existing!==false&&$quantityAdjustment===null){
@@ -169,6 +181,7 @@ final class OfficeCalcCrmDraftLineRepository
                     $costs['equipment_unit_cost'],$costs['subcontracting_unit_cost'],
                     $costs['other_unit_cost']]);
             }
+            $savedLineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
             if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled'){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
                 $q=$this->db->prepare('UPDATE calculation_lines SET calc_labor_norm=?,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver=? WHERE id=? AND version_id=?');
@@ -187,9 +200,14 @@ final class OfficeCalcCrmDraftLineRepository
                     $quantityAdjustment['material_loss_percent']??null,
                     $quantityAdjustment['extra_labor_hours']??null,
                     'manual',
-                    null,
+                    (is_array($existingRow)&&str_starts_with((string)($existingRow['calc_quantity_source_ref']??''),'building_element:'))?$existingRow['calc_quantity_source_ref']:null,
                     $lineRowId,$version
                 ]);
+            }
+            if($elementSource!==null){
+                $lineRowId=$savedLineRowId;
+                $q=$this->db->prepare('UPDATE calculation_lines SET calc_quantity_source_ref=? WHERE id=? AND version_id=?');
+                $q->execute(['building_element:'.$elementSource['id'].':'.$elementSource['revision'],$lineRowId,$version]);
             }
             if($priceSourcesEnabled){
                 $lineRowId=$existing!==false?(int)$existing:(int)$this->db->lastInsertId();
@@ -259,6 +277,7 @@ final class OfficeCalcCrmDraftLineRepository
                 'source_reference'=>(string)($row['source_reference']??''),
                 'source_details'=>(string)($row['source_details']??''),
                 'unit_cost_cents'=>(int)round((float)$row[self::COST_COLUMNS[$type]]*100),
+                'quantity_source_ref'=>(string)($row['calc_quantity_source_ref']??''),
                 'activity_ref'=>null,
             ];
         }
