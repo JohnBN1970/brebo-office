@@ -356,7 +356,7 @@ foreach($lines as $line){
     }
 }
 require_once dirname(__DIR__).'/src/Calculation/OfficeCalcProjectLaborTotal.php';
-$projectLabor=\\Brebo\\Office\\Calculation\\OfficeCalcProjectLaborTotal::summarize($lines);
+$projectLabor=\Brebo\Office\Calculation\OfficeCalcProjectLaborTotal::summarize($lines);
 $canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
