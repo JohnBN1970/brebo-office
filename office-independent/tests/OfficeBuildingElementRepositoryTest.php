@@ -21,4 +21,12 @@ foreach([[1,20,'2'],[99,null,'2'],[1,10,'-1'],[1,10,'1.12345']] as [$b,$h,$q]){
     if(!$rejected)throw new RuntimeException('Invalid element accepted');
 }
 if(count($r->forBuilding(1))!==2 || count($r->forBuilding(2))!==1)throw new RuntimeException('Rejected writes changed data');
+$db->exec("INSERT INTO office_building_elements (building_id,housing_type_id,classification_code,element_code,description,unit,quantity,source_kind) VALUES (1,20,'31','INVALID','Wrong scope','st','1','manual')");
+if(count($r->forBuilding(1))!==2)throw new RuntimeException('Cross-building housing reference leaked into read model');
+foreach(['1','123','AB'] as $classification){
+    $rejected=false;
+    try{$r->create(1,null,$classification,'BAD','Invalid','st','1','manual');}
+    catch(InvalidArgumentException $e){$rejected=true;}
+    if(!$rejected)throw new RuntimeException('Invalid classification accepted');
+}
 echo "BUILDING_ELEMENT_CONTRACT=PASS\n";
