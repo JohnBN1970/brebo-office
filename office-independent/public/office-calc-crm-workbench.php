@@ -555,7 +555,7 @@ if($edit!==null){
  echo '</form>';
 }
 if($edit===null){
- echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="building_element_id" value=""><input type="hidden" name="building_element_revision" value=""><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+ echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="building_element_id" value=""><input type="hidden" name="building_element_revision" value=""><input type="hidden" name="source_building_id" value=""><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
  if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<input type="hidden" name="labor_driver" value="norm">';
@@ -680,12 +680,15 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
     description.value=selected;
     const source=document.querySelector("#calc-inline-new [name=building_element_id]");
     const revision=document.querySelector("#calc-inline-new [name=building_element_revision]");
+    const sourceBuilding=document.querySelector("#calc-inline-new [name=source_building_id]");
     if(source)source.value="";
     if(revision)revision.value="";
+    if(sourceBuilding)sourceBuilding.value="";
     const unit=document.querySelector("input[form=calc-inline-new][name=unit]");
     const quantity=document.querySelector("input[form=calc-inline-new][name=quantity]");
     if(unit&&quantity&&button.dataset.buildingTotal==="true"&&Number(button.dataset.quantity)>0&&Number(button.dataset.quantity)<1000000){
       if(source)source.value=button.dataset.buildingId||"";
+      if(sourceBuilding)sourceBuilding.value=button.dataset.sourceBuildingId||"";
       if(revision)revision.value=button.dataset.buildingRevision||"";
       unit.value=button.dataset.unit;
       quantity.value=button.dataset.quantity;
