@@ -243,13 +243,14 @@ try {
             if(!isset($components[$primary]))$deny(400,'INVALID_COMPONENT');
             $exactUnitCost=$components[$primary];
         }
-        $buildingElementId=null;
+        $buildingElementId=null;$buildingElementRevision=null;
         if(($_POST['building_element_id']??'')!==''){
             $buildingElementId=filter_var($_POST['building_element_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-            if(!is_int($buildingElementId))$deny(400,'INVALID_ELEMENT');
+            $buildingElementRevision=filter_var($_POST['building_element_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if(!is_int($buildingElementId)||!is_int($buildingElementRevision))$deny(400,'INVALID_ELEMENT');
         }
         $repo->save($draft,$actor,$lineId,(string)($_POST['cost_type']??''),(string)($_POST['description']??''),
-            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components,$buildingElementId);
+            $quantity,$cost,null,$rights,$collaborationEnabled?(string)($_POST['expected_revision']??''):null,(string)($_POST['reason']??'Calculatieregel gewijzigd').($adjustmentReason!==''?' | '.$adjustmentReason:''),$exactQuantity,$exactUnitCost,$unit,null,$adjustmentMetadata,$labor,$components,$buildingElementId,$buildingElementRevision);
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
@@ -396,7 +397,7 @@ echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elem
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){$group=substr($element,0,2);$children=$buildingElements[$group]??[];
 echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
 foreach($children as $entry){
-    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-id="'.(int)$entry['id'].'" data-building-total="'.($entry['housing_type_id']===null&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
+    echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-revision="'.(int)$entry['revision'].'" data-building-id="'.(int)$entry['id'].'" data-building-total="'.($entry['housing_type_id']===null&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
 }
 if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</small>';
 echo '</details></li>';}
@@ -538,7 +539,7 @@ if($edit!==null){
  echo '</form>';
 }
 if($edit===null){
- echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="building_element_id" value=""><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+ echo '<form id="calc-inline-new" method="post" action="'.$workbenchUrl.'"><input type="hidden" name="building_element_id" value=""><input type="hidden" name="building_element_revision" value=""><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
  if($collaborationEnabled)echo '<input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'"><input type="hidden" name="reason" value="Nieuwe calculatieregel ingevoerd">';
  echo '<input type="hidden" name="line_id" value=""><input type="hidden" name="extra_labor_hours" value="">';
  if(getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled')echo '<input type="hidden" name="labor_driver" value="norm">';
@@ -662,11 +663,14 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
     if(description.value.trim()!==""&&!window.confirm("Bestaande omschrijving vervangen door de gekozen referentiecode?"))return;
     description.value=selected;
     const source=document.querySelector("#calc-inline-new [name=building_element_id]");
+    const revision=document.querySelector("#calc-inline-new [name=building_element_revision]");
     if(source)source.value="";
+    if(revision)revision.value="";
     const unit=document.querySelector("input[form=calc-inline-new][name=unit]");
     const quantity=document.querySelector("input[form=calc-inline-new][name=quantity]");
     if(unit&&quantity&&button.dataset.buildingTotal==="true"&&Number(button.dataset.quantity)>0&&Number(button.dataset.quantity)<1000000){
       if(source)source.value=button.dataset.buildingId||"";
+      if(revision)revision.value=button.dataset.buildingRevision||"";
       unit.value=button.dataset.unit;
       quantity.value=button.dataset.quantity;
       quantity.dispatchEvent(new Event("input",{bubbles:true}));
