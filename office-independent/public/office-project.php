@@ -1027,6 +1027,10 @@ if (is_array($financeContracts)
                     require_once dirname(__DIR__) . '/src/Project/OfficeProjectBudgetKpiView.php';
                     $baseline = (new \Brebo\Office\Governance\OfficeWorkBudgetBaselineReader($db))->forProject((int) $projectId);
                     $comparison = \Brebo\Office\Governance\OfficeWorkBudgetCommitmentComparison::summarize($baseline, $commitment);
+                    require_once dirname(__DIR__) . '/src/Finance/OfficeFinancialDisplaySettings.php';
+                    $moneyDefaults = (new \Brebo\Office\Finance\OfficeFinancialDisplaySettings($db))->read();
+                    $comparison['currency'] = $moneyDefaults['currency'];
+                    $comparison['money_locale'] = $moneyDefaults['locale'];
                     $financeHtml .= \Brebo\Office\Project\OfficeProjectBudgetKpiView::render($comparison);
                 } catch (\Throwable $budgetError) {
                     error_log('Office locked work budget KPI unavailable: ' . get_class($budgetError));
@@ -1077,6 +1081,10 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
         }
         $workBudgetView = (new \Brebo\Office\WorkingBudget\ProjectBudgetReadModel($db))
             ->forAuthorizedProject((int)$projectId, $workBudgetProcurement, null, $laborEvidence);
+        require_once dirname(__DIR__) . '/src/Finance/OfficeFinancialDisplaySettings.php';
+        $moneyDefaults = (new \Brebo\Office\Finance\OfficeFinancialDisplaySettings($db))->read();
+        $workBudgetView['currency'] = $moneyDefaults['currency'];
+        $workBudgetView['money_locale'] = $moneyDefaults['locale'];
         $workBudgetView['actual_labor_costs'] = $actualLabour;
         $workBudgetView['source_status']['finance'] = 'not_reconciled';
         $workBudgetView['source_status']['labor_costs'] = $actualLabour !== null && $actualLabour['entries'] > 0
