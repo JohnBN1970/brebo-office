@@ -56,7 +56,23 @@ try {
         $registration=new \Brebo\Office\Mail\OfficeTestMailboxRegistration($db,$provisioning);
         $address=is_string($_POST['address']??null)?$_POST['address']:'';
         $action=$_POST['action']??'';
-        if ($action==='activate' || $action==='deactivate') {
+        if ($action==='grant_read' || $action==='revoke_read') {
+          if (!$activationEnabled) throw new RuntimeException('Access management disabled');
+          $target=$_POST['operator_id']??null;
+          if (!is_string($target) || !preg_match('/^[1-9][0-9]{0,18}$/D',$target)) throw new RuntimeException('Invalid operator');
+          $stmt=$db->prepare("SELECT b.id FROM office_mail_mailboxes b JOIN office_operator_accounts a ON a.id=? AND a.active=1 WHERE b.address=? AND b.mailbox_type='functional' AND b.gateway_ref IS NOT NULL");
+          if (!filter_var($address,FILTER_VALIDATE_EMAIL) || !str_ends_with($address,'@testmail.brebobv.nl')) throw new RuntimeException('Invalid mailbox');
+          $stmt->execute([$target,$address]);
+          $id=$stmt->fetchColumn();
+          if ($id===false) throw new RuntimeException('Mailbox or operator unavailable');
+          if ($action==='grant_read') {
+            $stmt=$db->prepare('INSERT INTO office_mail_mailbox_access (mailbox_id,operator_id,can_read) VALUES (?,?,1) ON DUPLICATE KEY UPDATE can_read=1');
+          } else {
+            $stmt=$db->prepare('UPDATE office_mail_mailbox_access SET can_read=0 WHERE mailbox_id=? AND operator_id=?');
+          }
+          $stmt->execute([$id,$target]);
+          $result=['status'=>'access_updated'];
+        } elseif ($action==='activate' || $action==='deactivate') {
           if (!$activationEnabled) throw new RuntimeException('Activation disabled');
           $address=strtolower(trim($address));
           if (!filter_var($address,FILTER_VALIDATE_EMAIL) || !str_ends_with($address,'@testmail.brebobv.nl')) throw new RuntimeException('Invalid address');
@@ -133,6 +149,8 @@ try {
   $mailCounts=[];
   $passwordStatuses=[];
   $activationStatuses=[];
+  $mailOperators=[];
+  if ($activationEnabled) $mailOperators=$db->query('SELECT id,username FROM office_operator_accounts WHERE active=1 ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
   if (parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email') {
     $mailboxes=$db->query("SELECT id,address,label,mailbox_type,active,credential_ref
       FROM office_mail_mailboxes ORDER BY id LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
@@ -247,7 +265,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php if ($enabled): ?>
 <section class="card"><h2>Testmailbox aanvragen</h2>
 <p class="muted">Alleen testmail.brebobv.nl. Aanvragen activeren geen mailbox.</p>
-<?php if ($result!==null): ?><p role="status"><?= $result['status']==='activation_pending'?'Activeringswijziging aangevraagd.':($result['status']==='staged'?'Mailbox geregistreerd in Office en Gateway; nog inactief.':($result['status']==='password_stored'?'Wachtwoord veilig opgeslagen; mailbox blijft inactief.':'Aanvraag niet bevestigd; controleer Office en Gateway voordat opnieuw wordt geprobeerd.')) ?></p><?php endif; ?>
+<?php if ($result!==null): ?><p role="status"><?= $result['status']==='access_updated'?'Leesrecht bijgewerkt.':($result['status']==='activation_pending'?'Activeringswijziging aangevraagd.':($result['status']==='staged'?'Mailbox geregistreerd in Office en Gateway; nog inactief.':($result['status']==='password_stored'?'Wachtwoord veilig opgeslagen; mailbox blijft inactief.':'Aanvraag niet bevestigd; controleer Office en Gateway voordat opnieuw wordt geprobeerd.'))) ?></p><?php endif; ?>
 <form method="post" action="/office-test/instellingen/email">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
 <label for="address">E-mailadres</label>
@@ -287,6 +305,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 </section>
 <?php endif; ?>
 <section class="card"><h2>Geregistreerde mailboxen</h2>
+<?php if ($activationEnabled && ($result['status']??null)==='access_updated'): ?><p role="status">Leesrecht bijgewerkt.</p><?php endif; ?>
 <?php if ($activationEnabled && $result!==null && $result['status']==='activation_pending'): ?><p role="status">Activeringswijziging aangevraagd. Gateway verwerkt de aanvraag op de achtergrond.</p><?php endif; ?>
 <?php if ($activationEnabled && ($result['status']??null)==='failed'): ?><p role="alert">Aanvraag niet bevestigd.</p><?php endif; ?>
 <p class="muted">Actuele Office-test-databasegegevens. Inloggegevens worden nooit getoond.</p>
@@ -308,6 +327,15 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php endif; ?>
 </td><td><?= (int)($mailCounts[$box['id']]??0) ?>
 <?php if ($activationEnabled && !empty($box['gateway_ref']) && str_ends_with($box['address'],'@testmail.brebobv.nl')): ?>
+<form method="post" action="/office-test/instellingen/email">
+<input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
+<input type="hidden" name="address" value="<?= $h($box['address']) ?>">
+<label>Leesrecht <select name="operator_id" required><option value="">Selecteer gebruiker</option>
+<?php foreach ($mailOperators as $account): ?><option value="<?= $h($account['id']) ?>"><?= $h($account['username']) ?></option><?php endforeach; ?>
+</select></label>
+<button name="action" value="grant_read">Toekennen</button>
+<button name="action" value="revoke_read">Intrekken</button>
+</form>
 <?php $as=$activationStatuses[$box['address']]??null; ?>
 <br><small>Gateway: <?= $h($as['status']??'Onbekend') ?></small>
 <?php if ($as!==null && !($as['operator_can_read']??false)): ?><br><small>Geen leesrecht voor huidig account; mailbox niet zichtbaar in BREBO Mail.</small><?php endif; ?>
