@@ -22,6 +22,13 @@ final class OfficeBuildingCreateService {
             $grant=$this->db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) SELECT ?,id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1');
             $grant->execute([$id,$operatorId]);
             if ($grant->rowCount()!==1) throw new DomainException('building_create_forbidden');
+            if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+            require_once __DIR__.'/OfficeBuildingAudit.php';
+            $snapshot=$this->db->prepare('SELECT building_name,street_address,postal_code,city FROM office_buildings WHERE id=?');
+            $snapshot->execute([$id]);
+            $row=$snapshot->fetch(PDO::FETCH_ASSOC);
+            if (!$row) throw new DomainException('building_snapshot_unavailable');
+            (new OfficeBuildingAudit($this->db))->record((int)$id,$operatorId,'created','register',null,null,$row);
             $this->db->commit();
             return $id;
         } catch (\Throwable $e) {
