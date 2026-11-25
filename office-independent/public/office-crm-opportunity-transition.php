@@ -56,6 +56,20 @@ if ($method==='POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='create_building') {
+        if (!$buildingReady || $missing!==[] || getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled') {http_response_code(403);exit;}
+        $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
+        if ($revision===false || $revision!==(int)$item['revision'] || !is_array($_POST['new_building']??null)) {http_response_code(409);exit('Ververs de deal.');}
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+        try {
+            $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($_POST['new_building'],(int)$operator->operatorId,static fn():bool=>$buildingReady);
+        } catch (Throwable $e) {http_response_code(409);exit('Gebouwregistratie mislukt. Controleer het adres.');}
+        try {
+            $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision);
+        } catch (Throwable $e) {http_response_code(409);exit('Gebouw geregistreerd, maar niet gekoppeld. Selecteer het bestaande gebouw na verversen.');}
+        $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+        header('Location: /office-test/crm/verkoopkansen',true,303);exit;
+    }
     if ($action==='replace_buildings') {
         if (!$buildingReady || $missing!==[]) {http_response_code(403);exit;}
         $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
@@ -111,6 +125,10 @@ if ($buildingReady) {
         echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><label>Gebouwen<select name="building_ids[]" multiple size="6">';
         foreach ($choices as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$linked,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
         echo '</select></label><button name="action" value="replace_buildings">Gebouwkoppelingen opslaan</button></form>';
+        if (getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
+            require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
+            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><input type="hidden" name="action" value="create_building">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render().'</form>';
+        }
     }
 }
 // Projectless Deal -> Calc link. The launch endpoint rechecks session, authorization,
