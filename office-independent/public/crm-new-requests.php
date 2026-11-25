@@ -11,7 +11,8 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if (!in_array($requestMethod, ['GET', 'POST'], true)) {
     header('Allow: GET, POST'); http_response_code(405); exit;
 }
-if ($requestMethod === 'POST' && (
+$buildingAction=($_POST['building_action']??null)==='replace_links';
+if ($requestMethod === 'POST' && !$buildingAction && (
     getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
     || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
     || getenv('OFFICE_TEST_FR201_READINESS_ENABLED') !== 'enabled'
@@ -82,6 +83,39 @@ try {
         }
         $routeId = $_GET['id'] ?? null;
         $id = filter_var($_POST['lead_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        if ($buildingAction) {
+            if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')!=='enabled' || getenv('OFFICE_CRM_LEAD_BUILDINGS_SCHEMA_VERIFIED')!=='enabled' || getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
+            if (!is_int($id) || (string)$id!==$routeId || !is_array($_POST['building_ids']??[]) || count($_POST['building_ids']??[])>200) {http_response_code(400);exit;}
+            $db->beginTransaction();
+            try {
+                $q=$db->prepare("SELECT l.id FROM office_crm_leads l JOIN office_operator_accounts a ON a.id=? AND a.active=1 AND a.can_edit_crm=1 WHERE l.id=? AND l.owner_operator_id=? AND l.status='active' AND l.converted_opportunity_id IS NULL FOR UPDATE");
+                $q->execute([$operator->operatorId,$id,(string)$operator->operatorId]);
+                if (!$q->fetchColumn()) throw new DomainException('Geen schrijfrecht.');
+                $q=$db->prepare('SELECT building_id FROM office_crm_lead_buildings WHERE lead_id=? ORDER BY building_id FOR UPDATE');
+                $q->execute([$id]);$old=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
+                if (!is_string($_POST['building_revision']??null) || !hash_equals(hash('sha256',implode(',',$old)),$_POST['building_revision'])) throw new DomainException('Gebouwkoppelingen gewijzigd.');
+                $ids=[];
+                $q=$db->prepare("SELECT b.id FROM office_buildings b WHERE b.id=? AND b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage')))");
+                foreach ($_POST['building_ids']??[] as $v) {
+                    $bid=is_scalar($v)?filter_var($v,FILTER_VALIDATE_INT):false;
+                    if (!$bid || $bid<1) throw new DomainException('Ongeldig gebouw.');
+                    $q->execute([$bid,$operator->operatorId,$operator->operatorId]);
+                    if (!$q->fetchColumn()) throw new DomainException('Geen gebouwtoegang.');
+                    $ids[]=$bid;
+                }
+                $ids=array_values(array_unique($ids));sort($ids,SORT_NUMERIC);
+                $del=$db->prepare('DELETE FROM office_crm_lead_buildings WHERE lead_id=? AND building_id=?');
+                foreach (array_diff($old,$ids) as $bid) $del->execute([$id,$bid]);
+                $ins=$db->prepare('INSERT INTO office_crm_lead_buildings (lead_id,building_id) VALUES (?,?)');
+                foreach (array_diff($ids,$old) as $bid) $ins->execute([$id,$bid]);
+                $db->commit();
+            } catch (Throwable $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                http_response_code(409);exit('Gebouwkoppelingen niet opgeslagen. Ververs de pagina.');
+            }
+            $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
+            header('Location: '.$base.'/crm/aanvragen/detail?id='.$id,true,303);exit;
+        }
         $revision = filter_var($_POST['expected_revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
         $reason = $_POST['change_reason'] ?? null;
         $values = $_POST['fr201'] ?? null;
