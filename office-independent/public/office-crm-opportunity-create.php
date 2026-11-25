@@ -26,7 +26,7 @@ try {
     $buildings=[];
     $permission=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
     $permission->execute([$operator->operatorId]);
-    $canCreateBuilding=(int)$permission->fetchColumn()===1 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled';
+    $canCreateBuilding=(int)$permission->fetchColumn()===1 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test';
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
     if (getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
@@ -73,7 +73,7 @@ if ($method==='POST') {
         $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
         if (!$validBuilding) { $error='Kies geldige gebouwen.'; }
         else try {
-            $created=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($newBuilding,static fn():bool=>$canCreateBuilding);
+            $created=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($newBuilding,(int)$operator->operatorId,static fn():bool=>$canCreateBuilding);
             $buildings[]=['id'=>$created,'building_name'=>trim($newBuilding['building_name'])];
             $buildingIds=$multiBuilding?array_values(array_unique(array_merge($buildingIds,[(int)$created]))):[(int)$created];
             $newBuilding=[];
