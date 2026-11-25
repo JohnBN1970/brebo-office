@@ -30,7 +30,13 @@ try {
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
     if (getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
-        $buildings=$db->query("SELECT id,building_name FROM office_buildings ORDER BY building_name,id LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        if (getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test') {
+            $q=$db->prepare("SELECT b.id,b.building_name FROM office_buildings b WHERE b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) ORDER BY b.building_name,b.id");
+            $q->execute([$operator->operatorId,$operator->operatorId]);
+            $buildings=$q->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $buildings=$db->query("SELECT id,building_name FROM office_buildings ORDER BY building_name,id LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
+        }
     }
     $relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
