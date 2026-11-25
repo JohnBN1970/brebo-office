@@ -34,6 +34,9 @@ final class OfficeBuildingUpdateService {
             }
             $q=$this->db->prepare('UPDATE office_buildings SET building_name=?,street_address=?,postal_code=?,city=? WHERE id=?');
             $q->execute([$clean['building_name'],$clean['street_address'],$clean['postal_code'],$clean['city'],$id]);
+            if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+            require_once __DIR__.'/OfficeBuildingAudit.php';
+            if (self::revision($row)!==self::revision($clean)) (new OfficeBuildingAudit($this->db))->record($id,$operatorId,'updated','register',null,$row,$clean);
             $this->db->commit();
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
