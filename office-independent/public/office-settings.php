@@ -153,6 +153,9 @@ try {
             $status=$activationClient->post('/v1/mailboxes/activation-status',['address'=>$box['address'],'reference'=>$box['gateway_ref']]);
             if (($status['address']??null)!==$box['address'] || ($status['reference']??null)!==$box['gateway_ref']) continue;
             $activationStatuses[$box['address']]=$status;
+            $access=$db->prepare('SELECT COUNT(*) FROM office_mail_mailbox_access WHERE mailbox_id=? AND operator_id=? AND can_read=1');
+            $access->execute([$box['id'],(string)$operator->operatorId]);
+            $activationStatuses[$box['address']]['operator_can_read']=(int)$access->fetchColumn()>0;
             if (($status['status']??null)==='applied'
                 && is_bool($status['applied_active']??null)
                 && ($status['desired_active']??null)===$status['applied_active']) {
@@ -307,6 +310,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php if ($activationEnabled && !empty($box['gateway_ref']) && str_ends_with($box['address'],'@testmail.brebobv.nl')): ?>
 <?php $as=$activationStatuses[$box['address']]??null; ?>
 <br><small>Gateway: <?= $h($as['status']??'Onbekend') ?></small>
+<?php if ($as!==null && !($as['operator_can_read']??false)): ?><br><small>Geen leesrecht voor huidig account; mailbox niet zichtbaar in BREBO Mail.</small><?php endif; ?>
 <?php if ($as!==null && !in_array($as['status']??'', ['pending','applying'],true)): ?>
 <form method="post" action="/office-test/instellingen/email">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
