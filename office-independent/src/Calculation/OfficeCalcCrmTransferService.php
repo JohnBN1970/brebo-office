@@ -116,6 +116,10 @@ final class OfficeCalcCrmTransferService
             if (!is_int($projectId) || $projectId < 1) {
                 throw new DomainException('Project creation did not return a valid ID');
             }
+            if (getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
+                require_once dirname(__DIR__).'/Buildings/OfficeDealProjectBuildingTransfer.php';
+                (new \Brebo\Office\Buildings\OfficeDealProjectBuildingTransfer($this->db))->transfer((int)$acceptance['crm_opportunity_id'],$projectId);
+            }
             $insert = $this->db->prepare(
                 'INSERT INTO office_calc_crm_acceptance_transfers ' .
                 '(crm_opportunity_id, acceptance_key, calculation_id, accepted_revision, office_project_id) ' .
