@@ -211,6 +211,25 @@ if (isset($item)) {
     if ($item['converted_opportunity_id']) echo '<p>Omgezet naar deal #'.(int)$item['converted_opportunity_id'].'</p>';
     elseif ($item['stage']==='qualified' && $item['status']==='active' && !empty($item['relation_name'])) echo '<p><a href="'.$h($base).'/crm/verkoopkansen/nieuw?lead_id='.(int)$item['id'].'">Maak deal van deze lead</a></p>';
     elseif ($item['stage']==='qualified') echo '<p>Koppel eerst een bestaande CRM-relatie voordat deze lead naar een deal kan.</p>';
+    if ($base==='/office-test' && getenv('OFFICE_CRM_LEAD_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_CRM_LEADS_WRITE_ENABLED')==='enabled' && (string)$item['owner_operator_id']===(string)$operator->operatorId && $item['status']==='active' && $item['converted_opportunity_id']===null) {
+        $p=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
+        $p->execute([$operator->operatorId]);
+        if ((int)$p->fetchColumn()===1) {
+            $q=$db->prepare('SELECT building_id FROM office_crm_lead_buildings WHERE lead_id=? ORDER BY building_id');
+            $q->execute([$item['id']]);$linked=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
+            $q=$db->prepare("SELECT b.id,b.building_name FROM office_buildings b WHERE b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) ORDER BY b.building_name,b.id");
+            $q->execute([$operator->operatorId,$operator->operatorId]);$choices=$q->fetchAll(PDO::FETCH_ASSOC);
+            $missing=array_diff($linked,array_map('intval',array_column($choices,'id')));
+            echo '<section><h2>Gebouwen</h2>';
+            if ($missing!==[]) echo '<p>Niet alle gekoppelde gebouwen zijn toegankelijk. Wijzigen is geblokkeerd.</p>';
+            else {
+                echo '<form method="post" action="'.$h($base).'/crm/aanvragen/detail?id='.(int)$item['id'].'"><input type="hidden" name="csrf_token" value="'.$h($_SESSION['crm_lead_board_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$item['id'].'"><input type="hidden" name="building_revision" value="'.hash('sha256',implode(',',$linked)).'"><label>Gebouwen<select name="building_ids[]" multiple size="6">';
+                foreach ($choices as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$linked,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
+                echo '</select></label><button name="building_action" value="replace_links">Gebouwkoppelingen opslaan</button></form>';
+            }
+            echo '</section>';
+        }
+    }
     echo '<section><p><strong>Bron:</strong> '.$h($item['source_name']).' '.$h($item['source_detail']).'</p><p><strong>Campagne:</strong> '.$h($item['campaign']).'</p><p><strong>Relatie:</strong> '.$h($item['relation_name']).'</p><p><strong>Leadverantwoordelijke:</strong> '.($item['owner_operator_id'] ? $h($operatorNames[(string)$item['owner_operator_id']] ?? 'Gebruiker #'.$item['owner_operator_id']) : 'Niet toegewezen').'</p><p><strong>Contactpersoon:</strong> '.$h($item['contact_name']).'</p><p><strong>E-mail:</strong> '.$h($item['contact_email']).'</p><p><strong>Fase:</strong> '.$h($item['stage']).'</p><p><strong>Status:</strong> '.$h($item['status']).'</p><p><strong>Omschrijving:</strong> '.$h($item['description']).'</p><p><strong>Ontvangen:</strong> '.$h($item['received_at']).'</p></section>';
     // FR-201 qualification readiness: read-only, feature-gated, no duplicate CRM writes.
     if ($base === '/office-test' && getenv('OFFICE_TEST_FR201_READINESS_ENABLED') === 'enabled') {
