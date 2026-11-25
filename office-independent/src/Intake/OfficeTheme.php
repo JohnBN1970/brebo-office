@@ -32,7 +32,7 @@ final class OfficeTheme {
     } catch (\Throwable $e) { $admin = false; }
     if ($operator === null) return '<a href="/office-test/inloggen">Inloggen</a>';
     $gear = $admin ? '<a href="/office-test/instellingen" aria-label="Instellingen" title="Instellingen">⚙</a>' : '';
-    return $gear.'<details class="office-account-menu"><summary aria-label="Profiel" title="Profiel"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="3"/><path d="M5 19c1-7 13-7 14 0"/></svg></summary><div class="office-account-panel"><strong>Account</strong><span>Ingelogd</span><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details>';
+    return $gear.'<details class="office-account-menu"><summary aria-label="Profiel" title="Profiel"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="3"/><path d="M5 19c1-7 13-7 14 0"/></svg></summary><div class="office-account-panel"><a href="/office-test/mijn-account">Mijn account</a><span>Ingelogd</span><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details>';
   }
   /** Add only the exact shared script hash; preserve all other CSP directives. */
   public static function policy(string $policy): string {
