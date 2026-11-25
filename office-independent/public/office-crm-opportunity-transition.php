@@ -61,12 +61,20 @@ if ($method==='POST') {
         $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
         if ($revision===false || $revision!==(int)$item['revision'] || !is_array($_POST['new_building']??null)) {http_response_code(409);exit('Ververs de deal.');}
         require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+        $db->beginTransaction();
         try {
-            $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($_POST['new_building'],(int)$operator->operatorId,static fn():bool=>$buildingReady);
-        } catch (Throwable $e) {http_response_code(409);exit('Gebouwregistratie mislukt. Controleer het adres.');}
-        try {
+            $p=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+            $p->execute([$operator->operatorId]);
+            if (!$p->fetchColumn()) throw new DomainException('Geen schrijfrecht.');
+            $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($_POST['new_building'],static fn():bool=>true);
+            $grant=$db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) VALUES (?,?)');
+            $grant->execute([$bid,$operator->operatorId]);
             $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision);
-        } catch (Throwable $e) {http_response_code(409);exit('Gebouw geregistreerd, maar niet gekoppeld. Selecteer het bestaande gebouw na verversen.');}
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            http_response_code(409);exit('Gebouwregistratie en koppeling niet opgeslagen. Controleer het adres en ververs de deal.');
+        }
         $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
         header('Location: /office-test/crm/verkoopkansen',true,303);exit;
     }
