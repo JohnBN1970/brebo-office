@@ -111,7 +111,15 @@ if ($method==='POST') {
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
             if ($buildingIds!==[]) {
                 $link=$db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
-                foreach ($buildingIds as $buildingId) $link->execute([$id,$buildingId]);
+                if (getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test') {
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $audit=new \Brebo\Office\Buildings\OfficeBuildingAudit($db);
+                }
+                foreach ($buildingIds as $buildingId) {
+                    $link->execute([$id,$buildingId]);
+                    if (isset($audit)) $audit->record((int)$buildingId,(int)$operator->operatorId,'linked','deal',(int)$id,['linked'=>false],['linked'=>true]);
+                }
             }
             if ($leadId>0) {
                 $update=$db->prepare("UPDATE office_crm_leads SET converted_opportunity_id=?,converted_at=NOW(),status='converted' WHERE id=? AND converted_opportunity_id IS NULL");
