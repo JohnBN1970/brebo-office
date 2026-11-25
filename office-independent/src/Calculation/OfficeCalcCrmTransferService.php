@@ -153,6 +153,22 @@ final class OfficeCalcCrmTransferService
                     'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 );
             }
+            $scopeEnabled = getenv('OFFICE_WORK_BUDGET_BUILDING_SCOPE_VERIFIED') === 'enabled';
+            $scopeBySource = [];
+            if ($scopeEnabled) {
+                $membership = $this->db->prepare('SELECT 1 FROM office_project_buildings WHERE project_id=? AND building_id=?');
+                foreach ($lines as $line) {
+                    if (!array_key_exists('building_id', $line)) throw new DomainException('Accepted building scope missing');
+                    $building = $line['building_id'];
+                    if ($building !== null) {
+                        if (!is_int($building) || $building < 1) throw new DomainException('Invalid accepted building scope');
+                        $membership->execute([$projectId,$building]);
+                        if (!$membership->fetchColumn()) throw new DomainException('Budget building outside project');
+                    }
+                    $scopeBySource[$line['line_id']] = $building;
+                }
+                $scopeInsert = $this->db->prepare('INSERT INTO office_work_budget_building_scope (baseline_line_id,building_id) VALUES (?,?)');
+            }
             foreach ($budget['items'] as $index => $item) {
                 $values = [
                     $baselineId, $item['source_line_id'], $item['cost_type'],
@@ -165,6 +181,11 @@ final class OfficeCalcCrmTransferService
                     $values[] = $lines[$index]['budget_decimal'];
                 }
                 $lineInsert->execute($values);
+                if ($scopeEnabled) {
+                    $lineId = (int)$this->db->lastInsertId();
+                    if ($lineId < 1 || !array_key_exists($item['source_line_id'],$scopeBySource)) throw new DomainException('Budget scope source missing');
+                    $scopeInsert->execute([$lineId,$scopeBySource[$item['source_line_id']]]);
+                }
             }
             // Confirm canonical project and all written budget lines before
             // committing. Neither a generated ID nor a callback return value is
@@ -228,6 +249,15 @@ final class OfficeCalcCrmTransferService
                         }
                     }
                 }
+            }
+            if ($scopeEnabled) {
+                $scopeRead = $this->db->prepare('SELECT l.source_line_id,s.building_id FROM office_calc_work_budget_lines l JOIN office_work_budget_building_scope s ON s.baseline_line_id=l.id WHERE l.baseline_id=?');
+                $scopeRead->execute([$baselineId]);
+                $actualScope = [];
+                foreach ($scopeRead->fetchAll(PDO::FETCH_ASSOC) as $row) $actualScope[$row['source_line_id']] = $row['building_id'] === null ? null : (int)$row['building_id'];
+                ksort($actualScope);
+                ksort($scopeBySource);
+                if ($actualScope !== $scopeBySource) throw new DomainException('Persisted building scope differs');
             }
             $projectCheck = $this->db->prepare('SELECT 1 FROM office_projects WHERE id = ?');
             $projectCheck->execute([$projectId]);
