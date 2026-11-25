@@ -232,6 +232,77 @@ $check(
   'PASSWORD_NO_MAILSTACK_CHANGE'
 );
 
+
+$statusRequest = static function (
+  array $payload, bool $signed = true
+) use ($passwordRouter, $keyId, $secret, $now): array {
+  $path = '/v1/mailboxes/password-status';
+  $body = json_encode($payload, JSON_THROW_ON_ERROR);
+  $headers = $signed
+    ? GatewayRequestSignature::sign(
+        $keyId, $secret, $now, 'POST', $path, $body
+      )->headers()
+    : [];
+
+  return $passwordRouter->dispatch(
+    new GatewayRequest('POST', $path, $body, $headers),
+    $now
+  );
+};
+
+$statusPayload = [
+  'address'=>$address,
+  'reference'=>$reference,
+];
+
+$response = $statusRequest($statusPayload);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['password_set'] === true
+  && is_int($response['body']['changed_at'])
+  && $response['body']['changed_at'] > 0
+  && count($response['body']) === 4
+  && !str_contains(json_encode($response), $newHash),
+  'PASSWORD_STATUS_STORED'
+);
+
+$emptyAddress = 'empty@testmail.brebobv.nl';
+$emptyRef = $repo->provisionMailbox(['address'=>$emptyAddress]);
+
+$response = $statusRequest([
+  'address'=>$emptyAddress,
+  'reference'=>$emptyRef,
+]);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['password_set'] === false
+  && $response['body']['changed_at'] === null,
+  'PASSWORD_STATUS_NOT_SET'
+);
+
+$check(
+  $statusRequest($statusPayload, false)['status'] === 401,
+  'PASSWORD_STATUS_UNSIGNED_BLOCKED'
+);
+
+$check(
+  $statusRequest(array_replace($statusPayload, [
+    'reference'=>'invalid',
+  ]))['status'] === 422,
+  'PASSWORD_STATUS_WRONG_REFERENCE'
+);
+
+$check(
+  $statusRequest(array_replace($statusPayload, [
+    'address'=>'info@brebobv.nl',
+  ]))['status'] === 422,
+  'PASSWORD_STATUS_PRODUCTION_BLOCKED'
+);
+
+echo "MAIL_PASSWORD_STATUS_TEST=PASS\n";
+
 echo "MAIL_PASSWORD_API_TEST=PASS\n";
 
 echo "BREBO_MAIL_GATEWAY_SMOKE=PASS\n";

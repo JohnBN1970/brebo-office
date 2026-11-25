@@ -65,6 +65,44 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     return is_string($reference) ? $reference : null;
   }
 
+  public function testMailboxPasswordStatus(
+    string $address,
+    string $reference
+  ): array {
+    if (!filter_var($address, FILTER_VALIDATE_EMAIL)
+        || !str_ends_with($address, '@testmail.brebobv.nl')) {
+      throw new RuntimeException('Ongeldig testmailboxadres.');
+    }
+
+    $actual = $this->mailboxReference($address);
+    if ($actual === null || !hash_equals($actual, $reference)) {
+      throw new RuntimeException('Mailboxreferentie komt niet overeen.');
+    }
+
+    $exists = $this->pdo->query(
+      "SELECT 1 FROM sqlite_master
+       WHERE type='table' AND name='mailbox_credential'"
+    )->fetchColumn();
+
+    $changed = false;
+
+    if ($exists !== false) {
+      $stmt = $this->pdo->prepare(
+        'SELECT changed_at FROM mailbox_credential
+         WHERE address=?'
+      );
+      $stmt->execute([$address]);
+      $changed = $stmt->fetchColumn();
+    }
+
+    return [
+      'address' => $address,
+      'reference' => $reference,
+      'password_set' => $changed !== false,
+      'changed_at' => $changed === false ? null : (int)$changed,
+    ];
+  }
+
   public function storeTestMailboxPassword(
     string $address,
     string $reference,

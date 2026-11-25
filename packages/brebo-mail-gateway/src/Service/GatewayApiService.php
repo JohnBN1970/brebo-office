@@ -63,6 +63,21 @@ final class GatewayApiService {
     return ['address' => $address, 'reference' => $reference];
   }
 
+  public function getTestMailboxPasswordStatus(array $payload): array {
+    $address = $payload['address'] ?? null;
+    $reference = $payload['reference'] ?? null;
+
+    if (!is_string($address)
+        || !is_string($reference)
+        || !is_callable([$this->repository, 'testMailboxPasswordStatus'])) {
+      throw new InvalidArgumentException('Ongeldige statusaanvraag.');
+    }
+
+    return $this->repository->testMailboxPasswordStatus(
+      $address, $reference
+    );
+  }
+
   public function setTestMailboxPassword(array $payload): array {
     $address = $payload['address'] ?? null;
     $reference = $payload['reference'] ?? null;
