@@ -357,6 +357,27 @@ if ($detail) {
     }catch(Throwable $e){echo '<p>Bouwdelen tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
   }
+  if ($editToken!=='' && getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')==='enabled') {
+    echo '<section><details><summary>Gebouwhistorie</summary>';
+    try {
+      $q=$db->prepare("SELECT e.event_type,e.before_json,e.after_json,e.created_at,a.username FROM office_building_audit_events e LEFT JOIN office_operator_accounts a ON a.id=e.operator_id WHERE e.building_id=? AND e.context_type='register' ORDER BY e.id DESC LIMIT 100");
+      $q->execute([$buildingId]);
+      $events=$q->fetchAll(PDO::FETCH_ASSOC);
+      echo '<p>Laatste 100 registraties en wijzigingen.</p><table><thead><tr><th>Wanneer</th><th>Wie</th><th>Wat</th><th>Wijziging</th></tr></thead><tbody>';
+      foreach ($events as $event) {
+        $before=json_decode((string)$event['before_json'],true)?:[];
+        $after=json_decode((string)$event['after_json'],true)?:[];
+        $changes=[];
+        foreach (['building_name'=>'Gebouwnaam','street_address'=>'Adres','postal_code'=>'Postcode','city'=>'Plaats'] as $key=>$label) {
+          if (($before[$key]??null)!==($after[$key]??null)) $changes[]=$label.': '.($before[$key]??'—').' → '.($after[$key]??'—');
+        }
+        echo '<tr><td>'.$h($event['created_at']).'</td><td>'.$h($event['username']??'Onbekende medewerker').'</td><td>'.$h(['created'=>'Geregistreerd','updated'=>'Gewijzigd'][$event['event_type']]??$event['event_type']).'</td><td>'.$h(implode('; ',$changes)).'</td></tr>';
+      }
+      if (!$events) echo '<tr><td colspan="4">Geen geregistreerde historie.</td></tr>';
+      echo '</tbody></table>';
+    } catch (Throwable $e) {echo '<p>Historie tijdelijk niet beschikbaar.</p>';}
+    echo '</details></section>';
+  }
   // CL-204 register remains readable; authorized concept drafts may be revised.
   // Never interpret missing schema or inaccessible data as an empty confirmed register.
   if (getenv('OFFICE_TEST_CL204_OPNAMES_READ_ENABLED') === 'enabled') {
