@@ -64,7 +64,7 @@ try {
               || !str_ends_with($address,'@testmail.brebobv.nl')
               || !is_string($password)
               || !is_string($confirm)
-              || strlen($password)<16
+              || strlen($password)<6
               || strlen($password)>1024
               || !hash_equals($password,$confirm)) {
             throw new RuntimeException('Invalid password request');
@@ -174,7 +174,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php if ($passwordEnabled): ?>
 <section class="card" style="margin-top:16px">
 <h2>Mailboxwachtwoord instellen</h2>
-<p class="muted">Alleen geregistreerde, inactieve testmailboxen. Minimaal 16 tekens.</p>
+<p class="muted">Alleen geregistreerde, inactieve testmailboxen. Minimaal 6 tekens.</p>
 <form method="post" action="/office-test/instellingen/email" autocomplete="off">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
 <input type="hidden" name="action" value="password">
@@ -188,9 +188,9 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php endforeach; ?>
 </select></p>
 <p><label for="mail_password">Nieuw wachtwoord</label>
-<input id="mail_password" name="password" type="password" minlength="16" maxlength="1024" autocomplete="new-password" required></p>
+<input id="mail_password" name="password" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></p>
 <p><label for="mail_password_confirm">Herhaal wachtwoord</label>
-<input id="mail_password_confirm" name="password_confirm" type="password" minlength="16" maxlength="1024" autocomplete="new-password" required></p>
+<input id="mail_password_confirm" name="password_confirm" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></p>
 <button type="submit">Wachtwoord opslaan</button>
 </form>
 </section>

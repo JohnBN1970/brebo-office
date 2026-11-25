@@ -141,7 +141,7 @@ $passwordRouter = new GatewayRequestRouter(
 $repo->provisionDomain(['domain'=>'testmail.brebobv.nl']);
 $address = 'controle@testmail.brebobv.nl';
 $reference = $repo->provisionMailbox(['address'=>$address]);
-$password = bin2hex(random_bytes(24));
+$password = bin2hex(random_bytes(3));
 
 $submit = static function (
   array $payload, bool $signed = true

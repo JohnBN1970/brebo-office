@@ -72,7 +72,7 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
   ): void {
     if (!filter_var($address, FILTER_VALIDATE_EMAIL)
         || !str_ends_with($address, '@testmail.brebobv.nl')
-        || strlen($password) < 16
+        || strlen($password) < 6
         || strlen($password) > 1024
         || str_contains($password, chr(0))
         || !defined('PASSWORD_ARGON2ID')) {
