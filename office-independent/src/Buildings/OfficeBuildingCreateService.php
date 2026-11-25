@@ -13,6 +13,23 @@ require_once __DIR__.'/OfficeBuildingRepository.php';
 final class OfficeBuildingCreateService {
     public function __construct(private PDO $db) {}
 
+    /** Create and grant access atomically; requires verified register-grants schema. */
+    public function createForOperator(array $input, int $operatorId, Closure $authorized): string {
+        if ($operatorId<=0 || $authorized()!==true) throw new DomainException('building_create_forbidden');
+        $this->db->beginTransaction();
+        try {
+            $id=$this->create($input,$authorized);
+            $grant=$this->db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) SELECT ?,id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1');
+            $grant->execute([$id,$operatorId]);
+            if ($grant->rowCount()!==1) throw new DomainException('building_create_forbidden');
+            $this->db->commit();
+            return $id;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
     public function create(array $input, Closure $authorized): string {
         if ($authorized() !== true) {
             throw new DomainException('building_create_forbidden');
