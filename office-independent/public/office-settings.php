@@ -4,7 +4,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+$scriptNonce=base64_encode(random_bytes(24));
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-$scriptNonce'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 $method=$_SERVER['REQUEST_METHOD']??'';
 $isEmail=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email';
 $enabled=$isEmail && getenv('OFFICE_TEST_MAIL_PROVISIONING_ENABLED')==='enabled';
@@ -115,12 +116,44 @@ try {
   }
   $mailboxes=[];
   $mailCounts=[];
+  $passwordStatuses=[];
   if (parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email') {
     $mailboxes=$db->query("SELECT id,address,label,mailbox_type,active,credential_ref
       FROM office_mail_mailboxes ORDER BY id LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     if ($enabled) {
       $mailboxes=$db->query("SELECT id,address,label,mailbox_type,active,credential_ref,gateway_ref
         FROM office_mail_mailboxes ORDER BY id LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
+    }
+    if ($passwordEnabled) {
+      try {
+        $core=dirname(__DIR__).'/packages/brebo-mail-core/src/';
+        if (!is_dir($core)) $core=dirname(__DIR__,2).'/packages/brebo-mail-core/src/';
+        foreach (['Contract/GatewayHttpClientInterface.php','Domain/GatewayRequestSignature.php'] as $file) require_once $core.$file;
+        require_once dirname(__DIR__).'/src/Mail/OfficeGatewayHttpClient.php';
+        $statusClient=new \Brebo\Office\Mail\OfficeGatewayHttpClient();
+
+        foreach ($mailboxes as $box) {
+          if (empty($box['gateway_ref'])
+              || !str_ends_with($box['address'],'@testmail.brebobv.nl')) continue;
+
+          try {
+            $status=$statusClient->post('/v1/mailboxes/password-status',[
+              'address'=>$box['address'],
+              'reference'=>$box['gateway_ref'],
+            ]);
+
+            if (($status['address']??null)===$box['address']
+                && ($status['reference']??null)===$box['gateway_ref']
+                && is_bool($status['password_set']??null)) {
+              $passwordStatuses[$box['address']]=$status;
+            }
+          } catch (Throwable $e) {
+            break;
+          }
+        }
+      } catch (Throwable $e) {
+        error_log('Mailbox password status unavailable: '.$e::class);
+      }
     }
     $mailCounts=$db->query('SELECT mailbox_id,COUNT(*) AS total FROM office_mail_messages GROUP BY mailbox_id')->fetchAll(PDO::FETCH_KEY_PAIR);
   }
@@ -143,6 +176,8 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:13px;bor
 th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;background:#f1f3f7;padding:5px 10px;font-size:12px}
 .notice{background:#fff7e8;border:1px solid #f1dcae;border-radius:9px;padding:15px;margin-top:18px}
 @media(max-width:650px){main{margin:20px auto;padding:0 14px}table{font-size:13px}th,td{padding:8px}}
+.strength-track{height:9px;background:#e5e7eb;border-radius:6px;overflow:hidden;max-width:360px}
+#password_strength{height:100%;width:0;transition:width .15s}
 </style></head><body><main>
 <header><div><p class="muted"><a href="/office-test/">Office</a> / <a href="/office-test/instellingen">Instellingen</a><?= $isEmail?' / E-mail':'' ?></p>
 <h1><?= $isEmail?'E-mailinstellingen':'Instellingen' ?></h1></div>
@@ -173,7 +208,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php endif; ?>
 <?php if ($passwordEnabled): ?>
 <section class="card" style="margin-top:16px">
-<h2>Mailboxwachtwoord instellen</h2>
+<h2 id="password_editor">Mailboxwachtwoord instellen of wijzigen</h2>
 <p class="muted">Alleen geregistreerde, inactieve testmailboxen. Minimaal 6 tekens.</p>
 <form method="post" action="/office-test/instellingen/email" autocomplete="off">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
@@ -188,7 +223,13 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php endforeach; ?>
 </select></p>
 <p><label for="mail_password">Nieuw wachtwoord</label>
-<input id="mail_password" name="password" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></p>
+<input id="mail_password" name="password" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required>
+<button type="button" id="toggle_password">Tonen</button>
+<button type="button" id="generate_password">Genereren</button></p>
+<div class="strength-track">
+<div id="password_strength"></div>
+</div>
+<p id="strength_label" role="status">Voer een wachtwoord in.</p>
 <p><label for="mail_password_confirm">Herhaal wachtwoord</label>
 <input id="mail_password_confirm" name="password_confirm" type="password" minlength="6" maxlength="1024" autocomplete="new-password" required></p>
 <button type="submit">Wachtwoord opslaan</button>
@@ -197,11 +238,24 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php endif; ?>
 <section class="card"><h2>Geregistreerde mailboxen</h2>
 <p class="muted">Actuele Office-test-databasegegevens. Inloggegevens worden nooit getoond.</p>
-<table><thead><tr><th>Mailbox</th><th>Type</th><th>Status</th><th>Configuratiereferentie</th><th>Berichten</th></tr></thead><tbody>
+<table><thead><tr><th>Mailbox</th><th>Type</th><th>Status</th><th>Configuratiereferentie</th><th>Wachtwoord</th><th>Berichten</th></tr></thead><tbody>
 <?php foreach($mailboxes as $box): ?><tr><td><?= $h($box['address']) ?><br><span class="muted"><?= $h($box['label']) ?></span></td>
 <td><?= $h($box['mailbox_type']) ?></td><td><span class="tag"><?= (int)$box['active']===1?'Actief':($enabled && str_ends_with($box['address'],'@testmail.brebobv.nl') ? (empty($box['gateway_ref'])?'Controle vereist':'Geregistreerd, inactief'):'Inactief') ?></span></td>
-<td><?= $enabled && !empty($box['gateway_ref'])?'Gateway geregistreerd':($box['credential_ref']!==''?'Credential ingesteld':'Niet ingesteld') ?></td><td><?= (int)($mailCounts[$box['id']]??0) ?></td></tr><?php endforeach; ?>
-<?php if (!$mailboxes): ?><tr><td colspan="5">Geen mailboxen geregistreerd.</td></tr><?php endif; ?>
+<td><?= $enabled && !empty($box['gateway_ref'])?'Gateway geregistreerd':($box['credential_ref']!==''?'Credential ingesteld':'Niet ingesteld') ?></td><td>
+<?php $ps=$passwordStatuses[$box['address']]??null; ?>
+<?php if ($ps===null): ?>
+<span class="muted">Onbekend</span>
+<?php elseif ($ps['password_set']): ?>
+<span style="color:#15803d">Ingesteld</span>
+<br><small><?= $h((new DateTimeImmutable('@'.(int)$ps['changed_at']))->setTimezone(new DateTimeZone('Europe/Amsterdam'))->format('d-m-Y H:i')) ?></small>
+<?php else: ?>
+<span style="color:#b91c1c">Niet ingesteld</span>
+<?php endif; ?>
+<?php if ($passwordEnabled && (int)$box['active']===0 && !empty($box['gateway_ref']) && str_ends_with($box['address'],'@testmail.brebobv.nl')): ?>
+<br><button type="button" class="edit-password" data-address="<?= $h($box['address']) ?>"><?= ($ps['password_set']??false)?'Wijzigen':'Instellen' ?></button>
+<?php endif; ?>
+</td><td><?= (int)($mailCounts[$box['id']]??0) ?></td></tr><?php endforeach; ?>
+<?php if (!$mailboxes): ?><tr><td colspan="6">Geen mailboxen geregistreerd.</td></tr><?php endif; ?>
 </tbody></table></section>
 <div class="grid" style="margin-top:16px">
 <section class="card"><h2>IMAP-verbinding</h2><p class="muted">PHP IMAP: <?= extension_loaded("imap")?"beschikbaar":"ontbreekt" ?>. De daadwerkelijke verbinding is nog niet getest.</p><span class="tag">Controle vereist</span></section>
@@ -209,5 +263,70 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Toegangsrechten</h2><p class="muted">Mailboxrechten worden via de bestaande Office-autorisatie afgedwongen.</p></section>
 </div>
 <p class="notice">Mailboxactivering en synchronisatie starten zijn nog niet beschikbaar.</p>
+<?php endif; ?>
+<?php if ($passwordEnabled): ?>
+<script nonce="<?= $h($scriptNonce) ?>">
+(() => {
+  const pw=document.getElementById('mail_password');
+  const confirm=document.getElementById('mail_password_confirm');
+  const bar=document.getElementById('password_strength');
+  const label=document.getElementById('strength_label');
+  const address=document.getElementById('password_address');
+
+  function updateStrength(){
+    const value=pw.value;
+    const lower=value.toLowerCase();
+    const local=address.value.split('@')[0].toLowerCase();
+    const weak=/123456|password|wachtwoord|qwerty|welkom|abcdef|brebo|tester/.test(lower)
+      || /^(.)\1+$/.test(value)
+      || (local.length>=3 && lower.includes(local));
+
+    let score=0;
+    if(value.length) {
+      score=value.length<8 || weak ? 1 : value.length<15 ? 2 : 3;
+    }
+
+    bar.style.width=[0,33,66,100][score]+'%';
+    bar.style.background=['transparent','#dc2626','#eab308','#16a34a'][score];
+    label.textContent=[
+      'Voer een wachtwoord in.',
+      'Zwak wachtwoord',
+      'Redelijk wachtwoord',
+      'Sterker wachtwoord'
+    ][score];
+    label.style.color=['#66798c','#b91c1c','#854d0e','#15803d'][score];
+  }
+
+  pw.addEventListener('input',updateStrength);
+  address.addEventListener('change',updateStrength);
+
+  document.getElementById('toggle_password').addEventListener('click',function(){
+    const visible=pw.type==='password';
+    pw.type=visible?'text':'password';
+    confirm.type=visible?'text':'password';
+    this.textContent=visible?'Verbergen':'Tonen';
+  });
+
+  document.getElementById('generate_password').addEventListener('click',()=>{
+    const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const bytes=crypto.getRandomValues(new Uint8Array(20));
+    pw.value=Array.from(bytes,b=>alphabet[b%64]).join('');
+    confirm.value=pw.value;
+    updateStrength();
+  });
+
+  document.querySelectorAll('.edit-password').forEach(button=>{
+    button.addEventListener('click',()=>{
+      address.value=button.dataset.address;
+      pw.value='';
+      confirm.value='';
+      updateStrength();
+      pw.focus();
+    });
+  });
+
+  updateStrength();
+})();
+</script>
 <?php endif; ?>
 </main></body></html>
