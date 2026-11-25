@@ -69,6 +69,13 @@ if ($method==='POST') {
             $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($_POST['new_building'],static fn():bool=>true);
             $grant=$db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) VALUES (?,?)');
             $grant->execute([$bid,$operator->operatorId]);
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $snapshot=$db->prepare('SELECT building_name,street_address,postal_code,city FROM office_buildings WHERE id=?');
+                    $snapshot->execute([$bid]);
+                    $auditRow=$snapshot->fetch(PDO::FETCH_ASSOC);
+                    if (!$auditRow) throw new DomainException('building_snapshot_unavailable');
+                    (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$bid,(int)$operator->operatorId,'created','register',null,null,$auditRow);
             $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision);
             $db->commit();
         } catch (Throwable $e) {
