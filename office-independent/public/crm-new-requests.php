@@ -11,7 +11,7 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if (!in_array($requestMethod, ['GET', 'POST'], true)) {
     header('Allow: GET, POST'); http_response_code(405); exit;
 }
-$buildingAction=($_POST['building_action']??null)==='replace_links';
+$buildingAction=in_array($_POST['building_action']??null,['replace_links','create'],true);
 if ($requestMethod === 'POST' && !$buildingAction && (
     getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
     || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
@@ -95,8 +95,16 @@ try {
                 $q->execute([$id]);$old=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
                 if (!is_string($_POST['building_revision']??null) || !hash_equals(hash('sha256',implode(',',$old)),$_POST['building_revision'])) throw new DomainException('Gebouwkoppelingen gewijzigd.');
                 $ids=[];
+                if (($_POST['building_action']??null)==='create') {
+                    if (getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled' || !is_array($_POST['new_building']??null)) throw new DomainException('Registratie niet beschikbaar.');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+                    $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($_POST['new_building'],static fn():bool=>true);
+                    $grant=$db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) VALUES (?,?)');
+                    $grant->execute([$bid,$operator->operatorId]);
+                    $ids=array_merge($old,[(int)$bid]);
+                }
                 $q=$db->prepare("SELECT b.id FROM office_buildings b WHERE b.id=? AND b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage')))");
-                foreach ($_POST['building_ids']??[] as $v) {
+                foreach (($_POST['building_action']??null)==='create'?[]:($_POST['building_ids']??[]) as $v) {
                     $bid=is_scalar($v)?filter_var($v,FILTER_VALIDATE_INT):false;
                     if (!$bid || $bid<1) throw new DomainException('Ongeldig gebouw.');
                     $q->execute([$bid,$operator->operatorId,$operator->operatorId]);
@@ -226,6 +234,10 @@ if (isset($item)) {
                 echo '<form method="post" action="'.$h($base).'/crm/aanvragen/detail?id='.(int)$item['id'].'"><input type="hidden" name="csrf_token" value="'.$h($_SESSION['crm_lead_board_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$item['id'].'"><input type="hidden" name="building_revision" value="'.hash('sha256',implode(',',$linked)).'"><label>Gebouwen<select name="building_ids[]" multiple size="6">';
                 foreach ($choices as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$linked,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
                 echo '</select></label><button name="building_action" value="replace_links">Gebouwkoppelingen opslaan</button></form>';
+                if (getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
+                    echo '<form method="post" action="'.$h($base).'/crm/aanvragen/detail?id='.(int)$item['id'].'"><input type="hidden" name="csrf_token" value="'.$h($_SESSION['crm_lead_board_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$item['id'].'"><input type="hidden" name="building_revision" value="'.hash('sha256',implode(',',$linked)).'">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render().'</form>';
+                }
             }
             echo '</section>';
         }
