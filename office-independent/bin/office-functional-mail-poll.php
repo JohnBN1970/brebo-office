@@ -27,7 +27,7 @@ if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) exit(0);
 $repository = new \Brebo\Office\Mail\OfficeNativeMailboxRepository($db);
 $ingest = new \Brebo\Office\Mail\OfficeFunctionalMailIngest($db, $repository);
 $mailboxes = $db->query("SELECT id, address, credential_ref FROM office_mail_mailboxes
-  WHERE active = 1 AND mailbox_type = 'functional' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+  WHERE active = 1 AND mailbox_type = 'functional' AND credential_ref <> '' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 $failures = 0;
 foreach ($mailboxes as $mailbox) {
   $id = (int) $mailbox['id'];
