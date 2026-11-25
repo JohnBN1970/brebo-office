@@ -35,6 +35,21 @@ try {
     $active = $db->prepare('SELECT 1 FROM office_operator_accounts WHERE id=? AND active=1 LIMIT 1');
     $active->execute([$operator->operatorId]);
     if (!$active->fetchColumn()) { http_response_code(403); exit('Geen CRM-toegang.'); }
+    $buildingReady=getenv('OFFICE_BASE_PATH')==='/office-test' && getenv('OFFICE_CRM_LEAD_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled';
+    $buildings=[]; $canCreateBuilding=false;
+    if ($buildingReady) {
+        $p=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
+        $p->execute([$operator->operatorId]);
+        $buildingReady=(int)$p->fetchColumn()===1;
+    }
+    if ($buildingReady) {
+        $q=$db->prepare("SELECT b.id,b.building_name FROM office_buildings b WHERE b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) ORDER BY b.building_name,b.id");
+        $q->execute([$operator->operatorId,$operator->operatorId]);
+        $buildings=$q->fetchAll(PDO::FETCH_ASSOC);
+        $canCreateBuilding=getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled';
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
+    }
     $sources = $db->query('SELECT id,label FROM office_crm_lead_sources WHERE active=1 ORDER BY label')
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
@@ -45,7 +60,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 if (!isset($_SESSION['crm_lead_csrf'])) $_SESSION['crm_lead_csrf'] = bin2hex(random_bytes(32));
 $h = static fn(mixed $v): string => htmlspecialchars((string)($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-$error = '';
+$error = ''; $buildingIds=[]; $newBuilding=[];
 $values = ['source_id'=>'','title'=>'','source_detail'=>'','campaign'=>'','contact_name'=>'','contact_email'=>'','description'=>''];
 if ($method === 'POST') {
     if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED') !== 'enabled') {
@@ -58,7 +73,29 @@ if ($method === 'POST') {
     $sourceId = filter_var($values['source_id'], FILTER_VALIDATE_INT) ?: 0;
     $validSource = false;
     foreach ($sources as $source) if ((int)$source['id'] === $sourceId) $validSource = true;
-    if (!$validSource || $values['title'] === '' || mb_strlen($values['title'],'UTF-8') > 255
+    $raw=$_POST['building_ids']??[];
+    $validBuildings=is_array($raw);
+    $allowedIds=array_map('intval',array_column($buildings,'id'));
+    foreach (is_array($raw)?$raw:[] as $v) {
+        $id=is_scalar($v)?filter_var($v,FILTER_VALIDATE_INT):false;
+        if (!$buildingReady || $id===false || !in_array($id,$allowedIds,true)) {$validBuildings=false;continue;}
+        $buildingIds[]=$id;
+    }
+    $buildingIds=array_values(array_unique($buildingIds));
+    if (($_POST['building_action']??null)==='create') {
+        if (!$canCreateBuilding) {http_response_code(403);exit;}
+        $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+        if (!$validBuildings) $error='Kies geldige gebouwen.';
+        else try {
+            $id=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($newBuilding,(int)$operator->operatorId,static fn():bool=>$canCreateBuilding);
+            $buildings[]=['id'=>$id,'building_name'=>trim($newBuilding['building_name'])];
+            $buildingIds[]=(int)$id;
+            $newBuilding=[];
+            $_SESSION['crm_lead_csrf']=bin2hex(random_bytes(32));
+        } catch (DomainException $e) {$error=$e->getMessage()==='building_address_candidate_exists'?'Dit adres bestaat mogelijk al.':'Ongeldige gebouwgegevens.';}
+        catch (Throwable $e) {$error='Gebouw aanmaken mislukt.';}
+    } elseif (!$validBuildings) {$error='Kies geldige gebouwen.';}
+    elseif (!$validSource || $values['title'] === '' || mb_strlen($values['title'],'UTF-8') > 255
         || mb_strlen($values['source_detail'],'UTF-8') > 255
         || mb_strlen($values['campaign'],'UTF-8') > 255
         || mb_strlen($values['contact_name'],'UTF-8') > 255
@@ -93,6 +130,18 @@ if ($method === 'POST') {
                 $values['campaign'] ?: null,$values['contact_name'] ?: null,
                 $values['contact_email'] ?: null,$values['description'] ?: null]);
             $leadId = (int)$db->lastInsertId();
+            if ($buildingIds!==[]) {
+                $link=$db->prepare('INSERT INTO office_crm_lead_buildings (lead_id,building_id) VALUES (?,?)');
+                if (getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test') {
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $audit=new \Brebo\Office\Buildings\OfficeBuildingAudit($db);
+                }
+                foreach ($buildingIds as $buildingId) {
+                    $link->execute([$leadId,$buildingId]);
+                    if (isset($audit)) $audit->record((int)$buildingId,(int)$operator->operatorId,'linked','lead',(int)$leadId,['linked'=>false],['linked'=>true]);
+                }
+            }
             $event = $db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,new_stage)
                 VALUES (?,?,'created','new')");
             $event->execute([$leadId,(string)$operator->operatorId]);
@@ -116,6 +165,12 @@ foreach (['title'=>'Aanvraag *','source_detail'=>'Specificatie bron','campaign'=
     echo '<label>'.$h($label).'<input type="'.$type.'" name="'.$h($key).'" maxlength="'.($key === 'contact_email' ? '254' : '255').'" value="'.$h($values[$key]).'"'.($key === 'title' ? ' required' : '').'></label>';
 }
 echo '<label>Omschrijving<textarea name="description" rows="5" maxlength="10000">'.$h($values['description']).'</textarea></label>';
+if ($buildingReady) {
+    echo '<label>Gebouwen<select name="building_ids[]" multiple size="6">';
+    foreach ($buildings as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$buildingIds,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
+    echo '</select></label>';
+    if ($canCreateBuilding) echo \Brebo\Office\Buildings\OfficeBuildingCreateForm::render($newBuilding);
+}
 if (getenv('OFFICE_CRM_LEADS_WRITE_ENABLED') === 'enabled') echo '<button type="submit">Lead registreren</button>';
 else echo '<p>Registratie is nog niet vrijgegeven.</p>';
 echo '</form></section></main></body></html>';

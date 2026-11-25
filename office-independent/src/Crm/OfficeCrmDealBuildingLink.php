@@ -38,7 +38,7 @@ final class OfficeCrmDealBuildingLink
      * Empty sets are allowed for deals not yet scoped.
      * @param list<int> $buildingIds
      */
-    public function replaceBuildings(int $dealId, array $buildingIds, int $expectedRevision): void
+    public function replaceBuildings(int $dealId, array $buildingIds, int $expectedRevision, ?int $auditOperatorId=null): void
     {
         if ($dealId < 1 || $expectedRevision < 1) {
             throw new InvalidArgumentException('Invalid deal or revision');
@@ -48,7 +48,8 @@ final class OfficeCrmDealBuildingLink
         }
         $ids = array_values(array_unique($buildingIds));
         sort($ids, SORT_NUMERIC);
-        $this->db->beginTransaction();
+        $ownsTransaction=!$this->db->inTransaction();
+        if ($ownsTransaction) $this->db->beginTransaction();
         try {
             $deal = $this->db->prepare(
                 'SELECT revision,stage,status FROM office_crm_opportunities WHERE id=?'
@@ -72,14 +73,21 @@ final class OfficeCrmDealBuildingLink
                 foreach (array_diff($existing, $ids) as $id) $remove->execute([$dealId, $id]);
                 $add = $this->db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
                 foreach (array_diff($ids, $existing) as $id) $add->execute([$dealId, $id]);
+                if ($auditOperatorId!==null) {
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new RuntimeException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/Buildings/OfficeBuildingAudit.php';
+                    $audit=new \Brebo\Office\Buildings\OfficeBuildingAudit($this->db);
+                    foreach (array_diff($existing,$ids) as $id) $audit->record($id,$auditOperatorId,'unlinked','deal',$dealId,['linked'=>true],['linked'=>false]);
+                    foreach (array_diff($ids,$existing) as $id) $audit->record($id,$auditOperatorId,'linked','deal',$dealId,['linked'=>false],['linked'=>true]);
+                }
                 if ($this->buildingIds($dealId) !== $ids) throw new RuntimeException('Building set mismatch');
                 $update = $this->db->prepare('UPDATE office_crm_opportunities SET revision=revision+1 WHERE id=? AND revision=?');
                 $update->execute([$dealId,$expectedRevision]);
                 if ($update->rowCount() !== 1) throw new RuntimeException('Deal revision conflict');
             }
-            $this->db->commit();
+            if ($ownsTransaction) $this->db->commit();
         } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
             throw $e;
         }
     }

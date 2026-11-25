@@ -26,7 +26,7 @@ try {
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 $id=filter_var($_GET['id']??0,FILTER_VALIDATE_INT)?:0;
 if ($id<1) { http_response_code(400); exit('Ongeldige deal.'); }
-$stmt=$db->prepare("SELECT id,title,stage,status FROM office_crm_opportunities WHERE id=? LIMIT 1");
+$stmt=$db->prepare("SELECT id,title,stage,status,revision FROM office_crm_opportunities WHERE id=? LIMIT 1");
 $stmt->execute([$id]); $item=$stmt->fetch(PDO::FETCH_ASSOC);
 if (!$item) { http_response_code(404); exit('Deal niet gevonden.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
@@ -37,6 +37,16 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $error='';
+$buildingReady=\Brebo\Office\Intake\OfficeMount::isTest() && $operator->canEditCrm && $item['status']==='open' && !in_array($item['stage'],['won','lost'],true) && getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled';
+$choices=[];$linked=[];$missing=[];
+if ($buildingReady) {
+    require_once dirname(__DIR__).'/src/Crm/OfficeCrmDealBuildingLink.php';
+    $linkService=new \Brebo\Office\Crm\OfficeCrmDealBuildingLink($db);
+    $linked=$linkService->buildingIds($id);
+    $q=$db->prepare("SELECT b.id,b.building_name FROM office_buildings b WHERE b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) ORDER BY b.building_name,b.id");
+    $q->execute([$operator->operatorId,$operator->operatorId]);$choices=$q->fetchAll(PDO::FETCH_ASSOC);
+    $missing=array_diff($linked,array_map('intval',array_column($choices,'id')));
+}
 $next=$item['status']==='open' ? (\Brebo\Office\Crm\OfficeCrmFunnel::NEXT[$item['stage']]??[]) : [];
 $directEnabled=\Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_CRM_DIRECT_PROJECT_TRANSFER_ENABLED')==='enabled'
@@ -46,6 +56,52 @@ if ($method==='POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='create_building') {
+        if (!$buildingReady || $missing!==[] || getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled') {http_response_code(403);exit;}
+        $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
+        if ($revision===false || $revision!==(int)$item['revision'] || !is_array($_POST['new_building']??null)) {http_response_code(409);exit('Ververs de deal.');}
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+        $db->beginTransaction();
+        try {
+            $p=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+            $p->execute([$operator->operatorId]);
+            if (!$p->fetchColumn()) throw new DomainException('Geen schrijfrecht.');
+            $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($_POST['new_building'],static fn():bool=>true);
+            $grant=$db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) VALUES (?,?)');
+            $grant->execute([$bid,$operator->operatorId]);
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $snapshot=$db->prepare('SELECT building_name,street_address,postal_code,city FROM office_buildings WHERE id=?');
+                    $snapshot->execute([$bid]);
+                    $auditRow=$snapshot->fetch(PDO::FETCH_ASSOC);
+                    if (!$auditRow) throw new DomainException('building_snapshot_unavailable');
+                    (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$bid,(int)$operator->operatorId,'created','register',null,null,$auditRow);
+            $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision,(int)$operator->operatorId);
+            $db->commit();
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            http_response_code(409);exit('Gebouwregistratie en koppeling niet opgeslagen. Controleer het adres en ververs de deal.');
+        }
+        $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+        header('Location: /office-test/crm/verkoopkansen',true,303);exit;
+    }
+    if ($action==='replace_buildings') {
+        if (!$buildingReady || $missing!==[]) {http_response_code(403);exit;}
+        $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
+        $raw=$_POST['building_ids']??[];
+        if ($revision===false || $revision<0 || !is_array($raw) || count($raw)>200) {http_response_code(400);exit;}
+        $allowedIds=array_map('intval',array_column($choices,'id'));$ids=[];
+        foreach ($raw as $v) {
+            $bid=is_scalar($v)?filter_var($v,FILTER_VALIDATE_INT):false;
+            if (!$bid || !in_array($bid,$allowedIds,true)) {http_response_code(403);exit;}
+            $ids[]=$bid;
+        }
+        try {
+            $linkService->replaceBuildings($id,$ids,$revision,(int)$operator->operatorId);
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/verkoopkansen',true,303);exit;
+        } catch (Throwable $e) {http_response_code(409);exit('Gebouwkoppelingen niet opgeslagen. Ververs de pagina.');}
+    }
     if ($action==='create_direct_project') {
         if (!$directEnabled || $item['stage']!=='won' || !in_array($item['status'],['closed','won'],true)) {
             http_response_code(403); exit('Directe projectoverdracht niet beschikbaar.');
@@ -77,6 +133,19 @@ if ($method==='POST') {
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deal wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select{padding:10px;width:100%}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
+if ($buildingReady) {
+    echo '<h2>Gebouwen</h2>';
+    if ($missing!==[]) echo '<p>Niet alle gekoppelde gebouwen zijn toegankelijk. Wijzigen is geblokkeerd.</p>';
+    else {
+        echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><label>Gebouwen<select name="building_ids[]" multiple size="6">';
+        foreach ($choices as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$linked,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
+        echo '</select></label><button name="action" value="replace_buildings">Gebouwkoppelingen opslaan</button></form>';
+        if (getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
+            require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
+            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><input type="hidden" name="action" value="create_building">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render().'</form>';
+        }
+    }
+}
 // Projectless Deal -> Calc link. The launch endpoint rechecks session, authorization,
 // CSRF, revision and the verified test database before any draft is created.
 if ($item['status']==='open'

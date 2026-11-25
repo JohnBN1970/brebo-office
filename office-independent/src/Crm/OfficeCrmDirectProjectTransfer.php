@@ -61,6 +61,10 @@ final class OfficeCrmDirectProjectTransfer
             if ((int)$verify->fetchColumn()!==$projectId) {
                 throw new DomainException('Native project was not persisted');
             }
+            if (getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
+                require_once dirname(__DIR__).'/Buildings/OfficeDealProjectBuildingTransfer.php';
+                (new \Brebo\Office\Buildings\OfficeDealProjectBuildingTransfer($this->db))->transfer($opportunityId,$projectId);
+            }
             $save=$this->db->prepare('INSERT INTO office_crm_direct_project_transfers (opportunity_id,project_id,relation_id) VALUES (?,?,?)');
             $save->execute([$opportunityId,$projectId,(int)$opportunity['relation_id']]);
             $this->db->commit();

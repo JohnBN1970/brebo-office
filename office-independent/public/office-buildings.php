@@ -46,6 +46,29 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('inloggen'), true, 302);
     exit;
   }
+  $registerReady=getenv('OFFICE_BASE_PATH')==='/office-test' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled';
+  $canCreate=false;
+  $registerToken='';
+  $registerError='';
+  $newBuilding=[];
+  if ($registerReady && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
+    $p=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
+    $p->execute([$operator->operatorId]);
+    $secret=getenv('OFFICE_CL204_CSRF_SECRET');
+    $canCreate=(int)$p->fetchColumn()===1 && is_string($secret) && strlen($secret)>=32 && strlen((string)$operator->sessionId)===64;
+    if ($canCreate) $registerToken=hash_hmac('sha256','building-register-create',(string)$operator->sessionId.$secret);
+  }
+  if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create') {
+    if (isset($_GET['id']) || !$canCreate || !is_string($_POST['csrf_token']??null) || !hash_equals($registerToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+    $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+    try {
+      (new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($newBuilding,(int)$operator->operatorId,static fn():bool=>$canCreate);
+      header('Location: /office-test/gebouwen',true,303);exit;
+    } catch (DomainException $e) {
+      $registerError=$e->getMessage()==='building_address_candidate_exists'?'Dit adres bestaat mogelijk al.':'Ongeldige gebouwgegevens.';
+    } catch (Throwable $e) {$registerError='Gebouw aanmaken mislukt.';}
+  }
   $statement = $db->prepare(
     "SELECT b.id, b.building_name, b.street_address, b.postal_code, b.city,
             COUNT(DISTINCT pb.project_id) AS project_count,
@@ -61,6 +84,12 @@ try {
   );
   $statement->execute([$operator->operatorId]);
   $buildings = $statement->fetchAll(PDO::FETCH_ASSOC);
+  if ($registerReady) {
+    $q=$db->prepare('SELECT b.id,b.building_name,b.street_address,b.postal_code,b.city,0 AS project_count,0 AS active_zone_count FROM office_buildings b JOIN office_building_register_grants g ON g.building_id=b.id JOIN office_operator_accounts a ON a.id=g.operator_id AND a.active=1 WHERE g.operator_id=? AND b.active=1 ORDER BY b.building_name,b.id LIMIT 200');
+    $q->execute([$operator->operatorId]);
+    $known=array_column($buildings,'id');
+    foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) if (!in_array($row['id'],$known,false)) $buildings[]=$row;
+  }
   // Zone counts are optional: missing or unready zone schema must not hide buildings.
   if ($buildings !== []) {
     try {
@@ -203,7 +232,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
   }catch(InvalidArgumentException $e){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
   catch(Throwable $e){http_response_code(503);exit('Bouwdeel niet opgeslagen.');}
 }
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+ $editToken='';
+ if ($detail && $selectedBuilding!==null && $registerReady && $canCreate) {
+   $q=$db->prepare('SELECT 1 FROM office_building_register_grants WHERE building_id=? AND operator_id=?');
+   $q->execute([$buildingId,$operator->operatorId]);
+   if ($q->fetchColumn()) $editToken=hash_hmac('sha256','building-register-update:'.$buildingId,$registerToken);
+ }
+ if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='update') {
+   if ($editToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($editToken,$_POST['csrf_token']) || !is_array($_POST['building']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
+   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingUpdateService.php';
+   try {
+     (new \Brebo\Office\Buildings\OfficeBuildingUpdateService($db))->update((int)$buildingId,(int)$operator->operatorId,$_POST['building'],$_POST['revision']);
+     header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+   } catch (Throwable $e) {http_response_code(409);exit('Wijziging niet opgeslagen. Controleer het adres en ververs de pagina.');}
+ }
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['building_action']??null)!=='create') {
   if (!$detail || !$cl204CsrfReady || !is_string($_POST['csrf_token'] ?? null)
     || !hash_equals($cl204Csrf, $_POST['csrf_token'])) {
     http_response_code(403);
@@ -288,9 +331,15 @@ if ($detail && isset($_GET['pdok_q'])) {
 }
 $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen gekoppeld aan projecten waarvoor je toegang hebt.') . '</p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen waarvoor je toegangsrechten hebt.') . '</p>';
 if ($detail) {
-  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl></section>';
+   if ($editToken!=='') {
+     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingUpdateService.php';
+     echo '<section><details><summary>Gebouwgegevens wijzigen</summary><form method="post"><input type="hidden" name="building_action" value="update"><input type="hidden" name="csrf_token" value="'.$h($editToken).'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingUpdateService::revision($selectedBuilding)).'">';
+     foreach (['building_name'=>'Gebouwnaam','street_address'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="building['.$key.']" value="'.$h($selectedBuilding[$key]??'').'"></label></p>';
+     echo '<button type="submit">Wijzigingen opslaan</button></form></details></section>';
+   }
   if($elementsEnabled){
     echo '<section id="building-elements"><h2>Bouwdelen</h2>';
     try{
@@ -307,6 +356,27 @@ if ($detail) {
       if($elementCsrf!=='')echo '<details><summary>Bouwdeel toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="action" value="create_building_element"><input type="hidden" name="csrf_token" value="'.$h($elementCsrf).'"><p><label>Groep <input name="classification" pattern="[0-9]{2}" maxlength="2" required></label> <label>Code <input name="code" maxlength="100" required></label></p><p><label>Omschrijving <input name="description" maxlength="255" required></label></p><p><label>Scope <select name="housing_type_id">'.$housingOptions.'</select></label></p><p><label>Eenheid <input name="unit" maxlength="30" required></label> <label>Hoeveelheid voor gekozen scope <input name="quantity" type="number" min="0" step="0.0001" required></label></p><button>Opslaan</button></form></details>';
     }catch(Throwable $e){echo '<p>Bouwdelen tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
+  }
+  if ($editToken!=='' && getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')==='enabled') {
+    echo '<section><details><summary>Gebouwhistorie</summary>';
+    try {
+      $q=$db->prepare("SELECT e.event_type,e.before_json,e.after_json,e.created_at,a.username FROM office_building_audit_events e LEFT JOIN office_operator_accounts a ON a.id=e.operator_id WHERE e.building_id=? AND e.context_type='register' ORDER BY e.id DESC LIMIT 100");
+      $q->execute([$buildingId]);
+      $events=$q->fetchAll(PDO::FETCH_ASSOC);
+      echo '<p>Laatste 100 registraties en wijzigingen.</p><table><thead><tr><th>Wanneer</th><th>Wie</th><th>Wat</th><th>Wijziging</th></tr></thead><tbody>';
+      foreach ($events as $event) {
+        $before=json_decode((string)$event['before_json'],true)?:[];
+        $after=json_decode((string)$event['after_json'],true)?:[];
+        $changes=[];
+        foreach (['building_name'=>'Gebouwnaam','street_address'=>'Adres','postal_code'=>'Postcode','city'=>'Plaats'] as $key=>$label) {
+          if (($before[$key]??null)!==($after[$key]??null)) $changes[]=$label.': '.($before[$key]??'—').' → '.($after[$key]??'—');
+        }
+        echo '<tr><td>'.$h($event['created_at']).'</td><td>'.$h($event['username']??'Onbekende medewerker').'</td><td>'.$h(['created'=>'Geregistreerd','updated'=>'Gewijzigd'][$event['event_type']]??$event['event_type']).'</td><td>'.$h(implode('; ',$changes)).'</td></tr>';
+      }
+      if (!$events) echo '<tr><td colspan="4">Geen geregistreerde historie.</td></tr>';
+      echo '</tbody></table>';
+    } catch (Throwable $e) {echo '<p>Historie tijdelijk niet beschikbaar.</p>';}
+    echo '</details></section>';
   }
   // CL-204 register remains readable; authorized concept drafts may be revised.
   // Never interpret missing schema or inaccessible data as an empty confirmed register.
@@ -436,6 +506,12 @@ if ($detail) {
   echo '</section>';
   echo '</main></body></html>';
   exit;
+}
+if ($canCreate) {
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
+  echo '<section><details'.($registerError!==''?' open':'').'><summary>+ Nieuw gebouw</summary>';
+  if ($registerError!=='') echo '<p role="alert">'.$h($registerError).'</p>';
+  echo '<form method="post" action="/office-test/gebouwen"><input type="hidden" name="csrf_token" value="'.$h($registerToken).'">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render($newBuilding).'</form></details></section>';
 }
 echo '<section>';
 if ($buildings === []) {
