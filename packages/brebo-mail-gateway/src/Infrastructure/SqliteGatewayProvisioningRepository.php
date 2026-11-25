@@ -65,6 +65,61 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     return is_string($reference) ? $reference : null;
   }
 
+  public function storeTestMailboxPassword(
+    string $address,
+    string $reference,
+    string $password
+  ): void {
+    if (!filter_var($address, FILTER_VALIDATE_EMAIL)
+        || !str_ends_with($address, '@testmail.brebobv.nl')
+        || strlen($password) < 16
+        || strlen($password) > 1024
+        || str_contains($password, chr(0))
+        || !defined('PASSWORD_ARGON2ID')) {
+      throw new RuntimeException('Ongeldige wachtwoordaanvraag.');
+    }
+
+    $hash = password_hash($password, PASSWORD_ARGON2ID);
+    $this->pdo->exec('PRAGMA busy_timeout=5000');
+    $this->pdo->beginTransaction();
+
+    try {
+      $actual = $this->mailboxReference($address);
+      if ($actual === null || !hash_equals($actual, $reference)) {
+        throw new RuntimeException('Mailboxreferentie komt niet overeen.');
+      }
+
+      $this->pdo->exec('CREATE TABLE IF NOT EXISTS mailbox_credential (
+        address TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        changed_at INTEGER NOT NULL,
+        FOREIGN KEY(address) REFERENCES mailbox(address)
+      )');
+
+      $statement = $this->pdo->prepare(
+        'INSERT INTO mailbox_credential
+         (address, password_hash, changed_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(address) DO UPDATE SET
+         password_hash=excluded.password_hash,
+         changed_at=excluded.changed_at'
+      );
+
+      $statement->execute([
+        $address,
+        '{ARGON2ID}' . $hash,
+        time(),
+      ]);
+
+      $this->pdo->commit();
+    } catch (\Throwable $error) {
+      if ($this->pdo->inTransaction()) {
+        $this->pdo->rollBack();
+      }
+      throw $error;
+    }
+  }
+
   public function provisionAlias(string $aliasAddress, string $targetAddress): string {
     if (!$this->mailboxExists($targetAddress)) {
       throw new RuntimeException('Doelmailbox is nog niet geprovisioneerd op de gateway.');

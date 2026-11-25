@@ -37,6 +37,13 @@ final class GatewayRequestRouter {
       if ($request->method === 'POST' && $request->path === '/v1/domains') {
         return ['status' => 200, 'body' => $this->api->provisionDomain($payload)];
       }
+      if ($request->method === 'POST' && $request->path === '/v1/mailboxes/password') {
+        try {
+          return ['status' => 200, 'body' => $this->api->setTestMailboxPassword($payload)];
+        } catch (Throwable $e) {
+          return ['status' => 422, 'body' => ['error' => 'password_update_failed']];
+        }
+      }
       if ($request->method === 'POST' && $request->path === '/v1/mailboxes/lookup') {
         return ['status' => 200, 'body' => $this->api->lookupTestMailbox((string) ($payload['address'] ?? ''))];
       }

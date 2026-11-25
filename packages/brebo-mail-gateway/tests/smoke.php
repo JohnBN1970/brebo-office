@@ -128,4 +128,110 @@ catch (RuntimeException $e) {
   }
 }
 
+
+$db = new PDO('sqlite::memory:');
+$repo = new \Brebo\MailGateway\Infrastructure\SqliteGatewayProvisioningRepository($db);
+$stack = new SmokeMailStack();
+
+$passwordRouter = new GatewayRequestRouter(
+  new GatewayApiService($repo, new SmokeDkim(), $stack),
+  new GatewayRequestVerifier($keyId, $secret),
+);
+
+$repo->provisionDomain(['domain'=>'testmail.brebobv.nl']);
+$address = 'controle@testmail.brebobv.nl';
+$reference = $repo->provisionMailbox(['address'=>$address]);
+$password = bin2hex(random_bytes(24));
+
+$submit = static function (
+  array $payload, bool $signed = true
+) use ($passwordRouter, $keyId, $secret, $now): array {
+  $path = '/v1/mailboxes/password';
+  $body = json_encode($payload, JSON_THROW_ON_ERROR);
+  $headers = $signed
+    ? GatewayRequestSignature::sign(
+        $keyId, $secret, $now, 'POST', $path, $body
+      )->headers()
+    : [];
+
+  return $passwordRouter->dispatch(
+    new GatewayRequest('POST', $path, $body, $headers),
+    $now
+  );
+};
+
+$payload = [
+  'address'=>$address,
+  'reference'=>$reference,
+  'password'=>$password,
+];
+
+$check = static function (bool $ok, string $name): void {
+  if (!$ok) {
+    throw new RuntimeException($name . ' failed');
+  }
+  echo $name . "=PASS\n";
+};
+
+$response = $submit($payload, false);
+$check($response['status'] === 401, 'PASSWORD_UNSIGNED_BLOCKED');
+
+$response = $submit($payload);
+$check(
+  $response['status'] === 200
+  && ($response['body']['password_stored'] ?? null) === true
+  && ($response['body']['activation_changed'] ?? null) === false
+  && ($response['body']['reference'] ?? null) === $reference
+  && ($response['body']['address'] ?? null) === $address
+  && !str_contains(json_encode($response), $password),
+  'PASSWORD_SIGNED_REQUEST'
+);
+
+$hash = $db->query(
+  'SELECT password_hash FROM mailbox_credential'
+)->fetchColumn();
+
+$check(
+  str_starts_with($hash, '{ARGON2ID}')
+  && password_verify($password, substr($hash, 10)),
+  'PASSWORD_HASH_VERIFIED'
+);
+
+foreach ([
+  'WRONG_REFERENCE'=>['reference'=>'invalid'],
+  'PRODUCTION_DOMAIN'=>['address'=>'info@brebobv.nl'],
+  'UNKNOWN_MAILBOX'=>['address'=>'unknown@testmail.brebobv.nl'],
+  'SHORT_PASSWORD'=>['password'=>'short'],
+] as $name=>$override) {
+  $response = $submit(array_replace($payload, $override));
+  $check($response['status'] === 422, 'PASSWORD_'.$name);
+}
+
+$check(
+  $db->query('SELECT password_hash FROM mailbox_credential')->fetchColumn() === $hash,
+  'PASSWORD_REJECTED_REQUESTS_NO_CHANGE'
+);
+
+$newPassword = bin2hex(random_bytes(24));
+$response = $submit(array_replace($payload, ['password'=>$newPassword]));
+$newHash = $db->query(
+  'SELECT password_hash FROM mailbox_credential'
+)->fetchColumn();
+
+$check(
+  $response['status'] === 200
+  && password_verify($newPassword, substr($newHash, 10))
+  && !password_verify($password, substr($newHash, 10)),
+  'PASSWORD_RESET'
+);
+
+$check(
+  $stack->domains === []
+  && $stack->mailboxes === []
+  && $stack->aliases === [],
+  'PASSWORD_NO_MAILSTACK_CHANGE'
+);
+
+echo "MAIL_PASSWORD_API_TEST=PASS\n";
+
 echo "BREBO_MAIL_GATEWAY_SMOKE=PASS\n";

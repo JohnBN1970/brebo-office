@@ -37,3 +37,26 @@ jobs:
           MAIL_TEST_PASSWORD: ci-mail-only
         run: |
           php office-independent/tests/mail-registration-integration.php
+
+      - name: Run mailbox password API regression
+        run: |
+          mkdir -p vendor
+          if [ ! -f vendor/autoload.php ]; then
+            cat > vendor/autoload.php <<'PHP'
+          <?php
+          spl_autoload_register(static function ($class) {
+              foreach ([
+                  'Brebo\\MailGateway\\' => '/packages/brebo-mail-gateway/src/',
+                  'Brebo\\Mail\\' => '/packages/brebo-mail-core/src/',
+              ] as $prefix => $dir) {
+                  if (str_starts_with($class, $prefix)) {
+                      $file = dirname(__DIR__) . $dir .
+                          str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+                      if (is_file($file)) require_once $file;
+                      return;
+                  }
+              }
+          });
+          PHP
+          fi
+          php packages/brebo-mail-gateway/tests/smoke.php

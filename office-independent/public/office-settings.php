@@ -8,6 +8,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; 
 $method=$_SERVER['REQUEST_METHOD']??'';
 $isEmail=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)==='/office-test/instellingen/email';
 $enabled=$isEmail && getenv('OFFICE_TEST_MAIL_PROVISIONING_ENABLED')==='enabled';
+$passwordEnabled=$enabled && getenv('OFFICE_TEST_MAIL_PASSWORD_ENABLED')==='enabled';
 if ($method!=='GET' && !($method==='POST' && $enabled)) { header('Allow: GET'); http_response_code(405); exit; }
 require_once dirname(__DIR__).'/src/Intake/OfficeMount.php';
 if (!\Brebo\Office\Intake\OfficeMount::isTest()) { http_response_code(404); exit; }
@@ -52,7 +53,57 @@ try {
         $provisioning=new \Brebo\Office\Mail\OfficeTestMailboxProvisioning($gateway);
         $registration=new \Brebo\Office\Mail\OfficeTestMailboxRegistration($db,$provisioning);
         $address=is_string($_POST['address']??null)?$_POST['address']:'';
-        $result=($_POST['action']??'')==='reconcile' ? $registration->reconcile($address,$client) : $registration->register($address);
+        $action=$_POST['action']??'';
+        if ($action==='password') {
+          if (!$passwordEnabled) throw new RuntimeException('Password management disabled');
+          $address=strtolower(trim($address));
+          $password=$_POST['password']??null;
+          $confirm=$_POST['password_confirm']??null;
+
+          if (!filter_var($address,FILTER_VALIDATE_EMAIL)
+              || !str_ends_with($address,'@testmail.brebobv.nl')
+              || !is_string($password)
+              || !is_string($confirm)
+              || strlen($password)<16
+              || strlen($password)>1024
+              || !hash_equals($password,$confirm)) {
+            throw new RuntimeException('Invalid password request');
+          }
+
+          $stmt=$db->prepare(
+            'SELECT gateway_ref FROM office_mail_mailboxes
+             WHERE address=? AND active=0
+             AND gateway_ref IS NOT NULL'
+          );
+          $stmt->execute([$address]);
+          $reference=$stmt->fetchColumn();
+
+          if (!is_string($reference)||$reference==='') {
+            throw new RuntimeException('Mailbox unavailable');
+          }
+
+          $reply=$client->post('/v1/mailboxes/password',[
+            'address'=>$address,
+            'reference'=>$reference,
+            'password'=>$password,
+          ]);
+
+          if (($reply['password_stored']??false)!==true
+              || ($reply['reference']??null)!==$reference
+              || ($reply['address']??null)!==$address
+              || ($reply['activation_changed']??null)!==false) {
+            throw new RuntimeException('Password update unconfirmed');
+          }
+
+          $result=['status'=>'password_stored'];
+          unset($password,$confirm);
+        } elseif ($action==='reconcile') {
+          $result=$registration->reconcile($address,$client);
+        } elseif ($action==='register') {
+          $result=$registration->register($address);
+        } else {
+          throw new RuntimeException('Unknown action');
+        }
       } catch (Throwable $e) {
         error_log('Office mailbox staging failed: '.$e::class);
         $result=['status'=>'failed'];
@@ -111,7 +162,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <?php if ($enabled): ?>
 <section class="card"><h2>Testmailbox aanvragen</h2>
 <p class="muted">Alleen testmail.brebobv.nl. Aanvragen activeren geen mailbox.</p>
-<?php if ($result!==null): ?><p role="status"><?= $result['status']==='staged'?'Mailbox geregistreerd in Office en Gateway; nog inactief.':'Aanvraag niet bevestigd; controleer Office en Gateway voordat opnieuw wordt geprobeerd.' ?></p><?php endif; ?>
+<?php if ($result!==null): ?><p role="status"><?= $result['status']==='staged'?'Mailbox geregistreerd in Office en Gateway; nog inactief.':($result['status']==='password_stored'?'Wachtwoord veilig opgeslagen; mailbox blijft inactief.':'Aanvraag niet bevestigd; controleer Office en Gateway voordat opnieuw wordt geprobeerd.') ?></p><?php endif; ?>
 <form method="post" action="/office-test/instellingen/email">
 <input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
 <label for="address">E-mailadres</label>
@@ -119,6 +170,30 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <button type="submit" name="action" value="register">Testmailbox aanvragen</button>
 <button type="submit" name="action" value="reconcile">Bestaande reservering herstellen</button>
 </form></section>
+<?php endif; ?>
+<?php if ($passwordEnabled): ?>
+<section class="card" style="margin-top:16px">
+<h2>Mailboxwachtwoord instellen</h2>
+<p class="muted">Alleen geregistreerde, inactieve testmailboxen. Minimaal 16 tekens.</p>
+<form method="post" action="/office-test/instellingen/email" autocomplete="off">
+<input type="hidden" name="csrf" value="<?= $h($csrf) ?>">
+<input type="hidden" name="action" value="password">
+<p><label for="password_address">Mailbox</label>
+<select id="password_address" name="address" required>
+<option value="">Selecteer mailbox</option>
+<?php foreach ($mailboxes as $box): ?>
+<?php if ((int)$box['active']===0 && !empty($box['gateway_ref']) && str_ends_with($box['address'],'@testmail.brebobv.nl')): ?>
+<option value="<?= $h($box['address']) ?>"><?= $h($box['address']) ?></option>
+<?php endif; ?>
+<?php endforeach; ?>
+</select></p>
+<p><label for="mail_password">Nieuw wachtwoord</label>
+<input id="mail_password" name="password" type="password" minlength="16" maxlength="1024" autocomplete="new-password" required></p>
+<p><label for="mail_password_confirm">Herhaal wachtwoord</label>
+<input id="mail_password_confirm" name="password_confirm" type="password" minlength="16" maxlength="1024" autocomplete="new-password" required></p>
+<button type="submit">Wachtwoord opslaan</button>
+</form>
+</section>
 <?php endif; ?>
 <section class="card"><h2>Geregistreerde mailboxen</h2>
 <p class="muted">Actuele Office-test-databasegegevens. Inloggegevens worden nooit getoond.</p>
@@ -133,6 +208,6 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Synchronisatie</h2><p class="muted">Automatische verwerking wordt pas na verbindingscontrole vrijgegeven.</p><span class="tag">Geen bediening beschikbaar</span></section>
 <section class="card"><h2>Toegangsrechten</h2><p class="muted">Mailboxrechten worden via de bestaande Office-autorisatie afgedwongen.</p></section>
 </div>
-<p class="notice">Mailboxactivering, credentials wijzigen en synchronisatie starten zijn nog niet beschikbaar.</p>
+<p class="notice">Mailboxactivering en synchronisatie starten zijn nog niet beschikbaar.</p>
 <?php endif; ?>
 </main></body></html>
