@@ -174,14 +174,6 @@ try {
             $access=$db->prepare('SELECT COUNT(*) FROM office_mail_mailbox_access WHERE mailbox_id=? AND operator_id=? AND can_read=1');
             $access->execute([$box['id'],(string)$operator->operatorId]);
             $activationStatuses[$box['address']]['operator_can_read']=(int)$access->fetchColumn()>0;
-            if (($status['status']??null)==='applied'
-                && is_bool($status['applied_active']??null)
-                && ($status['desired_active']??null)===$status['applied_active']) {
-              $active=(int)$status['applied_active'];
-              $update=$db->prepare('UPDATE office_mail_mailboxes SET active=? WHERE id=? AND address=? AND gateway_ref=? AND active=?');
-              $update->execute([$active,$box['id'],$box['address'],$box['gateway_ref'],(int)$box['active']]);
-              $box['active']=$active;
-            }
           } catch (Throwable $e) {
             error_log('Mailbox activation status unavailable: '.$e::class);
             break;
@@ -355,7 +347,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Synchronisatie</h2><p class="muted">Automatische verwerking wordt pas na verbindingscontrole vrijgegeven.</p><span class="tag">Geen bediening beschikbaar</span></section>
 <section class="card"><h2>Toegangsrechten</h2><p class="muted">Mailboxrechten worden via de bestaande Office-autorisatie afgedwongen.</p></section>
 </div>
-<p class="notice"><?= $activationEnabled?'Gateway-activering beschikbaar; bevestigde status wordt bij het openen van deze pagina gesynchroniseerd.':'Mailboxactivering en synchronisatie starten zijn nog niet beschikbaar.' ?></p>
+<p class="notice"><?= $activationEnabled?'Gateway-activering beschikbaar; bevestigde status wordt door de achtergrondworker gesynchroniseerd.':'Mailboxactivering en synchronisatie starten zijn nog niet beschikbaar.' ?></p>
 <?php endif; ?>
 <?php if ($passwordEnabled): ?>
 <script nonce="<?= $h($scriptNonce) ?>">
