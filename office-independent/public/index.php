@@ -43,6 +43,7 @@ $routes = [
   '/office-test/instellingen/blauwdrukken' => 'office-blueprint-approval-settings.php',
   '/office-test/instellingen' => 'office-settings.php',
   '/office-test/instellingen/email' => 'office-settings.php',
+  '/office-test/instellingen/organisatie/financieel' => 'office-financial-settings.php',
   '/office-test/email' => 'office-email.php',
   '/office-test/mail/controle' => 'office-mail-review.php',
   '/office-test/materialen' => 'office-materials.php',

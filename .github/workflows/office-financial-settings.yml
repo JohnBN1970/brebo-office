@@ -1,0 +1,23 @@
+name: Office financial settings contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Finance/OfficeFinancialDisplaySettings.php'
+      - 'office-independent/public/office-financial-settings.php'
+      - 'office-independent/public/office-settings.php'
+      - 'office-independent/public/index.php'
+      - 'office-independent/tests/OfficeFinancialDisplaySettingsTest.php'
+      - '.github/workflows/office-financial-settings.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP and settings contract
+        run: |
+          php -l office-independent/src/Finance/OfficeFinancialDisplaySettings.php
+          php -l office-independent/public/office-financial-settings.php
+          php -l office-independent/public/office-settings.php
+          php -l office-independent/public/index.php
+          php office-independent/tests/OfficeFinancialDisplaySettingsTest.php

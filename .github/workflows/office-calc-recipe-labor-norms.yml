@@ -1,0 +1,20 @@
+name: Office Calc recipe labor norms
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcRecipeLaborNormBridge.php'
+      - 'office-independent/tests/OfficeCalcRecipeLaborNormBridgeTest.php'
+      - '.github/workflows/office-calc-recipe-labor-norms.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y php-bcmath
+      - run: |
+          php -l office-independent/src/Calculation/OfficeCalcRecipeLaborNormBridge.php
+          php -l office-independent/tests/OfficeCalcRecipeLaborNormBridgeTest.php
+          php office-independent/tests/OfficeCalcRecipeLaborNormBridgeTest.php

@@ -1,0 +1,21 @@
+name: Office Calc project labor total
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Calculation/OfficeCalcProjectLaborTotal.php'
+      - 'office-independent/tests/OfficeCalcProjectLaborTotalTest.php'
+      - 'office-independent/public/office-calc-crm-workbench.php'
+      - '.github/workflows/office-calc-project-labor-total.yml'
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PHP BCMath
+        run: sudo apt-get update && sudo apt-get install -y php-bcmath
+      - name: Syntax and project labor totals
+        run: |
+          php -l office-independent/src/Calculation/OfficeCalcProjectLaborTotal.php
+          php -l office-independent/public/office-calc-crm-workbench.php
+          php office-independent/tests/OfficeCalcProjectLaborTotalTest.php

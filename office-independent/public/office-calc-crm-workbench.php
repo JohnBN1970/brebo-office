@@ -378,6 +378,8 @@ foreach($lines as $line){
             :$categoryTotals[$kind]+(int)round((float)$unitValue*100)*(int)$line['quantity'];
     }
 }
+require_once dirname(__DIR__).'/src/Calculation/OfficeCalcProjectLaborTotal.php';
+$projectLabor=\Brebo\Office\Calculation\OfficeCalcProjectLaborTotal::summarize($lines);
 $canonicalTotal=$collaborationEnabled?(string)($workspace['direct_cost']??'0'):(string)(array_sum($categoryTotals)/100);
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Calculatieconcept #'.$draft.' | BREBO Office</title><style>
 :root{color-scheme:light}*{box-sizing:border-box}body{font:13px system-ui,sans-serif;background:#edf1f7;color:#24374a;margin:0}
@@ -434,9 +436,13 @@ if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</smal
 echo '</details></li>';}
 echo '</ul><p class="muted">'.$h($buildingElementsNotice).' Selectie vult omschrijving voor. Gebouwtotalen vullen ook eenheid en hoeveelheid voor; woningtypehoeveelheden worden niet automatisch vermenigvuldigd. Bij vrijgegeven bronopslag wordt het bouwdeel met revisie vastgelegd; controleer de invoer.</p></aside><div class="workspace"><div class="metrics">';
 echo '<div class="metric"><span>Directe kosten</span><strong>€ '.number_format((float)$canonicalTotal,2,',','.').'</strong></div>';
+echo '<div class="metric"><span>Begrote arbeid</span><strong>'.($projectLabor['complete']?$h($projectLabor['hours']).' uur':'Onvolledig · '.$h($projectLabor['hours']).' uur bekend').'</strong></div>';
 echo '<div class="metric"><span>Regels</span><strong>'.count($lines).'</strong></div>';
 echo '<div class="metric"><span>Status</span><strong>Concept</strong></div>';
 echo '</div><nav class="sheet-tabs" role="tablist" aria-label="Calculatiebladen"><button type="button" role="tab" id="tab-data" data-calc-tab="data" aria-controls="panel-data" aria-selected="true">Data</button><button type="button" role="tab" id="tab-hours" data-calc-tab="hours" aria-controls="panel-hours" aria-selected="false">Uren</button><button type="button" role="tab" id="tab-tail" data-calc-tab="tail" aria-controls="panel-tail" aria-selected="false">Staart</button></nav><div id="panel-hours" class="calc-tab-panel" role="tabpanel" aria-labelledby="tab-hours" hidden>'; 
+echo '<section class="panel" aria-label="Arbeidsbudget project"><h3>Arbeid · projecttotaal</h3><p><strong>'.$h($projectLabor['hours']).' begrote arbeidsuren</strong> uit '.$projectLabor['labor_lines'].' arbeidsregels.</p>';
+if(!$projectLabor['complete'])echo '<p role="status">Onvolledig: '.$projectLabor['unknown_lines'].' arbeidsregels hebben geen vastgelegde uren. Dit is nog geen definitief arbeidsbudget.</p>';
+echo '<p class="muted">Alleen het totaal wordt voor de werkbegroting gebruikt. OnSite-uren worden op projectniveau geregistreerd; werkelijke uren zijn hier nog niet gekoppeld.</p></section>';
 if($laborRateCatalog!==null){
     echo '<section id="calc-hours"><h3>Uurtarieven op code</h3><p>Gebruik een tariefcode bij arbeidsregels. Een wijziging in de prijslijst wijzigt bestaande calculatieregels niet.</p><table><thead><tr><th>Code</th><th>Functie</th><th>Uurtarief</th><th>Status</th></tr></thead><tbody>';
     foreach($laborRates as $tariff)echo '<tr><td>'.$h((string)$tariff['code']).'</td><td>'.$h((string)$tariff['description']).'</td><td>€ '.$h((string)$tariff['hourly_rate']).'</td><td>'.((int)$tariff['active']===1?'Actief':'Inactief').'</td></tr>';

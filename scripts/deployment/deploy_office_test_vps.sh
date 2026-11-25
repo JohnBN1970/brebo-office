@@ -19,6 +19,11 @@ if [ ! -d "$RELEASE" ]; then
   mkdir -p "$STAGING/packages/brebo-finance-core"
   git -C "$REPO" archive "$SHA:packages/brebo-finance-core" | tar -x -C "$STAGING/packages/brebo-finance-core"
   test -f "$STAGING/packages/brebo-finance-core/bootstrap.php"
+  mkdir -p "$STAGING/packages/brebo-mail-core"
+  git -C "$REPO" archive "$SHA:packages/brebo-mail-core" | tar -x -C "$STAGING/packages/brebo-mail-core"
+  for file in Contract/GatewayHttpClientInterface.php Contract/MailGatewayInterface.php Domain/GatewayRequestSignature.php Infrastructure/HttpMailGateway.php; do
+    php -l "$STAGING/packages/brebo-mail-core/src/$file"
+  done
   test -f "$STAGING/public/index.php"
   test -f "$STAGING/public/office-login.php"
   php -l "$STAGING/public/index.php"
@@ -31,6 +36,9 @@ if [ ! -d "$RELEASE" ]; then
 fi
 test "$(cat "$RELEASE/.office-source-sha")" = "$SHA"
 test -r "$RELEASE/public/index.php"
+for file in Contract/GatewayHttpClientInterface.php Contract/MailGatewayInterface.php Domain/GatewayRequestSignature.php Infrastructure/HttpMailGateway.php; do
+  test -r "$RELEASE/packages/brebo-mail-core/src/$file"
+done
 PREVIOUS="$(readlink -f "$BASE/current")"
 case "$PREVIOUS" in "$BASE"/releases/*) ;; *) echo 'Unsafe active release'; exit 1;; esac
 test -d "$PREVIOUS"

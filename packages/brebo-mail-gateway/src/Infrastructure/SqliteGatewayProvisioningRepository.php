@@ -58,6 +58,13 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     return $reference;
   }
 
+  public function mailboxReference(string $address): ?string {
+    $statement = $this->pdo->prepare('SELECT reference FROM mailbox WHERE address = :address');
+    $statement->execute([':address' => $address]);
+    $reference = $statement->fetchColumn();
+    return is_string($reference) ? $reference : null;
+  }
+
   public function provisionAlias(string $aliasAddress, string $targetAddress): string {
     if (!$this->mailboxExists($targetAddress)) {
       throw new RuntimeException('Doelmailbox is nog niet geprovisioneerd op de gateway.');

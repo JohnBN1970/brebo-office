@@ -1,0 +1,13 @@
+name: Office project money defaults
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-project.php'
+      - '.github/workflows/office-project-money-defaults.yml'
+  workflow_dispatch:
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: php -l office-independent/public/office-project.php

@@ -10,9 +10,12 @@ final class OfficeProjectBudgetKpiView
         $state=$comparison['state']??null;
         if (!in_array($state,['baseline_missing','comparable'],true)) throw new \InvalidArgumentException('Ongeldige begrotingsstatus.');
         $e=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-        $fmt=static function(mixed $cents):string {
+        require_once dirname(__DIR__).'/Finance/OfficeMoneyDisplay.php';
+        $currency=$comparison['currency']??'EUR';
+        $locale=$comparison['money_locale']??'nl-NL';
+        $fmt=static function(mixed $cents) use ($currency,$locale):string {
             if (!is_int($cents)) return 'Niet beschikbaar';
-            return '€ '.number_format($cents/100,2,',','.');
+            return \Brebo\Office\Finance\OfficeMoneyDisplay::formatCents($cents,$currency,$locale);
         };
         $awarded=$comparison['commitment_cents']??null;
         if (!is_int($awarded)||$awarded<0)throw new \InvalidArgumentException('Ongeldige verplichtingen.');
