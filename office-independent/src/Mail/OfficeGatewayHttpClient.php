@@ -18,7 +18,7 @@ final class OfficeGatewayHttpClient implements GatewayHttpClientInterface {
     }
 
     private function request(string $method, string $path, string $body): array {
-        $allowed = $method === 'GET' ? ['/v1/health'] : ['/v1/domains', '/v1/mailboxes', '/v1/mailboxes/lookup', '/v1/aliases'];
+        $allowed = $method === 'GET' ? ['/v1/health'] : ['/v1/domains', '/v1/mailboxes', '/v1/mailboxes/lookup', '/v1/mailboxes/password', '/v1/aliases'];
         if (!in_array($path, $allowed, true)) {
             throw new RuntimeException('Onbekende gatewayroute.');
         }

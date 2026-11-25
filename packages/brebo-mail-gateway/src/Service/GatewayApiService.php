@@ -63,6 +63,30 @@ final class GatewayApiService {
     return ['address' => $address, 'reference' => $reference];
   }
 
+  public function setTestMailboxPassword(array $payload): array {
+    $address = $payload['address'] ?? null;
+    $reference = $payload['reference'] ?? null;
+    $password = $payload['password'] ?? null;
+
+    if (!is_string($address)
+        || !is_string($reference)
+        || !is_string($password)
+        || !is_callable([$this->repository, 'storeTestMailboxPassword'])) {
+      throw new InvalidArgumentException('Ongeldige wachtwoordaanvraag.');
+    }
+
+    $this->repository->storeTestMailboxPassword(
+      $address, $reference, $password
+    );
+
+    return [
+      'address' => $address,
+      'reference' => $reference,
+      'password_stored' => true,
+      'activation_changed' => false,
+    ];
+  }
+
   public function provisionMailbox(array $payload): array {
     $address = mb_strtolower(trim((string) ($payload['address'] ?? '')));
     if (filter_var($address, FILTER_VALIDATE_EMAIL) === FALSE) {
