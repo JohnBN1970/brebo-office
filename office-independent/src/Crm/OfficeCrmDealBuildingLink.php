@@ -48,7 +48,8 @@ final class OfficeCrmDealBuildingLink
         }
         $ids = array_values(array_unique($buildingIds));
         sort($ids, SORT_NUMERIC);
-        $this->db->beginTransaction();
+        $ownsTransaction=!$this->db->inTransaction();
+        if ($ownsTransaction) $this->db->beginTransaction();
         try {
             $deal = $this->db->prepare(
                 'SELECT revision,stage,status FROM office_crm_opportunities WHERE id=?'
@@ -77,9 +78,9 @@ final class OfficeCrmDealBuildingLink
                 $update->execute([$dealId,$expectedRevision]);
                 if ($update->rowCount() !== 1) throw new RuntimeException('Deal revision conflict');
             }
-            $this->db->commit();
+            if ($ownsTransaction) $this->db->commit();
         } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
             throw $e;
         }
     }
