@@ -248,7 +248,12 @@ final class OfficeNavigation {
     foreach($previewRoles as $code=>$label)$roleOptions.='<option value="'.self::h($code).'">'.self::h($label).'</option>';
     $rolePreview='<label class="office-role-preview">Bekijk als <select id="office-role-preview" aria-label="Bekijk Office als functie">'.$roleOptions.'</select></label><span id="office-role-preview-status" role="status" aria-live="polite"></span>';
     $css.='<style>.office-role-preview{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:inherit}.office-role-preview select{max-width:220px;min-width:120px;border:1px solid #7890a8;border-radius:7px;padding:7px;background:var(--office-surface,#172234);color:var(--office-text,#fff)}#office-role-preview-status{font-size:11px;color:inherit;opacity:.85}@media(max-width:700px){.office-role-preview select{max-width:145px}}</style>';
-    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><div class="office-app-controls"><span class="office-env-badge">TESTOMGEVING</span>'.$rolePreview.OfficeTheme::controls().OfficeTheme::accountControls().'</div></header>';
+    // Remove only the legacy home header, now replaced by the authenticated shared bar.
+    if (in_array($path,['/office-test','/office-test/'],true) && getenv('OFFICE_LOGIN_ENABLED')==='enabled') {
+      $html=preg_replace('~<header class="topbar"><strong>Mijn werkplek</strong><form method="post" action="[^"]*"><button type="submit">Uitloggen</button></form></header>~i','',$html,1)??$html;
+    }
+    $badge=str_contains($html,'TESTOMGEVING — geen productiegegevens')?'':'<span class="office-env-badge">TESTOMGEVING</span>';
+    $bar='<header class="office-app-bar"><div><strong>'.self::h($module).'</strong></div><div class="office-app-controls">'.$badge.$rolePreview.OfficeTheme::controls().OfficeTheme::accountControls().'</div></header>';
     $html=preg_replace_callback('~<main\\b[^>]*>~i',static fn($m)=>$m[0].$bar,$html,1)??$html;
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;
     if(!$styled)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$css.$m[0],$html,1)??$html;
