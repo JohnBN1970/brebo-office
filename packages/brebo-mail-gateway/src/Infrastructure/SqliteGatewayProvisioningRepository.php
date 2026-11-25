@@ -103,6 +103,138 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     ];
   }
 
+  public function testMailboxActivationStatus(
+    string $address,
+    string $reference
+  ): array {
+    if (!filter_var($address, FILTER_VALIDATE_EMAIL)
+        || !str_ends_with($address, '@testmail.brebobv.nl')) {
+      throw new RuntimeException('Ongeldig testmailboxadres.');
+    }
+
+    $actual = $this->mailboxReference($address);
+
+    if ($actual === null || !hash_equals($actual, $reference)) {
+      throw new RuntimeException('Ongeldige mailboxreferentie.');
+    }
+
+    $stmt = $this->pdo->prepare(
+      'SELECT desired_active, applied_active, status,
+       revision, requested_at, applied_at, error_code
+       FROM mailbox_activation WHERE address=?'
+    );
+    $stmt->execute([$address]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return [
+      'address'=>$address,
+      'reference'=>$reference,
+      'desired_active'=>$row ? (bool)$row['desired_active'] : null,
+      'applied_active'=>$row ? (bool)$row['applied_active'] : null,
+      'status'=>$row ? $row['status'] : 'unverified',
+      'revision'=>$row ? (int)$row['revision'] : 0,
+      'requested_at'=>$row['requested_at']??null,
+      'applied_at'=>$row['applied_at']??null,
+      'error_code'=>$row['error_code']??null,
+    ];
+  }
+
+  public function requestTestMailboxActivation(
+    string $address,
+    string $reference,
+    bool $active
+  ): array {
+
+    $bootstrap = $this->pdo->query(
+      "SELECT COUNT(*) FROM mailbox_activation_bootstrap
+       WHERE id=1 AND scope='testmail.brebobv.nl'
+       AND verified_at>0"
+    );
+
+    if ((int)$bootstrap->fetchColumn() !== 1) {
+      throw new RuntimeException(
+        'Mailbox activation bootstrap not verified.'
+      );
+    }
+
+    if (!preg_match('/^[a-z0-9][a-z0-9._+%-]*@testmail\.brebobv\.nl$/D', $address)
+        || !filter_var($address, FILTER_VALIDATE_EMAIL)
+        || str_contains($address, '..')) {
+      throw new RuntimeException('Ongeldig testmailboxadres.');
+    }
+
+    $this->pdo->exec('PRAGMA busy_timeout=5000');
+    $this->pdo->beginTransaction();
+
+    try {
+      $actual = $this->mailboxReference($address);
+
+      if ($actual === null || !hash_equals($actual, $reference)) {
+        throw new RuntimeException('Ongeldige mailboxreferentie.');
+      }
+
+      if ($active) {
+        $password = $this->testMailboxPasswordStatus(
+          $address, $reference
+        );
+
+        if (!$password['password_set']) {
+          throw new RuntimeException('Wachtwoord ontbreekt.');
+        }
+      }
+
+      $stmt = $this->pdo->prepare(
+        'INSERT INTO mailbox_activation
+          (address, desired_active, applied_active,
+           status, revision, requested_at)
+         VALUES (?, ?, 0, ?, 1, ?)
+         ON CONFLICT(address) DO UPDATE SET
+           desired_active=excluded.desired_active,
+           status=excluded.status,
+           revision=mailbox_activation.revision+1,
+           requested_at=excluded.requested_at,
+           error_code=NULL
+         WHERE mailbox_activation.status NOT IN
+           (\'pending\', \'applying\')'
+      );
+
+      $stmt->execute([
+        $address,
+        $active ? 1 : 0,
+        'pending',
+        time(),
+      ]);
+
+      if ($stmt->rowCount() !== 1) {
+        throw new RuntimeException('Aanvraag wordt al verwerkt.');
+      }
+
+      $stmt = $this->pdo->prepare(
+        'SELECT desired_active, applied_active, status, revision
+         FROM mailbox_activation WHERE address=?'
+      );
+      $stmt->execute([$address]);
+      $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+      $this->pdo->commit();
+
+      return [
+        'address'=>$address,
+        'reference'=>$reference,
+        'desired_active'=>(bool)$result['desired_active'],
+        'applied_active'=>(bool)$result['applied_active'],
+        'status'=>$result['status'],
+        'revision'=>(int)$result['revision'],
+      ];
+
+    } catch (\Throwable $error) {
+      if ($this->pdo->inTransaction()) {
+        $this->pdo->rollBack();
+      }
+      throw $error;
+    }
+  }
+
   public function storeTestMailboxPassword(
     string $address,
     string $reference,
@@ -122,6 +254,23 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     $this->pdo->beginTransaction();
 
     try {
+      $activation = $this->pdo->prepare(
+        'SELECT status, applied_active
+         FROM mailbox_activation WHERE address=?'
+      );
+
+      $activation->execute([$address]);
+      $state = $activation->fetch(PDO::FETCH_ASSOC);
+
+      if ($state && (
+          in_array($state['status'], ['pending','applying'], true)
+          || (bool)$state['applied_active']
+      )) {
+        throw new RuntimeException(
+          'Wachtwoordwijziging tijdelijk niet toegestaan.'
+        );
+      }
+
       $actual = $this->mailboxReference($address);
       if ($actual === null || !hash_equals($actual, $reference)) {
         throw new RuntimeException('Mailboxreferentie komt niet overeen.');
@@ -213,6 +362,29 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
   }
 
   private function migrate(): void {
+    $this->pdo->exec("CREATE TABLE IF NOT EXISTS mailbox_activation_bootstrap (
+      id INTEGER PRIMARY KEY CHECK(id=1),
+      verified_at INTEGER NOT NULL,
+      scope TEXT NOT NULL CHECK(scope='testmail.brebobv.nl')
+    )");
+
+    $this->pdo->exec("CREATE TABLE IF NOT EXISTS mailbox_activation (
+      address TEXT PRIMARY KEY,
+      desired_active INTEGER NOT NULL DEFAULT 0
+        CHECK(desired_active IN (0,1)),
+      applied_active INTEGER NOT NULL DEFAULT 0
+        CHECK(applied_active IN (0,1)),
+      status TEXT NOT NULL DEFAULT 'inactive'
+        CHECK(status IN (
+          'inactive','pending','applying','active','failed'
+        )),
+      revision INTEGER NOT NULL DEFAULT 0,
+      requested_at INTEGER,
+      applied_at INTEGER,
+      error_code TEXT,
+      FOREIGN KEY(address) REFERENCES mailbox(address)
+    )");
+
     $this->pdo->exec('CREATE TABLE IF NOT EXISTS mail_domain (
       domain TEXT PRIMARY KEY,
       reference TEXT NOT NULL,
