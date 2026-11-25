@@ -305,4 +305,178 @@ echo "MAIL_PASSWORD_STATUS_TEST=PASS\n";
 
 echo "MAIL_PASSWORD_API_TEST=PASS\n";
 
+
+$activationRequest = static function (
+  string $path, array $payload, bool $signed = true
+) use ($passwordRouter, $keyId, $secret, $now): array {
+  $body = json_encode($payload, JSON_THROW_ON_ERROR);
+  $headers = $signed
+    ? GatewayRequestSignature::sign(
+        $keyId, $secret, $now, 'POST', $path, $body
+      )->headers()
+    : [];
+
+  return $passwordRouter->dispatch(
+    new GatewayRequest('POST', $path, $body, $headers),
+    $now
+  );
+};
+
+$activationPath = '/v1/mailboxes/activation';
+$statusPath = '/v1/mailboxes/activation-status';
+
+$activationPayload = [
+  'address'=>$address,
+  'reference'=>$reference,
+  'active'=>true,
+];
+
+$response = $activationRequest(
+  $statusPath, $activationPayload
+);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['status'] === 'unverified'
+  && $response['body']['applied_active'] === null,
+  'ACTIVATION_INITIAL_UNVERIFIED'
+);
+
+$check(
+  $activationRequest(
+    $activationPath, $activationPayload
+  )['status'] === 422,
+  'ACTIVATION_BOOTSTRAP_REQUIRED'
+);
+
+$check(
+  (int)$db->query(
+    'SELECT COUNT(*) FROM mailbox_activation'
+  )->fetchColumn() === 0,
+  'ACTIVATION_UNVERIFIED_NO_CHANGE'
+);
+
+$db->prepare(
+  "INSERT INTO mailbox_activation_bootstrap
+   (id,verified_at,scope)
+   VALUES (1,?,'testmail.brebobv.nl')"
+)->execute([time()]);
+
+$check(
+  (int)$db->query(
+    'SELECT COUNT(*) FROM mailbox_activation_bootstrap'
+  )->fetchColumn() === 1,
+  'ACTIVATION_BOOTSTRAP_VERIFIED'
+);
+
+
+$check(
+  $activationRequest(
+    $activationPath, $activationPayload, false
+  )['status'] === 401,
+  'ACTIVATION_UNSIGNED_BLOCKED'
+);
+
+$check(
+  $activationRequest(
+    $statusPath, $activationPayload, false
+  )['status'] === 401,
+  'ACTIVATION_STATUS_UNSIGNED_BLOCKED'
+);
+
+$check(
+  $activationRequest($activationPath, array_replace(
+    $activationPayload, ['reference'=>'invalid']
+  ))['status'] === 422,
+  'ACTIVATION_WRONG_REFERENCE'
+);
+
+$check(
+  $activationRequest($activationPath, array_replace(
+    $activationPayload, ['address'=>'info@brebobv.nl']
+  ))['status'] === 422,
+  'ACTIVATION_PRODUCTION_BLOCKED'
+);
+
+$check(
+  $activationRequest($activationPath, [
+    'address'=>$emptyAddress,
+    'reference'=>$emptyRef,
+    'active'=>true,
+  ])['status'] === 422,
+  'ACTIVATION_WITHOUT_PASSWORD_BLOCKED'
+);
+
+$check(
+  $activationRequest($activationPath, array_replace(
+    $activationPayload, ['active'=>'true']
+  ))['status'] === 422,
+  'ACTIVATION_INVALID_TYPE_BLOCKED'
+);
+
+$response = $activationRequest(
+  $activationPath, $activationPayload
+);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['desired_active'] === true
+  && $response['body']['applied_active'] === false
+  && $response['body']['status'] === 'pending',
+  'ACTIVATION_REQUEST_ACCEPTED'
+);
+
+$check(
+  $activationRequest(
+    $activationPath, $activationPayload
+  )['status'] === 422,
+  'ACTIVATION_DUPLICATE_BLOCKED'
+);
+
+$response = $activationRequest(
+  $statusPath, $activationPayload
+);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['status'] === 'pending'
+  && $response['body']['applied_active'] === false
+  && $response['body']['revision'] === 1,
+  'ACTIVATION_STATUS_PERSISTED'
+);
+
+
+$check(
+  $submit($payload)['status'] === 422,
+  'PASSWORD_PENDING_ACTIVATION_BLOCKED'
+);
+
+$db->prepare(
+  "UPDATE mailbox_activation
+   SET status='active', applied_active=1
+   WHERE address=?"
+)->execute([$address]);
+
+$check(
+  $submit($payload)['status'] === 422,
+  'PASSWORD_ACTIVE_MAILBOX_BLOCKED'
+);
+
+$response = $activationRequest(
+  $activationPath,
+  array_replace($activationPayload, ['active'=>false])
+);
+
+$check(
+  $response['status'] === 200
+  && $response['body']['desired_active'] === false
+  && $response['body']['applied_active'] === true
+  && $response['body']['status'] === 'pending',
+  'DEACTIVATION_REQUEST_ACCEPTED'
+);
+
+echo "MAIL_ACTIVATION_GUARDS=PASS\n";
+
+echo "MAIL_ACTIVATION_API_TEST=PASS\n";
+
 echo "BREBO_MAIL_GATEWAY_SMOKE=PASS\n";

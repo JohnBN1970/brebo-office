@@ -78,6 +78,38 @@ final class GatewayApiService {
     );
   }
 
+  public function requestTestMailboxActivation(array $payload): array {
+    $address = $payload['address'] ?? null;
+    $reference = $payload['reference'] ?? null;
+    $active = $payload['active'] ?? null;
+
+    if (!is_string($address)
+        || !is_string($reference)
+        || !is_bool($active)
+        || !is_callable([$this->repository, 'requestTestMailboxActivation'])) {
+      throw new InvalidArgumentException('Ongeldige activeringsaanvraag.');
+    }
+
+    return $this->repository->requestTestMailboxActivation(
+      $address, $reference, $active
+    );
+  }
+
+  public function getTestMailboxActivationStatus(array $payload): array {
+    $address = $payload['address'] ?? null;
+    $reference = $payload['reference'] ?? null;
+
+    if (!is_string($address)
+        || !is_string($reference)
+        || !is_callable([$this->repository, 'testMailboxActivationStatus'])) {
+      throw new InvalidArgumentException('Ongeldige statusaanvraag.');
+    }
+
+    return $this->repository->testMailboxActivationStatus(
+      $address, $reference
+    );
+  }
+
   public function setTestMailboxPassword(array $payload): array {
     $address = $payload['address'] ?? null;
     $reference = $payload['reference'] ?? null;
