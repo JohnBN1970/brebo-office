@@ -24,6 +24,11 @@ try {
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmFunnel.php';
     require_once dirname(__DIR__).'/src/Crm/OfficeCrmOpportunityRepository.php';
     $buildings=[];
+    $permission=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
+    $permission->execute([$operator->operatorId]);
+    $canCreateBuilding=(int)$permission->fetchColumn()===1 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
     if (getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
         $buildings=$db->query("SELECT id,building_name FROM office_buildings ORDER BY building_name,id LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -37,7 +42,7 @@ if (session_status()!==PHP_SESSION_ACTIVE) {
 if (!isset($_SESSION['crm_opportunity_csrf'])) $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $relationId=filter_var($_GET['relation_id']??0,FILTER_VALIDATE_INT)?:0;
-$title=''; $error=''; $buildingIds=[]; $multiBuilding=getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled';
+$newBuilding=[]; $title=''; $error=''; $buildingIds=[]; $multiBuilding=getenv('OFFICE_CRM_DEAL_MULTI_BUILDINGS_SCHEMA_VERIFIED')==='enabled';
 $leadId=filter_var($_GET['lead_id']??0,FILTER_VALIDATE_INT)?:0;
 if ($method==='GET' && $leadId>0) {
     $leadStmt=$db->prepare("SELECT title,relation_id,stage,status,converted_opportunity_id FROM office_crm_leads WHERE id=?");
@@ -63,7 +68,21 @@ if ($method==='POST') {
     $buildingIds=array_values(array_unique($buildingIds));
     $validRelation=false;
     foreach ($relations as $relation) if ((int)$relation['id']===$relationId) $validRelation=true;
-    if (!$validBuilding || ($buildingIds!==[] && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled')) $error='Kies een geldig gebouw.';
+    if (($_POST['building_action']??null)==='create') {
+        if (!$canCreateBuilding) { http_response_code(403); exit('Geen recht om gebouwen aan te maken.'); }
+        $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+        if (!$validBuilding) { $error='Kies geldige gebouwen.'; }
+        else try {
+            $created=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($newBuilding,static fn():bool=>$canCreateBuilding);
+            $buildings[]=['id'=>$created,'building_name'=>trim($newBuilding['building_name'])];
+            $buildingIds=$multiBuilding?array_values(array_unique(array_merge($buildingIds,[(int)$created]))):[(int)$created];
+            $newBuilding=[];
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+        } catch (DomainException $e) {
+            $error=$e->getMessage()==='building_address_candidate_exists'?'Dit adres bestaat mogelijk al. Selecteer het bestaande gebouw.':'Ongeldige gebouwgegevens.';
+        } catch (Throwable $e) { $error='Gebouw aanmaken mislukt.'; }
+    }
+    elseif (!$validBuilding || ($buildingIds!==[] && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled')) $error='Kies een geldig gebouw.';
     elseif (!$validRelation || $title==='' || mb_strlen($title,'UTF-8')>255) $error='Kies een actieve relatie en vul een geldige titel in.';
     else {
         try {
@@ -100,9 +119,10 @@ if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
 echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$leadId.'"><label>Relatie<select name="relation_id" required><option value="">Kies een relatie</option>';
 foreach ($relations as $relation) echo '<option value="'.(int)$relation['id'].'"'.((int)$relation['id']===$relationId?' selected':'').'>'.$h($relation['display_name']).'</option>';
 echo '</select></label>';
-if ($buildings!==[]) {
+if ($buildings!==[] || $canCreateBuilding) {
     echo $multiBuilding ? '<label>Gebouwen<select name="building_ids[]" multiple size="8">' : '<label>Gebouw<select name="building_id"><option value="0">Nog geen gebouw gekoppeld</option>';
     foreach ($buildings as $building) echo '<option value="'.(int)$building['id'].'"'.(in_array((int)$building['id'],$buildingIds,true)?' selected':'').'>'.$h($building['building_name']).'</option>';
     echo '</select></label>';
 }
+if ($canCreateBuilding) echo \Brebo\Office\Buildings\OfficeBuildingCreateForm::render($newBuilding);
 echo '<label>Naam deal<input name="title" maxlength="255" required value="'.$h($title).'"></label><button type="submit">Deal aanmaken</button></form></section></main></body></html>';
