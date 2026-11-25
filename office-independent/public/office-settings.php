@@ -41,7 +41,8 @@ try {
     if ($method==='POST') {
       if (!is_string($_POST['csrf']??null) || !hash_equals($csrf,$_POST['csrf'])) {http_response_code(403);exit('Ongeldig formulier.');}
       try {
-        $core=dirname(__DIR__,2).'/packages/brebo-mail-core/src/';
+        $core=dirname(__DIR__).'/packages/brebo-mail-core/src/';
+        if (!is_dir($core)) $core=dirname(__DIR__,2).'/packages/brebo-mail-core/src/';
         foreach (['Contract/GatewayHttpClientInterface.php','Contract/MailGatewayInterface.php','Domain/GatewayRequestSignature.php','Infrastructure/HttpMailGateway.php'] as $file) require_once $core.$file;
         require_once dirname(__DIR__).'/src/Mail/OfficeGatewayHttpClient.php';
         require_once dirname(__DIR__).'/src/Mail/OfficeTestMailboxProvisioning.php';
