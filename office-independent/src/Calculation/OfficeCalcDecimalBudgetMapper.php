@@ -11,7 +11,7 @@ use DomainException;
  */
 final class OfficeCalcDecimalBudgetMapper
 {
-    public static function map(string $sourceLineId, string $quantity, array $unitCosts, ?string $activityRef = null): array
+    public static function map(string $sourceLineId, string $quantity, array $unitCosts, ?string $activityRef = null, ?array $buildingScope = null): array
     {
         require_once __DIR__.'/OfficeCalcCostBreakdown.php';
         if ($sourceLineId === '' || strlen($sourceLineId) > 116) {
@@ -21,6 +21,9 @@ final class OfficeCalcDecimalBudgetMapper
             throw new DomainException('Hoeveelheid moet positief zijn met maximaal vier decimalen.');
         }
         $calculated = OfficeCalcCostBreakdown::calculate($quantity, $unitCosts);
+        if ($buildingScope !== null && (!array_key_exists('building_id', $buildingScope) || ($buildingScope['building_id'] !== null && (!is_int($buildingScope['building_id']) || $buildingScope['building_id'] < 1)))) {
+            throw new DomainException('Ongeldige gebouwscope.');
+        }
         $items = [];
         foreach (OfficeCalcCostBreakdown::TYPES as $type) {
             $unit = $calculated['columns'][$type]['unit_cost'];
@@ -43,6 +46,10 @@ final class OfficeCalcDecimalBudgetMapper
             ];
         }
         if ($items === []) throw new DomainException('Lege kostenregel kan niet worden overgedragen.');
+        if ($buildingScope !== null) {
+            foreach ($items as &$item) $item['building_id'] = $buildingScope['building_id'];
+            unset($item);
+        }
         return $items;
     }
 }
