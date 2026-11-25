@@ -232,6 +232,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
   }catch(InvalidArgumentException $e){http_response_code(422);exit('Ongeldige bouwdeelgegevens.');}
   catch(Throwable $e){http_response_code(503);exit('Bouwdeel niet opgeslagen.');}
 }
+ $editToken='';
+ if ($detail && $selectedBuilding!==null && $registerReady && $canCreate) {
+   $q=$db->prepare('SELECT 1 FROM office_building_register_grants WHERE building_id=? AND operator_id=?');
+   $q->execute([$buildingId,$operator->operatorId]);
+   if ($q->fetchColumn()) $editToken=hash_hmac('sha256','building-register-update:'.$buildingId,$registerToken);
+ }
+ if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='update') {
+   if ($editToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($editToken,$_POST['csrf_token']) || !is_array($_POST['building']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
+   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingUpdateService.php';
+   try {
+     (new \Brebo\Office\Buildings\OfficeBuildingUpdateService($db))->update((int)$buildingId,(int)$operator->operatorId,$_POST['building'],$_POST['revision']);
+     header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+   } catch (Throwable $e) {http_response_code(409);exit('Wijziging niet opgeslagen. Controleer het adres en ververs de pagina.');}
+ }
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['building_action']??null)!=='create') {
   if (!$detail || !$cl204CsrfReady || !is_string($_POST['csrf_token'] ?? null)
     || !hash_equals($cl204Csrf, $_POST['csrf_token'])) {
@@ -319,7 +333,13 @@ $h = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUO
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gebouwen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1100px;margin:32px auto;padding:24px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #dbe1e8}a{color:#175a91}@media(max-width:650px){section{overflow-x:auto}}</style></head><body><main><h1>' . ($detail ? $h($selectedBuilding['building_name']) : 'Gebouwen') . '</h1><p>' . ($detail ? '<a href="/office-test/gebouwen">← Terug naar gebouwen</a>' : 'Gebouwen waarvoor je toegangsrechten hebt.') . '</p>';
 if ($detail) {
-  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl><p>Alleen ter inzage. Wijzigingen worden pas beschikbaar na autorisatie en gecontroleerde opslag.</p></section>';
+  echo '<section><h2>Gebouwgegevens</h2><dl><dt>Gebouw</dt><dd>' . $h($selectedBuilding['building_name']) . '</dd><dt>Adres</dt><dd>' . $h(trim(implode(' ', array_filter([$selectedBuilding['street_address'] ?? '', $selectedBuilding['postal_code'] ?? '', $selectedBuilding['city'] ?? ''])))) . '</dd><dt>Gekoppelde projecten</dt><dd>' . (int)$selectedBuilding['project_count'] . '</dd><dt>Actieve zones</dt><dd>' . (int)$selectedBuilding['active_zone_count'] . '</dd></dl></section>';
+   if ($editToken!=='') {
+     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingUpdateService.php';
+     echo '<section><details><summary>Gebouwgegevens wijzigen</summary><form method="post"><input type="hidden" name="building_action" value="update"><input type="hidden" name="csrf_token" value="'.$h($editToken).'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingUpdateService::revision($selectedBuilding)).'">';
+     foreach (['building_name'=>'Gebouwnaam','street_address'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="building['.$key.']" value="'.$h($selectedBuilding[$key]??'').'"></label></p>';
+     echo '<button type="submit">Wijzigingen opslaan</button></form></details></section>';
+   }
   if($elementsEnabled){
     echo '<section id="building-elements"><h2>Bouwdelen</h2>';
     try{
