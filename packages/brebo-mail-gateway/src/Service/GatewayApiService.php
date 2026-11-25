@@ -51,6 +51,18 @@ final class GatewayApiService {
   /** @param array<string,mixed> $payload
    *  @return array{reference:string}
    */
+  public function lookupTestMailbox(string $address): array {
+    $address = strtolower(trim($address));
+    if (!str_ends_with($address, '@testmail.brebobv.nl') || !filter_var($address, FILTER_VALIDATE_EMAIL)) {
+      throw new InvalidArgumentException('Ongeldig testmailboxadres.');
+    }
+    if (!is_callable([$this->repository, 'mailboxReference'])) {
+      throw new \RuntimeException('Mailboxcontrole niet beschikbaar.');
+    }
+    $reference = $this->repository->mailboxReference($address);
+    return ['address' => $address, 'reference' => $reference];
+  }
+
   public function provisionMailbox(array $payload): array {
     $address = mb_strtolower(trim((string) ($payload['address'] ?? '')));
     if (filter_var($address, FILTER_VALIDATE_EMAIL) === FALSE) {

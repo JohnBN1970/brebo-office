@@ -37,6 +37,9 @@ final class GatewayRequestRouter {
       if ($request->method === 'POST' && $request->path === '/v1/domains') {
         return ['status' => 200, 'body' => $this->api->provisionDomain($payload)];
       }
+      if ($request->method === 'POST' && $request->path === '/v1/mailboxes/lookup') {
+        return ['status' => 200, 'body' => $this->api->lookupTestMailbox((string) ($payload['address'] ?? ''))];
+      }
       if ($request->method === 'POST' && $request->path === '/v1/mailboxes') {
         return ['status' => 200, 'body' => $this->api->provisionMailbox($payload)];
       }
