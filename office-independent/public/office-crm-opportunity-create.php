@@ -95,6 +95,13 @@ if ($method==='POST') {
                     throw new DomainException('Lead is gewijzigd of heeft geen gekoppelde relatie.');
                 }
             }
+            if ($leadId>0 && getenv('OFFICE_CRM_LEAD_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
+                $links=$db->prepare('SELECT building_id FROM office_crm_lead_buildings WHERE lead_id=? ORDER BY building_id FOR UPDATE');
+                $links->execute([$leadId]);
+                $buildingIds=array_values(array_unique(array_merge($buildingIds,array_map('intval',$links->fetchAll(PDO::FETCH_COLUMN)))));
+                if (count($buildingIds)>1 && !$multiBuilding) throw new DomainException('Meerdere gebouwen nog niet beschikbaar.');
+                if ($buildingIds!==[] && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('Gebouwkoppeling nog niet beschikbaar.');
+            }
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
             if ($buildingIds!==[]) {
                 $link=$db->prepare('INSERT INTO office_crm_deal_buildings (opportunity_id,building_id) VALUES (?,?)');
