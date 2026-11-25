@@ -101,6 +101,13 @@ try {
                     $bid=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->create($_POST['new_building'],static fn():bool=>true);
                     $grant=$db->prepare('INSERT INTO office_building_register_grants (building_id,operator_id) VALUES (?,?)');
                     $grant->execute([$bid,$operator->operatorId]);
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $snapshot=$db->prepare('SELECT building_name,street_address,postal_code,city FROM office_buildings WHERE id=?');
+                    $snapshot->execute([$bid]);
+                    $auditRow=$snapshot->fetch(PDO::FETCH_ASSOC);
+                    if (!$auditRow) throw new DomainException('building_snapshot_unavailable');
+                    (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$bid,(int)$operator->operatorId,'created','register',null,null,$auditRow);
                     $ids=array_merge($old,[(int)$bid]);
                 }
                 $q=$db->prepare("SELECT b.id FROM office_buildings b WHERE b.id=? AND b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage')))");
