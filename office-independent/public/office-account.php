@@ -4,6 +4,7 @@ use Brebo\Office\Intake\OfficeMount;
 use Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider;
 use Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository;
 use Brebo\Office\Intake\OfficeTheme;
+header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
@@ -22,9 +23,8 @@ try {
   if (!$account) {http_response_code(403);exit('Account niet beschikbaar.');}
 } catch (Throwable $e) {http_response_code(503);exit('Account tijdelijk niet beschikbaar.');}
 $h=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-?><!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mijn account · BREBO Office</title><?= OfficeTheme::styles() ?></head><body><main>
+?><!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mijn account · BREBO Office</title></head><body><main>
 <h1>Mijn account</h1>
 <section class="card"><h2>Accountgegevens</h2><dl><dt>Gebruikersnaam</dt><dd><?= $h($account['username']) ?></dd><dt>Status</dt><dd>Actief</dd><dt>CRM bewerken</dt><dd><?= $operator->canEditCrm?'Toegestaan':'Niet toegestaan' ?></dd></dl><p>Bevoegdheden worden beheerd door de beheerder.</p></section>
-<section class="card"><h2>Weergave</h2><?= OfficeTheme::controls() ?></section>
 <p><a href="/office-test/">Terug naar mijn werkplek</a></p>
 </main></body></html>
