@@ -26,7 +26,8 @@ try {
     $buildings=[];
     $permission=$db->prepare('SELECT can_edit_crm FROM office_operator_accounts WHERE id=? AND active=1');
     $permission->execute([$operator->operatorId]);
-    $canCreateBuilding=(int)$permission->fetchColumn()===1 && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test';
+    if ((int)$permission->fetchColumn()!==1) { http_response_code(403); exit('Geen CRM-schrijfrecht.'); }
+    $canCreateBuilding= getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled' && getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test';
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
     if (getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')==='enabled') {
@@ -34,8 +35,6 @@ try {
             $q=$db->prepare("SELECT b.id,b.building_name FROM office_buildings b WHERE b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) ORDER BY b.building_name,b.id");
             $q->execute([$operator->operatorId,$operator->operatorId]);
             $buildings=$q->fetchAll(PDO::FETCH_ASSOC);
-        } else {
-            $buildings=$db->query("SELECT id,building_name FROM office_buildings ORDER BY building_name,id LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
         }
     }
     $relations=$db->query("SELECT id,display_name FROM office_crm_relations WHERE status='active' ORDER BY display_name LIMIT 500")->fetchAll(PDO::FETCH_ASSOC);
@@ -107,6 +106,17 @@ if ($method==='POST') {
                 $buildingIds=array_values(array_unique(array_merge($buildingIds,array_map('intval',$links->fetchAll(PDO::FETCH_COLUMN)))));
                 if (count($buildingIds)>1 && !$multiBuilding) throw new DomainException('Meerdere gebouwen nog niet beschikbaar.');
                 if ($buildingIds!==[] && getenv('OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('Gebouwkoppeling nog niet beschikbaar.');
+            }
+            $writePermission=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+            $writePermission->execute([$operator->operatorId]);
+            if (!$writePermission->fetchColumn()) throw new DomainException('Geen CRM-schrijfrecht.');
+            if ($buildingIds!==[]) {
+                if (getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')!=='enabled' || getenv('OFFICE_BASE_PATH')!=='/office-test') throw new DomainException('Gebouwrechten niet beschikbaar.');
+                $access=$db->prepare("SELECT b.id FROM office_buildings b WHERE b.id=? AND b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission IN ('read','manage'))) FOR UPDATE");
+                foreach ($buildingIds as $buildingId) {
+                    $access->execute([$buildingId,$operator->operatorId,$operator->operatorId]);
+                    if (!$access->fetchColumn()) throw new DomainException('Gebouw niet toegankelijk.');
+                }
             }
             $id=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->create($relationId,$title);
             if ($buildingIds!==[]) {
