@@ -76,7 +76,7 @@ if ($method==='POST') {
                     $auditRow=$snapshot->fetch(PDO::FETCH_ASSOC);
                     if (!$auditRow) throw new DomainException('building_snapshot_unavailable');
                     (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$bid,(int)$operator->operatorId,'created','register',null,null,$auditRow);
-            $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision);
+            $linkService->replaceBuildings($id,array_merge($linked,[(int)$bid]),$revision,(int)$operator->operatorId);
             $db->commit();
         } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
@@ -97,7 +97,7 @@ if ($method==='POST') {
             $ids[]=$bid;
         }
         try {
-            $linkService->replaceBuildings($id,$ids,$revision);
+            $linkService->replaceBuildings($id,$ids,$revision,(int)$operator->operatorId);
             $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
             header('Location: /office-test/crm/verkoopkansen',true,303);exit;
         } catch (Throwable $e) {http_response_code(409);exit('Gebouwkoppelingen niet opgeslagen. Ververs de pagina.');}
