@@ -118,11 +118,20 @@ try {
                     if (!$q->fetchColumn()) throw new DomainException('Geen gebouwtoegang.');
                     $ids[]=$bid;
                 }
+                foreach ($old as $existingId) {
+                    $q->execute([$existingId,$operator->operatorId,$operator->operatorId]);
+                    if (!$q->fetchColumn()) throw new DomainException('Geen toegang tot bestaande koppeling.');
+                }
+                if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                $audit=new \Brebo\Office\Buildings\OfficeBuildingAudit($db);
                 $ids=array_values(array_unique($ids));sort($ids,SORT_NUMERIC);
                 $del=$db->prepare('DELETE FROM office_crm_lead_buildings WHERE lead_id=? AND building_id=?');
                 foreach (array_diff($old,$ids) as $bid) $del->execute([$id,$bid]);
                 $ins=$db->prepare('INSERT INTO office_crm_lead_buildings (lead_id,building_id) VALUES (?,?)');
                 foreach (array_diff($ids,$old) as $bid) $ins->execute([$id,$bid]);
+                foreach (array_diff($old,$ids) as $bid) $audit->record($bid,(int)$operator->operatorId,'unlinked','lead',$id,['linked'=>true],['linked'=>false]);
+                foreach (array_diff($ids,$old) as $bid) $audit->record($bid,(int)$operator->operatorId,'linked','lead',$id,['linked'=>false],['linked'=>true]);
                 $db->commit();
             } catch (Throwable $e) {
                 if ($db->inTransaction()) $db->rollBack();
