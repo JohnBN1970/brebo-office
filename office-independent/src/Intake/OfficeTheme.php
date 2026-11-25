@@ -14,6 +14,26 @@ final class OfficeTheme {
     }
     return $html.'</div>';
   }
+  public static function accountControls(): string {
+    if (getenv('OFFICE_LOGIN_ENABLED') !== 'enabled') return '';
+    $operator = null;
+    $admin = false;
+    try {
+      foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $file) require_once __DIR__.'/'.$file;
+      $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
+      if ($dsn && isset($_COOKIE[OfficeMount::cookieName('session')])) {
+        $db = new \PDO($dsn,getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',[\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION]);
+        $operator = (new WebsiteOfficeCrmCookieSessionProvider(new WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time()))->currentOperator();
+        if ($operator !== null) {
+          require_once dirname(__DIR__).'/Approval/OfficeTestSiteAdministratorAccess.php';
+          $admin = (new \Brebo\Office\Approval\OfficeTestSiteAdministratorAccess($db))->isAuthorized((string)$operator->operatorId,true);
+        }
+      }
+    } catch (\Throwable $e) { $admin = false; }
+    if ($operator === null) return '<a href="/office-test/inloggen">Inloggen</a>';
+    $gear = $admin ? '<a href="/office-test/instellingen" aria-label="Instellingen" title="Instellingen">⚙</a>' : '';
+    return $gear.'<details class="office-account-menu"><summary aria-label="Profiel" title="Profiel"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="9" r="3"/><path d="M5 19c1-7 13-7 14 0"/></svg></summary><div class="office-account-panel"><strong>Account</strong><span>Ingelogd</span><form method="post" action="/office-test/uitloggen"><button type="submit">Uitloggen</button></form></div></details>';
+  }
   /** Add only the exact shared script hash; preserve all other CSP directives. */
   public static function policy(string $policy): string {
     $hash="'sha256-".base64_encode(hash('sha256',self::script(),true))."'";
