@@ -248,7 +248,7 @@ final class OfficeNavigation {
     foreach($previewRoles as $code=>$label)$roleOptions.='<option value="'.self::h($code).'">'.self::h($label).'</option>';
     $rolePreview='<label class="office-role-preview">Bekijk als <select id="office-role-preview" aria-label="Bekijk Office als functie">'.$roleOptions.'</select></label><span id="office-role-preview-status" role="status" aria-live="polite"></span>';
     $css.='<style>.office-role-preview{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:650;color:inherit}.office-role-preview select{max-width:220px;min-width:120px;border:1px solid #7890a8;border-radius:7px;padding:7px;background:var(--office-surface,#172234);color:var(--office-text,#fff)}#office-role-preview-status{font-size:11px;color:inherit;opacity:.85}@media(max-width:700px){.office-role-preview select{max-width:145px}}</style>';
-    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><div class="office-app-controls"><span class="office-env-badge">TESTOMGEVING</span>'.$rolePreview.OfficeTheme::controls().'</div></header>';
+    $bar='<header class="office-app-bar"><div><a href="/office-test/">BREBO Office</a><strong>'.self::h($module).'</strong></div><div class="office-app-controls"><span class="office-env-badge">TESTOMGEVING</span>'.$rolePreview.OfficeTheme::controls().OfficeTheme::accountControls().'</div></header>';
     $html=preg_replace_callback('~<main\\b[^>]*>~i',static fn($m)=>$m[0].$bar,$html,1)??$html;
     $html=preg_replace_callback('~</head>~i',static fn()=>$css.'</head>',$html,1,$styled)??$html;
     if(!$styled)$html=preg_replace_callback('~<main\b[^>]*>~i',static fn($m)=>$css.$m[0],$html,1)??$html;
