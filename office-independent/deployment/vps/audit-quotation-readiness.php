@@ -18,8 +18,8 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test') {
     exit(2);
 }
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN') ?: '';
-if (!preg_match('/^mysql:.*(?:^|;)dbname=brebo_office_test(?:;|$)/D', $dsn)
-    && !preg_match('/^mysql:.*;dbname=brebo_office_test(?:;|$)/D', $dsn)) {
+if (!str_starts_with($dsn, 'mysql:')
+    || !preg_match('/(?:^|;)dbname=brebo_office_test(?:;|$)/D', substr($dsn, 6))) {
     fwrite(STDERR, "BLOCK_DATABASE_NOT_OFFICE_TEST\n");
     exit(2);
 }
