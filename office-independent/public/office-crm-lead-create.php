@@ -132,7 +132,15 @@ if ($method === 'POST') {
             $leadId = (int)$db->lastInsertId();
             if ($buildingIds!==[]) {
                 $link=$db->prepare('INSERT INTO office_crm_lead_buildings (lead_id,building_id) VALUES (?,?)');
-                foreach ($buildingIds as $buildingId) $link->execute([$leadId,$buildingId]);
+                if (getenv('OFFICE_BUILDING_REGISTER_GRANTS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BASE_PATH')==='/office-test') {
+                    if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
+                    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+                    $audit=new \Brebo\Office\Buildings\OfficeBuildingAudit($db);
+                }
+                foreach ($buildingIds as $buildingId) {
+                    $link->execute([$leadId,$buildingId]);
+                    if (isset($audit)) $audit->record((int)$buildingId,(int)$operator->operatorId,'linked','lead',(int)$leadId,['linked'=>false],['linked'=>true]);
+                }
             }
             $event = $db->prepare("INSERT INTO office_crm_lead_events (lead_id,actor_operator_id,event_type,new_stage)
                 VALUES (?,?,'created','new')");
