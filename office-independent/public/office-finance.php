@@ -391,7 +391,7 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route($view === 'new' ? 'finance/nieuw' : 'finance/factuur', $view === 'new' ? ['uploaded'=>'1'] : ['id'=>$invoiceId,'uploaded'=>'1']), true, 303);
     exit;
   }
-  if ($view === 'dossier' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  if (in_array($view, ['dashboard','dossier','draft','new'], true) && \Brebo\Office\Intake\OfficeMount::isTest()) {
     $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
     if (!$access->allows()) throw new \DomainException('Finance access required');
     $scope = null;
@@ -401,7 +401,7 @@ try {
       }
       if ($scope === null) throw new \OutOfBoundsException('Project unavailable');
     }
-    $data = ['project' => $scope];
+    $data = ['project' => $scope, 'finance_unlinked_project' => true];
   } else {
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
   }
