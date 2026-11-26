@@ -67,6 +67,7 @@ try {
         if (getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
         try {
             require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
+            require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
             $query=\Brebo\Office\Buildings\OfficeBuildingCreateForm::searchQuery($newBuilding);
             if (!is_string($query)) throw new DomainException('Invalid query');
             $newBuilding['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
