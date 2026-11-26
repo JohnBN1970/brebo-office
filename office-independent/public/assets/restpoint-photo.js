@@ -1,8 +1,32 @@
 'use strict';
 document.querySelectorAll('[data-restpoint-photo]').forEach(root => {
     const image = root.querySelector('img');
-    const form = root.querySelector('form');
-    if (!image || !form) return;
+    if (!image) return;
+    const layer = image.parentElement;
+    const viewport = document.createElement('div');
+    Object.assign(viewport.style,{overflow:'auto',maxWidth:'100%',maxHeight:'75vh',border:'1px solid #bdcbd7'});
+    layer.before(viewport);
+    viewport.append(layer);
+    const toolbar = document.createElement('div');
+    toolbar.setAttribute('aria-label','Zoom en verschuiven');
+    viewport.before(toolbar);
+    let zoom = 1;
+    const status = document.createElement('span');
+    function resize() {
+        layer.style.width = (zoom*100)+'%';
+        layer.style.maxWidth = 'none';
+        image.style.width = '100%';
+        status.textContent = ' '+Math.round(zoom*100)+'%';
+    }
+    for (const [label,action] of [['−',()=>{zoom=Math.max(1,zoom/1.25);resize();}],['+',()=>{zoom=Math.min(4,zoom*1.25);resize();}],['Passend',()=>{zoom=1;resize();viewport.scrollTo(0,0);}]]) {
+        const button=document.createElement('button');
+        button.type='button';button.textContent=label;
+        button.addEventListener('click',action);toolbar.append(button);
+    }
+    toolbar.append(status);
+    resize();
+    const form = Array.from(root.querySelectorAll('form')).find(f=>f.elements.namedItem('x') && f.elements.namedItem('y'));
+    if (!form) return;
     const x = form.elements.namedItem('x');
     const y = form.elements.namedItem('y');
     if (!x || !y) return;
