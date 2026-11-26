@@ -275,28 +275,58 @@ $zoneToken='';
 if ($bagToken!=='' && getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_ZONE_WRITE_ENABLED')==='enabled') {
   $zoneToken=hash_hmac('sha256','building-zone-create:'.$buildingId,$bagToken);
 }
-if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['update_zone','deactivate_zone'],true)) {
-  if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token']) || !is_string($_POST['zone_id']??null) || !is_string($_POST['zone_revision']??null)) {http_response_code(403);exit;}
-  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
-  try {
-    $repo=new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
-    $authorized=static fn(string $id):bool=>$zoneToken!=='' && $id===(string)$buildingId;
-    if ($_POST['building_action']==='deactivate_zone') $repo->deactivate((string)$buildingId,$_POST['zone_id'],$_POST['zone_revision'],$authorized);
-    else $repo->update((string)$buildingId,$_POST['zone_id'],$_POST['zone_revision'],$_POST,$authorized);
-    header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
-  } catch (Throwable $e) {http_response_code(409);exit('Klokzone niet gewijzigd. Ververs de pagina en controleer de invoer.');}
-}
-if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create_zone') {
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_zone','update_zone','deactivate_zone'],true)) {
   if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
   try {
-    (new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->create([
-      'building_id'=>(string)$buildingId,'zone_name'=>$_POST['zone_name']??null,
-      'latitude'=>$_POST['latitude']??null,'longitude'=>$_POST['longitude']??null,
-      'radius_metres'=>$_POST['radius_metres']??null
-    ],static fn(string $id):bool=>$zoneToken!=='' && $id===(string)$buildingId);
+    $db->beginTransaction();
+    $q=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 FOR UPDATE');
+    $q->execute([$operator->operatorId]);
+    if (!$q->fetchColumn()) throw new RuntimeException('inactive_operator');
+    $q=$db->prepare('SELECT id FROM office_buildings WHERE id=? AND active=1 FOR UPDATE');
+    $q->execute([$buildingId]);
+    if (!$q->fetchColumn()) throw new RuntimeException('inactive_building');
+    $q=$db->prepare('SELECT building_id FROM office_building_register_grants WHERE building_id=? AND operator_id=? FOR UPDATE');
+    $q->execute([$buildingId,$operator->operatorId]);
+    if (!$q->fetchColumn()) {
+      $q=$db->prepare("SELECT pb.building_id FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=? AND m.operator_id=? AND m.permission='manage' FOR UPDATE");
+      $q->execute([$buildingId,$operator->operatorId]);
+      if (!$q->fetchColumn()) throw new RuntimeException('zone_access_denied');
+    }
+    $repo=new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
+    $authorized=static fn(string $id):bool=>$id===(string)$buildingId;
+    $snapshot=static function(string $id) use ($db,$buildingId):array {
+      $q=$db->prepare('SELECT id,building_id,zone_name,latitude,longitude,radius_metres,active,revision FROM office_building_zones WHERE id=? AND building_id=? FOR UPDATE');
+      $q->execute([$id,$buildingId]);
+      $row=$q->fetch(PDO::FETCH_ASSOC);
+      if (!is_array($row)) throw new RuntimeException('zone_not_found');
+      return $row;
+    };
+    $action=$_POST['building_action'];
+    $before=null;
+    if ($action==='create_zone') {
+      $id=$repo->create(['building_id'=>(string)$buildingId,'zone_name'=>$_POST['zone_name']??null,'latitude'=>$_POST['latitude']??null,'longitude'=>$_POST['longitude']??null,'radius_metres'=>$_POST['radius_metres']??null],$authorized);
+      $event='zone_created';
+    } else {
+      if (!is_string($_POST['zone_id']??null) || !is_string($_POST['zone_revision']??null)) throw new InvalidArgumentException('invalid_zone_identity');
+      $id=$_POST['zone_id'];
+      $before=$snapshot($id);
+      if ($action==='deactivate_zone') {
+        $repo->deactivate((string)$buildingId,$id,$_POST['zone_revision'],$authorized);
+        $event='zone_deactivated';
+      } else {
+        $repo->update((string)$buildingId,$id,$_POST['zone_revision'],$_POST,$authorized);
+        $event='zone_updated';
+      }
+    }
+    (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$buildingId,(int)$operator->operatorId,$event,'register',(int)$id,$before,$snapshot($id));
+    $db->commit();
     header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
-  } catch (Throwable $e) {http_response_code(422);exit('Klokzone niet opgeslagen. Controleer de invoer.');}
+  } catch (Throwable $e) {
+    if ($db->inTransaction()) $db->rollBack();
+    http_response_code(409);exit('Klokzone niet opgeslagen. Ververs de pagina en controleer invoer en rechten.');
+  }
 }
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='link_bag') {
   if ($bagToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($bagToken,$_POST['csrf_token']) || !is_string($_POST['bag_id']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
