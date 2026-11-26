@@ -535,7 +535,20 @@ if ($detail) {
       'bbox' => $bbox, 'width' => 900, 'height' => 520,
       'format' => 'image/jpeg', 'transparent' => 'false',
     ]);
-    echo '<figure style="margin:20px 0 0"><img src="' . $h($mapUrl) . '" alt="PDOK-luchtfoto rondom het geselecteerde BAG-zoekresultaat" style="max-width:100%;height:auto;border-radius:8px"><figcaption>PDOK-luchtfoto bij de weergegeven locatie.</figcaption></figure>';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneMap.php';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+    $zones=[];
+    if (getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled') {
+      $zones=(new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->forBuilding((string)$buildingId,
+        static fn(string $id):bool => $selectedBuilding!==null && $id===(string)$buildingId);
+    }
+    echo '<figure style="margin:20px 0 0"><svg viewBox="0 0 900 520" role="img" aria-label="PDOK-luchtfoto met actieve klokzones" style="width:100%;height:auto"><image href="'.$h($mapUrl).'" width="900" height="520"/>';
+    foreach ($zones as $zone) {
+      $geometry=\Brebo\Office\Buildings\OfficeBuildingZoneMap::circle((float)$zone['latitude'],(float)$zone['longitude'],(float)$zone['radius_metres'],[$x-300,$y-173.333333,$x+300,$y+173.333333],900,520);
+      echo '<ellipse cx="'.$h($geometry['cx']).'" cy="'.$h($geometry['cy']).'" rx="'.$h($geometry['rx']).'" ry="'.$h($geometry['ry']).'" fill="#2684ff" fill-opacity=".18" stroke="#2684ff" stroke-width="3"><title>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</title></ellipse>';
+    }
+    echo '<circle cx="450" cy="260" r="5" fill="#fff" stroke="#175a91" stroke-width="3"/></svg><figcaption>PDOK-luchtfoto · actieve klokzones</figcaption></figure>';
+    foreach ($zones as $zone) echo '<p>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</p>';
   }
   echo '</section>';
   echo '</main></body></html>';
