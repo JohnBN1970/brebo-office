@@ -28,7 +28,6 @@ final class OfficeCalcCrmDraftAccess
         $row = $q->fetch(PDO::FETCH_ASSOC);
         if (!is_array($row) || (int)$row['active'] !== 1
             || $row['project_id'] !== null
-            || (int)$row['crm_revision'] !== (int)$row['revision']
             || !in_array($row['stage'],['prospect','opportunity','proposal','negotiation'],true)
             || $row['status'] !== 'open') return false;
         return $canManageOpportunity($this->db,$actorId,(int)$row['opportunity_id']) === true;
