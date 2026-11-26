@@ -260,11 +260,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
  }
 $dwellingEnabled=$detail && $editToken!=='' && getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled';
 $dwellingToken=$dwellingEnabled?hash_hmac('sha256','dwelling-create:'.$buildingId,$editToken):'';
-if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create_dwelling') {
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_dwelling','update_dwelling'],true)) {
   if ($dwellingToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($dwellingToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
   try {
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRepository.php';
-    (new \Brebo\Office\Buildings\OfficeBuildingDwellingRepository($db))->create((int)$operator->operatorId,(int)$buildingId,$_POST);
+    $dwellingRepo=new \Brebo\Office\Buildings\OfficeBuildingDwellingRepository($db);
+    if ($_POST['building_action']==='update_dwelling') {
+      $dwellingId=filter_var($_POST['dwelling_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if (!is_int($dwellingId)||!is_string($_POST['revision']??null)) throw new InvalidArgumentException('Ongeldige woning.');
+      $dwellingRepo->update((int)$operator->operatorId,(int)$buildingId,$dwellingId,$_POST,$_POST['revision']);
+    } else $dwellingRepo->create((int)$operator->operatorId,(int)$buildingId,$_POST);
     header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#woningen',true,303);exit;
   } catch (Throwable $e) {http_response_code(409);exit('Woning niet opgeslagen. Controleer invoer, woningcode en rechten.');}
 }
@@ -395,6 +400,14 @@ if ($detail) {
       $options='<option value="">Geen woningtype</option>';
       foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $t) $options.='<option value="'.(int)$t['id'].'">'.$h($t['code'].' · '.$t['name']).'</option>';
       echo '<details><summary>Woning toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><p><label>Woningcode <input name="dwelling_code" maxlength="100" required></label></p><p><label>Huisnummer <input name="house_number" maxlength="40" required></label></p><p><label>Verdieping <input name="floor_label" maxlength="80"></label></p><p><label>Woningtype <select name="housing_type_id">'.$options.'</select></label></p><button>Opslaan</button></form></details>';
+      foreach ($dwellings as $d) {
+        $editOptions='<option value="">Geen woningtype</option>';
+        $q->execute([$buildingId]);
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $t) $editOptions.='<option value="'.(int)$t['id'].'"'.((int)$d['housing_type_id']===(int)$t['id']?' selected':'').'>'.$h($t['code'].' · '.$t['name']).'</option>';
+        echo '<details><summary>Woning '.$h($d['dwelling_code']).' bewerken</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="update_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><input type="hidden" name="dwelling_id" value="'.(int)$d['id'].'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingDwellingRepository::revision($d)).'">';
+        foreach (['dwelling_code'=>'Woningcode','house_number'=>'Huisnummer','floor_label'=>'Verdieping'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="'.$key.'" value="'.$h($d[$key]).'"></label></p>';
+        echo '<p><label>Woningtype <select name="housing_type_id">'.$editOptions.'</select></label></p><button>Wijzigingen opslaan</button></form></details>';
+      }
     } catch (Throwable $e) {echo '<p>Woningregister tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
   }
