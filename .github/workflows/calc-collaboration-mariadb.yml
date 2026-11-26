@@ -50,6 +50,7 @@ jobs:
             crm_revision BIGINT UNSIGNED NULL,
             project_id BIGINT UNSIGNED NULL
           );
+          INSERT INTO calculation_lines (description,quantity,unit) VALUES ('Bestaande regel',12.3456,'m2');
           SQL
       - name: Run migration twice to verify repeatability
         env:
@@ -78,4 +79,13 @@ jobs:
             AND unit='m²' AND calc_net_quantity=300;
           SQL
           result=$(mysql --skip-ssl -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Kunststof kozijnen' AND quantity=300 AND unit='m²' AND calc_net_quantity=300")
+          test "$result" = 1
+      - name: Verify existing rows and all five metadata fields
+        env:
+          MYSQL_PWD: testroot
+        run: |
+          result=$(mysql --skip-ssl -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Bestaande regel' AND quantity=12.3456 AND unit='m2' AND calc_net_quantity IS NULL AND calc_material_loss_percent IS NULL AND calc_extra_labor_hours IS NULL AND calc_quantity_source IS NULL AND calc_quantity_source_ref IS NULL")
+          test "$result" = 1
+          mysql --skip-ssl -h 127.0.0.1 -u root brebo_office_test -e "UPDATE calculation_lines SET calc_net_quantity=10.1234,calc_material_loss_percent=5.25,calc_extra_labor_hours=2.1250,calc_quantity_source='building_element',calc_quantity_source_ref='42' WHERE description='Bestaande regel'"
+          result=$(mysql --skip-ssl -N -h 127.0.0.1 -u root brebo_office_test -e "SELECT COUNT(*) FROM calculation_lines WHERE description='Bestaande regel' AND quantity=12.3456 AND calc_net_quantity=10.1234 AND calc_material_loss_percent=5.25 AND calc_extra_labor_hours=2.1250 AND calc_quantity_source='building_element' AND calc_quantity_source_ref='42'")
           test "$result" = 1
