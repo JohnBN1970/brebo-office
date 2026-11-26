@@ -908,9 +908,20 @@ if ($activeTab === 'oplevering') {
       $reportHtml='<details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
       foreach ($report['buildings'] as $b) {
         $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
+        $dwellingNames=[];$roomNames=[];
+        if (getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled') {
+          $q=$db->prepare('SELECT id,dwelling_code,house_number FROM office_building_dwellings WHERE building_id=?');
+          $q->execute([$b['id']]);
+          foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $d) $dwellingNames[(int)$d['id']]=$d['dwelling_code'].' · '.$d['house_number'];
+          if (getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled') {
+            $q=$db->prepare('SELECT r.id,r.dwelling_id,r.room_code,r.room_name FROM office_building_dwelling_rooms r JOIN office_building_dwellings d ON d.id=r.dwelling_id WHERE d.building_id=?');
+            $q->execute([$b['id']]);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $room) $roomNames[(int)$room['dwelling_id']][(int)$room['id']]=$room['room_code'].' · '.$room['room_name'];
+          }
+        }
         foreach ($b['restpoints'] as $p) {
           $link='/office-test/kwaliteit?'.http_build_query(['project_id'=>$projectId,'building_id'=>$b['id'],'id'=>$p['id']]);
-          $reportHtml.='<article><h5>Restpunt '.(int)$p['id'].' — '.$escape((string)$p['title']).'</h5><p>Status: '.$escape($labels[$p['status']]??$p['status']).' · Revisie '.(int)$p['revision'].'</p><p>Woning-ID: '.(int)$p['dwelling_id'].' · Ruimte-ID: '.(int)$p['room_id'].'</p>';
+          $reportHtml.='<article><h5>Restpunt '.(int)$p['id'].' — '.$escape((string)$p['title']).'</h5><p>Status: '.$escape($labels[$p['status']]??$p['status']).' · Revisie '.(int)$p['revision'].'</p><p>Woning: '.$escape($dwellingNames[$p['dwelling_id']]??($p['dwelling_id']?'Niet beschikbaar':'Niet toegewezen')).' · Ruimte: '.$escape($roomNames[$p['dwelling_id']][$p['room_id']]??($p['room_id']?'Niet beschikbaar':'Niet toegewezen')).'</p>';
           foreach (['owner'=>'Verantwoordelijke','due_date'=>'Termijn','observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) {
             $reportHtml.='<p>'.$escape($label).': '.$escape((string)($p[$key]??'')).'</p>';
           }
