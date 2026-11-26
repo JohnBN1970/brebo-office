@@ -58,10 +58,21 @@ try {
     $canCreate=(int)$p->fetchColumn()===1 && is_string($secret) && strlen($secret)>=32 && strlen((string)$operator->sessionId)===64;
     if ($canCreate) $registerToken=hash_hmac('sha256','building-register-create',(string)$operator->sessionId.$secret);
   }
-  if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create') {
+  if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array(($_POST['building_action']??null),['create','search_pdok'],true)) {
     if (isset($_GET['id']) || !$canCreate || !is_string($_POST['csrf_token']??null) || !hash_equals($registerToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateService.php';
     $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+    unset($newBuilding['pdok_results']);
+    if (($_POST['building_action']??null)==='search_pdok') {
+        if (getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
+        try {
+            require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
+            $query=$newBuilding['pdok_query']??null;
+            if (!is_string($query)) throw new DomainException('Invalid query');
+            $newBuilding['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
+            if ($newBuilding['pdok_results']===[]) $registerError='Geen BAG-adressen gevonden.';
+        } catch (Throwable $e) {$registerError='PDOK zoeken mislukt. Controleer het adres of probeer opnieuw.';}
+    } else
     try {
       (new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($newBuilding,(int)$operator->operatorId,static fn():bool=>$canCreate);
       header('Location: /office-test/gebouwen',true,303);exit;
@@ -509,7 +520,7 @@ if ($detail) {
 }
 if ($canCreate) {
   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
-  echo '<section><details'.($registerError!==''?' open':'').'><summary>+ Nieuw gebouw</summary>';
+  echo '<section><details'.($registerError!=='' || $newBuilding!==[]?' open':'').'><summary>+ Nieuw gebouw</summary>';
   if ($registerError!=='') echo '<p role="alert">'.$h($registerError).'</p>';
   echo '<form method="post" action="/office-test/gebouwen"><input type="hidden" name="csrf_token" value="'.$h($registerToken).'">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render($newBuilding).'</form></details></section>';
 }
