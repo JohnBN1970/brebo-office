@@ -15,6 +15,29 @@ final class OfficePdfWriter
         $bytes=str_replace(['\\','(',')',"\r","\n"],['\\\\','\\(','\\)',' ',' '],$bytes);
         $this->stream.=sprintf("0 g BT /F1 %.2F Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",$size,$x,842-$y,$bytes);
     }
+    public function image(string $bytes,float $x,float $top,float $width,float $height,array $markers=[]): void
+    {
+        if (strlen($bytes)>16000000) throw new \InvalidArgumentException('Image too large.');
+        $info=@getimagesizefromstring($bytes);
+        if (!$info || !in_array($info['mime'],['image/jpeg','image/png'],true) || $info[0]*$info[1]>12000000) throw new \InvalidArgumentException('Invalid image.');
+        if (!extension_loaded('gd')) throw new \RuntimeException('GD image conversion unavailable.');
+        $source=@imagecreatefromstring($bytes);
+        if (!$source) throw new \RuntimeException('Image decode failed.');
+        $scale=min(1,2400/max($info[0],$info[1]));
+        $w=max(1,(int)round($info[0]*$scale));$h=max(1,(int)round($info[1]*$scale));
+        $target=imagecreatetruecolor($w,$h);
+        if (!$target) throw new \RuntimeException('Image allocation failed.');
+        imagefill($target,0,0,imagecolorallocate($target,255,255,255));
+        imagealphablending($target,true);
+        if (!imagecopyresampled($target,$source,0,0,0,0,$w,$h,$info[0],$info[1])) throw new \RuntimeException('Image resize failed.');
+        ob_start();
+        try {
+            if (!imagejpeg($target,null,90)) throw new \RuntimeException('Image conversion failed.');
+            $jpeg=ob_get_contents();
+        } finally { ob_end_clean(); }
+        if (!is_string($jpeg)) throw new \RuntimeException('Image conversion failed.');
+        $this->jpeg($jpeg,$x,$top,$width,$height,$markers);
+    }
     public function jpeg(string $bytes,float $x,float $top,float $width,float $height,array $markers=[]): void
     {
         $info=@getimagesizefromstring($bytes);
