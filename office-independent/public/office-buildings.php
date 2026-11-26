@@ -270,6 +270,22 @@ if ($detail && $selectedBuilding!==null && $registerReady && getenv('OFFICE_BUIL
     if ($q->fetchColumn()) $bagToken=hash_hmac('sha256','building-bag:'.$buildingId,$registerToken);
   }
 }
+$zoneToken='';
+if ($bagToken!=='' && getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_ZONE_WRITE_ENABLED')==='enabled') {
+  $zoneToken=hash_hmac('sha256','building-zone-create:'.$buildingId,$bagToken);
+}
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create_zone') {
+  if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+  try {
+    (new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->create([
+      'building_id'=>(string)$buildingId,'zone_name'=>$_POST['zone_name']??null,
+      'latitude'=>$_POST['latitude']??null,'longitude'=>$_POST['longitude']??null,
+      'radius_metres'=>$_POST['radius_metres']??null
+    ],static fn(string $id):bool=>$zoneToken!=='' && $id===(string)$buildingId);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+  } catch (Throwable $e) {http_response_code(422);exit('Klokzone niet opgeslagen. Controleer de invoer.');}
+}
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='link_bag') {
   if ($bagToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($bagToken,$_POST['csrf_token']) || !is_string($_POST['bag_id']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
   try {
@@ -549,6 +565,9 @@ if ($detail) {
     }
     echo '<circle cx="450" cy="260" r="5" fill="#fff" stroke="#175a91" stroke-width="3"/></svg><figcaption>PDOK-luchtfoto · actieve klokzones</figcaption></figure>';
     foreach ($zones as $zone) echo '<p>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</p>';
+    if ($zoneToken!=='' && $bagRow!==null && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude'])) {
+      echo '<details><summary>+ Klokzone toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_zone"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><p><label>Naam <input name="zone_name" maxlength="160" required></label></p><p><label>Breedtegraad <input type="number" name="latitude" step="0.0000001" min="-85" max="85" required value="'.$h($bagRow['latitude']).'"></label></p><p><label>Lengtegraad <input type="number" name="longitude" step="0.0000001" min="-180" max="180" required value="'.$h($bagRow['longitude']).'"></label></p><p><label>Straal (meter) <input type="number" name="radius_metres" min="1" max="5000" step="0.01" value="150" required></label></p><button>Klokzone opslaan</button></form></details>';
+    }
   }
   echo '</section>';
   echo '</main></body></html>';
