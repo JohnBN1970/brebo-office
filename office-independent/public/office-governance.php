@@ -21,6 +21,7 @@ $host=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($host)||$host===''||!hash_equals($host,(string)($_SERVER['HTTP_HOST']??''))
     ||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') {http_response_code(403);exit;}
 $photosEnabled=$module==='quality' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled';
+$markersEnabled=$photosEnabled && getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled';
 $photoUpload=$photosEnabled && $method==='POST' && ($_GET['action']??null)==='upload_restpoint_photo';
 if ($method==='POST' && (!hash_equals('https://'.$host,(string)($_SERVER['HTTP_ORIGIN']??''))
     || (int)($_SERVER['CONTENT_LENGTH']??0)>($photoUpload?26*1024*1024:65536))) {http_response_code(403);exit;}
@@ -75,6 +76,13 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         $documents=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
         $photoService=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPhotoService($db,$store,$documents);
     }
+    $markerRepo=null;
+    if ($markersEnabled) {
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointDocumentResolver.php';
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointMarkerRepository.php';
+        $resolver=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointDocumentResolver($db,$documents);
+        $markerRepo=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointMarkerRepository($db,$store,\Closure::fromCallable($resolver));
+    }
     $records=[];$record=null;$csrf='';$canWrite=false;$choices=[];
     if (is_int($project)&&is_int($building)) {
         $records=$service->read($operator->operatorId,$module,$project,$building);
@@ -99,6 +107,17 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         }
         if ($method==='POST') {
             if (!$canWrite || !\Brebo\Office\Governance\OfficeGovernanceCsrf::verify($_POST['csrf']??null,$operator->sessionId,$module,$project,$building,$secret,time())) {http_response_code(403);exit('Ongeldige formulierbeveiliging.');}
+            if ($markersEnabled && ($_POST['action']??null)==='save_photo_marker') {
+                $v=[];
+                foreach (['restpoint_id','document_id','x','y'] as $key) {
+                    $v[$key]=filter_var($_POST[$key]??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>in_array($key,['x','y'],true)?0:1]]);
+                    if (!is_int($v[$key])) throw new InvalidArgumentException('Ongeldige markering.');
+                }
+                $linked=$photoService->listing($operator->operatorId,$project,$building,$v['restpoint_id']);
+                if (!in_array($v['document_id'],array_map(static fn(array $p):int=>(int)$p['document_id'],$linked),true)) throw new DomainException('Foto niet gekoppeld.');
+                $markerRepo->save($operator->operatorId,$project,$building,$v['restpoint_id'],$v['document_id'],1,$v['x'],$v['y']);
+                header('Location: '.$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$v['restpoint_id'],'mark_photo'=>$v['document_id']]),true,303);exit;
+            }
             if ($photoUpload) {
                 $rid=filter_var($_POST['restpoint_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
                 $files=array_values(array_filter([$_FILES['camera_photo']??[],$_FILES['existing_photo']??[]],static fn(array $f):bool=>($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE));
@@ -132,7 +151,13 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
                 header('Content-Disposition: inline');
                 readfile($file['path']);exit;
             }
-            header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+            $selectedPhoto=null;$photoMarkers=[];
+            if ($markersEnabled && isset($_GET['mark_photo'])) {
+                $selectedPhoto=filter_var($_GET['mark_photo'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if (!$selectedPhoto || !in_array($selectedPhoto,array_map(static fn(array $p):int=>(int)$p['document_id'],$photos),true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                $photoMarkers=$markerRepo->listing($operator->operatorId,$project,$building,$selectedPhoto,1);
+            }
+            header("Content-Security-Policy: default-src 'none'; img-src 'self'; script-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
         } elseif (isset($_GET['photo'])) throw new OutOfBoundsException('Foto niet gevonden.');
     } elseif ($method==='POST') throw new InvalidArgumentException('Context ontbreekt.');
 } catch (OutOfBoundsException $e) {http_response_code(404);exit('Dossier niet gevonden.');}
@@ -247,7 +272,8 @@ header('Content-Type: text/html; charset=utf-8');
 <?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a><?php if($module==='quality' && ($r['payload']['record_kind']??'quality')==='restpunt'): ?> · Restpunt<?php endif; ?></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
 </tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
-<?php if($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Fotodossier</h2><?php foreach(['before'=>'Voor herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label): ?><h3><?= $e($label) ?></h3><div class="kpis"><?php foreach($photos as $photo): ?><?php if($photo['photo_role']!==$role) continue; $url=$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$photo['document_id']]); ?><figure><a href="<?= $e($url) ?>"><img loading="lazy" style="width:100%;height:auto" src="<?= $e($url) ?>" alt="<?= $e($photo['title']) ?>"></a><figcaption><?= $e($photo['created_at']) ?> · Medewerker <?= $e($photo['created_by']) ?></figcaption></figure><?php endforeach; ?></div><?php endforeach; ?><?php if(!$photos): ?><p>Nog geen foto's geregistreerd.</p><?php endif; ?></section><?php endif; ?>
+<?php if($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Fotodossier</h2><?php foreach(['before'=>'Voor herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label): ?><h3><?= $e($label) ?></h3><div class="kpis"><?php foreach($photos as $photo): ?><?php if($photo['photo_role']!==$role) continue; $url=$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$photo['document_id']]); ?><figure><a href="<?= $e($url) ?>"><img loading="lazy" style="width:100%;height:auto" src="<?= $e($url) ?>" alt="<?= $e($photo['title']) ?>"></a><figcaption><?php if($markersEnabled): ?><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'mark_photo'=>$photo['document_id']])) ?>">Markeringen</a> · <?php endif; ?><?= $e($photo['created_at']) ?> · Medewerker <?= $e($photo['created_by']) ?></figcaption></figure><?php endforeach; ?></div><?php endforeach; ?><?php if(!$photos): ?><p>Nog geen foto's geregistreerd.</p><?php endif; ?></section><?php endif; ?>
+<?php if(!empty($selectedPhoto)): ?><section data-restpoint-photo><h2>Foto markeren</h2><div style="position:relative;display:inline-block;max-width:100%"><img style="display:block;max-width:100%;height:auto;image-orientation:from-image" alt="Restpuntfoto" src="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$selectedPhoto])) ?>"><?php foreach($photoMarkers as $m): ?><span style="position:absolute;left:<?= (int)$m['x_millionths']/10000 ?>%;top:<?= (int)$m['y_millionths']/10000 ?>%;transform:translate(-50%,-50%);border-radius:50%;padding:5px;color:white;background:<?= match($m['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'} ?>"><?= (int)$m['restpoint_id'] ?></span><?php endforeach; ?></div><?php if($canWrite): ?><form method="post" action="<?= $e($path) ?>"><?php foreach(['action'=>'save_photo_marker','csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id'],'document_id'=>$selectedPhoto] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>X<input name="x" type="number" min="0" max="1000000" required></label><label>Y<input name="y" type="number" min="0" max="1000000" required></label><button>Markering opslaan</button></form><script src="/office-test/assets/restpoint-photo.js" defer></script><?php endif; ?></section><?php endif; ?>
 <?php if($photosEnabled && $canWrite && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Foto toevoegen</h2><form method="post" enctype="multipart/form-data" action="<?= $e($path.'?action=upload_restpoint_photo') ?>"><?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id']] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Fototype<select name="photo_role"><option value="before">Voor herstel</option><option value="after">Na herstel</option><option value="review">Hercontrole</option></select></label><label>Foto maken<input type="file" name="camera_photo" accept="image/jpeg,image/png" capture="environment"></label><label>Bestaande foto toevoegen<input type="file" name="existing_photo" accept="image/jpeg,image/png"></label><button>Foto opslaan</button></form></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
