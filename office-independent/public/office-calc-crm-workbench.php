@@ -10,17 +10,6 @@ $deny=static function(int $status,string $reason='UNKNOWN'): never {
     header('X-Brebo-Calc-Diagnostic: '.$reason);
     http_response_code($status);
     exit('Calculatie niet beschikbaar (code '.$reason.').');
-    if ($group==='31' && $entry['housing_type_id']===null && $repo::recipeAvailable()) {
-        $sourceUnit=$h((string)$entry['unit']);
-        echo '<details class="calc-montage-recipe"><summary>Recept montage en afdichting</summary><form method="post" action="'.$workbenchUrl.'">';
-        echo '<p>'.$h((string)$entry['description']).' · '.$h((string)$entry['quantity']).' '.$sourceUnit.'</p>';
-        echo '<input type="hidden" name="action" value="apply_montage_recipe"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
-        echo '<input type="hidden" name="element_id" value="'.(int)$entry['id'].'"><input type="hidden" name="element_revision" value="'.(int)$entry['revision'].'"><input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'">';
-        foreach (['hours_factor'=>'Montage-uren per '.$sourceUnit,'hourly_rate'=>'Uurtarief (€)','seal_factor'=>'Meters afdichting per '.$sourceUnit,'seal_price'=>'Afdichting (€ per meter)'] as $field=>$label) {
-            echo '<label>'.$label.' <input name="'.$field.'" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" maxlength="11" required></label>';
-        }
-        echo '<button type="submit">Beide regels toevoegen</button></form></details>';
-    }
 };
 $collaborationEnabled=getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'&&getenv('OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED')==='enabled';
 $workbenchUrl=$collaborationEnabled?'/office-test/calculatie/samenwerken':'/office-test/calculatie';
@@ -454,6 +443,17 @@ foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Bui
 echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
 foreach($children as $entry){
     echo '<a href="#calc-inline-new" class="calc-element-select calc-building-element" data-element="'.$h((string)$entry['description']).'" data-unit="'.$h((string)$entry['unit']).'" data-quantity="'.$h((string)$entry['quantity']).'" data-building-revision="'.(int)$entry['revision'].'" data-building-id="'.(int)$entry['id'].'" data-source-building-id="'.(int)$entry['source_building_id'].'" data-building-total="'.($entry['housing_type_id']===null&&getenv('OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED')==='enabled'&&$collaborationEnabled&&getenv('OFFICE_CALC_QUANTITY_ADJUSTMENTS_SCHEMA_VERIFIED')==='enabled'?'true':'false').'">'.$h((string)$entry['element_code']).' · '.$h((string)$entry['description']).' ('.$h((string)$entry['source_building_name']).') <small>'.$h((string)$entry['quantity']).' '.$h((string)$entry['unit']).'</small></a>';
+    if ($group==='31' && $entry['housing_type_id']===null && $repo::recipeAvailable()) {
+        $sourceUnit=$h((string)$entry['unit']);
+        echo '<details class="calc-montage-recipe"><summary>Recept montage en afdichting</summary><form method="post" action="'.$workbenchUrl.'">';
+        echo '<p>'.$h((string)$entry['description']).' · '.$h((string)$entry['quantity']).' '.$sourceUnit.'</p>';
+        echo '<input type="hidden" name="action" value="apply_montage_recipe"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+        echo '<input type="hidden" name="element_id" value="'.(int)$entry['id'].'"><input type="hidden" name="element_revision" value="'.(int)$entry['revision'].'"><input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'">';
+        foreach (['hours_factor'=>'Montage-uren per '.$sourceUnit,'hourly_rate'=>'Uurtarief (€)','seal_factor'=>'Meters afdichting per '.$sourceUnit,'seal_price'=>'Afdichting (€ per meter)'] as $field=>$label) {
+            echo '<label>'.$label.' <input name="'.$field.'" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" maxlength="11" required></label>';
+        }
+        echo '<button type="submit">Beide regels toevoegen</button></form></details>';
+    }
 }
 if($children===[])echo '<small class="muted">Geen geregistreerde bouwdelen</small>';
 echo '</details></li>';}
