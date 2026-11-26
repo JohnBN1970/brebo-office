@@ -11,7 +11,7 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if (!in_array($requestMethod, ['GET', 'POST'], true)) {
     header('Allow: GET, POST'); http_response_code(405); exit;
 }
-$buildingAction=in_array($_POST['building_action']??null,['replace_links','create'],true);
+$buildingAction=in_array($_POST['building_action']??null,['replace_links','create','search_pdok'],true);
 if ($requestMethod === 'POST' && !$buildingAction && (
     getenv('OFFICE_TEST_FR201_WRITE_ENABLED') !== 'enabled'
     || getenv('OFFICE_TEST_FR201_SCHEMA_VERIFIED') !== 'enabled'
@@ -94,6 +94,19 @@ try {
                 $q=$db->prepare('SELECT building_id FROM office_crm_lead_buildings WHERE lead_id=? ORDER BY building_id FOR UPDATE');
                 $q->execute([$id]);$old=array_map('intval',$q->fetchAll(PDO::FETCH_COLUMN));
                 if (!is_string($_POST['building_revision']??null) || !hash_equals(hash('sha256',implode(',',$old)),$_POST['building_revision'])) throw new DomainException('Gebouwkoppelingen gewijzigd.');
+                if (($_POST['building_action']??null)==='search_pdok') {
+                    if (getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled' || getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('PDOK niet beschikbaar.');
+                    $db->rollBack();
+                    $pdokForm=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+                    unset($pdokForm['pdok_results']);
+                    try {
+                        require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
+                        $query=$pdokForm['pdok_query']??null;
+                        if (!is_string($query)) throw new DomainException('Invalid query');
+                        $pdokForm['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
+                        $pdokNotice=$pdokForm['pdok_results']===[]?'Geen BAG-adressen gevonden.':'';
+                    } catch (Throwable $e) {$pdokNotice='PDOK zoeken mislukt.';}
+                } else {
                 $ids=[];
                 if (($_POST['building_action']??null)==='create') {
                     if (getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled' || !is_array($_POST['new_building']??null)) throw new DomainException('Registratie niet beschikbaar.');
@@ -133,13 +146,16 @@ try {
                 foreach (array_diff($old,$ids) as $bid) $audit->record($bid,(int)$operator->operatorId,'unlinked','lead',$id,['linked'=>true],['linked'=>false]);
                 foreach (array_diff($ids,$old) as $bid) $audit->record($bid,(int)$operator->operatorId,'linked','lead',$id,['linked'=>false],['linked'=>true]);
                 $db->commit();
+                }
             } catch (Throwable $e) {
                 if ($db->inTransaction()) $db->rollBack();
                 http_response_code(409);exit('Gebouwkoppelingen niet opgeslagen. Ververs de pagina.');
             }
-            $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
-            header('Location: '.$base.'/crm/aanvragen/detail?id='.$id,true,303);exit;
-        }
+            if (($_POST['building_action']??null)!=='search_pdok') {
+                $_SESSION['crm_lead_board_csrf']=bin2hex(random_bytes(32));
+                header('Location: '.$base.'/crm/aanvragen/detail?id='.$id,true,303);exit;
+            }
+        } else {
         $revision = filter_var($_POST['expected_revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
         $reason = $_POST['change_reason'] ?? null;
         $values = $_POST['fr201'] ?? null;
@@ -171,6 +187,7 @@ try {
         $_SESSION['crm_lead_board_csrf'] = bin2hex(random_bytes(32));
         header('Location: '.$base.'/crm/aanvragen/detail?id='.(int)$id, true, 303);
         exit;
+        }
     }
     if ($path === $base.'/crm/aanvragen/detail') {
         $rawId = $_GET['id'] ?? null;
@@ -251,8 +268,9 @@ if (isset($item)) {
                 foreach ($choices as $b) echo '<option value="'.(int)$b['id'].'"'.(in_array((int)$b['id'],$linked,true)?' selected':'').'>'.$h($b['building_name']).'</option>';
                 echo '</select></label><button name="building_action" value="replace_links">Gebouwkoppelingen opslaan</button></form>';
                 if (getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
+                    if (!empty($pdokNotice)) echo '<p role="status">'.$h($pdokNotice).'</p>';
                     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
-                    echo '<form method="post" action="'.$h($base).'/crm/aanvragen/detail?id='.(int)$item['id'].'"><input type="hidden" name="csrf_token" value="'.$h($_SESSION['crm_lead_board_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$item['id'].'"><input type="hidden" name="building_revision" value="'.hash('sha256',implode(',',$linked)).'">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render().'</form>';
+                    echo '<form method="post" action="'.$h($base).'/crm/aanvragen/detail?id='.(int)$item['id'].'"><input type="hidden" name="csrf_token" value="'.$h($_SESSION['crm_lead_board_csrf']).'"><input type="hidden" name="lead_id" value="'.(int)$item['id'].'"><input type="hidden" name="building_revision" value="'.hash('sha256',implode(',',$linked)).'">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render($pdokForm??[]).'</form>';
                 }
             }
             echo '</section>';
