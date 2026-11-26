@@ -247,16 +247,99 @@ final class OfficeCalcCrmDraftLineRepository
                     $q->execute([$source['price_source_type'],$source['office_source_id'],$source['source_reference'],$source['source_supplier'],$source['source_unit_price'],$source['source_price_date'],$source['source_document_id'],$source['source_details'],$lineRowId,$version]);
                 }
             }
-            $q=$this->db->prepare('SELECT COALESCE(SUM(quantity*(labour_unit_cost+material_unit_cost+equipment_unit_cost+subcontracting_unit_cost+other_unit_cost)),0) FROM calculation_lines WHERE version_id=?');
-            $q->execute([$version]);
-            $total=$q->fetchColumn();
-            $q=$this->db->prepare('UPDATE calculation_versions SET direct_cost=? WHERE id=? AND status=?');
-            $q->execute([(string)$total,$version,'draft']);
+            $this->refreshDirectCost($version);
             if($collaboration!==null)$collaboration->record($draftId,$actorId,'line_saved',$reason,$before,$collaboration->state($draftId));
             $this->db->commit();
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $e;
+        }
+    }
+
+
+    private function refreshDirectCost(int $version): void
+    {
+        $q=$this->db->prepare('SELECT COALESCE(SUM(quantity*(labour_unit_cost+material_unit_cost+equipment_unit_cost+subcontracting_unit_cost+other_unit_cost)),0) FROM calculation_lines WHERE version_id=?');
+        $q->execute([$version]);
+        $total=$q->fetchColumn();
+        $q=$this->db->prepare('UPDATE calculation_versions SET direct_cost=? WHERE id=? AND status=?');
+        $q->execute([(string)$total,$version,'draft']);
+    }
+
+    public static function recipeAvailable(): bool
+    {
+        foreach (['OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED','OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED','OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED'] as $flag) {
+            if (getenv($flag) !== 'enabled') return false;
+        }
+        return true;
+    }
+
+    /** Apply one operator-priced montage and sealing recipe to a measured building total. */
+    public function applyMontageRecipe(int $draft, int $actor, int $element, int $revision, array $input, callable $rights, ?string $expected): void
+    {
+        require_once __DIR__.'/OfficeCalcCrmDraftAccess.php';
+        require_once __DIR__.'/OfficeCalcRecipeSnapshot.php';
+        if (!self::recipeAvailable()) throw new DomainException('Bouwdeelrecepten zijn nog niet beschikbaar.');
+        $fields = [];
+        foreach (['hours_factor','hourly_rate','seal_factor','seal_price'] as $key) {
+            $value = is_string($input[$key] ?? null) ? str_replace(',', '.', trim($input[$key])) : '';
+            if (!preg_match('/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,4})?$/D', $value) || bccomp($value,'0',4)<=0) {
+                throw new DomainException('Vul voor beide regels een positieve norm en prijs in met maximaal vier decimalen.');
+            }
+            $fields[$key] = $value;
+        }
+        $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql' ? ' FOR UPDATE' : '';
+        $this->db->beginTransaction();
+        try {
+            $q=$this->db->prepare('SELECT id FROM office_calc_crm_drafts WHERE id=?'.$lock);
+            $q->execute([$draft]);
+            if (!$q->fetchColumn()) throw new DomainException('Calculatie ontbreekt.');
+            (new OfficeCalcCrmDraftAccess($this->db))->assertCanManage($actor,$draft,$rights);
+            $q=$this->db->prepare('SELECT e.building_id,e.quantity,e.unit,e.description,e.revision FROM office_building_elements e
+                JOIN office_crm_deal_buildings b ON b.building_id=e.building_id JOIN office_calc_crm_drafts d ON d.opportunity_id=b.opportunity_id
+                WHERE d.id=? AND e.id=? AND e.classification_code=? AND e.housing_type_id IS NULL'.$lock);
+            $q->execute([$draft,$element,'31']);
+            $source=$q->fetch(PDO::FETCH_ASSOC);
+            if (!$source || (int)$source['revision']!==$revision) throw new DomainException('Het bouwdeel is gewijzigd of hoort niet meer bij deze deal. Open de calculatie opnieuw.');
+            $collaboration=null;
+            if (getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled') {
+                require_once __DIR__.'/OfficeCalcDraftCollaboration.php';
+                $collaboration=new OfficeCalcDraftCollaboration($this->db);
+                $before=$collaboration->state($draft);
+                $collaboration->expect($expected,$before);
+            }
+            $recipe=['code'=>'kozijn-montage-afdichting','version'=>1,'unit'=>$source['unit'],'lines'=>[
+                ['code'=>'montage','description'=>'Montage · '.$source['description'],'unit'=>'uur','cost_type'=>'labor','per_unit'=>$fields['hours_factor'],'unit_cost'=>$fields['hourly_rate']],
+                ['code'=>'afdichting','description'=>'Afdichting · '.$source['description'],'unit'=>'m','cost_type'=>'material','per_unit'=>$fields['seal_factor'],'unit_cost'=>$fields['seal_price']],
+            ]];
+            $snapshot=OfficeCalcRecipeSnapshot::expand($recipe,(string)$source['quantity'],$source['unit'],'building_element:'.$element.':'.$revision);
+            $version=$this->version($draft,true);
+            $prefix='recipe1-'.$element.'-';
+            $q=$this->db->prepare('SELECT 1 FROM calculation_lines WHERE version_id=? AND SUBSTR(code,3) IN (?,?)');
+            $q->execute([$version,$prefix.'montage',$prefix.'afdichting']);
+            if ($q->fetchColumn()) throw new DomainException('Dit montagerecept is al in deze calculatie opgenomen.');
+            $q=$this->db->prepare('SELECT COALESCE(MAX(sort_order),0) FROM calculation_lines WHERE version_id=?');
+            $q->execute([$version]);
+            $sort=(int)$q->fetchColumn();
+            $insert=$this->db->prepare("INSERT INTO calculation_lines(version_id,parent_id,sort_order,line_type,code,description,unit,quantity,labour_unit_cost,material_unit_cost,equipment_unit_cost,subcontracting_unit_cost,other_unit_cost) VALUES(?,NULL,?,'item',?,?,?,?,?,?,0,0,0)");
+            $link=$this->db->prepare('INSERT INTO office_calc_line_building_sources(calculation_line_id,building_id,building_element_id,building_element_revision) VALUES(?,?,?,?)');
+            foreach ($snapshot['lines'] as $line) {
+                if (bccomp($line['quantity'],'0',4)<=0 || bccomp($line['quantity'],'1000000',4)>=0) throw new DomainException('De berekende hoeveelheid valt buiten het bereik van de werkbank.');
+                $labor=$line['cost_type']==='labor';
+                $insert->execute([$version,++$sort,self::TYPES[$line['cost_type']].':'.$prefix.$line['code'],$line['description'],$line['unit'],$line['quantity'],$labor?$line['unit_cost']:0,$labor?0:$line['unit_cost']]);
+                $id=(int)$this->db->lastInsertId();
+                $link->execute([$id,$source['building_id'],$element,$revision]);
+                if ($labor && getenv('OFFICE_CALC_LABOR_SCHEMA_VERIFIED')==='enabled') {
+                    $q=$this->db->prepare("UPDATE calculation_lines SET calc_labor_norm=1,calc_labor_hours=?,calc_labor_hourly_rate=?,calc_labor_driver='hours' WHERE id=?");
+                    $q->execute([$line['quantity'],$line['unit_cost'],$id]);
+                }
+            }
+            $this->refreshDirectCost($version);
+            if ($collaboration) $collaboration->record($draft,$actor,'line_saved','Montagerecept v1 · bouwdeel '.$element.' revisie '.$revision.' · '.json_encode($fields,JSON_THROW_ON_ERROR),$before,$collaboration->state($draft));
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
         }
     }
 
