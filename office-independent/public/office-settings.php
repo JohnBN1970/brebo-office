@@ -244,7 +244,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <a href="/office-test/email">Naar E-mail</a></header>
 <?php if (!$isEmail): ?>
 <div class="grid">
-<section class="card"><h2>Algemeen</h2><p class="muted">Organisatie en gebruikers</p><a href="/office-test/instellingen/organisatie/projectrechten">Organisatie en projectrechten ›</a></section>
+<section class="card"><h2>Algemeen</h2><p class="muted">Organisatie en gebruikers</p><a href="/office-test/instellingen/organisatie/projectrechten">Organisatie en projectrechten ›</a><a href="/office-test/instellingen/organisatie/gebruikers">Gebruikers en medewerkers ›</a></section>
 <section class="card"><h2>Financieel</h2><p class="muted">Standaardvaluta en bedragnotatie</p><a href="/office-test/instellingen/organisatie/financieel">Financiële instellingen ›</a></section>
 <section class="card"><h2>Beveiliging</h2><p class="muted">Rollen, rechten en goedkeuring</p><a href="/office-test/instellingen/organisatie/projectrechten">Projectrechten ›</a></section>
 <section class="card"><h2>Kanalen</h2><p class="muted">E-mail en communicatie</p><a href="/office-test/instellingen/email">E-mailinstellingen ›</a></section>
