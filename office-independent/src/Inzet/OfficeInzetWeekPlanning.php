@@ -42,12 +42,13 @@ final class OfficeInzetWeekPlanning {
       }
       if ($finish <= $start || $start >= $end->setTimezone($utc) || $finish <= $monday->setTimezone($utc)) continue;
       $rows[] = [
+        'id' => (int)($shift['id'] ?? 0),
         'project_id' => $project,
         'person_id' => isset($shift['person_id']) ? (int)$shift['person_id'] : null,
         'person_name' => isset($shift['person_name']) && is_string($shift['person_name']) ? $shift['person_name'] : '',
         'personnel_number' => isset($shift['personnel_number']) && is_string($shift['personnel_number']) ? $shift['personnel_number'] : '',
-        'starts_at' => $start->format('Y-m-d H:i'),
-        'ends_at' => $finish->format('Y-m-d H:i'),
+        'starts_at' => $start->setTimezone($utc)->format('Y-m-d H:i:s'),
+        'ends_at' => $finish->setTimezone($utc)->format('Y-m-d H:i:s'),
         'status' => (string)($shift['status'] ?? 'planned'),
       ];
     }
