@@ -6,7 +6,8 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
+$mapNonce=base64_encode(random_bytes(24));
+header("Content-Security-Policy: default-src 'none'; script-src 'nonce-{$mapNonce}'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
   header('Allow: GET, POST');
   http_response_code(405);
@@ -569,7 +570,7 @@ if ($detail) {
       $zones=(new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->forBuilding((string)$buildingId,
         static fn(string $id):bool => $selectedBuilding!==null && $id===(string)$buildingId);
     }
-    echo '<figure style="margin:20px 0 0"><svg viewBox="0 0 900 520" role="img" aria-label="PDOK-luchtfoto met actieve klokzones" style="width:100%;height:auto"><image href="'.$h($mapUrl).'" width="900" height="520"/>';
+    echo '<figure style="margin:20px 0 0"><svg id="zone-map" data-x="'.$h($x).'" data-y="'.$h($y).'" viewBox="0 0 900 520" role="img" aria-label="PDOK-luchtfoto met actieve klokzones" style="width:100%;height:auto"><image href="'.$h($mapUrl).'" width="900" height="520"/>';
     foreach ($zones as $zone) {
       $geometry=\Brebo\Office\Buildings\OfficeBuildingZoneMap::circle((float)$zone['latitude'],(float)$zone['longitude'],(float)$zone['radius_metres'],[$x-300,$y-173.333333,$x+300,$y+173.333333],900,520);
       echo '<ellipse cx="'.$h($geometry['cx']).'" cy="'.$h($geometry['cy']).'" rx="'.$h($geometry['rx']).'" ry="'.$h($geometry['ry']).'" fill="#2684ff" fill-opacity=".18" stroke="#2684ff" stroke-width="3"><title>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</title></ellipse>';
@@ -587,6 +588,9 @@ if ($detail) {
     if ($zoneToken!=='' && $bagRow!==null && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude'])) {
       echo '<details><summary>+ Klokzone toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_zone"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><p><label>Naam <input name="zone_name" maxlength="160" required></label></p><p><label>Breedtegraad <input type="number" name="latitude" step="0.0000001" min="-85" max="85" required value="'.$h($bagRow['latitude']).'"></label></p><p><label>Lengtegraad <input type="number" name="longitude" step="0.0000001" min="-180" max="180" required value="'.$h($bagRow['longitude']).'"></label></p><p><label>Straal (meter) <input type="number" name="radius_metres" min="1" max="5000" step="0.01" value="150" required></label></p><button>Klokzone opslaan</button></form></details>';
     }
+  }
+  if ($zoneToken!=='') {
+    echo '<script nonce="'.$h($mapNonce).'">'.file_get_contents(dirname(__DIR__).'/src/Buildings/zone-map-editor.js').'</script>';
   }
   echo '</section>';
   echo '</main></body></html>';
