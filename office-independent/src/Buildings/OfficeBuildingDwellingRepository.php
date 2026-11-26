@@ -54,6 +54,53 @@ final class OfficeBuildingDwellingRepository
         }
     }
 
+    public function importCsv(int $operatorId,int $buildingId,string $csv): int
+    {
+        if (strlen($csv)>250000 || !preg_match('//u',$csv)) throw new InvalidArgumentException('Ongeldig CSV-bestand.');
+        $stream=fopen('php://memory','r+');
+        fwrite($stream,preg_replace('/^\xEF\xBB\xBF/','',$csv));
+        rewind($stream);
+        $header=fgetcsv($stream,0,';','"','');
+        if ($header!==['woningcode','huisnummer','verdieping','woningtype']) {fclose($stream);throw new InvalidArgumentException('Ongeldige CSV-kolommen.');}
+        $rows=[];
+        while (($row=fgetcsv($stream,0,';','"',''))!==false) {
+            if ($row===[null]) continue;
+            if (count($row)!==4 || count($rows)>=1000) {fclose($stream);throw new InvalidArgumentException('Ongeldige rij of meer dan 1000 woningen.');}
+            $rows[]=$row;
+        }
+        fclose($stream);
+        if (!$rows) throw new InvalidArgumentException('Geen woningen.');
+        $this->db->beginTransaction();
+        try {
+            $q=$this->db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+            $q->execute([$operatorId]);
+            if (!$q->fetchColumn()) throw new DomainException('Geen schrijfrecht.');
+            $q=$this->db->prepare('SELECT b.id FROM office_buildings b JOIN office_building_register_grants g ON g.building_id=b.id WHERE b.id=? AND b.active=1 AND g.operator_id=? FOR UPDATE');
+            $q->execute([$buildingId,$operatorId]);
+            if (!$q->fetchColumn()) throw new DomainException('Geen gebouwtoegang.');
+            $typeQuery=$this->db->prepare('SELECT id FROM office_housing_types WHERE building_id=? AND code=? FOR UPDATE');
+            $insert=$this->db->prepare('INSERT INTO office_building_dwellings (building_id,housing_type_id,dwelling_code,house_number,floor_label) VALUES (?,?,?,?,?)');
+            foreach ($rows as $row) {
+                $code=self::field(['v'=>$row[0]],'v',100,true);
+                $number=self::field(['v'=>$row[1]],'v',40,true);
+                $floor=self::field(['v'=>$row[2]],'v',80,false);
+                $typeCode=self::field(['v'=>$row[3]],'v',100,false);
+                $type=null;
+                if ($typeCode!=='') {
+                    $typeQuery->execute([$buildingId,$typeCode]);
+                    $type=$typeQuery->fetchColumn();
+                    if ($type===false) throw new DomainException('Onbekend woningtype.');
+                }
+                $insert->execute([$buildingId,$type,$code,$number,$floor===''?null:$floor]);
+            }
+            $this->db->commit();
+            return count($rows);
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
+
     public function update(int $operatorId,int $buildingId,int $dwellingId,array $input,string $revision): void
     {
         $code=self::field($input,'dwelling_code',100,true);
