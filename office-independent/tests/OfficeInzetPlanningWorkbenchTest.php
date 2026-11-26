@@ -17,3 +17,13 @@ $namesakeHtml = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($na
 if (substr_count($namesakeHtml, '<th scope="row"') !== 2) throw new RuntimeException('Employees with same name merged');
 if (!str_contains($namesakeHtml,'BREBO-001') || !str_contains($namesakeHtml,'BREBO-047')) throw new RuntimeException('Personnel numbers not displayed');
 echo "Office personnel roster overnight and namesake tests OK\n";
+
+
+$rows[0]['id'] = 42;
+$editable = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($rows,[17],2026,43,[17=>'Testproject'],[17],str_repeat('a',64),true);
+$route = '/office-test/inzet/dienst/verplaatsen';
+$router = file_get_contents(dirname(__DIR__).'/deployment/hostinger/office-test-index.php');
+if (!str_contains($editable,'action="'.$route.'"') || !str_contains($router,"'".$route."' => 'office-inzet-shift-reschedule.php'") || str_contains($editable,'action="/office-test/inzet/dienst/wijzigen"')) {
+  throw new RuntimeException('Reschedule form route does not match router');
+}
+echo "Office Inzet reschedule route OK\n";
