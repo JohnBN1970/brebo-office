@@ -391,7 +391,7 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route($view === 'new' ? 'finance/nieuw' : 'finance/factuur', $view === 'new' ? ['uploaded'=>'1'] : ['id'=>$invoiceId,'uploaded'=>'1']), true, 303);
     exit;
   }
-  if (in_array($view, ['dashboard','dossier','draft','new'], true) && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  if (in_array($view, ['dashboard','dossier','draft','new','payments'], true) && \Brebo\Office\Intake\OfficeMount::isTest()) {
     $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
     if (!$access->allows()) throw new \DomainException('Finance access required');
     $scope = null;
@@ -402,6 +402,10 @@ try {
       if ($scope === null) throw new \OutOfBoundsException('Project unavailable');
     }
     $data = ['project' => $scope, 'finance_unlinked_project' => true];
+    if ($view === 'payments' && $method === 'GET' && $projectId === null && getenv('OFFICE_FINANCE_CENTER_ENABLED') === 'enabled' && isset($_GET['queue'])) {
+      header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/administratie', ['tab'=>'purchases']), true, 302);
+      exit;
+    }
   } else {
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
   }
