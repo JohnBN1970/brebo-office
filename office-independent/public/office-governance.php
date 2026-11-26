@@ -33,7 +33,19 @@ try {
         header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'),true,302);exit;
     }
     $store=new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
-    $service=new \Brebo\Office\Governance\OfficeGovernanceService($store);
+    $locationReady=getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled';
+    $roomsReady=$locationReady && getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled';
+    $locationValidator=static function(int $project,int $building,int $dwelling,int $room)use($db,$locationReady,$roomsReady):bool {
+        if (!$locationReady || ($room>0&&!$roomsReady)) return false;
+        $q=$db->prepare('SELECT d.id FROM office_building_dwellings d JOIN office_project_buildings pb ON pb.building_id=d.building_id WHERE pb.project_id=? AND d.building_id=? AND d.id=? AND d.active=1');
+        $q->execute([$project,$building,$dwelling]);
+        if (!$q->fetchColumn()) return false;
+        if ($room===0) return true;
+        $q=$db->prepare('SELECT id FROM office_building_dwelling_rooms WHERE id=? AND dwelling_id=? AND active=1');
+        $q->execute([$room,$dwelling]);
+        return (bool)$q->fetchColumn();
+    };
+    $service=new \Brebo\Office\Governance\OfficeGovernanceService($store,$locationValidator);
     $contexts=$store->contexts($operator->operatorId,$module);
 // A project link may carry only project_id; resolve the building only when unambiguous.
 $requestedProject=filter_var(($_GET['project_id']??null),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -57,6 +69,18 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
     if (is_int($project)&&is_int($building)) {
         $records=$service->read($operator->operatorId,$module,$project,$building);
         $choices=$store->choices($operator->operatorId,$module,$project,$building);
+        if ($module==='quality' && $locationReady) {
+            $q=$db->prepare('SELECT id,dwelling_code,house_number FROM office_building_dwellings WHERE building_id=? AND active=1 ORDER BY dwelling_code,id');
+            $q->execute([$building]);
+            $choices['dwelling_id']=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $d) $choices['dwelling_id'][]=['id'=>$d['id'],'label'=>$d['dwelling_code'].' · '.$d['house_number']];
+            if ($roomsReady) {
+                $q=$db->prepare('SELECT r.id,r.room_name,r.room_code,d.dwelling_code FROM office_building_dwelling_rooms r JOIN office_building_dwellings d ON d.id=r.dwelling_id WHERE d.building_id=? AND d.active=1 AND r.active=1 ORDER BY d.dwelling_code,r.room_code');
+                $q->execute([$building]);
+                $choices['room_id']=[];
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $room) $choices['room_id'][]=['id'=>$room['id'],'label'=>$room['dwelling_code'].' · '.$room['room_code'].' · '.$room['room_name']];
+            }
+        }
         $canWrite=$store->allowed($operator->operatorId,$module,'write',$project,$building);
         $secret=getenv('OFFICE_TEST_GOVERNANCE_CSRF_SECRET');
         if ($canWrite) {
@@ -196,6 +220,7 @@ header('Content-Type: text/html; charset=utf-8');
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
 <div class="fields"><div><label for="title">Onderwerp</label><input id="title" name="title" required maxlength="255" value="<?= $e($record['title']??'') ?>"></div>
 <?php if($module==='quality'): ?><div><label for="record_kind">Registratietype</label><?php if($record!==null): ?><p><?= ($values['record_kind']??'quality')==='restpunt'?'Restpunt':'Kwaliteitscontrole' ?></p><?php else: ?><select id="record_kind" name="record_kind"><option value="quality">Kwaliteitscontrole</option><option value="restpunt"<?= ($_GET['record_kind']??'')==='restpunt'?' selected':'' ?>>Restpunt</option></select><?php endif; ?></div><?php endif; ?>
+<?php if($module==='quality' && ($record===null || ($values['record_kind']??'quality')==='restpunt')): ?><?php foreach(['dwelling_id'=>'Woning (restpunt)','room_id'=>'Ruimte (restpunt)'] as $key=>$label): ?><?php if(!isset($choices[$key])) continue; ?><div><label for="<?= $e($key) ?>"><?= $e($label) ?></label><select id="<?= $e($key) ?>" name="<?= $e($key) ?>"><option value="0">Niet van toepassing</option><?php foreach($choices[$key] as $choice): ?><option value="<?= $e($choice['id']) ?>"<?= (string)($values[$key]??'')===(string)$choice['id']?' selected':'' ?>><?= $e($choice['label']) ?></option><?php endforeach; ?></select></div><?php endforeach; ?><?php endif; ?>
 <div><label for="status">Status</label><select id="status" name="status"><?php foreach($statuses as $s): ?><option value="<?= $e($s) ?>"<?= ($record['status']??$statuses[0])===$s?' selected':'' ?>><?= $e($statusLabels[$s]) ?></option><?php endforeach; ?></select></div>
 <div><label for="owner">Eigenaar</label><select id="owner" name="owner" required><?php foreach($choices['owner'] as $choice): ?><option value="<?= $e($choice['id']) ?>"<?= (string)($values['owner']??$operator->operatorId)===(string)$choice['id']?' selected':'' ?>><?= $e($choice['label']) ?></option><?php endforeach; ?></select></div>
 <div><label for="due_date">Termijn</label><input id="due_date" type="date" name="due_date" required value="<?= $e($values['due_date']??'') ?>"></div>
