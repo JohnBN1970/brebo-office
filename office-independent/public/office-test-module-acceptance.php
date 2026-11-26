@@ -51,6 +51,25 @@ try {
  if (!$available || array_diff($schemas[$name][$table]??[],$available)) {$blocked++;}else{$ok++;}
  }
  if(isset($routes[$name])) {[$route,$handler]=$routes[$name];if(is_string($router)&&str_contains($router,"'".$route."' => '".$handler."'")&&is_file(__DIR__.'/'.$handler)){$ok++;}else{$attention++;}}
+ foreach ($dependencies[$name]??[] as $dependency) {
+ [$depFlags,$depTables]=$groups[$dependency];
+ foreach ($depFlags as $flag) {if(getenv($flag)==='enabled'){$ok++;}else{$attention++;}}
+ foreach (array_unique(array_merge($depTables,array_keys($schemas[$dependency]??[]))) as $table) {
+ $columnQuery->execute([$table]);$available=$columnQuery->fetchAll(PDO::FETCH_COLUMN);
+ if(!$available||array_diff($schemas[$dependency][$table]??[],$available)){$blocked++;}else{$ok++;}
+ }
+ }
+ if(in_array($name,['E-mail','Documenten'],true)){
+ $file='/run/brebo-office-test/diagnostics/mail-workers.json';
+ $raw=is_readable($file)?file_get_contents($file,false,null,0,8193):false;
+ $snapshot=is_string($raw)&&strlen($raw)<=8192?json_decode($raw,true):null;
+ $stamp=$snapshot['checked_at']??null;
+ if(!is_int($stamp)||$stamp>time()||$stamp<time()-300){$attention++;}
+ else{foreach(['brebo-office-test-mail-import.service','brebo-office-test-mail-attachments.service'] as $unit){
+ $state=$snapshot['units'][$unit]??null;
+ if($state==='failed'){$blocked++;}elseif(in_array($state,['active','inactive'],true)){$ok++;}else{$attention++;}
+ }}
+ }
  $technical[$name]=[$blocked?'Blokkade':($attention?'Aandacht':($ok?'Deelcontroles akkoord':'Niet gecontroleerd')),$ok,$blocked,$attention];
  }
  $totals=['pending'=>0,'passed'=>0,'failed'=>0,'retest'=>0];
@@ -81,5 +100,5 @@ try {
  foreach (['pending'=>'Nog te testen','passed'=>'Goedgekeurd','failed'=>'Afgekeurd','retest'=>'Hertest vereist'] as $value=>$title) {$html.='<option value="'.$value.'"'.($status===$value?' selected':'').'>'.$title.'</option>';}
  $html.='</select><textarea name="notes" maxlength="8000" placeholder="Toelichting">'.$e($row['notes']??'').'</textarea><button type="submit">Status en toelichting opslaan</button></form>';
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px;color:#24364a;background:#f6f8fb}table,form{background:white}small{display:block;color:#526477}.ok{color:#18733b}.blocked{color:#b42318}.attention{color:#946200}.unknown{color:#526477}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}.kpis div{background:white;border:1px solid #ccd5df;border-radius:8px;padding:16px}.kpis strong{display:block;font-size:28px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).' — controle UTC '.$e(gmdate('c')).'</p><p>Technische deelcontroles: flags, tabellen, kolommen en statische routes; geen bewijs van functionele werking.</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'<script nonce="'.$e($nonce).'">document.querySelectorAll(".accept-check").forEach(c=>c.addEventListener("change",()=>c.form.requestSubmit(c.form.querySelector(".check-save"))));</script></html>';
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px;color:#24364a;background:#f6f8fb}table,form{background:white}small{display:block;color:#526477}.ok{color:#18733b}.blocked{color:#b42318}.attention{color:#946200}.unknown{color:#526477}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}.kpis div{background:white;border:1px solid #ccd5df;border-radius:8px;padding:16px}.kpis strong{display:block;font-size:28px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).' — controle UTC '.$e(gmdate('c')).'</p><p>Technische deelcontroles: flags, tabellen, kolommen, statische routes, afhankelijkheden en beschikbare workerstatus; geen bewijs van functionele werking.</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'<script nonce="'.$e($nonce).'">document.querySelectorAll(".accept-check").forEach(c=>c.addEventListener("change",()=>c.form.requestSubmit(c.form.querySelector(".check-save"))));</script></html>';
 } catch (Throwable $ex) {http_response_code(503);exit('Acceptatiecentrum tijdelijk niet beschikbaar.');}
