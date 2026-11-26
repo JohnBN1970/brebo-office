@@ -4,6 +4,11 @@ on:
     paths:
       - 'office-independent/deployment/hostinger/integrate-onsite-approval-live-guarded.py'
       - '.github/workflows/onsite-approved-hours-guarded-deploy.yml'
+      - 'office-independent/src/Inzet/OfficeOnSite*.php'
+      - 'office-independent/tests/OfficeOnSite*.php'
+      - 'scripts/deployment/OfficeOnSiteRolloutReadiness.php'
+      - 'office-independent/deployment/vps/audit-onsite-readiness.php'
+      - '.github/workflows/onsite-live-guarded-integration-ci.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite
+          coverage: none
+      - name: OnSite regression tests
+        run: |
+          set -euo pipefail
+          php office-independent/tests/OfficeOnSiteFourEyesGuardTest.php
+          php office-independent/tests/OfficeOnSiteRolloutReadinessTest.php
+          php -l office-independent/deployment/vps/audit-onsite-readiness.php
       - name: Verify integration script syntax and CLI
         run: |
           set -euo pipefail
