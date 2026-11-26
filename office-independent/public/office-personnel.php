@@ -74,6 +74,14 @@ try {
     }
     try {
       $statusAction = $_POST['personnel_action'] ?? null;
+      if ($statusAction === 'link_account') {
+        require_once dirname(__DIR__).'/src/Inzet/OfficePersonnelAccountLink.php';
+        if (!(new \Brebo\Office\Inzet\OfficePersonnelAccountLink($db))->link($operator->operatorId, $operator->sessionId, $secret, $_POST, getenv('OFFICE_BASE_PATH') === '/office-test')) {
+          http_response_code(403); exit('Koppeling niet toegestaan of reeds aanwezig.');
+        }
+        header('Location: /office-test/personeel/medewerkers/detail?status=all&person_id=' . (int)$_POST['person_id'] . '&saved=1', true, 303);
+        exit;
+      }
       if ($statusAction === 'create') {
         $createdId = (new \Brebo\Office\Inzet\OfficePersonnelCreateAction($db))->create($_POST, $operator->operatorId, $operator->sessionId, $secret);
         if ($createdId === null) { http_response_code(403); exit('Geen wijzigingsrechten.'); }
@@ -181,6 +189,29 @@ if ($detailPage && !$creating && is_int($selected) && isset($people[$selected]))
         if (($_GET['saved'] ?? '') === '1') echo '<p role="status">Medewerkersgegevens opgeslagen.</p>';
         echo '<section><h2>Medewerkersdossier · ' . $e($people[$selected]['display_name']) . '</h2><p>Personeelsnummer: ' . $e($people[$selected]['personnel_number'] ?? 'Niet opgegeven') . ' · ' . ((int)$people[$selected]['active'] === 1 ? 'Actief' : 'Gearchiveerd') . '</p><p>Projecten: ' . $e(implode(', ', $people[$selected]['projects'])) . '</p></section>';
         echo \Brebo\Office\Inzet\OfficePersonnelDetailsReadForm::render($details, $selected, $projectId, $csrf);
+
+        require_once dirname(__DIR__).'/src/Approval/OfficeTestSiteAdministratorAccess.php';
+        if ((new \Brebo\Office\Approval\OfficeTestSiteAdministratorAccess($db))->isAuthorized($operator->operatorId, getenv('OFFICE_BASE_PATH') === '/office-test')) {
+          try {
+            $linked = $db->prepare('SELECT a.username FROM office_account_personnel_links l JOIN office_operator_accounts a ON a.id=l.operator_id WHERE l.person_id=?');
+            $linked->execute([$selected]);
+            $username = $linked->fetchColumn();
+            echo '<section><h2>Gebruikersaccount</h2>';
+            if ($username !== false) echo '<p>Gekoppeld: '.$e($username).'</p>';
+            elseif ((int)$people[$selected]['active'] === 1) {
+              $accounts = $db->query('SELECT a.id,a.username FROM office_operator_accounts a WHERE a.active=1 AND NOT EXISTS (SELECT 1 FROM office_account_personnel_links l WHERE l.operator_id=a.id) ORDER BY a.username')->fetchAll(PDO::FETCH_ASSOC);
+              if ($accounts === []) echo '<p>Geen beschikbare accounts.</p>';
+              else {
+                echo '<form method="post" action="/office-test/personeel/medewerkers"><input type="hidden" name="personnel_action" value="link_account"><input type="hidden" name="csrf_token" value="'.$e($csrf).'"><input type="hidden" name="person_id" value="'.$selected.'"><input type="hidden" name="project_id" value="'.$projectId.'"><label>Account <select name="account_id" required><option value="">Selecteer account</option>';
+                foreach ($accounts as $account) echo '<option value="'.(int)$account['id'].'">'.$e($account['username']).'</option>';
+                echo '</select></label><button type="submit">Account koppelen</button></form>';
+              }
+            } else echo '<p>Medewerker is inactief.</p>';
+            echo '</section>';
+          } catch (Throwable $linkError) {
+            echo '<p>Accountkoppeling tijdelijk niet beschikbaar.</p>';
+          }
+        }
 
         // Reuse Office-native OnSite routes; all POST actions recheck manager rights.
         if (getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') === 'enabled'
