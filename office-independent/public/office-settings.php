@@ -248,6 +248,7 @@ th{font-size:13px;color:#60748a}.tag{display:inline-block;border-radius:20px;bac
 <section class="card"><h2>Financieel</h2><p class="muted">Standaardvaluta en bedragnotatie</p><a href="/office-test/instellingen/organisatie/financieel">Financiële instellingen ›</a></section>
 <section class="card"><h2>Beveiliging</h2><p class="muted">Rollen, rechten en goedkeuring</p><a href="/office-test/instellingen/organisatie/projectrechten">Projectrechten ›</a></section>
 <section class="card"><h2>Kanalen</h2><p class="muted">E-mail en communicatie</p><a href="/office-test/instellingen/email">E-mailinstellingen ›</a></section>
+<section class="card"><h2>Systeemdiagnostiek</h2><p class="muted">Projectmodules en technische controles</p><a href="/office-test/instellingen/systeemdiagnostiek">Systeemdiagnostiek openen ›</a></section>
 <section class="card"><h2>Procesbeheer</h2><p class="muted">Blauwdrukken en goedkeuringsflows</p><a href="/office-test/instellingen/blauwdrukken">Blauwdrukinstellingen ›</a></section>
 <section class="card"><h2>API &amp; Integraties</h2><p class="muted">Koppelingen, API-sleutels en webhooks</p><span class="tag">Beheer volgt</span></section>
 <section class="card"><h2>Nummerreeksen</h2><p class="muted">Project-, offerte- en factuurnummers</p><span class="tag">Nog niet aangesloten</span></section>
