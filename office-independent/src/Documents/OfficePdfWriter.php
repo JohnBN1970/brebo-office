@@ -56,9 +56,25 @@ final class OfficePdfWriter
             $this->stream.=sprintf("q %s rg %.2F %.2F 16 14 re f 1 g BT /F1 8 Tf 1 0 0 1 %.2F %.2F Tm (%d) Tj ET Q\n",$color,$cx-8,$cy-7,$cx-6,$cy-3,(int)$m['restpoint_id']);
         }
     }
+    public function heading(string $title,string $subtitle=''): void
+    {
+        $logo=json_decode(file_get_contents(dirname(__DIR__).'/Sales/brebo-logo.rgb.json'),true,8,JSON_THROW_ON_ERROR);
+        $bytes=base64_decode($logo['data'],true);
+        if ($bytes===false) throw new \RuntimeException('Invalid BREBO logo.');
+        $id=count($this->objects)+1;
+        $this->objects[$id]='<< /Type /XObject /Subtype /Image /Width '.(int)$logo['width'].' /Height '.(int)$logo['height'].' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length '.strlen($bytes)." >>\nstream\n".$bytes."\nendstream";
+        $name='Im'.$id;$this->images[$name]=$id;
+        $this->stream.=sprintf("q 150 0 0 45 42 755 cm /%s Do Q\n",$name);
+        $this->text(42,115,$title,18);
+        $this->text(42,134,$subtitle,10);
+        $this->stream.="0.7 G 42 695 m 553 695 l S\n";
+    }
     public function finishPage(): void
     {
         if ($this->stream==='') return;
+        $this->stream.="0.7 G 42 42 m 553 42 l S\n";
+        $this->text(42,817,'BREBO Bouw en Advies B.V.',8);
+        $this->text(495,817,'Pagina '.(count($this->pages)+1),8);
         $id=count($this->objects)+1;$streamId=$id+1;
         $resources='';foreach($this->images as $name=>$imageId)$resources.='/'.$name.' '.$imageId.' 0 R ';
         $this->objects[$id]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> /XObject << '.$resources.' >> >> /Contents '.$streamId.' 0 R >>';
