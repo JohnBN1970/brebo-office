@@ -50,10 +50,11 @@ final class OfficeRestpointMarkerRepository
                 $marker=(int)$this->db->lastInsertId();
                 $next=1;$event='created';
             } else {
-                $q=$this->db->prepare('SELECT revision,active FROM office_restpoint_document_markers WHERE id=? AND restpoint_id=? AND document_id=? AND original_id=? AND page_number=? FOR UPDATE');
+                $q=$this->db->prepare('SELECT revision,active,x_millionths,y_millionths FROM office_restpoint_document_markers WHERE id=? AND restpoint_id=? AND document_id=? AND original_id=? AND page_number=? FOR UPDATE');
                 $q->execute([$marker,$restpoint,$document,$original,$page]);
                 $old=$q->fetch(PDO::FETCH_ASSOC);
                 if (!$old || !(int)$old['active'] || (int)$old['revision']!==$revision) throw new DomainException('Markering gewijzigd of niet toegankelijk.');
+                if (!$active) { $x=(int)$old['x_millionths']; $y=(int)$old['y_millionths']; }
                 $next=$revision+1;$event=$active?'moved':'removed';
                 $q=$this->db->prepare('UPDATE office_restpoint_document_markers SET x_millionths=?,y_millionths=?,active=?,revision=?,updated_by=? WHERE id=? AND revision=?');
                 $q->execute([$x,$y,(int)$active,$next,$actor,$marker,$revision]);
