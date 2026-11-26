@@ -18,6 +18,24 @@ final class OfficeRestpointPhotoService
         if (!$r || (int)$r['project_id']!==$project || (int)$r['building_id']!==$building || ($r['payload']['record_kind']??'')!=='restpunt') throw new DomainException('Restpunt niet gevonden.');
     }
 
+    public function listing(string $actor,int $project,int $building,int $restpoint): array
+    {
+        $this->requireRestpoint($actor,$project,$building,$restpoint,'read');
+        $q=$this->db->prepare('SELECT p.document_id,p.photo_role,p.created_by,p.created_at,d.title FROM office_restpoint_photos p JOIN office_documents d ON d.id=p.document_id WHERE p.restpoint_id=? AND d.lifecycle_status=? ORDER BY p.created_at,p.id');
+        $q->execute([$restpoint,'active']);
+        $out=[];
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            try {
+                $file=$this->documents->authorizedDownload((int)$actor,$project,(int)$row['document_id']);
+            } catch (\RuntimeException $e) {
+                continue;
+            }
+            if (!in_array($file['mime_type'],['image/jpeg','image/png'],true)) continue;
+            $out[]=$row;
+        }
+        return $out;
+    }
+
     public function upload(string $actor,int $project,int $building,int $restpoint,string $role,array $file): int
     {
         $this->requireRestpoint($actor,$project,$building,$restpoint,'write');
