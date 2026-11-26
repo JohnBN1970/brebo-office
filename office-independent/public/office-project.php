@@ -817,6 +817,32 @@ $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Uitvoeringsvoortgang, kwaliteit en projectacties. Personeelsplanning en urencontrole staan onder Arbeid &amp; Inzet.</p>'
   . '</div>'
 ;
+// Existing authorized project planning, read-only.
+if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  $executionHtml .= '<section class="project-panel"><h3>Projectplanning</h3>';
+  try {
+    require_once dirname(__DIR__).'/src/Project/OfficeProjectPlanReader.php';
+    $planned = \Brebo\Office\Project\OfficeProjectPlanReader::enrich($db, [['id'=>(int)$projectId]]);
+    $items = $planned[0]['plan_items'] ?? [];
+    if ($items === []) {
+      $executionHtml .= '<p>Geen planningsregels beschikbaar.</p>';
+    } else {
+      $executionHtml .= '<table><thead><tr><th>Onderdeel</th><th>Geplande start</th><th>Gepland gereed</th><th>Planningstatus</th><th>Aandachtspunt</th></tr></thead><tbody>';
+      foreach ($items as $item) {
+        $executionHtml .= '<tr>';
+        foreach (['title','planned_start','planned_end','status','critical_note'] as $field) {
+          $executionHtml .= '<td>'.$escape((string)($item[$field] ?? '')).'</td>';
+        }
+        $executionHtml .= '</tr>';
+      }
+      $executionHtml .= '</tbody></table>';
+    }
+  } catch (\Throwable $planError) {
+    error_log('Office execution planning unavailable: '.get_class($planError));
+    $executionHtml .= '<p>Projectplanning tijdelijk niet beschikbaar.</p>';
+  }
+  $executionHtml .= '<p>Werkelijke productievoortgang: geen aangesloten bron.</p></section>';
+}
 // Reuse governance ACL and records; do not infer quality from WBS or hours.
 if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()
     && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'enabled'
