@@ -39,3 +39,28 @@ $expect((float)$precision['quantity']===12.5&&(float)$precision['material_unit_c
 $current=$collab->read(1,7,$rights,$repo);$db->exec("CREATE TRIGGER fail_audit BEFORE INSERT ON office_calc_crm_draft_changes BEGIN SELECT RAISE(ABORT,'fixture audit failure'); END");
 $failed=false;try{$repo->save(1,7,'first','material','Should roll back',9,9999,null,$rights,$current['token'],'Audit failure');}catch(PDOException){$failed=true;}$expect($failed&&$repo->list(1,7,$rights)[0]['quantity']===4,'Audit and canonical lines atomic');
 echo "OFFICE_CALC_DRAFT_COLLABORATION=PASS\n";
+
+$db->exec("DROP TRIGGER fail_audit;
+    CREATE TABLE office_building_elements(id INTEGER PRIMARY KEY,building_id INTEGER,revision INTEGER,quantity TEXT,unit TEXT,description TEXT,classification_code TEXT,housing_type_id INTEGER);
+    CREATE TABLE office_crm_deal_buildings(opportunity_id INTEGER,building_id INTEGER);
+    CREATE TABLE office_calc_line_building_sources(calculation_line_id INTEGER PRIMARY KEY,building_id INTEGER,building_element_id INTEGER,building_element_revision INTEGER);
+    INSERT INTO office_crm_deal_buildings VALUES(11,4);
+    INSERT INTO office_building_elements VALUES(19,4,2,'10.5000','m2','Kunststof kozijnen','31',NULL),(20,5,2,'10','m2','Ander gebouw','31',NULL)");
+foreach (['OFFICE_BUILDING_ELEMENTS_SCHEMA_VERIFIED','OFFICE_CRM_DEAL_BUILDINGS_SCHEMA_VERIFIED','OFFICE_CALC_BUILDING_ELEMENT_LINK_SCHEMA_VERIFIED'] as $flag) putenv($flag.'=enabled');
+$input=['hours_factor'=>'1,5','hourly_rate'=>'50','seal_factor'=>'2','seal_price'=>'3.25'];
+$token=$collab->token($collab->state(1));
+$apply=static fn(int $id,int $revision,int $actor,array $values,string $expected)=>$repo->applyMontageRecipe(1,$actor,$id,$revision,$values,$rights,$expected);
+$reject(fn()=>$apply(20,2,7,$input,$token));
+$reject(fn()=>$apply(19,1,7,$input,$token));
+$reject(fn()=>$apply(19,2,8,$input,$token));
+$reject(fn()=>$apply(19,2,7,array_replace($input,['seal_factor'=>'999999']),$token));
+$expect((int)$db->query('SELECT COUNT(*) FROM office_calc_line_building_sources')->fetchColumn()===0,'Second recipe line failure rolls back first source');
+$expect($collab->token($collab->state(1))===$token,'Failed recipe preserves revision');
+$initialCost=(float)$db->query('SELECT direct_cost FROM calculation_versions LIMIT 1')->fetchColumn();
+$apply(19,2,7,$input,$token);
+$lines=$db->query("SELECT code,quantity FROM calculation_lines WHERE code LIKE '%:recipe1-19-%' ORDER BY sort_order")->fetchAll(PDO::FETCH_KEY_PAIR);
+$expect((float)$lines['L:recipe1-19-montage']===15.75 && (float)$lines['M:recipe1-19-afdichting']===21.0,'Recipe quantities derived from measured building total');
+$expect(abs((float)$db->query('SELECT direct_cost FROM calculation_versions LIMIT 1')->fetchColumn()-$initialCost-855.75)<0.00001,'Both recipe lines included in direct cost');
+$reject(fn()=>$apply(19,2,7,$input,$collab->token($collab->state(1))));
+$expect((int)$db->query('SELECT COUNT(*) FROM office_calc_line_building_sources WHERE building_element_revision=2')->fetchColumn()===2,'Retry preserves exactly two traceable lines');
+echo "OFFICE_CALC_MONTAGE_RECIPE=PASS\n";
