@@ -935,7 +935,16 @@ if ($activeTab === 'oplevering') {
               $reportHtml.='<h6>'.$escape($label).'</h6><div style="display:flex;flex-wrap:wrap;gap:12px">';
               foreach ($group as $photo) {
                 $src=$link.'&photo='.(int)$photo['document_id'];
-                $reportHtml.='<a href="'.$escape($src).'"><img loading="lazy" style="max-width:240px;max-height:200px;object-fit:contain" src="'.$escape($src).'" alt="'.$escape($label).'"></a>';
+                $reportHtml.='<a href="'.$escape($src).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:240px;max-height:200px;width:auto;height:auto" src="'.$escape($src).'" alt="'.$escape($label).'">';
+                if (getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled') {
+                  $mq=$db->prepare("SELECT m.x_millionths,m.y_millionths FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.document_id=? AND m.page_number=1 AND m.active=1 AND d.lifecycle_status='active'");
+                  $mq->execute([$p['id'],$photo['document_id']]);
+                  $color=match($p['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'};
+                  foreach ($mq->fetchAll(PDO::FETCH_ASSOC) as $m) {
+                    $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:'.$color.';color:white">'.(int)$p['id'].'</span>';
+                  }
+                }
+                $reportHtml.='</a>';
               }
               $reportHtml.='</div>';
             }
@@ -949,8 +958,9 @@ if ($activeTab === 'oplevering') {
               $first=$markers[0];
               $viewer=$link.'&drawing='.(int)$first['document_id'].'&page='.(int)$first['page_number'];
               $reportHtml.='<figure><figcaption>'.$escape((string)$first['title']).' — pagina '.(int)$first['page_number'].'</figcaption><a href="'.$escape($viewer).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:100%;width:640px;height:auto" src="'.$escape($viewer.'&render=1').'" alt="Tekeningpagina">';
+              $color=match($p['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'};
               foreach ($markers as $m) {
-                $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:#b42318;color:white">'.(int)$p['id'].'</span>';
+                $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:'.$color.';color:white">'.(int)$p['id'].'</span>';
               }
               $reportHtml.='</a></figure>';
             }
