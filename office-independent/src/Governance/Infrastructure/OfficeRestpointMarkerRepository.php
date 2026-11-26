@@ -12,6 +12,23 @@ final class OfficeRestpointMarkerRepository
     // The trusted document resolver must enforce document ACL and actual page bounds.
     public function __construct(private readonly PDO $db, private readonly OfficeGovernanceStore $governance, private readonly \Closure $documentResolver) {}
 
+    public function listing(string $actor,int $project,int $building,int $document,int $page): array
+    {
+        if (min($project,$building,$document,$page)<1) throw new InvalidArgumentException('Ongeldige documentcontext.');
+        if (!$this->governance->allowed($actor,'quality','read',$project,$building)) throw new DomainException('Geen toegang.');
+        $original=($this->documentResolver)($actor,$project,$building,$document,$page);
+        if (!is_int($original)||$original<1) throw new DomainException('Document of pagina niet toegankelijk.');
+        $q=$this->db->prepare('SELECT m.id,m.restpoint_id,m.x_millionths,m.y_millionths,m.revision,q.title,q.status,q.payload_json FROM office_restpoint_document_markers m JOIN office_quality_checks q ON q.id=m.restpoint_id JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE q.project_id=? AND q.building_id=? AND m.document_id=? AND m.original_id=? AND m.page_number=? AND m.active=1 AND d.lifecycle_status=? ORDER BY m.id');
+        $q->execute([$project,$building,$document,$original,$page,'active']);
+        $out=[];
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            if ((json_decode($row['payload_json'],true,512,JSON_THROW_ON_ERROR)['record_kind']??'')!=='restpunt') continue;
+            unset($row['payload_json']);
+            $out[]=$row;
+        }
+        return $out;
+    }
+
     public function save(string $actor,int $project,int $building,int $restpoint,int $document,int $page,int $x,int $y,?int $marker=null,int $revision=0,bool $active=true): int
     {
         if (min($project,$building,$restpoint,$document,$page)<1 || min($x,$y)<0 || max($x,$y)>1000000 || ($marker===null && (!$active || $revision!==0))) throw new InvalidArgumentException('Ongeldige markering.');
