@@ -909,7 +909,7 @@ if ($activeTab === 'oplevering') {
         require_once dirname(__DIR__).'/src/Documents/OfficePdfWriter.php';
         $pdf=new \Brebo\Office\Documents\OfficePdfWriter();
         $pdf->heading('Concept-opleverrapport','Project '.(int)$projectId.' — geen definitieve vrijgave');
-        $pdf->text(42,170,'Voorlopige tekstexport; beeldmateriaal niet inbegrepen.',10);
+        $pdf->text(42,170,'Concept — bewijsstukken indien geactiveerd.',10);
         $y=195;
         foreach ($report['buildings'] as $b) {
           foreach ($b['restpoints'] as $p) {
@@ -924,12 +924,54 @@ if ($activeTab === 'oplevering') {
             $y+=15;
           }
         }
+        if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+          foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+          $documents=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+          $markersReady=getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled';
+          $renderer=null;
+          if ($markersReady && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled') {
+            require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPdfRenderer.php';
+            $renderer=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPdfRenderer();
+          }
+          $count=0;
+          foreach ($report['buildings'] as $b) foreach ($b['restpoints'] as $p) {
+            $q=$db->prepare("SELECT document_id,photo_role FROM office_restpoint_photos WHERE restpoint_id=? ORDER BY id");
+            $q->execute([$p['id']]);$items=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $photo) $items[]=['document_id'=>$photo['document_id'],'page'=>1,'label'=>$photo['photo_role'],'pdf'=>false];
+            if ($renderer!==null) {
+              $q=$db->prepare("SELECT DISTINCT m.document_id,m.page_number FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.active=1 AND d.mime_type='application/pdf' AND d.lifecycle_status='active'");
+              $q->execute([$p['id']]);
+              foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) $items[]=['document_id'=>$m['document_id'],'page'=>(int)$m['page_number'],'label'=>'Tekening','pdf'=>true];
+            }
+            foreach ($items as $item) {
+              if (++$count>40) throw new \RuntimeException('Te veel bewijsstukken voor deze export.');
+              $file=$documents->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$item['document_id']);
+              if ($item['pdf']) {
+                if ($file['mime_type']!=='application/pdf') throw new \RuntimeException('Ongeldig document.');
+                $image=$renderer->render($file['path'],$item['page']);
+              } else {
+                if (!in_array($file['mime_type'],['image/jpeg','image/png'],true)) throw new \RuntimeException('Ongeldige foto.');
+                $image=file_get_contents($file['path'],false,null,0,16000001);
+                if ($image===false) throw new \RuntimeException('Foto niet leesbaar.');
+              }
+              $markers=[];
+              if ($markersReady) {
+                $q=$db->prepare("SELECT m.x_millionths,m.y_millionths,m.restpoint_id FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.document_id=? AND m.page_number=? AND m.active=1");
+                $q->execute([$p['id'],$item['document_id'],$item['page']]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) {$m['status']=$p['status'];$markers[]=$m;}
+              }
+              $pdf->finishPage();
+              $pdf->heading('Concept-opleverrapport','Restpunt '.$p['id'].' — '.$item['label'].' — pagina '.$item['page']);
+              $pdf->image($image,42,170,511,590,$markers);
+            }
+          }
+        }
         $bytes=$pdf->render();
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="BREBO-concept-oplevering-'.(int)$projectId.'.pdf"');
         header('Content-Length: '.strlen($bytes));echo $bytes;exit;
       }
-      $reportHtml='<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_pdf=1').'">Concept-PDF downloaden (tekstversie)</a></p><details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
+      $reportHtml='<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_pdf=1').'">Concept-PDF downloaden</a></p><details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
       foreach ($report['buildings'] as $b) {
         $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
         $dwellingNames=[];$roomNames=[];
