@@ -12,6 +12,11 @@ final class OfficeBuildingCreateForm {
             $value=$values[$key]??'';
             $html.='<label>'.$h($label).'<input name="new_building['.$key.']" maxlength="'.$limit.'" value="'.$h(is_string($value)?$value:'').'"></label>';
         }
+        if (getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')==='enabled') {
+            $bag=$values['bag_id']??'';
+            $html.='<label>Officiële BAG-adresidentificatie (optioneel)<input name="new_building[bag_id]" inputmode="numeric" pattern="[0-9]{16}" maxlength="16" value="'.$h(is_string($bag)?$bag:'').'"></label>';
+            $html.='<p>Bij een BAG-identificatie worden de officiële adresgegevens bij opslag gecontroleerd en overgenomen.</p>';
+        }
         return $html.'<button type="submit" name="building_action" value="create" formnovalidate>Gebouw toevoegen</button></fieldset>';
     }
 }
