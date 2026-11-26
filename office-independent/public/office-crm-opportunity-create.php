@@ -73,9 +73,20 @@ if ($method==='POST') {
     $buildingIds=array_values(array_unique($buildingIds));
     $validRelation=false;
     foreach ($relations as $relation) if ((int)$relation['id']===$relationId) $validRelation=true;
-    if (($_POST['building_action']??null)==='create') {
+    if (in_array(($_POST['building_action']??null),['create','search_pdok'],true)) {
         if (!$canCreateBuilding) { http_response_code(403); exit('Geen recht om gebouwen aan te maken.'); }
         $newBuilding=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+    unset($newBuilding['pdok_results']);
+    if (($_POST['building_action']??null)==='search_pdok') {
+        if (getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
+        try {
+            require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
+            $query=$newBuilding['pdok_query']??null;
+            if (!is_string($query)) throw new DomainException('Invalid query');
+            $newBuilding['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
+            if ($newBuilding['pdok_results']===[]) $error='Geen BAG-adressen gevonden.';
+        } catch (Throwable $e) {$error='PDOK zoeken mislukt. Controleer het adres of probeer opnieuw.';}
+    } else
         if (!$validBuilding) { $error='Kies geldige gebouwen.'; }
         else try {
             $created=(new \Brebo\Office\Buildings\OfficeBuildingCreateService($db))->createForOperator($newBuilding,(int)$operator->operatorId,static fn():bool=>$canCreateBuilding);

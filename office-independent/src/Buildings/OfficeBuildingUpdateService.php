@@ -32,6 +32,16 @@ final class OfficeBuildingUpdateService {
                 $q->execute([$id,strtoupper(str_replace(' ','',$clean['postal_code'])),$clean['street_address']]);
                 if ($q->fetchColumn()!==false) throw new DomainException('duplicate_address');
             }
+            $addressChanged=false;
+            foreach (['street_address','postal_code','city'] as $key) if ((string)($row[$key]??'')!==$clean[$key]) $addressChanged=true;
+            $bagReady=getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')==='enabled';
+            if ($addressChanged && $bagReady) {
+                $q=$this->db->prepare('SELECT bag_id,bag_verified_at,address_line,latitude,longitude FROM office_buildings WHERE id=?'.$lock);
+                $q->execute([$id]);$row=array_merge($row,$q->fetch(PDO::FETCH_ASSOC));
+                $q=$this->db->prepare('UPDATE office_buildings SET bag_id=NULL,bag_verified_at=NULL,latitude=NULL,longitude=NULL,address_line=? WHERE id=?');
+                $q->execute([$clean['street_address'],$id]);
+                $clean=array_merge($clean,['bag_id'=>null,'bag_verified_at'=>null,'latitude'=>null,'longitude'=>null,'address_line'=>$clean['street_address']]);
+            }
             $q=$this->db->prepare('UPDATE office_buildings SET building_name=?,street_address=?,postal_code=?,city=? WHERE id=?');
             $q->execute([$clean['building_name'],$clean['street_address'],$clean['postal_code'],$clean['city'],$id]);
             if (getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new DomainException('building_audit_unavailable');
