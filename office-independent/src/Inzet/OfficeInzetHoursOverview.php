@@ -16,7 +16,7 @@ final class OfficeInzetHoursOverview {
 
   /** @return array{available:bool,sessions:list<array<string,mixed>>,exceptions:list<array<string,mixed>>} */
   public function forProject(string $operatorId, int $projectId): array {
-    if (!(new OfficeNativeProjectAccess($this->db))->canRead($operatorId, $projectId)) {
+    if (!ctype_digit($operatorId) || (string)(int)$operatorId !== $operatorId || !(new OfficeNativeProjectAccess($this->db))->canRead((int)$operatorId, $projectId)) {
       throw new \DomainException('Geen toegang tot projectinzet.');
     }
     // Prefer authenticated OnSite inbox evidence. No writes, approvals or payroll bookings.
