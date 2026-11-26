@@ -279,6 +279,18 @@ if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_actio
     header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#woningen',true,303);exit;
   } catch (Throwable $e) {http_response_code(409);exit('Woning niet opgeslagen. Controleer invoer, woningcode en rechten.');}
 }
+$roomEnabled=$dwellingEnabled && getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled';
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='save_dwelling_room') {
+  if (!$roomEnabled || $dwellingToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($dwellingToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+  try {
+    $did=filter_var($_POST['dwelling_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    $rid=isset($_POST['room_id'])?filter_var($_POST['room_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]):null;
+    if (!is_int($did)||$rid===false||($rid!==null&&!is_string($_POST['revision']??null))) throw new InvalidArgumentException('Ongeldige ruimte.');
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRoomRepository.php';
+    (new \Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository($db))->save((int)$operator->operatorId,(int)$buildingId,$did,$_POST,$rid,$_POST['revision']??null);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#woning-'.$did,true,303);exit;
+  } catch (Throwable $e) {http_response_code(409);exit('Ruimte niet opgeslagen. Controleer invoer en rechten.');}
+}
 $bagRow=null;
 $bagToken='';
 if ($detail && $selectedBuilding!==null && $registerReady && getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')==='enabled') {
@@ -414,6 +426,25 @@ if ($detail) {
         echo '<details><summary>Woning '.$h($d['dwelling_code']).' bewerken</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="update_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><input type="hidden" name="dwelling_id" value="'.(int)$d['id'].'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingDwellingRepository::revision($d)).'">';
         foreach (['dwelling_code'=>'Woningcode','house_number'=>'Huisnummer','floor_label'=>'Verdieping'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="'.$key.'" value="'.$h($d[$key]).'"></label></p>';
         echo '<p><label>Woningtype <select name="housing_type_id">'.$editOptions.'</select></label></p><button>Wijzigingen opslaan</button></form></details>';
+      }
+      if ($roomEnabled) {
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRoomRepository.php';
+        $roomRepo=new \Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository($db);
+        foreach ($dwellings as $d) {
+          echo '<details id="woning-'.(int)$d['id'].'"><summary>Ruimten woning '.$h($d['dwelling_code']).'</summary>';
+          try {
+            $rooms=$roomRepo->listing((int)$operator->operatorId,(int)$buildingId,(int)$d['id']);
+            if (!$rooms) echo '<p>Geen ruimten geregistreerd.</p>';
+            foreach ([...$rooms,[]] as $room) {
+              if (!$d['active']) {if ($room) echo '<p>'.$h($room['room_name']).'</p>';continue;}
+              echo '<form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="save_dwelling_room"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><input type="hidden" name="dwelling_id" value="'.(int)$d['id'].'">';
+              if ($room) echo '<input type="hidden" name="room_id" value="'.(int)$room['id'].'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository::revision($room)).'">';
+              foreach (['room_code'=>'Ruimtecode','room_name'=>'Ruimtenaam','floor_label'=>'Verdieping'] as $key=>$label) echo '<label>'.$h($label).' <input name="'.$key.'" value="'.$h($room[$key]??'').'"'.($key==='floor_label'?'':' required').'></label> ';
+              echo '<button>'.($room?'Wijzigen':'Ruimte toevoegen').'</button></form>';
+            }
+          } catch (Throwable $e) {echo '<p>Ruimten tijdelijk niet beschikbaar.</p>';}
+          echo '</details>';
+        }
       }
     } catch (Throwable $e) {echo '<p>Woningregister tijdelijk niet beschikbaar.</p>';}
     echo '</section>';
