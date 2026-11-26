@@ -22,6 +22,7 @@ if (!is_string($host)||$host===''||!hash_equals($host,(string)($_SERVER['HTTP_HO
     ||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') {http_response_code(403);exit;}
 $photosEnabled=$module==='quality' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled';
 $markersEnabled=$photosEnabled && getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled';
+$drawingsEnabled=$markersEnabled && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled';
 $photoUpload=$photosEnabled && $method==='POST' && ($_GET['action']??null)==='upload_restpoint_photo';
 if ($method==='POST' && (!hash_equals('https://'.$host,(string)($_SERVER['HTTP_ORIGIN']??''))
     || (int)($_SERVER['CONTENT_LENGTH']??0)>($photoUpload?26*1024*1024:65536))) {http_response_code(403);exit;}
@@ -80,7 +81,12 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
     if ($markersEnabled) {
         require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointDocumentResolver.php';
         require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointMarkerRepository.php';
-        $resolver=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointDocumentResolver($db,$documents);
+        $pdf=null;
+        if ($drawingsEnabled) {
+            require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPdfRenderer.php';
+            $pdf=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPdfRenderer();
+        }
+        $resolver=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointDocumentResolver($db,$documents,$pdf);
         $markerRepo=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointMarkerRepository($db,$store,\Closure::fromCallable($resolver));
     }
     $records=[];$record=null;$csrf='';$canWrite=false;$choices=[];
@@ -150,6 +156,17 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
                 header('Content-Type: '.$file['mime_type']);
                 header('Content-Disposition: inline');
                 readfile($file['path']);exit;
+            }
+            $drawings=[];
+            if ($drawingsEnabled) {
+                $q=$db->prepare("SELECT DISTINCT d.id,d.title FROM office_documents d JOIN office_document_contexts c ON c.document_id=d.id WHERE c.context_type='project' AND c.context_id=? AND d.mime_type='application/pdf' AND d.lifecycle_status='active' ORDER BY d.title,d.id");
+                $q->execute([(string)$project]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $drawing) {
+                    try {
+                        $documents->authorizedDownload((int)$operator->operatorId,$project,(int)$drawing['id']);
+                        $drawings[]=$drawing;
+                    } catch (RuntimeException $exception) { continue; }
+                }
             }
             $selectedPhoto=null;$photoMarkers=[];
             if ($markersEnabled && isset($_GET['mark_photo'])) {
@@ -273,6 +290,7 @@ header('Content-Type: text/html; charset=utf-8');
 </tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
 <?php if($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Fotodossier</h2><?php foreach(['before'=>'Voor herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label): ?><h3><?= $e($label) ?></h3><div class="kpis"><?php foreach($photos as $photo): ?><?php if($photo['photo_role']!==$role) continue; $url=$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$photo['document_id']]); ?><figure><a href="<?= $e($url) ?>"><img loading="lazy" style="width:100%;height:auto" src="<?= $e($url) ?>" alt="<?= $e($photo['title']) ?>"></a><figcaption><?php if($markersEnabled): ?><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'mark_photo'=>$photo['document_id']])) ?>">Markeringen</a> · <?php endif; ?><?= $e($photo['created_at']) ?> · Medewerker <?= $e($photo['created_by']) ?></figcaption></figure><?php endforeach; ?></div><?php endforeach; ?><?php if(!$photos): ?><p>Nog geen foto's geregistreerd.</p><?php endif; ?></section><?php endif; ?>
+<?php if($drawingsEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Projecttekeningen</h2><?php if(!$drawings): ?><p>Geen toegankelijke PDF-documenten.</p><?php else: ?><ul><?php foreach($drawings as $drawing): ?><li><?= $e($drawing['title']) ?> · Document <?= (int)$drawing['id'] ?></li><?php endforeach; ?></ul><p>PDF-markering wordt nog aangesloten.</p><?php endif; ?></section><?php endif; ?>
 <?php if(!empty($selectedPhoto)): ?><section data-restpoint-photo><h2>Foto markeren</h2><div style="position:relative;display:inline-block;max-width:100%"><img style="display:block;max-width:100%;height:auto;image-orientation:from-image" alt="Restpuntfoto" src="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$selectedPhoto])) ?>"><?php foreach($photoMarkers as $m): ?><span style="position:absolute;left:<?= (int)$m['x_millionths']/10000 ?>%;top:<?= (int)$m['y_millionths']/10000 ?>%;transform:translate(-50%,-50%);border-radius:50%;padding:5px;color:white;background:<?= match($m['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'} ?>"><?= (int)$m['restpoint_id'] ?></span><?php endforeach; ?></div><?php if($canWrite): ?><form method="post" action="<?= $e($path) ?>"><?php foreach(['action'=>'save_photo_marker','csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id'],'document_id'=>$selectedPhoto] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>X<input name="x" type="number" min="0" max="1000000" required></label><label>Y<input name="y" type="number" min="0" max="1000000" required></label><button>Markering opslaan</button></form><script src="/office-test/assets/restpoint-photo.js" defer></script><?php endif; ?></section><?php endif; ?>
 <?php if($photosEnabled && $canWrite && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Foto toevoegen</h2><form method="post" enctype="multipart/form-data" action="<?= $e($path.'?action=upload_restpoint_photo') ?>"><?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id']] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Fototype<select name="photo_role"><option value="before">Voor herstel</option><option value="after">Na herstel</option><option value="review">Hercontrole</option></select></label><label>Foto maken<input type="file" name="camera_photo" accept="image/jpeg,image/png" capture="environment"></label><label>Bestaande foto toevoegen<input type="file" name="existing_photo" accept="image/jpeg,image/png"></label><button>Foto opslaan</button></form></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
