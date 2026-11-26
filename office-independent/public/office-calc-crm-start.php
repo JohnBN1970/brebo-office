@@ -111,8 +111,7 @@ try {
         $mayOpen = $collaboration->canEdit($actor, (int)$draft['id']);
     }
     if (is_array($draft) && (!$mayOpen
-        || (int)$draft['crm_revision'] !== (int)$deal['revision']
-        || $draft['project_id'] !== null)) {
+            || $draft['project_id'] !== null)) {
         if ($db->inTransaction()) $db->rollBack();
         $deny(403);
     }
