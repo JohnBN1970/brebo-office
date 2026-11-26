@@ -940,6 +940,21 @@ if ($activeTab === 'oplevering') {
               $reportHtml.='</div>';
             }
           }
+          if (getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled') {
+            $q=$db->prepare("SELECT m.document_id,m.page_number,m.x_millionths,m.y_millionths,d.title FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id JOIN office_quality_checks qc ON qc.id=m.restpoint_id WHERE qc.id=? AND qc.project_id=? AND qc.building_id=? AND m.active=1 AND d.lifecycle_status='active' AND d.mime_type='application/pdf' ORDER BY m.document_id,m.page_number,m.id");
+            $q->execute([$p['id'],$projectId,$b['id']]);
+            $pages=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) $pages[$m['document_id'].':'.$m['page_number']][]=$m;
+            foreach ($pages as $markers) {
+              $first=$markers[0];
+              $viewer=$link.'&drawing='.(int)$first['document_id'].'&page='.(int)$first['page_number'];
+              $reportHtml.='<figure><figcaption>'.$escape((string)$first['title']).' — pagina '.(int)$first['page_number'].'</figcaption><a href="'.$escape($viewer).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:100%;width:640px;height:auto" src="'.$escape($viewer.'&render=1').'" alt="Tekeningpagina">';
+              foreach ($markers as $m) {
+                $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:#b42318;color:white">'.(int)$p['id'].'</span>';
+              }
+              $reportHtml.='</a></figure>';
+            }
+          }
           $reportHtml.='<p>Blokkade: '.($p['blocking']?'Ja':'Nee').' · <a href="'.$escape($link).'">Restpunt en bewijsstukken openen</a></p></article>';
         }
       }
