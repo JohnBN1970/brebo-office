@@ -7,7 +7,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
   header('Allow: GET, POST');
   http_response_code(405);
@@ -854,12 +854,20 @@ if ($activeTab === 'oplevering') {
     $total = $open = $review = $accepted = $blocking = 0;
     $rows = '';
     $buildings = '';
+    $dwellingOverview = '';
     $labels = ['open'=>'Open','deviation'=>'Afwijking','recheck'=>'Hercontrole','accepted'=>'Akkoord'];
     foreach ($contexts as $context) {
       if ((int)$context['project_id'] !== (int)$projectId) continue;
       $building = (int)$context['building_id'];
       $url = '/office-test/kwaliteit?project_id='.(int)$projectId.'&building_id='.$building;
       $buildings .= '<p><a href="'.$escape($url.'&record_kind=restpunt').'">Restpunt toevoegen — '.$escape((string)$context['building_name']).'</a></p>';
+      $dwellingStats=[];
+      if (getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled') {
+        $q=$db->prepare('SELECT id,dwelling_code,house_number,active FROM office_building_dwellings WHERE building_id=? ORDER BY dwelling_code,id');
+        $q->execute([$building]);
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $d) $dwellingStats[(int)$d['id']]=['label'=>$d['dwelling_code'].' · '.$d['house_number'].($d['active']?'':' (inactief)'),'open'=>0,'review'=>0,'accepted'=>0,'blocking'=>0];
+      }
+      $dwellingStats[0]=['label'=>'Zonder bekende woning','open'=>0,'review'=>0,'accepted'=>0,'blocking'=>0];
       foreach ($store->listing((string)$operator->operatorId, 'quality', (int)$projectId, $building) as $record) {
         if (($record['payload']['record_kind'] ?? 'quality') !== 'restpunt') continue;
         $total++;
@@ -870,18 +878,175 @@ if ($activeTab === 'oplevering') {
         else $open++;
         $blocked = $status !== 'accepted' && !empty($payload['blocks_release']);
         if ($blocked) $blocking++;
+        $did=(int)($payload['dwelling_id']??0);
+        $bucket=isset($dwellingStats[$did])?$did:0;
+        $dwellingStats[$bucket][$status==='accepted'?'accepted':($status==='recheck'?'review':'open')]++;
+        if ($blocked) $dwellingStats[$bucket]['blocking']++;
         $rows .= '<tr><td>'.$escape((string)$context['building_name']).'</td><td><a href="'.$escape($url.'&id='.(int)$record['id']).'">'.$escape((string)$record['title']).'</a></td><td>'.$escape($labels[$status] ?? $status).'</td><td>'.$escape((string)($payload['due_date'] ?? '')).'</td><td>'.($blocked?'Ja':'Nee').'</td></tr>';
       }
+      $dwellingOverview .= '<h3>'.$escape((string)$context['building_name']).' — woningen</h3><table><thead><tr><th>Woning</th><th>Open / herstel</th><th>Hercontrole</th><th>Akkoord</th><th>Blokkades</th></tr></thead><tbody>';
+      foreach ($dwellingStats as $did=>$stats) {
+        if ($did===0 && !$stats['open'] && !$stats['review'] && !$stats['accepted']) continue;
+        $dwellingOverview .= '<tr><td>'.$escape($stats['label']).'</td><td>'.$stats['open'].'</td><td>'.$stats['review'].'</td><td>'.$stats['accepted'].'</td><td>'.$stats['blocking'].'</td></tr>';
+      }
+      $dwellingOverview .= '</tbody></table><p>Aantallen betreffen toegankelijke registraties; geen oplevervrijgave.</p>';
     }
     if ($buildings === '') {
       $handoverHtml .= '<p>Geen toegankelijke kwaliteitsdossiers voor dit project.</p>';
     } else {
-      $handoverHtml .= '<p>Toegankelijke restpunten: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$buildings;
+      $handoverHtml .= '<p>Toegankelijke restpunten: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$buildings.$dwellingOverview;
       $handoverHtml .= '<table><thead><tr><th>Gebouw</th><th>Restpunt</th><th>Status</th><th>Termijn</th><th>Blokkade</th></tr></thead><tbody>'.$rows.'</tbody></table>';
     }
   } catch (\Throwable $handoverError) {
     error_log('Office handover overview unavailable: '.get_class($handoverError));
     $handoverHtml .= '<p>Opleveroverzicht tijdelijk niet beschikbaar.</p>';
+  }
+  if (getenv('OFFICE_TEST_RESTPOINT_REPORT_ENABLED')==='enabled') {
+    try {
+      require_once dirname(__DIR__).'/src/Governance/OfficeRestpointReport.php';
+      $report=(new \Brebo\Office\Governance\OfficeRestpointReport($store))->build((string)$operator->operatorId,(int)$projectId);
+      if (($_GET['handover_pdf']??null)==='1' && ($_SERVER['REQUEST_METHOD']??'')==='GET') {
+        require_once dirname(__DIR__).'/src/Documents/OfficePdfWriter.php';
+        $pdf=new \Brebo\Office\Documents\OfficePdfWriter();
+        $pdf->heading('Concept-opleverrapport','Project '.(int)$projectId.' — geen definitieve vrijgave');
+        $pdf->text(42,170,'Concept — bewijsstukken indien geactiveerd.',10);
+        $y=195;
+        foreach ($report['buildings'] as $b) {
+          foreach ($b['restpoints'] as $p) {
+            $lines=[$b['name'].' — Restpunt '.$p['id'],$p['title'],'Status: '.$p['status'].' | Revisie '.$p['revision']];
+            foreach (['observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) $lines[]=$label.': '.(string)($p[$key]??'');
+            foreach ($lines as $line) {
+              foreach (explode("\n",wordwrap($line,80,"\n",true)) as $part) {
+                if ($y>760) {$pdf->finishPage();$pdf->heading('Concept-opleverrapport','Project '.(int)$projectId);$y=170;}
+                $pdf->text(42,$y,$part,10);$y+=15;
+              }
+            }
+            $y+=15;
+          }
+        }
+        if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+          foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+          $documents=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+          $markersReady=getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled';
+          $renderer=null;
+          if ($markersReady && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled') {
+            require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPdfRenderer.php';
+            $renderer=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPdfRenderer();
+          }
+          $count=0;
+          foreach ($report['buildings'] as $b) foreach ($b['restpoints'] as $p) {
+            $q=$db->prepare("SELECT document_id,photo_role FROM office_restpoint_photos WHERE restpoint_id=? ORDER BY id");
+            $q->execute([$p['id']]);$items=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $photo) $items[]=['document_id'=>$photo['document_id'],'page'=>1,'label'=>$photo['photo_role'],'pdf'=>false];
+            if ($renderer!==null) {
+              $q=$db->prepare("SELECT DISTINCT m.document_id,m.page_number FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.active=1 AND d.mime_type='application/pdf' AND d.lifecycle_status='active'");
+              $q->execute([$p['id']]);
+              foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) $items[]=['document_id'=>$m['document_id'],'page'=>(int)$m['page_number'],'label'=>'Tekening','pdf'=>true];
+            }
+            foreach ($items as $item) {
+              if (++$count>40) throw new \RuntimeException('Te veel bewijsstukken voor deze export.');
+              $file=$documents->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$item['document_id']);
+              if ($item['pdf']) {
+                if ($file['mime_type']!=='application/pdf') throw new \RuntimeException('Ongeldig document.');
+                $image=$renderer->render($file['path'],$item['page']);
+              } else {
+                if (!in_array($file['mime_type'],['image/jpeg','image/png'],true)) throw new \RuntimeException('Ongeldige foto.');
+                $image=file_get_contents($file['path'],false,null,0,16000001);
+                if ($image===false) throw new \RuntimeException('Foto niet leesbaar.');
+              }
+              $markers=[];
+              if ($markersReady) {
+                $q=$db->prepare("SELECT m.x_millionths,m.y_millionths,m.restpoint_id FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.document_id=? AND m.page_number=? AND m.active=1");
+                $q->execute([$p['id'],$item['document_id'],$item['page']]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) {$m['status']=$p['status'];$markers[]=$m;}
+              }
+              $pdf->finishPage();
+              $pdf->heading('Concept-opleverrapport','Restpunt '.$p['id'].' — '.$item['label'].' — pagina '.$item['page']);
+              $pdf->image($image,42,170,511,590,$markers);
+            }
+          }
+        }
+        $bytes=$pdf->render();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="BREBO-concept-oplevering-'.(int)$projectId.'.pdf"');
+        header('Content-Length: '.strlen($bytes));echo $bytes;exit;
+      }
+      $reportDocuments=null;
+      if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+        foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+        $reportDocuments=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+      }
+      $reportHtml='<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_pdf=1').'">Concept-PDF downloaden</a></p><details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
+      foreach ($report['buildings'] as $b) {
+        $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
+        $dwellingNames=[];$roomNames=[];
+        if (getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled') {
+          $q=$db->prepare('SELECT id,dwelling_code,house_number FROM office_building_dwellings WHERE building_id=?');
+          $q->execute([$b['id']]);
+          foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $d) $dwellingNames[(int)$d['id']]=$d['dwelling_code'].' · '.$d['house_number'];
+          if (getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled') {
+            $q=$db->prepare('SELECT r.id,r.dwelling_id,r.room_code,r.room_name FROM office_building_dwelling_rooms r JOIN office_building_dwellings d ON d.id=r.dwelling_id WHERE d.building_id=?');
+            $q->execute([$b['id']]);
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $room) $roomNames[(int)$room['dwelling_id']][(int)$room['id']]=$room['room_code'].' · '.$room['room_name'];
+          }
+        }
+        foreach ($b['restpoints'] as $p) {
+          $link='/office-test/kwaliteit?'.http_build_query(['project_id'=>$projectId,'building_id'=>$b['id'],'id'=>$p['id']]);
+          $reportHtml.='<article><h5>Restpunt '.(int)$p['id'].' — '.$escape((string)$p['title']).'</h5><p>Status: '.$escape($labels[$p['status']]??$p['status']).' · Revisie '.(int)$p['revision'].'</p><p>Woning: '.$escape($dwellingNames[$p['dwelling_id']]??($p['dwelling_id']?'Niet beschikbaar':'Niet toegewezen')).' · Ruimte: '.$escape($roomNames[$p['dwelling_id']][$p['room_id']]??($p['room_id']?'Niet beschikbaar':'Niet toegewezen')).'</p>';
+          foreach (['owner'=>'Verantwoordelijke','due_date'=>'Termijn','observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) {
+            $reportHtml.='<p>'.$escape($label).': '.$escape((string)($p[$key]??'')).'</p>';
+          }
+          if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+            $q=$db->prepare("SELECT rp.document_id,rp.photo_role FROM office_restpoint_photos rp JOIN office_documents d ON d.id=rp.document_id JOIN office_quality_checks qc ON qc.id=rp.restpoint_id WHERE qc.id=? AND qc.project_id=? AND qc.building_id=? AND d.lifecycle_status='active' AND d.mime_type IN ('image/jpeg','image/png') ORDER BY rp.id");
+            $q->execute([$p['id'],$projectId,$b['id']]);
+            $photos=$q->fetchAll(PDO::FETCH_ASSOC);
+            foreach (['before'=>'Vóór herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label) {
+              $group=array_filter($photos,static fn(array $photo):bool=>$photo['photo_role']===$role);
+              if (!$group) continue;
+              $reportHtml.='<h6>'.$escape($label).'</h6><div style="display:flex;flex-wrap:wrap;gap:12px">';
+              foreach ($group as $photo) {
+                try { $reportDocuments->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$photo['document_id']); }
+                catch (\RuntimeException $denied) { continue; }
+                $src=$link.'&photo='.(int)$photo['document_id'];
+                $reportHtml.='<a href="'.$escape($src).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:240px;max-height:200px;width:auto;height:auto" src="'.$escape($src).'" alt="'.$escape($label).'">';
+                if (getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled') {
+                  $mq=$db->prepare("SELECT m.x_millionths,m.y_millionths FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id WHERE m.restpoint_id=? AND m.document_id=? AND m.page_number=1 AND m.active=1 AND d.lifecycle_status='active'");
+                  $mq->execute([$p['id'],$photo['document_id']]);
+                  $color=match($p['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'};
+                  foreach ($mq->fetchAll(PDO::FETCH_ASSOC) as $m) {
+                    $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:'.$color.';color:white">'.(int)$p['id'].'</span>';
+                  }
+                }
+                $reportHtml.='</a>';
+              }
+              $reportHtml.='</div>';
+            }
+          }
+          if (getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled') {
+            $q=$db->prepare("SELECT m.document_id,m.page_number,m.x_millionths,m.y_millionths,d.title FROM office_restpoint_document_markers m JOIN office_documents d ON d.id=m.document_id AND d.original_id=m.original_id JOIN office_quality_checks qc ON qc.id=m.restpoint_id WHERE qc.id=? AND qc.project_id=? AND qc.building_id=? AND m.active=1 AND d.lifecycle_status='active' AND d.mime_type='application/pdf' ORDER BY m.document_id,m.page_number,m.id");
+            $q->execute([$p['id'],$projectId,$b['id']]);
+            $pages=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) $pages[$m['document_id'].':'.$m['page_number']][]=$m;
+            foreach ($pages as $markers) {
+              $first=$markers[0];
+              try { $reportDocuments->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$first['document_id']); }
+              catch (\RuntimeException $denied) { continue; }
+              $viewer=$link.'&drawing='.(int)$first['document_id'].'&page='.(int)$first['page_number'];
+              $reportHtml.='<figure><figcaption>'.$escape((string)$first['title']).' — pagina '.(int)$first['page_number'].'</figcaption><a href="'.$escape($viewer).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:100%;width:640px;height:auto" src="'.$escape($viewer.'&render=1').'" alt="Tekeningpagina">';
+              $color=match($p['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'};
+              foreach ($markers as $m) {
+                $reportHtml.='<span style="position:absolute;left:'.((int)$m['x_millionths']/10000).'%;top:'.((int)$m['y_millionths']/10000).'%;transform:translate(-50%,-50%);border-radius:50%;padding:4px;background:'.$color.';color:white">'.(int)$p['id'].'</span>';
+              }
+              $reportHtml.='</a></figure>';
+            }
+          }
+          $reportHtml.='<p>Blokkade: '.($p['blocking']?'Ja':'Nee').' · <a href="'.$escape($link).'">Restpunt en bewijsstukken openen</a></p></article>';
+        }
+      }
+      $handoverHtml.=$reportHtml.'</details>';
+    } catch (\Throwable $reportError) {
+      $handoverHtml.='<p>Concept-opleverrapport tijdelijk niet beschikbaar.</p>';
+    }
   }
   $handoverHtml .= '<p>Definitieve oplevervrijgave: niet aangesloten.</p></section>';
 }

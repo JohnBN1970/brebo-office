@@ -8,7 +8,7 @@ use Brebo\Office\Governance\Contract\OfficeGovernanceStore;
 final class OfficeGovernanceService
 {
     public const MODULES = ['quality', 'risk', 'procurement'];
-    public function __construct(private readonly OfficeGovernanceStore $store) {}
+    public function __construct(private readonly OfficeGovernanceStore $store, private readonly ?\Closure $locationValidator = null) {}
 
     public function read(string $actor, string $module, int $project, int $building): array
     {
@@ -71,7 +71,15 @@ final class OfficeGovernanceService
             if ($old !== null && $requested !== $kind) throw new \DomainException('Registratietype staat vast.');
             $kind = $requested;
         }
-        if ($kind === 'restpunt') $p['record_kind'] = $kind;
+        if ($kind === 'restpunt') {
+            $p['record_kind'] = $kind;
+            $dwelling=self::integer($i['dwelling_id'] ?? $old['payload']['dwelling_id'] ?? 0,0);
+            $room=self::integer($i['room_id'] ?? $old['payload']['room_id'] ?? 0,0);
+            if ($room>0 && $dwelling===0) throw new \DomainException('Selecteer eerst een woning.');
+            if ($dwelling>0 && ($this->locationValidator===null || !($this->locationValidator)($project,$building,$dwelling,$room))) throw new \DomainException('Woning of ruimte hoort niet bij dit projectgebouw.');
+            if ($dwelling>0) $p['dwelling_id']=$dwelling;
+            if ($room>0) $p['room_id']=$room;
+        }
         if (in_array($status, ['deviation','recheck'], true) && $p['remedy'] === '') throw new \DomainException('Herstelmaatregel verplicht.');
         if ($status === 'accepted' && ($p['evidence'] === '' || $p['blocks_release'])) throw new \DomainException('Akkoord vereist bewijs en opgeheven vrijgaveblokkade.');
         return $p;

@@ -258,6 +258,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
      header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
    } catch (Throwable $e) {http_response_code(409);exit('Wijziging niet opgeslagen. Controleer het adres en ververs de pagina.');}
  }
+$dwellingEnabled=$detail && $editToken!=='' && getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled';
+$dwellingToken=$dwellingEnabled?hash_hmac('sha256','dwelling-create:'.$buildingId,$editToken):'';
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_dwelling','update_dwelling','import_dwellings'],true)) {
+  if ($dwellingToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($dwellingToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+  try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRepository.php';
+    $dwellingRepo=new \Brebo\Office\Buildings\OfficeBuildingDwellingRepository($db);
+    if ($_POST['building_action']==='import_dwellings') {
+      $file=$_FILES['dwelling_csv']??null;
+      if (!is_array($file)||($file['error']??null)!==UPLOAD_ERR_OK||!is_string($file['tmp_name']??null)||!is_uploaded_file($file['tmp_name'])||filesize($file['tmp_name'])>250000) throw new InvalidArgumentException('Ongeldig CSV-bestand.');
+      $csv=file_get_contents($file['tmp_name'],false,null,0,250001);
+      if ($csv===false) throw new InvalidArgumentException('CSV niet leesbaar.');
+      $dwellingRepo->importCsv((int)$operator->operatorId,(int)$buildingId,$csv);
+    } elseif ($_POST['building_action']==='update_dwelling') {
+      $dwellingId=filter_var($_POST['dwelling_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if (!is_int($dwellingId)||!is_string($_POST['revision']??null)) throw new InvalidArgumentException('Ongeldige woning.');
+      $dwellingRepo->update((int)$operator->operatorId,(int)$buildingId,$dwellingId,$_POST,$_POST['revision']);
+    } else $dwellingRepo->create((int)$operator->operatorId,(int)$buildingId,$_POST);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#woningen',true,303);exit;
+  } catch (Throwable $e) {http_response_code(409);exit('Woning niet opgeslagen. Controleer invoer, woningcode en rechten.');}
+}
+$roomEnabled=$dwellingEnabled && getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled';
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='save_dwelling_room') {
+  if (!$roomEnabled || $dwellingToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($dwellingToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+  try {
+    $did=filter_var($_POST['dwelling_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    $rid=isset($_POST['room_id'])?filter_var($_POST['room_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]):null;
+    if (!is_int($did)||$rid===false||($rid!==null&&!is_string($_POST['revision']??null))) throw new InvalidArgumentException('Ongeldige ruimte.');
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRoomRepository.php';
+    (new \Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository($db))->save((int)$operator->operatorId,(int)$buildingId,$did,$_POST,$rid,$_POST['revision']??null);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId.'#woning-'.$did,true,303);exit;
+  } catch (Throwable $e) {http_response_code(409);exit('Ruimte niet opgeslagen. Controleer invoer en rechten.');}
+}
 $bagRow=null;
 $bagToken='';
 if ($detail && $selectedBuilding!==null && $registerReady && getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')==='enabled') {
@@ -371,6 +404,51 @@ if ($detail) {
      foreach (['building_name'=>'Gebouwnaam','street_address'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="building['.$key.']" value="'.$h($selectedBuilding[$key]??'').'"></label></p>';
      echo '<button type="submit">Wijzigingen opslaan</button></form></details></section>';
    }
+  if ($dwellingEnabled) {
+    echo '<section id="woningen"><h2>Woningen</h2>';
+    try {
+      require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRepository.php';
+      $dwellings=(new \Brebo\Office\Buildings\OfficeBuildingDwellingRepository($db))->listing((int)$operator->operatorId,(int)$buildingId);
+      echo '<table><thead><tr><th>Woningcode</th><th>Huisnummer</th><th>Verdieping</th><th>Woningtype</th><th>Status</th></tr></thead><tbody>';
+      foreach ($dwellings as $d) echo '<tr><td>'.$h($d['dwelling_code']).'</td><td>'.$h($d['house_number']).'</td><td>'.$h($d['floor_label']).'</td><td>'.$h($d['housing_type_name']).'</td><td>'.($d['active']?'Actief':'Inactief').'</td></tr>';
+      echo '</tbody></table>';
+      if (!$dwellings) echo '<p>Geen woningen geregistreerd.</p>';
+      $q=$db->prepare('SELECT id,code,name FROM office_housing_types WHERE building_id=? ORDER BY name,id');
+      $q->execute([$buildingId]);
+      $options='<option value="">Geen woningtype</option>';
+      foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $t) $options.='<option value="'.(int)$t['id'].'">'.$h($t['code'].' · '.$t['name']).'</option>';
+      echo '<details><summary>Woning toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><p><label>Woningcode <input name="dwelling_code" maxlength="100" required></label></p><p><label>Huisnummer <input name="house_number" maxlength="40" required></label></p><p><label>Verdieping <input name="floor_label" maxlength="80"></label></p><p><label>Woningtype <select name="housing_type_id">'.$options.'</select></label></p><button>Opslaan</button></form></details>';
+      echo '<details><summary>Woningen importeren (CSV)</summary><p>UTF-8 CSV met puntkomma, maximaal 1000 woningen en 250 kB. Gebruik bestaande woningtypecodes. Bestaande woningcodes worden niet overschreven.</p><pre>woningcode;huisnummer;verdieping;woningtype&#10;W001;12;Begane grond;A&#10;W002;14;1;B</pre><form method="post" enctype="multipart/form-data" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="import_dwellings"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><label>CSV-bestand <input type="file" name="dwelling_csv" accept=".csv,text/csv" required></label><button>Woningen importeren</button></form></details>';
+      foreach ($dwellings as $d) {
+        $editOptions='<option value="">Geen woningtype</option>';
+        $q->execute([$buildingId]);
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $t) $editOptions.='<option value="'.(int)$t['id'].'"'.((int)$d['housing_type_id']===(int)$t['id']?' selected':'').'>'.$h($t['code'].' · '.$t['name']).'</option>';
+        echo '<details><summary>Woning '.$h($d['dwelling_code']).' bewerken</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="update_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><input type="hidden" name="dwelling_id" value="'.(int)$d['id'].'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingDwellingRepository::revision($d)).'">';
+        foreach (['dwelling_code'=>'Woningcode','house_number'=>'Huisnummer','floor_label'=>'Verdieping'] as $key=>$label) echo '<p><label>'.$h($label).' <input name="'.$key.'" value="'.$h($d[$key]).'"></label></p>';
+        echo '<p><label>Woningtype <select name="housing_type_id">'.$editOptions.'</select></label></p><button>Wijzigingen opslaan</button></form></details>';
+      }
+      if ($roomEnabled) {
+        require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRoomRepository.php';
+        $roomRepo=new \Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository($db);
+        foreach ($dwellings as $d) {
+          echo '<details id="woning-'.(int)$d['id'].'"><summary>Ruimten woning '.$h($d['dwelling_code']).'</summary>';
+          try {
+            $rooms=$roomRepo->listing((int)$operator->operatorId,(int)$buildingId,(int)$d['id']);
+            if (!$rooms) echo '<p>Geen ruimten geregistreerd.</p>';
+            foreach ([...$rooms,[]] as $room) {
+              if (!$d['active']) {if ($room) echo '<p>'.$h($room['room_name']).'</p>';continue;}
+              echo '<form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="save_dwelling_room"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><input type="hidden" name="dwelling_id" value="'.(int)$d['id'].'">';
+              if ($room) echo '<input type="hidden" name="room_id" value="'.(int)$room['id'].'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingDwellingRoomRepository::revision($room)).'">';
+              foreach (['room_code'=>'Ruimtecode','room_name'=>'Ruimtenaam','floor_label'=>'Verdieping'] as $key=>$label) echo '<label>'.$h($label).' <input name="'.$key.'" value="'.$h($room[$key]??'').'"'.($key==='floor_label'?'':' required').'></label> ';
+              echo '<button>'.($room?'Wijzigen':'Ruimte toevoegen').'</button></form>';
+            }
+          } catch (Throwable $e) {echo '<p>Ruimten tijdelijk niet beschikbaar.</p>';}
+          echo '</details>';
+        }
+      }
+    } catch (Throwable $e) {echo '<p>Woningregister tijdelijk niet beschikbaar.</p>';}
+    echo '</section>';
+  }
   if($elementsEnabled){
     echo '<section id="building-elements"><h2>Bouwdelen</h2>';
     try{

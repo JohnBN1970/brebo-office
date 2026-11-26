@@ -20,8 +20,12 @@ if (!in_array($method,['GET','POST'],true)) {header('Allow: GET, POST');http_res
 $host=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($host)||$host===''||!hash_equals($host,(string)($_SERVER['HTTP_HOST']??''))
     ||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') {http_response_code(403);exit;}
+$photosEnabled=$module==='quality' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled';
+$markersEnabled=$photosEnabled && getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled';
+$drawingsEnabled=$markersEnabled && getenv('OFFICE_TEST_RESTPOINT_PDF_ENABLED')==='enabled';
+$photoUpload=$photosEnabled && $method==='POST' && ($_GET['action']??null)==='upload_restpoint_photo';
 if ($method==='POST' && (!hash_equals('https://'.$host,(string)($_SERVER['HTTP_ORIGIN']??''))
-    || (int)($_SERVER['CONTENT_LENGTH']??0)>65536)) {http_response_code(403);exit;}
+    || (int)($_SERVER['CONTENT_LENGTH']??0)>($photoUpload?26*1024*1024:65536))) {http_response_code(403);exit;}
 try {
     foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $f) require_once dirname(__DIR__).'/src/Intake/'.$f;
     require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
@@ -33,7 +37,19 @@ try {
         header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inloggen'),true,302);exit;
     }
     $store=new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
-    $service=new \Brebo\Office\Governance\OfficeGovernanceService($store);
+    $locationReady=getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled';
+    $roomsReady=$locationReady && getenv('OFFICE_TEST_BUILDING_DWELLING_ROOMS_SCHEMA_VERIFIED')==='enabled';
+    $locationValidator=static function(int $project,int $building,int $dwelling,int $room)use($db,$locationReady,$roomsReady):bool {
+        if (!$locationReady || ($room>0&&!$roomsReady)) return false;
+        $q=$db->prepare('SELECT d.id FROM office_building_dwellings d JOIN office_project_buildings pb ON pb.building_id=d.building_id WHERE pb.project_id=? AND d.building_id=? AND d.id=? AND d.active=1');
+        $q->execute([$project,$building,$dwelling]);
+        if (!$q->fetchColumn()) return false;
+        if ($room===0) return true;
+        $q=$db->prepare('SELECT id FROM office_building_dwelling_rooms WHERE id=? AND dwelling_id=? AND active=1');
+        $q->execute([$room,$dwelling]);
+        return (bool)$q->fetchColumn();
+    };
+    $service=new \Brebo\Office\Governance\OfficeGovernanceService($store,$locationValidator);
     $contexts=$store->contexts($operator->operatorId,$module);
 // A project link may carry only project_id; resolve the building only when unambiguous.
 $requestedProject=filter_var(($_GET['project_id']??null),FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
@@ -53,10 +69,42 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         if ($contexts===[]) throw new OutOfBoundsException('Project niet gevonden.');
     }
     if (is_int($building)&&!is_int($project)) throw new InvalidArgumentException('Project ontbreekt.');
+    $photoService=null;
+    if ($photosEnabled) {
+        foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+        require_once dirname(__DIR__).'/src/Project/OfficeNativeProjectAccess.php';
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPhotoService.php';
+        $documents=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+        $photoService=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPhotoService($db,$store,$documents);
+    }
+    $markerRepo=null;
+    if ($markersEnabled) {
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointDocumentResolver.php';
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointMarkerRepository.php';
+        $pdf=null;
+        if ($drawingsEnabled) {
+            require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPdfRenderer.php';
+            $pdf=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPdfRenderer();
+        }
+        $resolver=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointDocumentResolver($db,$documents,$pdf);
+        $markerRepo=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointMarkerRepository($db,$store,\Closure::fromCallable($resolver));
+    }
     $records=[];$record=null;$csrf='';$canWrite=false;$choices=[];
     if (is_int($project)&&is_int($building)) {
         $records=$service->read($operator->operatorId,$module,$project,$building);
         $choices=$store->choices($operator->operatorId,$module,$project,$building);
+        if ($module==='quality' && $locationReady) {
+            $q=$db->prepare('SELECT id,dwelling_code,house_number FROM office_building_dwellings WHERE building_id=? AND active=1 ORDER BY dwelling_code,id');
+            $q->execute([$building]);
+            $choices['dwelling_id']=[];
+            foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $d) $choices['dwelling_id'][]=['id'=>$d['id'],'label'=>$d['dwelling_code'].' · '.$d['house_number']];
+            if ($roomsReady) {
+                $q=$db->prepare('SELECT r.id,r.room_name,r.room_code,d.dwelling_code FROM office_building_dwelling_rooms r JOIN office_building_dwellings d ON d.id=r.dwelling_id WHERE d.building_id=? AND d.active=1 AND r.active=1 ORDER BY d.dwelling_code,r.room_code');
+                $q->execute([$building]);
+                $choices['room_id']=[];
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $room) $choices['room_id'][]=['id'=>$room['id'],'label'=>$room['dwelling_code'].' · '.$room['room_code'].' · '.$room['room_name']];
+            }
+        }
         $canWrite=$store->allowed($operator->operatorId,$module,'write',$project,$building);
         $secret=getenv('OFFICE_TEST_GOVERNANCE_CSRF_SECRET');
         if ($canWrite) {
@@ -65,6 +113,45 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         }
         if ($method==='POST') {
             if (!$canWrite || !\Brebo\Office\Governance\OfficeGovernanceCsrf::verify($_POST['csrf']??null,$operator->sessionId,$module,$project,$building,$secret,time())) {http_response_code(403);exit('Ongeldige formulierbeveiliging.');}
+            $markerAction=$_POST['marker_operation']??'create';
+            $markerId=null;$markerRevision=0;
+            if (in_array($_POST['action']??null,['save_drawing_marker','save_photo_marker'],true)) {
+                if (!in_array($markerAction,['create','move','remove'],true)) throw new InvalidArgumentException('Ongeldige actie.');
+                if ($markerAction!=='create') {
+                    $markerId=filter_var($_POST['marker_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                    $markerRevision=filter_var($_POST['marker_revision']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                    if (!$markerId || !$markerRevision) throw new InvalidArgumentException('Ongeldige revisie.');
+                }
+            }
+            if ($drawingsEnabled && ($_POST['action']??null)==='save_drawing_marker') {
+                $v=[];
+                foreach (['restpoint_id','document_id','page','x','y'] as $key) {
+                    $v[$key]=filter_var($_POST[$key]??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>in_array($key,['x','y'],true)?0:1]]);
+                    if (!is_int($v[$key])) throw new InvalidArgumentException('Ongeldige markering.');
+                }
+                $file=$documents->authorizedDownload((int)$operator->operatorId,$project,$v['document_id']);
+                if ($file['mime_type']!=='application/pdf') throw new DomainException('Geen PDF.');
+                $markerRepo->save($operator->operatorId,$project,$building,$v['restpoint_id'],$v['document_id'],$v['page'],$v['x'],$v['y'],$markerId,$markerRevision,$markerAction!=='remove');
+                header('Location: '.$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$v['restpoint_id'],'drawing'=>$v['document_id'],'page'=>$v['page']]),true,303);exit;
+            }
+            if ($markersEnabled && ($_POST['action']??null)==='save_photo_marker') {
+                $v=[];
+                foreach (['restpoint_id','document_id','x','y'] as $key) {
+                    $v[$key]=filter_var($_POST[$key]??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>in_array($key,['x','y'],true)?0:1]]);
+                    if (!is_int($v[$key])) throw new InvalidArgumentException('Ongeldige markering.');
+                }
+                $linked=$photoService->listing($operator->operatorId,$project,$building,$v['restpoint_id']);
+                if (!in_array($v['document_id'],array_map(static fn(array $p):int=>(int)$p['document_id'],$linked),true)) throw new DomainException('Foto niet gekoppeld.');
+                $markerRepo->save($operator->operatorId,$project,$building,$v['restpoint_id'],$v['document_id'],1,$v['x'],$v['y'],$markerId,$markerRevision,$markerAction!=='remove');
+                header('Location: '.$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$v['restpoint_id'],'mark_photo'=>$v['document_id']]),true,303);exit;
+            }
+            if ($photoUpload) {
+                $rid=filter_var($_POST['restpoint_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $files=array_values(array_filter([$_FILES['camera_photo']??[],$_FILES['existing_photo']??[]],static fn(array $f):bool=>($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE));
+                if (!is_int($rid)||count($files)!==1||!is_string($_POST['photo_role']??null)) throw new InvalidArgumentException('Selecteer één foto.');
+                $photoService->upload($operator->operatorId,$project,$building,$rid,$_POST['photo_role'],$files[0]);
+                header('Location: '.$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$rid]),true,303);exit;
+            }
             if ($module==='procurement') {
                 $price=$_POST['unit_price_euros']??null;
                 if (!is_string($price)||!preg_match('/^([0-9]{1,8})(?:[.,]([0-9]{1,2}))?$/D',trim($price),$money)) throw new InvalidArgumentException('Ongeldige prijs.');
@@ -79,6 +166,49 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
             foreach ($records as $r) if ((int)$r['id']===$id) $record=$r;
             if ($record===null) throw new OutOfBoundsException('Dossier niet gevonden.');
         }
+        $photos=[];
+        if ($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt') {
+            $photos=$photoService->listing($operator->operatorId,$project,$building,(int)$record['id']);
+            if (isset($_GET['photo'])) {
+                $photo=filter_var($_GET['photo'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if (!$photo || !in_array($photo,array_map(static fn(array $p):int=>(int)$p['document_id'],$photos),true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                $file=$documents->authorizedDownload((int)$operator->operatorId,$project,$photo);
+                if (!in_array($file['mime_type'],['image/jpeg','image/png'],true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                header('Content-Type: '.$file['mime_type']);
+                header('Content-Disposition: inline');
+                readfile($file['path']);exit;
+            }
+            $drawings=[];
+            if ($drawingsEnabled) {
+                $q=$db->prepare("SELECT DISTINCT d.id,d.title FROM office_documents d JOIN office_document_contexts c ON c.document_id=d.id WHERE c.context_type='project' AND c.context_id=? AND d.mime_type='application/pdf' AND d.lifecycle_status='active' ORDER BY d.title,d.id");
+                $q->execute([(string)$project]);
+                foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $drawing) {
+                    try {
+                        $documents->authorizedDownload((int)$operator->operatorId,$project,(int)$drawing['id']);
+                        $drawings[]=$drawing;
+                    } catch (RuntimeException $exception) { continue; }
+                }
+            }
+            $selectedDrawing=null;$drawingMarkers=[];$drawingPage=1;
+            if ($drawingsEnabled && isset($_GET['drawing'])) {
+                $selectedDrawing=filter_var($_GET['drawing'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $drawingPage=filter_var($_GET['page']??1,FILTER_VALIDATE_INT,['options'=>['min_range'=>1,'max_range'=>1000]]);
+                if (!$selectedDrawing || !$drawingPage || !in_array($selectedDrawing,array_map(static fn(array $d):int=>(int)$d['id'],$drawings),true)) throw new OutOfBoundsException('Tekening niet gevonden.');
+                if (($_GET['render']??null)==='1') {
+                    $file=$documents->authorizedDownload((int)$operator->operatorId,$project,$selectedDrawing);
+                    $bytes=$pdf->render($file['path'],$drawingPage);
+                    header('Content-Type: image/png');header('Content-Disposition: inline');echo $bytes;exit;
+                }
+                $drawingMarkers=$markerRepo->listing($operator->operatorId,$project,$building,$selectedDrawing,$drawingPage);
+            }
+            $selectedPhoto=null;$photoMarkers=[];
+            if ($markersEnabled && isset($_GET['mark_photo'])) {
+                $selectedPhoto=filter_var($_GET['mark_photo'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if (!$selectedPhoto || !in_array($selectedPhoto,array_map(static fn(array $p):int=>(int)$p['document_id'],$photos),true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                $photoMarkers=$markerRepo->listing($operator->operatorId,$project,$building,$selectedPhoto,1);
+            }
+            header("Content-Security-Policy: default-src 'none'; img-src 'self'; script-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+        } elseif (isset($_GET['photo'])) throw new OutOfBoundsException('Foto niet gevonden.');
     } elseif ($method==='POST') throw new InvalidArgumentException('Context ontbreekt.');
 } catch (OutOfBoundsException $e) {http_response_code(404);exit('Dossier niet gevonden.');}
 catch (DomainException $e) {http_response_code(403);exit('Wijziging niet toegestaan. Controleer status, rechten en revisie.');}
@@ -192,10 +322,16 @@ header('Content-Type: text/html; charset=utf-8');
 <?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a><?php if($module==='quality' && ($r['payload']['record_kind']??'quality')==='restpunt'): ?> · Restpunt<?php endif; ?></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
 </tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
+<?php if($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Fotodossier</h2><?php foreach(['before'=>'Voor herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label): ?><h3><?= $e($label) ?></h3><div class="kpis"><?php foreach($photos as $photo): ?><?php if($photo['photo_role']!==$role) continue; $url=$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$photo['document_id']]); ?><figure><a href="<?= $e($url) ?>"><img loading="lazy" style="width:100%;height:auto" src="<?= $e($url) ?>" alt="<?= $e($photo['title']) ?>"></a><figcaption><?php if($markersEnabled): ?><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'mark_photo'=>$photo['document_id']])) ?>">Markeringen</a> · <?php endif; ?><?= $e($photo['created_at']) ?> · Medewerker <?= $e($photo['created_by']) ?></figcaption></figure><?php endforeach; ?></div><?php endforeach; ?><?php if(!$photos): ?><p>Nog geen foto's geregistreerd.</p><?php endif; ?></section><?php endif; ?>
+<?php if($drawingsEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Projecttekeningen</h2><?php if(!$drawings): ?><p>Geen toegankelijke PDF-documenten.</p><?php else: ?><ul><?php foreach($drawings as $drawing): ?><li><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'drawing'=>$drawing['id'],'page'=>1])) ?>"><?= $e($drawing['title']) ?></a></li><?php endforeach; ?></ul><?php endif; ?></section><?php endif; ?>
+<?php if(!empty($selectedDrawing)): ?><section data-restpoint-photo><h2>Tekening markeren</h2><form method="get" action="<?= $e($path) ?>"><?php foreach(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'drawing'=>$selectedDrawing] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Pagina<input type="number" name="page" min="1" max="1000" value="<?= $drawingPage ?>" required></label><button>Pagina openen</button></form><div style="position:relative;display:inline-block;max-width:100%"><img style="display:block;max-width:100%;height:auto" alt="Tekeningpagina" src="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'drawing'=>$selectedDrawing,'page'=>$drawingPage,'render'=>1])) ?>"><?php foreach($drawingMarkers as $m): ?><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$m['restpoint_id']])) ?>" style="position:absolute;left:<?= (int)$m['x_millionths']/10000 ?>%;top:<?= (int)$m['y_millionths']/10000 ?>%;transform:translate(-50%,-50%);border-radius:50%;padding:5px;color:white;background:<?= match($m['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'} ?>"><?= (int)$m['restpoint_id'] ?></a><?php endforeach; ?></div><?php if($canWrite): ?><form method="post" action="<?= $e($path) ?>"><?php foreach(['action'=>'save_drawing_marker','csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id'],'document_id'=>$selectedDrawing,'page'=>$drawingPage] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Markering<select name="marker_selection"><option value="">Nieuwe stip</option><?php foreach($drawingMarkers as $m): ?><?php if((int)$m['restpoint_id']!==(int)$record['id']) continue; ?><option value="<?= (int)$m['id'] ?>" data-revision="<?= (int)$m['revision'] ?>" data-x="<?= (int)$m['x_millionths'] ?>" data-y="<?= (int)$m['y_millionths'] ?>">Stip <?= (int)$m['id'] ?></option><?php endforeach; ?></select></label><input type="hidden" name="marker_id"><input type="hidden" name="marker_revision"><label>Actie<select name="marker_operation"><option value="create">Toevoegen</option><option value="move">Verplaatsen</option><option value="remove">Verwijderen</option></select></label><label>X<input name="x" type="number" min="0" max="1000000" required></label><label>Y<input name="y" type="number" min="0" max="1000000" required></label><button>Markering opslaan</button></form><script src="/office-test/assets/restpoint-photo.js" defer></script><?php endif; ?></section><?php endif; ?>
+<?php if(!empty($selectedPhoto)): ?><section data-restpoint-photo><h2>Foto markeren</h2><div style="position:relative;display:inline-block;max-width:100%"><img style="display:block;max-width:100%;height:auto;image-orientation:from-image" alt="Restpuntfoto" src="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$selectedPhoto])) ?>"><?php foreach($photoMarkers as $m): ?><span style="position:absolute;left:<?= (int)$m['x_millionths']/10000 ?>%;top:<?= (int)$m['y_millionths']/10000 ?>%;transform:translate(-50%,-50%);border-radius:50%;padding:5px;color:white;background:<?= match($m['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'} ?>"><?= (int)$m['restpoint_id'] ?></span><?php endforeach; ?></div><?php if($canWrite): ?><form method="post" action="<?= $e($path) ?>"><?php foreach(['action'=>'save_photo_marker','csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id'],'document_id'=>$selectedPhoto] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Markering<select name="marker_selection"><option value="">Nieuwe stip</option><?php foreach($photoMarkers as $m): ?><?php if((int)$m['restpoint_id']!==(int)$record['id']) continue; ?><option value="<?= (int)$m['id'] ?>" data-revision="<?= (int)$m['revision'] ?>" data-x="<?= (int)$m['x_millionths'] ?>" data-y="<?= (int)$m['y_millionths'] ?>">Stip <?= (int)$m['id'] ?></option><?php endforeach; ?></select></label><input type="hidden" name="marker_id"><input type="hidden" name="marker_revision"><label>Actie<select name="marker_operation"><option value="create">Toevoegen</option><option value="move">Verplaatsen</option><option value="remove">Verwijderen</option></select></label><label>X<input name="x" type="number" min="0" max="1000000" required></label><label>Y<input name="y" type="number" min="0" max="1000000" required></label><button>Markering opslaan</button></form><script src="/office-test/assets/restpoint-photo.js" defer></script><?php endif; ?></section><?php endif; ?>
+<?php if($photosEnabled && $canWrite && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Foto toevoegen</h2><form method="post" enctype="multipart/form-data" action="<?= $e($path.'?action=upload_restpoint_photo') ?>"><?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id']] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Fototype<select name="photo_role"><option value="before">Voor herstel</option><option value="after">Na herstel</option><option value="review">Hercontrole</option></select></label><label>Foto maken<input type="file" name="camera_photo" accept="image/jpeg,image/png" capture="environment"></label><label>Bestaande foto toevoegen<input type="file" name="existing_photo" accept="image/jpeg,image/png"></label><button>Foto opslaan</button></form></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
 <div class="fields"><div><label for="title">Onderwerp</label><input id="title" name="title" required maxlength="255" value="<?= $e($record['title']??'') ?>"></div>
 <?php if($module==='quality'): ?><div><label for="record_kind">Registratietype</label><?php if($record!==null): ?><p><?= ($values['record_kind']??'quality')==='restpunt'?'Restpunt':'Kwaliteitscontrole' ?></p><?php else: ?><select id="record_kind" name="record_kind"><option value="quality">Kwaliteitscontrole</option><option value="restpunt"<?= ($_GET['record_kind']??'')==='restpunt'?' selected':'' ?>>Restpunt</option></select><?php endif; ?></div><?php endif; ?>
+<?php if($module==='quality' && ($record===null || ($values['record_kind']??'quality')==='restpunt')): ?><?php foreach(['dwelling_id'=>'Woning (restpunt)','room_id'=>'Ruimte (restpunt)'] as $key=>$label): ?><?php if(!isset($choices[$key])) continue; ?><div><label for="<?= $e($key) ?>"><?= $e($label) ?></label><select id="<?= $e($key) ?>" name="<?= $e($key) ?>"><option value="0">Niet van toepassing</option><?php foreach($choices[$key] as $choice): ?><option value="<?= $e($choice['id']) ?>"<?= (string)($values[$key]??'')===(string)$choice['id']?' selected':'' ?>><?= $e($choice['label']) ?></option><?php endforeach; ?></select></div><?php endforeach; ?><?php endif; ?>
 <div><label for="status">Status</label><select id="status" name="status"><?php foreach($statuses as $s): ?><option value="<?= $e($s) ?>"<?= ($record['status']??$statuses[0])===$s?' selected':'' ?>><?= $e($statusLabels[$s]) ?></option><?php endforeach; ?></select></div>
 <div><label for="owner">Eigenaar</label><select id="owner" name="owner" required><?php foreach($choices['owner'] as $choice): ?><option value="<?= $e($choice['id']) ?>"<?= (string)($values['owner']??$operator->operatorId)===(string)$choice['id']?' selected':'' ?>><?= $e($choice['label']) ?></option><?php endforeach; ?></select></div>
 <div><label for="due_date">Termijn</label><input id="due_date" type="date" name="due_date" required value="<?= $e($values['due_date']??'') ?>"></div>
