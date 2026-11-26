@@ -120,6 +120,20 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
             foreach ($records as $r) if ((int)$r['id']===$id) $record=$r;
             if ($record===null) throw new OutOfBoundsException('Dossier niet gevonden.');
         }
+        $photos=[];
+        if ($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt') {
+            $photos=$photoService->listing($operator->operatorId,$project,$building,(int)$record['id']);
+            if (isset($_GET['photo'])) {
+                $photo=filter_var($_GET['photo'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if (!$photo || !in_array($photo,array_map(static fn(array $p):int=>(int)$p['document_id'],$photos),true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                $file=$documents->authorizedDownload((int)$operator->operatorId,$project,$photo);
+                if (!in_array($file['mime_type'],['image/jpeg','image/png'],true)) throw new OutOfBoundsException('Foto niet gevonden.');
+                header('Content-Type: '.$file['mime_type']);
+                header('Content-Disposition: inline');
+                readfile($file['path']);exit;
+            }
+            header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+        } elseif (isset($_GET['photo'])) throw new OutOfBoundsException('Foto niet gevonden.');
     } elseif ($method==='POST') throw new InvalidArgumentException('Context ontbreekt.');
 } catch (OutOfBoundsException $e) {http_response_code(404);exit('Dossier niet gevonden.');}
 catch (DomainException $e) {http_response_code(403);exit('Wijziging niet toegestaan. Controleer status, rechten en revisie.');}
@@ -233,6 +247,7 @@ header('Content-Type: text/html; charset=utf-8');
 <?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a><?php if($module==='quality' && ($r['payload']['record_kind']??'quality')==='restpunt'): ?> · Restpunt<?php endif; ?></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
 </tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
+<?php if($photosEnabled && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Fotodossier</h2><?php foreach(['before'=>'Voor herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label): ?><h3><?= $e($label) ?></h3><div class="kpis"><?php foreach($photos as $photo): ?><?php if($photo['photo_role']!==$role) continue; $url=$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$record['id'],'photo'=>$photo['document_id']]); ?><figure><a href="<?= $e($url) ?>"><img loading="lazy" style="width:100%;height:auto" src="<?= $e($url) ?>" alt="<?= $e($photo['title']) ?>"></a><figcaption><?= $e($photo['created_at']) ?> · Medewerker <?= $e($photo['created_by']) ?></figcaption></figure><?php endforeach; ?></div><?php endforeach; ?><?php if(!$photos): ?><p>Nog geen foto's geregistreerd.</p><?php endif; ?></section><?php endif; ?>
 <?php if($photosEnabled && $canWrite && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Foto toevoegen</h2><form method="post" enctype="multipart/form-data" action="<?= $e($path.'?action=upload_restpoint_photo') ?>"><?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id']] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Fototype<select name="photo_role"><option value="before">Voor herstel</option><option value="after">Na herstel</option><option value="review">Hercontrole</option></select></label><label>Foto maken<input type="file" name="camera_photo" accept="image/jpeg,image/png" capture="environment"></label><label>Bestaande foto toevoegen<input type="file" name="existing_photo" accept="image/jpeg,image/png"></label><button>Foto opslaan</button></form></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
