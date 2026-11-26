@@ -81,4 +81,15 @@ try {
   $denied = $e->getMessage()==='unauthorized_building_zone';
 }
 if (!$denied) throw new RuntimeException('Unauthorized building zone created');
+$zones->update($one,$zoneId,'1',['zone_name'=>'Nieuwe ingang','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>175],$buildingAccess);
+$updated=$zones->forProjectZone('18',$zoneId,$projectAccess);
+if ((int)$updated['revision']!==2 || (float)$updated['radius_metres']!==175.0) throw new RuntimeException('Zone revision or geometry not updated');
+$conflict=false;
+try {$zones->deactivate($one,$zoneId,'1',$buildingAccess);} catch (RuntimeException $e) {$conflict=$e->getMessage()==='zone_revision_conflict';}
+if (!$conflict || !$adapter->callback()('18',$zoneId)) throw new RuntimeException('Stale revision was not rejected');
+$zones->deactivate($one,$zoneId,'2',$buildingAccess);
+if ($adapter->callback()('18',$zoneId)) throw new RuntimeException('Deactivated zone still authorizes presence');
+$q=$db->prepare('SELECT active,revision FROM office_building_zones WHERE id=?');
+$q->execute([$zoneId]);$historical=$q->fetch(PDO::FETCH_ASSOC);
+if (!$historical || (int)$historical['active']!==0 || (int)$historical['revision']!==3) throw new RuntimeException('Historical zone identity lost');
 echo "Office building-owned zone MySQL checks passed\n";
