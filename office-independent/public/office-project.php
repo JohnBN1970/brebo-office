@@ -1217,12 +1217,34 @@ if (is_array($financeContracts) && $financeContracts !== []) {
     $financeMetric = $metric('Actuele opdrachtsom', '€ ' . number_format($totalContractCents / 100, 2, ',', '.'), 'Geautoriseerde contracten inclusief goedgekeurde wijzigingen');
   }
 }
+require_once dirname(__DIR__) . '/src/Project/OfficeProjectPageStructure.php';
+$statusLabel = \Brebo\Office\Project\OfficeProjectPageStructure::statusLabel($project['status'] ?? null);
+$overviewPlanLabel = 'Niet vastgelegd';
+$overviewPlanHtml = '<p class="project-muted">Geen projectplanning vastgelegd.</p>';
+if ($activeTab === 'overzicht') {
+  try {
+    require_once dirname(__DIR__) . '/src/Project/OfficeProjectPlanReader.php';
+    $plannedProject = \Brebo\Office\Project\OfficeProjectPlanReader::enrich($db, [$project])[0];
+    if (!empty($plannedProject['plan_items'])) {
+      $overviewPlanLabel = $plannedProject['planned_start'].' t/m '.$plannedProject['planned_end'];
+      $overviewPlanHtml = '<ul>';
+      foreach ($plannedProject['plan_items'] as $planItem) {
+        $overviewPlanHtml .= '<li>'.$escape((string)$planItem['title']).' · '.$escape((string)$planItem['planned_start']).' t/m '.$escape((string)$planItem['planned_end']).' · '.$escape((string)$planItem['status']).'</li>';
+      }
+      $overviewPlanHtml .= '</ul>';
+    }
+  } catch (\Throwable $planError) {
+    $overviewPlanLabel = 'Niet beschikbaar';
+    $overviewPlanHtml = '<p class="project-muted">Projectplanning tijdelijk niet beschikbaar.</p>';
+    error_log('Office project overview planning unavailable: '.get_class($planError));
+  }
+}
 $overviewMetrics = '<div class="project-metrics">'
   . $financeMetric
   . $metric('Gebouwen', (string) count($buildings), 'Gekoppeld aan dit project')
   . $metric('Woningen projectdoel', $dwellingTarget === null ? '—' : (string) $dwellingTarget, 'Vastgelegd projectdoel')
   . $metric('Woningen ingedeeld', $allocatedDwellings === null ? '—' : (string) $allocatedDwellings, 'Toegewezen aan woningtypen')
-  . $metric('Planning', '—', 'Nog geen geverifieerde bron')
+  . $metric('Planning', $overviewPlanLabel, 'Vastgelegde projectplanning')
   . '</div>';
 $workBudgetControlHtml = '';
 if (isset($workBudgetView) && is_array($workBudgetView) && is_array($financeContracts)) {
@@ -1319,8 +1341,8 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
   . '<p class="project-muted">Bron: gekoppelde gebouwen en woningtypen.</p></article>'
   . '<article class="project-panel"><h3>Aandachtspunten</h3>' . $attentionHtml . '</article>'
   . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3><p class="project-muted">CRM is de bron. De geautoriseerde koppeling naar dit overzicht moet nog worden aangesloten.</p></article>'
-  . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Financieel.</p></article>'
-  . '<article class="project-panel"><h3>Planning & uitvoering</h3><p class="project-muted">Start, oplevering, mijlpalen en uitvoeringsvoortgang: nog niet gekoppeld.</p></article>'
+  . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Werkbegroting.</p></article>'
+  . '<article class="project-panel"><h3>Planning & uitvoering</h3>' . $overviewPlanHtml . '<p><a href="' . $escape($projectUrl.'&tab=uitvoering') . '">Uitvoering openen</a></p></article>'
   . '<article class="project-panel"><h3>Projectomschrijving</h3><p class="project-muted">De oorspronkelijke scope volgt uit CRM; de overeengekomen scope uit de geaccepteerde overeenkomst.</p></article></div></div>';
 
 require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
