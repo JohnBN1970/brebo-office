@@ -1319,9 +1319,15 @@ if (is_array($financeContracts)) {
   $baselineCents = $workBudgetView['kpis']['baseline_cents'] ?? null;
   $baselineCents = is_int($baselineCents) && $baselineCents >= 0 ? $baselineCents : null;
   $budgetResult = $salesCents !== null && $baselineCents !== null ? $salesCents - $baselineCents : null;
+  $budgetMargin = $budgetResult !== null && $salesCents > 0 ? number_format(100 * $budgetResult / $salesCents, 1, ',', '.').'%' : 'Niet beschikbaar';
+  $forecastCents = $workBudgetView['kpis']['forecast_cents'] ?? null;
+  $forecastResult = $salesCents !== null && is_int($forecastCents) ? $salesCents - $forecastCents : null;
   $overviewFinanceHtml = '<dl><dt>Actuele opdrachtsom</dt><dd>'.$escape($formatOverviewMoney($salesCents)).'</dd>'
     .'<dt>Vastgestelde kostprijs</dt><dd>'.$escape($formatOverviewMoney($baselineCents)).'</dd>'
-    .'<dt>Begroot resultaat</dt><dd>'.$escape($formatOverviewMoney($budgetResult)).'</dd></dl>'
+    .'<dt>Begroot resultaat</dt><dd>'.$escape($formatOverviewMoney($budgetResult)).'</dd>'
+    .'<dt>Begrote marge</dt><dd>'.$escape($budgetMargin).'</dd>'
+    .'<dt>Verwachte eindkosten</dt><dd>'.$escape($formatOverviewMoney(is_int($forecastCents) ? $forecastCents : null)).'</dd>'
+    .'<dt>Verwacht eindresultaat</dt><dd>'.$escape($formatOverviewMoney($forecastResult)).'</dd></dl>'
     .'<p class="project-muted">Begroot resultaat op oorspronkelijke kostprijsbasis; geen actuele eindprognose. Scopewijzigingen kunnen aanvullende kosten vereisen.</p>';
 }
 $progressGraph = '';
