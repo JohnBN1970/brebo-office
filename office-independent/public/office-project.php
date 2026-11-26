@@ -817,6 +817,43 @@ $executionHtml = '<div id="project-uitvoering"><h2>Uitvoering</h2>'
   . '<p>Uitvoeringsvoortgang, kwaliteit en projectacties. Personeelsplanning en urencontrole staan onder Arbeid &amp; Inzet.</p>'
   . '</div>'
 ;
+// Reuse governance ACL and records; do not infer quality from WBS or hours.
+if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()
+    && getenv('OFFICE_TEST_GOVERNANCE_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_GOVERNANCE_SCHEMA_VERIFIED') === 'enabled') {
+  try {
+    require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
+    $qualityStore = new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
+    $qualityContexts = $qualityStore->contexts((string)$operator->operatorId, 'quality');
+    $qualityHtml = '';
+    foreach ($qualityContexts as $context) {
+      if ((int)$context['project_id'] !== (int)$projectId) continue;
+      $building = (int)$context['building_id'];
+      $records = $qualityStore->listing((string)$operator->operatorId, 'quality', (int)$projectId, $building);
+      $open = $late = $blocking = 0;
+      $actions = '';
+      foreach ($records as $record) {
+        if ($record['status'] === 'accepted') continue;
+        $open++;
+        $payload = $record['payload'];
+        $isLate = is_string($payload['due_date'] ?? null) && $payload['due_date'] < gmdate('Y-m-d');
+        $isBlocking = !empty($payload['blocks_release']);
+        if ($isLate) $late++;
+        if ($isBlocking) $blocking++;
+        if ($isLate || $isBlocking) {
+          $actions .= '<li><a href="/office-test/kwaliteit?project_id='.(int)$projectId.'&amp;building_id='.$building.'&amp;id='.(int)$record['id'].'">'.$escape((string)$record['title']).'</a> — '.($isBlocking?'Vrijgaveblokkade':'Termijn verstreken').'</li>';
+        }
+      }
+      $qualityHtml .= '<h4>'.$escape((string)$context['building_name']).'</h4><p>'.$open.' open · '.$late.' te laat · '.$blocking.' vrijgaveblokkades</p>'
+        .($actions !== '' ? '<ul>'.$actions.'</ul>' : '')
+        .'<p><a href="/office-test/kwaliteit?project_id='.(int)$projectId.'&amp;building_id='.$building.'">Kwaliteitsregister openen</a></p>';
+    }
+    if ($qualityHtml !== '') $executionHtml .= '<section class="project-panel"><h3>Kwaliteitsbewaking</h3>'.$qualityHtml.'</section>';
+  } catch (\Throwable $qualityError) {
+    error_log('Office execution quality overview unavailable: '.get_class($qualityError));
+    $executionHtml .= '<p>Kwaliteitsbewaking tijdelijk niet beschikbaar.</p>';
+  }
+}
 // Read-only project-scoped roster. Never fetch shifts from another project or bypass membership checks.
 $projectWeekHtml = '<section class="project-panel"><h3>Weekplanning van dit project</h3>';
 if ($activeTab !== 'arbeid-inzet') {
