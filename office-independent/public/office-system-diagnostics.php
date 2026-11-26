@@ -119,7 +119,23 @@ try {
  $lines[]='Route '.$route.': '.$status.' (geen HTTP-test)';
  $html.='<tr><td>'.$e($route).'</td><td>'.$status.'</td></tr>';
  } else {$lines[]='Route: geen specifieke controle geregistreerd.';}
+ $rightsSchemas=[
+ 'CRM en relaties'=>['office_operator_accounts'=>['id','active','can_edit_crm']],
+ 'Deals'=>['office_operator_accounts'=>['id','active','can_edit_crm']],
+ 'Calculatie'=>['office_operator_accounts'=>['id','active','can_edit_crm'],'office_calc_crm_drafts'=>['created_by','opportunity_id']],
+ 'Projecten'=>['office_project_memberships'=>['project_id','operator_id','permission']],
+ 'Gebouwen en woningtypen'=>['office_project_memberships'=>['project_id','operator_id','permission'],'office_building_register_grants'=>['building_id','operator_id']],
+ 'Inkoop'=>['office_project_memberships'=>['project_id','operator_id','permission']],
+ 'Kennis en kwaliteit'=>['office_project_memberships'=>['project_id','operator_id','permission']]];
+ $lines[]='Toegang tot diagnose: sitebeheerder bevestigd.';
+ foreach ($rightsSchemas[$selected]??[] as $table=>$columns) {
+ $columnQuery->execute([$table]);
+ $missing=array_diff($columns,$columnQuery->fetchAll(PDO::FETCH_COLUMN));
+ $lines[]='Rechtenstructuur '.$table.': '.($missing?'ONTBREKEND: '.implode(', ',$missing):'VEREISTE KOLOMMEN AANWEZIG');
+ }
+ if (!isset($rightsSchemas[$selected])) {$lines[]='Rechtenstructuur: geen specifieke controle geregistreerd.';}
  $lines[]='Modulerechten, koppelingen en achtergrondprocessen: niet gecontroleerd.';
+ $lines[]='Rechtenstructuur is geen bewijs van effectieve autorisatie; achtergrondprocessen vereisen afzonderlijke runtimecontrole.';
  $prompt="Analyseer uitsluitend deze module. Controleer eerst de actuele repository en actieve testrelease. Verifieer afwijkingen en ontbrekende controles; een uitgeschakelde optionele flag is niet automatisch een fout. Hergebruik bestaande functionaliteit. Herstel uitsluitend bewezen problemen via een afzonderlijke Git-branch, voeg regressietesten toe en rapporteer blokkades. Wijzig productie niet. Vraag geen geheimen op.\n\n".implode("\n",$lines);
  $html.='</table><p>'.$e(implode(' ',array_slice($lines,-2))).'</p><h3>AI-herstelprompt</h3><p>Selecteer de volledige tekst en kopieer deze naar ChatGPT of Codex.</p><button type="button" id="copy-prompt">Kopieer prompt</button><span id="copy-status" role="status"></span><textarea id="repair-prompt" readonly rows="18" aria-label="AI-herstelprompt">'.$e($prompt).'</textarea><p><a href="?module='.rawurlencode($selected).'">Diagnose opnieuw uitvoeren</a></p></section>';
  }
