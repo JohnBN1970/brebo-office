@@ -57,6 +57,8 @@ final class OfficeBuildingZoneRepository {
        FROM office_project_buildings pb
        INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+         AND z.latitude BETWEEN -85 AND 85 AND z.longitude BETWEEN -180 AND 180
+         AND z.radius_metres BETWEEN 1 AND 5000 AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
        WHERE pb.project_id=? ORDER BY b.building_name,z.id'
     );
     $stmt->execute([$projectId]);
@@ -76,6 +78,8 @@ final class OfficeBuildingZoneRepository {
        FROM office_project_buildings pb
        INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+         AND z.latitude BETWEEN -85 AND 85 AND z.longitude BETWEEN -180 AND 180
+         AND z.radius_metres BETWEEN 1 AND 5000 AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
        WHERE pb.project_id=? AND z.id=? LIMIT 1'
     );
     $stmt->execute([$projectId,$zoneId]);
