@@ -29,7 +29,7 @@ final class OfficeOnSiteRolloutReadiness
             FROM office_project_memberships m
             JOIN office_operator_accounts a ON a.id=m.operator_id AND a.active=1
             JOIN office_projects p ON p.id=m.project_id
-            LEFT JOIN office_operator_people op ON op.operator_id=m.operator_id
+            LEFT JOIN office_account_personnel_links op ON op.operator_id=m.operator_id
             LEFT JOIN office_inzet_people people ON people.id=op.person_id AND people.active=1
             WHERE m.permission='manage' AND p.code NOT LIKE 'BREBO-CI-%'
               AND EXISTS (SELECT 1 FROM office_onsite_event_inbox e WHERE e.project_id=m.project_id)
