@@ -612,14 +612,14 @@ JS;
     }
     $importedCandidates = $draft['imported_duplicate_candidates'] ?? [];
     if ($importedCandidates !== []) {
-      $html .= '<p role="alert"><strong>Mogelijk dubbele geïmporteerde factuur.</strong> Hetzelfde factuurnummer bestaat in het toegankelijke Finance-register. Vergelijk leverancier, bedrag en document voordat je verdergaat.</p><ul>';
+      $html .= '<p role="alert"><strong>Mogelijk dubbele Office-factuur.</strong> Hetzelfde factuurnummer bestaat in het toegankelijke Finance-register. Vergelijk leverancier, bedrag en document voordat je verdergaat.</p><ul>';
       foreach ($importedCandidates as $candidate) {
-        $link = self::e(OfficeMount::route('finance/factuur', ['id'=>(int)$candidate['id']]));
+        $link = self::e(OfficeMount::route('finance/dossier', ['id'=>(int)$candidate['id']]));
         $html .= '<li><a href="'.$link.'">Factuur '.self::e($candidate['invoice_number']).'</a> · '.self::e($candidate['supplier_name']).' · '.self::e($candidate['status']).'</li>';
       }
       $html .= '</ul>';
     } else {
-      $html .= '<p>Geïmporteerde facturen: geen overeenkomstig factuurnummer binnen je toegankelijke Finance-register. Niet alle mogelijke bronnen zijn gecontroleerd.</p>';
+      $html .= '<p>Office-facturen: geen overeenkomstig factuurnummer binnen je toegankelijke Finance-register. Niet alle mogelijke bronnen zijn gecontroleerd.</p>';
     }
     $review = $draft['review'] ?? [];
     $action = self::e(OfficeMount::route('finance/concept', ['id'=>$draft['id']]));
