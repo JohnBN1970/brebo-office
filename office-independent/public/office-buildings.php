@@ -257,7 +257,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
      header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
    } catch (Throwable $e) {http_response_code(409);exit('Wijziging niet opgeslagen. Controleer het adres en ververs de pagina.');}
  }
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['building_action']??null)!=='create') {
+$bagRow=null;
+$bagToken='';
+if ($detail && $selectedBuilding!==null && $registerReady && getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')==='enabled') {
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingPdokLocationRepository.php';
+  $q=$db->prepare('SELECT building_name,street_address,address_line,postal_code,city,latitude,longitude,bag_id,bag_verified_at FROM office_buildings WHERE id=? AND active=1');
+  $q->execute([$buildingId]);$bagRow=$q->fetch(PDO::FETCH_ASSOC)?:null;
+  if ($canCreate && $bagRow!==null) {
+    $q=$db->prepare("SELECT 1 FROM office_buildings b WHERE b.id=? AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission='manage'))");
+    $q->execute([$buildingId,$operator->operatorId,$operator->operatorId]);
+    if ($q->fetchColumn()) $bagToken=hash_hmac('sha256','building-bag:'.$buildingId,$registerToken);
+  }
+}
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='link_bag') {
+  if ($bagToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($bagToken,$_POST['csrf_token']) || !is_string($_POST['bag_id']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
+  try {
+    (new \Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository($db))->linkVerified((int)$operator->operatorId,(int)$buildingId,$_POST['bag_id'],$_POST['revision']);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+  } catch (Throwable $e) {http_response_code(409);exit('BAG-koppeling niet opgeslagen. Controleer adres en rechten.');}
+}
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !in_array($_POST['building_action']??null,['create','search_pdok'],true)) {
   if (!$detail || !$cl204CsrfReady || !is_string($_POST['csrf_token'] ?? null)
     || !hash_equals($cl204Csrf, $_POST['csrf_token'])) {
     http_response_code(403);
@@ -331,7 +350,7 @@ if ($detail && isset($_GET['pdok_q'])) {
         $lon = (float)$m[1];
         $lat = (float)$m[2];
         if ($lat < 50 || $lat > 54 || $lon < 3 || $lon > 8) continue;
-        $pdokResults[] = ['id' => (string)($doc['id'] ?? ''), 'label' => (string)($doc['weergavenaam'] ?? ''), 'lat' => $lat, 'lon' => $lon];
+        $pdokResults[] = ['id' => (string)($doc['id'] ?? ''), 'bag_id'=>(string)($doc['nummeraanduiding_id']??''), 'label' => (string)($doc['weergavenaam'] ?? ''), 'lat' => $lat, 'lon' => $lon];
       }
       if ($pdokResults === []) $pdokNotice = 'Geen bruikbare BAG-locatie gevonden.';
     } catch (Throwable $pdokError) {
@@ -479,9 +498,9 @@ if ($detail) {
     }
     echo '</section>';
   }
-  echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Resultaten worden nog niet opgeslagen.</p>';
+  echo '<section style="margin-top:20px"><h2>PDOK / BAG-locatie</h2><p>Zoek een officieel BAG-adres, zoals in SB Office. Selecteer een officieel adres om de locatie te bekijken of te koppelen.</p>';
   if ($pdokStorageReady) {
-    echo '<p role="status">Opslagvelden beschikbaar. Definitief koppelen wordt nog beveiligd aangesloten.</p>';
+    echo '<p role="status">Opslagvelden beschikbaar.</p>';
   } else {
     echo '<p role="status">Permanente BAG-opslag nog niet beschikbaar: ontbrekende velden of controle: ' . $h(implode(', ', $pdokStorageMissing)) . '.</p>';
   }
@@ -501,8 +520,10 @@ if ($detail) {
     }
     echo '</p>';
   }
-  if ($pdokResults !== []) {
-    $location = $pdokResults[$selectedIndex];
+  if ($bagRow!==null && !empty($bagRow['bag_id'])) echo '<p>Gekoppeld BAG-adres: '.$h($bagRow['bag_id']).' · geverifieerd '.$h($bagRow['bag_verified_at']).'</p>';
+  if ($pdokResults !== [] || ($bagRow!==null && !empty($bagRow['bag_id']) && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude']))) {
+    $location = $pdokResults!==[]?$pdokResults[$selectedIndex]:['lat'=>$bagRow['latitude'],'lon'=>$bagRow['longitude']];
+    if ($bagToken!=='' && preg_match('/^[0-9]{16}$/D',$location['bag_id']??'')) echo '<form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="link_bag"><input type="hidden" name="csrf_token" value="'.$h($bagToken).'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository::revision($bagRow)).'"><input type="hidden" name="bag_id" value="'.$h($location['bag_id']).'"><button>BAG-adres koppelen</button></form>';
     $lat = $location['lat']; $lon = $location['lon'];
     $r = 6378137.0; $x = $r * deg2rad($lon); $y = $r * log(tan(M_PI / 4 + deg2rad($lat) / 2));
     $bbox = implode(',', [$x - 90, $y - 52, $x + 90, $y + 52]);
@@ -512,7 +533,7 @@ if ($detail) {
       'bbox' => $bbox, 'width' => 900, 'height' => 520,
       'format' => 'image/jpeg', 'transparent' => 'false',
     ]);
-    echo '<figure style="margin:20px 0 0"><img src="' . $h($mapUrl) . '" alt="PDOK-luchtfoto rondom het geselecteerde BAG-zoekresultaat" style="max-width:100%;height:auto;border-radius:8px"><figcaption>PDOK-luchtfoto bij geselecteerd BAG-adres (nog niet gekoppeld aan gebouw).</figcaption></figure>';
+    echo '<figure style="margin:20px 0 0"><img src="' . $h($mapUrl) . '" alt="PDOK-luchtfoto rondom het geselecteerde BAG-zoekresultaat" style="max-width:100%;height:auto;border-radius:8px"><figcaption>PDOK-luchtfoto bij de weergegeven locatie.</figcaption></figure>';
   }
   echo '</section>';
   echo '</main></body></html>';
