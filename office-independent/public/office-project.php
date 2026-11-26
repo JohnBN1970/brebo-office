@@ -846,7 +846,7 @@ if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()) {
 }
 $handoverHtml = '';
 if ($activeTab === 'oplevering') {
-  $handoverHtml = '<section class="project-panel"><h2>Oplevering — kwaliteitsregister</h2><p>Voorlopig overzicht van bestaande kwaliteitsregistraties; specifieke restpuntregistratie en definitieve vrijgave zijn nog niet aangesloten.</p>';
+  $handoverHtml = '<section class="project-panel"><h2>Oplevering — Restpuntenregister</h2><p>Projectgebonden restpunten per gebouw. Definitieve vrijgave is nog niet aangesloten.</p>';
   try {
     require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
     $store = new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
@@ -859,8 +859,9 @@ if ($activeTab === 'oplevering') {
       if ((int)$context['project_id'] !== (int)$projectId) continue;
       $building = (int)$context['building_id'];
       $url = '/office-test/kwaliteit?project_id='.(int)$projectId.'&building_id='.$building;
-      $buildings .= '<p><a href="'.$escape($url).'">Kwaliteitsregister — '.$escape((string)$context['building_name']).'</a></p>';
+      $buildings .= '<p><a href="'.$escape($url.'&record_kind=restpunt').'">Restpunt toevoegen — '.$escape((string)$context['building_name']).'</a></p>';
       foreach ($store->listing((string)$operator->operatorId, 'quality', (int)$projectId, $building) as $record) {
+        if (($record['payload']['record_kind'] ?? 'quality') !== 'restpunt') continue;
         $total++;
         $status = (string)$record['status'];
         $payload = $record['payload'];
@@ -875,8 +876,8 @@ if ($activeTab === 'oplevering') {
     if ($buildings === '') {
       $handoverHtml .= '<p>Geen toegankelijke kwaliteitsdossiers voor dit project.</p>';
     } else {
-      $handoverHtml .= '<p>Toegankelijke registraties: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$buildings;
-      $handoverHtml .= '<table><thead><tr><th>Gebouw</th><th>Kwaliteitspunt</th><th>Status</th><th>Termijn</th><th>Blokkade</th></tr></thead><tbody>'.$rows.'</tbody></table>';
+      $handoverHtml .= '<p>Toegankelijke restpunten: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$buildings;
+      $handoverHtml .= '<table><thead><tr><th>Gebouw</th><th>Restpunt</th><th>Status</th><th>Termijn</th><th>Blokkade</th></tr></thead><tbody>'.$rows.'</tbody></table>';
     }
   } catch (\Throwable $handoverError) {
     error_log('Office handover overview unavailable: '.get_class($handoverError));

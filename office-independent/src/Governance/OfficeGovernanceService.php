@@ -65,6 +65,13 @@ final class OfficeGovernanceService
             'due_date'=>self::date($i), 'evidence'=>self::text($i,'evidence',2000,false),
             'remedy'=>self::text($i,'remedy',4000,false), 'inspection_finding_id'=>$finding,
             'blocks_release'=>($i['blocks_release'] ?? '0') === '1'];
+        $kind = $old['payload']['record_kind'] ?? 'quality';
+        if (array_key_exists('record_kind', $i)) {
+            $requested = self::choice($i, 'record_kind', ['quality','restpunt']);
+            if ($old !== null && $requested !== $kind) throw new \DomainException('Registratietype staat vast.');
+            $kind = $requested;
+        }
+        if ($kind === 'restpunt') $p['record_kind'] = $kind;
         if (in_array($status, ['deviation','recheck'], true) && $p['remedy'] === '') throw new \DomainException('Herstelmaatregel verplicht.');
         if ($status === 'accepted' && ($p['evidence'] === '' || $p['blocks_release'])) throw new \DomainException('Akkoord vereist bewijs en opgeheven vrijgaveblokkade.');
         return $p;
