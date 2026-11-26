@@ -39,9 +39,20 @@ try {
  header('Location: ?module='.rawurlencode($module),true,303);exit;
  }
  $e=static fn(string $s):string=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
- $html='<nav>';
- foreach ($catalog as $name=>$tests) {$html.='<p><a href="?module='.rawurlencode($name).'">'.$e($name).'</a></p>';}
- $html.='</nav><h2>'.$e($module).'</h2>';
+ $totals=['pending'=>0,'passed'=>0,'failed'=>0,'retest'=>0];
+ $html='<table><thead><tr><th>Module</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Hertest</th><th>Nog te testen</th></tr></thead><tbody>';
+ foreach ($catalog as $name=>$tests) {
+ $counts=array_fill_keys(array_keys($totals),0);
+ foreach ($tests as $key=>$label) {
+ $result=$repo->latest($name,$key,$release);
+ $state=$result['status']??'pending';
+ $counts[$state]++;$totals[$state]++;
+ }
+ $html.='<tr><td><a href="?module='.rawurlencode($name).'">'.$e($name).'</a></td><td>'.$counts['passed'].' / '.count($tests).'</td><td>'.$counts['failed'].'</td><td>'.$counts['retest'].'</td><td>'.$counts['pending'].'</td></tr>';
+ }
+ $html.='</tbody></table><h2>'.$e($module).'</h2>';
+ $total=array_sum($totals);
+ $summary='<h2>Totale voortgang</h2><p>'.$totals['passed'].' / '.$total.' goedgekeurd — '.$totals['failed'].' afgekeurd — '.$totals['retest'].' hertest — '.$totals['pending'].' nog te testen</p><progress max="'.$total.'" value="'.$totals['passed'].'"></progress>';
  $passed=0;
  foreach ($catalog[$module] as $key=>$label) {
  $row=$repo->latest($module,$key,$release);
@@ -51,5 +62,5 @@ try {
  foreach (['pending'=>'Nog te testen','passed'=>'Goedgekeurd','failed'=>'Afgekeurd','retest'=>'Hertest vereist'] as $value=>$title) {$html.='<option value="'.$value.'"'.($status===$value?' selected':'').'>'.$title.'</option>';}
  $html.='</select><textarea name="notes" maxlength="8000" placeholder="Toelichting">'.$e($row['notes']??'').'</textarea><button type="submit" name="quick_status" value="passed">✓ Goedkeuren</button> <button type="submit" name="quick_status" value="pending">Vinkje verwijderen</button> <button type="submit">Status en toelichting opslaan</button></form>';
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px}nav{display:flex;flex-wrap:wrap;gap:12px}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).'</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$html.'</html>';
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).'</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'</html>';
 } catch (Throwable $ex) {http_response_code(503);exit('Acceptatiecentrum tijdelijk niet beschikbaar.');}
