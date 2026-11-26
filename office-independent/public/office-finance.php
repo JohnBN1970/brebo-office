@@ -61,8 +61,10 @@ try {
     if ($projectId === false) throw new \OutOfBoundsException();
   }
   if ($view === 'draft') {
-    // Enforce Finance read authorization before accessing private draft metadata.
-    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, null, $projectId);
+    // Native private drafts require Office ACL, not a legacy invoice source.
+    $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    if (!$access->allows()) throw new \DomainException('Finance access required');
+    if ($projectId !== null && !in_array($projectId, array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects()), true)) throw new \OutOfBoundsException('Project unavailable');
   }
   if ($method === 'POST' && $view === 'dossier') {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
