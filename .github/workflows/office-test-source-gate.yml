@@ -36,3 +36,15 @@ jobs:
           php -l office-independent/public/office-system-diagnostics.php
           php -l office-independent/tests/OfficeSystemDiagnosticsContractTest.php
           php office-independent/tests/OfficeSystemDiagnosticsContractTest.php
+
+      - name: Validate acceptance center source
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-test-module-acceptance.php
+          php -l office-independent/src/Approval/OfficeTestModuleAcceptanceRepository.php
+          php -l office-independent/src/Approval/office-test-module-acceptance-catalog.php
+          php -r '$c=require "office-independent/src/Approval/office-test-module-acceptance-catalog.php"; if(count($c)!==18) exit(1); foreach($c as $tests) if(!$tests) exit(1); echo "ACCEPTANCE_CATALOG=PASS\n";'
+          test -s office-independent/schema/office-test-module-acceptance.sql
+          grep -Fq "'/office-test/instellingen/acceptatie' => 'office-test-module-acceptance.php'" office-independent/public/index.php
+          python3 -m py_compile office-independent/deployment/hostinger/collect-mail-worker-diagnostics.py
