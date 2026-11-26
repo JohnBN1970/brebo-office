@@ -10,6 +10,17 @@ $deny=static function(int $status,string $reason='UNKNOWN'): never {
     header('X-Brebo-Calc-Diagnostic: '.$reason);
     http_response_code($status);
     exit('Calculatie niet beschikbaar (code '.$reason.').');
+    if ($group==='31' && $entry['housing_type_id']===null && $repo::recipeAvailable()) {
+        $sourceUnit=$h((string)$entry['unit']);
+        echo '<details class="calc-montage-recipe"><summary>Recept montage en afdichting</summary><form method="post" action="'.$workbenchUrl.'">';
+        echo '<p>'.$h((string)$entry['description']).' · '.$h((string)$entry['quantity']).' '.$sourceUnit.'</p>';
+        echo '<input type="hidden" name="action" value="apply_montage_recipe"><input type="hidden" name="draft_id" value="'.$draft.'"><input type="hidden" name="csrf" value="'.$h($csrf).'">';
+        echo '<input type="hidden" name="element_id" value="'.(int)$entry['id'].'"><input type="hidden" name="element_revision" value="'.(int)$entry['revision'].'"><input type="hidden" name="expected_revision" value="'.$h($expectedRevision).'">';
+        foreach (['hours_factor'=>'Montage-uren per '.$sourceUnit,'hourly_rate'=>'Uurtarief (€)','seal_factor'=>'Meters afdichting per '.$sourceUnit,'seal_price'=>'Afdichting (€ per meter)'] as $field=>$label) {
+            echo '<label>'.$label.' <input name="'.$field.'" inputmode="decimal" pattern="[0-9]+([,.][0-9]{1,4})?" maxlength="11" required></label>';
+        }
+        echo '<button type="submit">Beide regels toevoegen</button></form></details>';
+    }
 };
 $collaborationEnabled=getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'&&getenv('OFFICE_CALC_DRAFT_COLLABORATION_SCHEMA_VERIFIED')==='enabled';
 $workbenchUrl=$collaborationEnabled?'/office-test/calculatie/samenwerken':'/office-test/calculatie';
@@ -117,6 +128,18 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+        if ($action==='apply_montage_recipe') {
+            try {
+                $repo->applyMontageRecipe($draft,$actor,(int)($_POST['element_id']??0),(int)($_POST['element_revision']??0),$_POST,$rights,(string)($_POST['expected_revision']??''));
+            } catch (DomainException $error) {
+                http_response_code(409);
+                header('Content-Type: text/html; charset=utf-8');
+                echo '<p role="alert">'.htmlspecialchars($error->getMessage(),ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8').'</p><a href="'.$workbenchUrl.'?draft_id='.$draft.'">Terug naar calculatie</a>';
+                exit;
+            }
+            header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);
+            exit;
+        }
     if($method==='POST'&&$action==='save_labor_rate'){
         if($laborRateCatalog===null)$deny(503,'LABOR_RATE_CATALOG_DISABLED');
         if($collaboration===null||!$collaboration->owns($actor,$draft))$deny(403,'LABOR_RATE_ADMIN_REQUIRED');
@@ -400,7 +423,7 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
-.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden],.element-tree .calc-building-element[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden],.element-tree .calc-building-element[hidden],.calc-building-element[hidden]+.calc-montage-recipe{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
 if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     echo '<section class="panel" aria-label="Gebouwen bij deal"><h2>Gebouwen bij deal</h2>';
     if($calcDealBuildings===[]){echo '<p>'.$h($calcDealBuildingNotice).'</p>';}
