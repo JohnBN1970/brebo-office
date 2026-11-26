@@ -49,6 +49,28 @@ document.querySelectorAll('[data-restpoint-photo]').forEach(root => {
         y.value = String(Math.round(Math.max(0,Math.min(1,(event.clientY-rect.top)/rect.height))*1000000));
         update();
     });
+    const selection=form.elements.namedItem('marker_selection');
+    const operation=form.elements.namedItem('marker_operation');
+    if (selection && operation) {
+        selection.addEventListener('change',()=>{
+            const option=selection.selectedOptions[0];
+            form.elements.namedItem('marker_id').value=option.value;
+            form.elements.namedItem('marker_revision').value=option.dataset.revision||'';
+            operation.value=option.value?'move':'create';
+            x.value=option.dataset.x||'';
+            y.value=option.dataset.y||'';
+            preview.style.display='none';
+            update();
+        });
+        form.addEventListener('submit',event=>{
+            if (operation.value!=='create' && !selection.value) {
+                event.preventDefault();
+                selection.focus();
+            } else if (operation.value==='remove' && !window.confirm('Deze markering verwijderen?')) {
+                event.preventDefault();
+            }
+        });
+    }
     x.addEventListener('input',update);
     y.addEventListener('input',update);
 });
