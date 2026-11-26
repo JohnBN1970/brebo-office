@@ -54,7 +54,7 @@ try {
  $technical[$name]=[$blocked?'Blokkade':($attention?'Aandacht':($ok?'Deelcontroles akkoord':'Niet gecontroleerd')),$ok,$blocked,$attention];
  }
  $totals=['pending'=>0,'passed'=>0,'failed'=>0,'retest'=>0];
- $html='<table><thead><tr><th>Module</th><th>Actuele technische status</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Hertest</th><th>Nog te testen</th></tr></thead><tbody>';
+ $html='<table><thead><tr><th>Module</th><th>Actuele technische status</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Hertest</th><th>Nog te testen</th><th>Acties</th></tr></thead><tbody>';
  foreach ($catalog as $name=>$tests) {
  $counts=array_fill_keys(array_keys($totals),0);
  foreach ($tests as $key=>$label) {
@@ -62,11 +62,16 @@ try {
  $state=$result['status']??'pending';
  $counts[$state]++;$totals[$state]++;
  }
- $html.='<tr><td><a href="?module='.rawurlencode($name).'">'.$e($name).'</a></td><td>'.$e($technical[$name][0]??'Niet gecontroleerd').' ('.$technical[$name][1].' OK / '.$technical[$name][2].' blokkades / '.$technical[$name][3].' aandacht)</td><td>'.$counts['passed'].' / '.count($tests).'</td><td>'.$counts['failed'].'</td><td>'.$counts['retest'].'</td><td>'.$counts['pending'].'</td></tr>';
+ $tone=$technical[$name][2]?'blocked':($technical[$name][3]?'attention':($technical[$name][1]?'ok':'unknown'));
+ $display=$name==='Oplevering en snagging'?'Oplevering en restpunten':$name;
+ $html.='<tr><td><a href="?module='.rawurlencode($name).'">'.$e($display).'</a></td><td><strong class="'.$tone.'">'.$e($technical[$name][0]).'</strong><small>'.$technical[$name][1].' OK / '.$technical[$name][2].' blokkades / '.$technical[$name][3].' aandacht</small></td><td>'.$counts['passed'].' / '.count($tests).'<progress max="'.count($tests).'" value="'.$counts['passed'].'"></progress></td><td>'.$counts['failed'].'</td><td>'.$counts['retest'].'</td><td>'.$counts['pending'].'</td><td><a href="/office-test/instellingen/systeemdiagnostiek?module='.rawurlencode($name).'">Diagnose en herstelprompt</a></td></tr>';
  }
- $html.='</tbody></table><h2>'.$e($module).'</h2>';
+ $html.='</tbody></table><h2>'.$e($module==='Oplevering en snagging'?'Oplevering en restpunten':$module).'</h2>';
  $total=array_sum($totals);
  $summary='<h2>Totale voortgang</h2><p>'.$totals['passed'].' / '.$total.' goedgekeurd — '.$totals['failed'].' afgekeurd — '.$totals['retest'].' hertest — '.$totals['pending'].' nog te testen</p><progress max="'.$total.'" value="'.$totals['passed'].'"></progress>';
+ $summary.='<div class="kpis">';
+ foreach (['passed'=>'Goedgekeurd','failed'=>'Afgekeurd','retest'=>'Hertest','pending'=>'Nog te testen'] as $state=>$label) {$summary.='<div><small>'.$label.'</small><strong>'.$totals[$state].'</strong></div>';}
+ $summary.='</div>';
  $passed=0;
  foreach ($catalog[$module] as $key=>$label) {
  $row=$repo->latest($module,$key,$release);
@@ -76,5 +81,5 @@ try {
  foreach (['pending'=>'Nog te testen','passed'=>'Goedgekeurd','failed'=>'Afgekeurd','retest'=>'Hertest vereist'] as $value=>$title) {$html.='<option value="'.$value.'"'.($status===$value?' selected':'').'>'.$title.'</option>';}
  $html.='</select><textarea name="notes" maxlength="8000" placeholder="Toelichting">'.$e($row['notes']??'').'</textarea><button type="submit" name="quick_status" value="passed">✓ Goedkeuren</button> <button type="submit" name="quick_status" value="pending">Vinkje verwijderen</button> <button type="submit">Status en toelichting opslaan</button></form>';
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).' — controle UTC '.$e(gmdate('c')).'</p><p>Technische deelcontroles: flags, tabellen, kolommen en statische routes; geen bewijs van functionele werking.</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'</html>';
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px;color:#24364a;background:#f6f8fb}table,form{background:white}small{display:block;color:#526477}.ok{color:#18733b}.blocked{color:#b42318}.attention{color:#946200}.unknown{color:#526477}.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}.kpis div{background:white;border:1px solid #ccd5df;border-radius:8px;padding:16px}.kpis strong{display:block;font-size:28px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).' — controle UTC '.$e(gmdate('c')).'</p><p>Technische deelcontroles: flags, tabellen, kolommen en statische routes; geen bewijs van functionele werking.</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'</html>';
 } catch (Throwable $ex) {http_response_code(503);exit('Acceptatiecentrum tijdelijk niet beschikbaar.');}
