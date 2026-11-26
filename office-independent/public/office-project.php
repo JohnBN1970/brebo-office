@@ -1201,6 +1201,7 @@ $metric = static function (string $label, string $value, string $description = '
   return '<article class="project-metric"><span>' . $escape($label) . '</span><strong>' . $escape($value) . '</strong>'
     . ($description !== '' ? '<small>' . $escape($description) . '</small>' : '') . '</article>';
 };
+$totalContractCents = null;
 $financeMetric = $metric('Actuele opdrachtsom', '—', 'Financiële toegang of contractgegevens ontbreken');
 if (is_array($financeContracts) && $financeContracts !== []) {
   $totalContractCents = 0;
@@ -1311,6 +1312,18 @@ if (isset($workBudgetView) && is_array($workBudgetView) && is_array($financeCont
     . $metric('Totale werkelijke kosten', $budgetMoney($workBudgetView['kpis']['actual_cents']), 'FinanceCenter nog niet gereconcilieerd')
     . '</div><a href="'.$escape($projectUrl.'&tab=werkbegroting').'">Werkbegroting en broncontrole openen</a></section>';
 }
+$overviewFinanceHtml = '<p class="project-muted">Financiële gegevens niet beschikbaar.</p>';
+if (is_array($financeContracts)) {
+  $formatOverviewMoney = static fn(?int $cents): string => $cents === null ? 'Niet beschikbaar' : '€ '.number_format($cents/100,2,',','.');
+  $salesCents = is_int($totalContractCents) && $totalContractCents >= 0 ? $totalContractCents : null;
+  $baselineCents = $workBudgetView['kpis']['baseline_cents'] ?? null;
+  $baselineCents = is_int($baselineCents) && $baselineCents >= 0 ? $baselineCents : null;
+  $budgetResult = $salesCents !== null && $baselineCents !== null ? $salesCents - $baselineCents : null;
+  $overviewFinanceHtml = '<dl><dt>Actuele opdrachtsom</dt><dd>'.$escape($formatOverviewMoney($salesCents)).'</dd>'
+    .'<dt>Vastgestelde kostprijs</dt><dd>'.$escape($formatOverviewMoney($baselineCents)).'</dd>'
+    .'<dt>Begroot resultaat</dt><dd>'.$escape($formatOverviewMoney($budgetResult)).'</dd></dl>'
+    .'<p class="project-muted">Begroot resultaat op oorspronkelijke kostprijsbasis; geen actuele eindprognose. Scopewijzigingen kunnen aanvullende kosten vereisen.</p>';
+}
 $progressGraph = '';
 if ($dwellingTarget !== null && $dwellingTarget > 0 && $allocatedDwellings !== null) {
   $pct = min(100, max(0, 100 * $allocatedDwellings / $dwellingTarget));
@@ -1395,7 +1408,7 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
   . '<p class="project-muted">Bron: gekoppelde gebouwen en woningtypen.</p></article>'
   . '<article class="project-panel"><h3>Aandachtspunten</h3>' . $attentionHtml . '</article>'
   . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3>' . $overviewCrmHtml . '</article>'
-  . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Werkbegroting.</p></article>'
+  . '<article class="project-panel"><h3>Contract & resultaat</h3>' . $overviewFinanceHtml . '<p><a href="' . $escape($projectUrl.'&tab=werkbegroting') . '">Werkbegroting openen</a></p></article>'
   . '<article class="project-panel"><h3>Planning & uitvoering</h3>' . $overviewPlanHtml . '<p><a href="' . $escape($projectUrl.'&tab=uitvoering') . '">Uitvoering openen</a></p></article>'
   . '<article class="project-panel"><h3>Projectteam</h3>' . $overviewTeamHtml . '<p><a href="' . $escape($projectUrl.'&tab=arbeid-inzet') . '">Arbeid &amp; Inzet openen</a></p></article>'
   . '<article class="project-panel"><h3>Werkvoorbereiding &amp; vrijgave</h3>' . $overviewStartHtml . '<p><a href="' . $escape($projectUrl.'&tab=werkvoorbereiding') . '">Startdossier openen</a></p></article>'
