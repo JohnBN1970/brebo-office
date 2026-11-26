@@ -50,6 +50,26 @@ try {
  'FinanceCenter'=>['/office-test/finance/administratie','office-finance-center.php'],
  'E-mail'=>['/office-test/email','office-email.php'],
  'Kennis en kwaliteit'=>['/office-test/kwaliteit','office-governance.php']];
+ $schemas=[
+ 'Projecten'=>['office_projects'=>['id'],'office_project_buildings'=>['project_id','building_id'],'office_project_memberships'=>['project_id','operator_id','permission']],
+ 'Gebouwen en woningtypen'=>['office_buildings'=>['id','building_name'],'office_housing_types'=>['id','building_id','code','name'],'office_project_housing_types'=>['project_id','building_id','housing_type_id','dwelling_count']],
+ 'CRM en relaties'=>['office_crm_relations'=>['id','display_name','status'],'office_crm_relation_roles'=>['relation_id','role_code']],
+ 'Intake en leads'=>['office_crm_leads'=>[]],
+ 'Deals'=>['office_crm_opportunities'=>['id','relation_id','title','revision','stage','status'],'office_crm_deal_buildings'=>[]],
+ 'Calculatie'=>['office_calc_crm_drafts'=>['id','created_by','opportunity_id','calculation_id','crm_revision','project_id'],'calculations'=>['id','office_calculation_id'],'calculation_versions'=>['id','calculation_id','version_no'],'calculation_lines'=>['version_id','quantity','calc_net_quantity','calc_material_loss_percent','calc_extra_labor_hours','calc_quantity_source','calc_quantity_source_ref']],
+ 'Werkbegroting en overdracht'=>['office_calc_crm_acceptance_transfers'=>['crm_opportunity_id','calculation_id','accepted_revision','office_project_id'],'office_calc_work_budget_lines'=>[]],
+ 'Inkoop'=>['office_procurement_orders'=>['project_id','building_id']],
+ 'Kennis en kwaliteit'=>['office_quality_checks'=>['project_id','building_id'],'office_risks'=>['project_id','building_id']]];
+ $dependencies=[
+ 'Deals'=>['CRM en relaties','Gebouwen en woningtypen'],
+ 'Calculatie'=>['Deals','Gebouwen en woningtypen'],
+ 'Werkbegroting en overdracht'=>['Calculatie','Projecten'],
+ 'Planning en inzet'=>['Projecten'],
+ 'OnSite'=>['Planning en inzet','Gebouwen en woningtypen'],
+ 'Urencontrole'=>['OnSite'],
+ 'Inkoop'=>['Projecten','Werkbegroting en overdracht'],
+ 'Kennis en kwaliteit'=>['Projecten','Gebouwen en woningtypen'],
+ 'FinanceCenter'=>['Projecten','Werkbegroting en overdracht']];
  $selected=$_GET['module']??null;
  if ($selected!==null && (!is_string($selected)||!array_key_exists($selected,$groups))) {http_response_code(400);exit('Onbekende module.');}
  $q=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
@@ -65,7 +85,26 @@ try {
  $html.='<section><h2>'.$e($selected).'</h2><table>';
  foreach ($flags as $flag) {$v=getenv($flag);$status=$v===false?'ONTBREEKT':($v==='enabled'?'ACTIEF':'NIET ACTIEF');$lines[]=$flag.': '.$status;$html.='<tr><td>'.$e($flag).'</td><td>'.$status.'</td></tr>';}
  foreach ($tables as $table) {$q->execute([$table]);$status=(int)$q->fetchColumn()===1?'AANWEZIG':'ONTBREEKT';$lines[]=$table.': '.$status;$html.='<tr><td>'.$e($table).'</td><td>'.$status.'</td></tr>';}
- if (!$flags && !$tables) {$lines[]='Geen specifieke technische controles geregistreerd.';}
+ $columnQuery=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+ foreach ($schemas[$selected]??[] as $table=>$columns) {
+ $columnQuery->execute([$table]);
+ $available=$columnQuery->fetchAll(PDO::FETCH_COLUMN);
+ $missing=array_diff($columns,$available);
+ $status=!$available?'TABEL NIET ZICHTBAAR':(!$columns?'TABEL AANWEZIG; KOLOMMEN NIET GECONTROLEERD':($missing?'ONTBREKENDE KOLOMMEN: '.implode(', ',$missing):'VEREISTE KOLOMMEN AANWEZIG'));
+ $lines[]='Schema '.$table.': '.$status;
+ $html.='<tr><td>'.$e('Schema '.$table).'</td><td>'.$e($status).'</td></tr>';
+ }
+ foreach ($dependencies[$selected]??[] as $dependency) {
+ [$depFlags,$depTables]=$groups[$dependency];
+ $depTables=array_unique(array_merge($depTables,array_keys($schemas[$dependency]??[])));
+ $issues=[];
+ foreach ($depTables as $table) {$q->execute([$table]);if ((int)$q->fetchColumn()!==1) {$issues[]=$table.' ontbreekt';}}
+ foreach ($depFlags as $flag) {if (getenv($flag)!=='enabled') {$issues[]=$flag.' niet actief';}}
+ $status=$issues?implode('; ',$issues):(($depTables||$depFlags)?'Geregistreerde tabel- en flagcontroles akkoord':'Geen controles geregistreerd');
+ $lines[]='Afhankelijkheid '.$dependency.': '.$status.' (geen functionele ketentest)';
+ $html.='<tr><td>'.$e('Afhankelijkheid '.$dependency).'</td><td>'.$e($status).'</td></tr>';
+ }
+ if (!$flags && !$tables && empty($schemas[$selected])) {$lines[]='Geen specifieke technische controles geregistreerd.';}
  $lines[]='Functionele ketentest: niet uitgevoerd. Schema-aanwezigheid is geen volledige schemavalidatie.';
  $release='Niet vastgesteld';
  foreach (explode(DIRECTORY_SEPARATOR,__DIR__) as $part) {
