@@ -297,8 +297,14 @@ try {
     exit;
   }
   if ($method === 'POST') {
-    // Verify finance access; for existing invoices also authorize the exact invoice.
-    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
+    // New native drafts require explicit finance edit permission and project scope.
+    if ($view === 'new' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+      $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+      if (!$access->allows() || !$access->allows('draft_edit')) throw new \DomainException('Finance draft access required');
+      if ($projectId !== null && !in_array($projectId, array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects()), true)) throw new \OutOfBoundsException('Project unavailable');
+    } else {
+      (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
+    }
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
       || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))
       || !isset($_FILES['invoice_file']) || !is_array($_FILES['invoice_file'])) {
