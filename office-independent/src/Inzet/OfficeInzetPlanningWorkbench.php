@@ -86,7 +86,7 @@ final class OfficeInzetPlanningWorkbench {
             $localTz = new \DateTimeZone('Europe/Brussels');
             $startLocal = (new \DateTimeImmutable($shift['starts_at'],new \DateTimeZone('UTC')))->setTimezone($localTz)->format('Y-m-d\\TH:i');
             $endLocal = (new \DateTimeImmutable($shift['ends_at'],new \DateTimeZone('UTC')))->setTimezone($localTz)->format('Y-m-d\\TH:i');
-            $html .= '<details><summary>Tijden wijzigen</summary><form method="post" action="/office-test/inzet/dienst/wijzigen">'
+            $html .= '<details><summary>Tijden wijzigen</summary><form method="post" action="/office-test/inzet/dienst/verplaatsen">'
               . '<input type="hidden" name="csrf_token" value="' . $escape($cancelCsrfToken) . '">'
               . '<input type="hidden" name="shift_id" value="' . (int)$shift['id'] . '">'
               . '<input type="hidden" name="expected_starts_at" value="' . $escape($shift['starts_at']) . '">'
