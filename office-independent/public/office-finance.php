@@ -61,8 +61,10 @@ try {
     if ($projectId === false) throw new \OutOfBoundsException();
   }
   if ($view === 'draft') {
-    // Enforce Finance read authorization before accessing private draft metadata.
-    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, null, $projectId);
+    // Native private drafts require Office ACL, not a legacy invoice source.
+    $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    if (!$access->allows()) throw new \DomainException('Finance access required');
+    if ($projectId !== null && !in_array($projectId, array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects()), true)) throw new \OutOfBoundsException('Project unavailable');
   }
   if ($method === 'POST' && $view === 'dossier') {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
@@ -295,8 +297,14 @@ try {
     exit;
   }
   if ($method === 'POST') {
-    // Verify finance access; for existing invoices also authorize the exact invoice.
-    (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
+    // New native drafts require explicit finance edit permission and project scope.
+    if ($view === 'new' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+      $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+      if (!$access->allows() || !$access->allows('draft_edit')) throw new \DomainException('Finance draft access required');
+      if ($projectId !== null && !in_array($projectId, array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects()), true)) throw new \OutOfBoundsException('Project unavailable');
+    } else {
+      (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
+    }
     if (!\Brebo\Office\Intake\OfficeMount::isTest()
       || !hash_equals((string)$_SESSION['finance_upload_csrf'], (string)($_POST['csrf'] ?? ''))
       || !isset($_FILES['invoice_file']) || !is_array($_FILES['invoice_file'])) {
@@ -389,7 +397,24 @@ try {
     header('Location: ' . \Brebo\Office\Intake\OfficeMount::route($view === 'new' ? 'finance/nieuw' : 'finance/factuur', $view === 'new' ? ['uploaded'=>'1'] : ['id'=>$invoiceId,'uploaded'=>'1']), true, 303);
     exit;
   }
+  if (in_array($view, ['dashboard','dossier','draft','new','payments'], true) && \Brebo\Office\Intake\OfficeMount::isTest()) {
+    $access = new \Brebo\Office\Finance\OfficeFinanceAccess($db, $operator->operatorId);
+    if (!$access->allows()) throw new \DomainException('Finance access required');
+    $scope = null;
+    if ($projectId !== null) {
+      foreach ($access->draftProjects() as $project) {
+        if ((int)$project['office_project_id'] === $projectId) { $scope = $project; break; }
+      }
+      if ($scope === null) throw new \OutOfBoundsException('Project unavailable');
+    }
+    $data = ['project' => $scope, 'finance_unlinked_project' => true];
+    if ($view === 'payments' && $method === 'GET' && $projectId === null && getenv('OFFICE_FINANCE_CENTER_ENABLED') === 'enabled' && isset($_GET['queue'])) {
+      header('Location: ' . \Brebo\Office\Intake\OfficeMount::route('finance/administratie', ['tab'=>'purchases']), true, 302);
+      exit;
+    }
+  } else {
   $data = (new \Brebo\Office\Finance\OfficeFinanceApplication($db, \Brebo\Office\Finance\OfficeFinanceReadConnection::fromEnvironment(), getenv('OFFICE_FINANCE_TABLE_PREFIX') ?: ''))->read($operator->operatorId, $invoiceId, $projectId);
+  }
   if ($view === 'dossier') {
     if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
       throw new \OutOfBoundsException();

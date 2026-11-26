@@ -16,8 +16,25 @@ final class OfficeFinanceApplication {
   public function duplicateInvoiceCandidates(string $operatorId, string $invoiceNumber, string $supplierName = ''): array {
     $access = new OfficeFinanceAccess($this->db, $operatorId);
     if (!$access->allows()) throw new \DomainException('Finance access required');
-    $repository = new OfficeFinanceReadRepository($this->source ?? $this->db, $access, null, $this->tablePrefix);
-    return $repository->duplicateInvoiceCandidates($invoiceNumber, $supplierName);
+    $invoiceNumber = trim($invoiceNumber);
+    if ($invoiceNumber === '') return [];
+    $allowed = array_map(static fn(array $p): int => (int)$p['office_project_id'], $access->draftProjects());
+    if ($allowed === []) return [];
+    $marks = implode(',', array_fill(0, count($allowed), '?'));
+    $sql = "SELECT i.id,i.invoice_number,i.supplier_name,i.status,i.total AS amount_inc_vat
+      FROM office_finance_invoices i
+      WHERE i.invoice_number=?
+      AND EXISTS (SELECT 1 FROM office_finance_invoice_lines l WHERE l.invoice_id=i.id)
+      AND NOT EXISTS (SELECT 1 FROM office_finance_invoice_lines l WHERE l.invoice_id=i.id
+        AND (l.office_project_id IS NULL OR l.office_project_id NOT IN ($marks)))";
+    $args = array_merge([$invoiceNumber], $allowed);
+    if (trim($supplierName) !== '') {
+      $sql .= ' AND LOWER(TRIM(i.supplier_name))=LOWER(?)';
+      $args[] = trim($supplierName);
+    }
+    $q = $this->db->prepare($sql . ' ORDER BY i.id DESC LIMIT 20');
+    $q->execute($args);
+    return $q->fetchAll(PDO::FETCH_ASSOC);
   }
 
   public function read(string $operatorId, ?int $invoiceId = null, ?int $officeProjectId = null): array {
