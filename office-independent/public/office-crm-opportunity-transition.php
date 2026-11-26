@@ -56,6 +56,20 @@ if ($method==='POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='create_building' && ($_POST['building_action']??null)==='search_pdok') {
+        if (!$buildingReady || $missing!==[] || getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled' || getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
+        $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
+        if ($revision===false || $revision!==(int)$item['revision']) {http_response_code(409);exit('Ververs de deal.');}
+        $pdokForm=is_array($_POST['new_building']??null)?$_POST['new_building']:[];
+        unset($pdokForm['pdok_results']);
+        try {
+            require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
+            $query=$pdokForm['pdok_query']??null;
+            if (!is_string($query)) throw new DomainException('Invalid query');
+            $pdokForm['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
+            if ($pdokForm['pdok_results']===[]) $error='Geen BAG-adressen gevonden.';
+        } catch (Throwable $e) {$error='PDOK zoeken mislukt.';}
+    } else {
     if ($action==='create_building') {
         if (!$buildingReady || $missing!==[] || getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled') {http_response_code(403);exit;}
         $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
@@ -130,6 +144,7 @@ if ($method==='POST') {
         header('Location: /office-test/crm/verkoopkansen?updated='.$id,true,303); exit;
     } catch (Throwable $e) { $error='Fasewijziging mislukt.'; }
 }
+}
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deal wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select{padding:10px;width:100%}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
@@ -142,7 +157,7 @@ if ($buildingReady) {
         echo '</select></label><button name="action" value="replace_buildings">Gebouwkoppelingen opslaan</button></form>';
         if (getenv('OFFICE_BUILDING_CREATE_ENABLED')==='enabled') {
             require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingCreateForm.php';
-            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><input type="hidden" name="action" value="create_building">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render().'</form>';
+            echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><input type="hidden" name="action" value="create_building">'.\Brebo\Office\Buildings\OfficeBuildingCreateForm::render($pdokForm??[]).'</form>';
         }
     }
 }
