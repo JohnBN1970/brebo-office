@@ -20,8 +20,10 @@ if (!in_array($method,['GET','POST'],true)) {header('Allow: GET, POST');http_res
 $host=getenv('OFFICE_PUBLIC_HOST');
 if (!is_string($host)||$host===''||!hash_equals($host,(string)($_SERVER['HTTP_HOST']??''))
     ||empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off') {http_response_code(403);exit;}
+$photosEnabled=$module==='quality' && getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled';
+$photoUpload=$photosEnabled && $method==='POST' && ($_GET['action']??null)==='upload_restpoint_photo';
 if ($method==='POST' && (!hash_equals('https://'.$host,(string)($_SERVER['HTTP_ORIGIN']??''))
-    || (int)($_SERVER['CONTENT_LENGTH']??0)>65536)) {http_response_code(403);exit;}
+    || (int)($_SERVER['CONTENT_LENGTH']??0)>($photoUpload?26*1024*1024:65536))) {http_response_code(403);exit;}
 try {
     foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $f) require_once dirname(__DIR__).'/src/Intake/'.$f;
     require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
@@ -65,6 +67,14 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         if ($contexts===[]) throw new OutOfBoundsException('Project niet gevonden.');
     }
     if (is_int($building)&&!is_int($project)) throw new InvalidArgumentException('Project ontbreekt.');
+    $photoService=null;
+    if ($photosEnabled) {
+        foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+        require_once dirname(__DIR__).'/src/Project/OfficeNativeProjectAccess.php';
+        require_once dirname(__DIR__).'/src/Governance/Infrastructure/OfficeRestpointPhotoService.php';
+        $documents=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+        $photoService=new \Brebo\Office\Governance\Infrastructure\OfficeRestpointPhotoService($db,$store,$documents);
+    }
     $records=[];$record=null;$csrf='';$canWrite=false;$choices=[];
     if (is_int($project)&&is_int($building)) {
         $records=$service->read($operator->operatorId,$module,$project,$building);
@@ -89,6 +99,13 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
         }
         if ($method==='POST') {
             if (!$canWrite || !\Brebo\Office\Governance\OfficeGovernanceCsrf::verify($_POST['csrf']??null,$operator->sessionId,$module,$project,$building,$secret,time())) {http_response_code(403);exit('Ongeldige formulierbeveiliging.');}
+            if ($photoUpload) {
+                $rid=filter_var($_POST['restpoint_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                $files=array_values(array_filter([$_FILES['camera_photo']??[],$_FILES['existing_photo']??[]],static fn(array $f):bool=>($f['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE));
+                if (!is_int($rid)||count($files)!==1||!is_string($_POST['photo_role']??null)) throw new InvalidArgumentException('Selecteer één foto.');
+                $photoService->upload($operator->operatorId,$project,$building,$rid,$_POST['photo_role'],$files[0]);
+                header('Location: '.$path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$rid]),true,303);exit;
+            }
             if ($module==='procurement') {
                 $price=$_POST['unit_price_euros']??null;
                 if (!is_string($price)||!preg_match('/^([0-9]{1,8})(?:[.,]([0-9]{1,2}))?$/D',trim($price),$money)) throw new InvalidArgumentException('Ongeldige prijs.');
@@ -216,6 +233,7 @@ header('Content-Type: text/html; charset=utf-8');
 <?php foreach(array_slice($visibleRecords,0,200) as $r): ?><tr><td><a href="<?= $e($path.'?'.http_build_query(['project_id'=>$project,'building_id'=>$building,'id'=>$r['id']])) ?>"><?= $e($r['title']) ?></a><?php if($module==='quality' && ($r['payload']['record_kind']??'quality')==='restpunt'): ?> · Restpunt<?php endif; ?></td><td><?= $e($statusLabels[$r['status']]??$r['status']) ?></td><td><?= $e($display('owner',$r['payload']['owner'])) ?></td><td><?= $e($r['payload']['due_date']) ?></td></tr><?php endforeach; ?>
 </tbody></table><?php if($visibleRecords===[]): ?><p>Geen registraties voor dit filter.</p><?php endif; ?><p>Gesorteerd op termijn (eerstvolgende bovenaan). Maximaal 200 resultaten per filter.</p></section>
 <?php if($record!==null): ?><section><h2><?= $e($record['title']) ?></h2><?php foreach($fields as $key=>$label): ?><p><strong><?= $e($label) ?>:</strong> <?= nl2br($e($display($key,$values[$key]??''))) ?></p><?php endforeach; ?></section><?php endif; ?>
+<?php if($photosEnabled && $canWrite && ($record['payload']['record_kind']??'')==='restpunt'): ?><section><h2>Foto toevoegen</h2><form method="post" enctype="multipart/form-data" action="<?= $e($path.'?action=upload_restpoint_photo') ?>"><?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'restpoint_id'=>$record['id']] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?><label>Fototype<select name="photo_role"><option value="before">Voor herstel</option><option value="after">Na herstel</option><option value="review">Hercontrole</option></select></label><label>Foto maken<input type="file" name="camera_photo" accept="image/jpeg,image/png" capture="environment"></label><label>Bestaande foto toevoegen<input type="file" name="existing_photo" accept="image/jpeg,image/png"></label><button>Foto opslaan</button></form></section><?php endif; ?>
 <?php if($canWrite): ?><section><h2><?= $record===null?'Nieuwe registratie':'Registratie bewerken' ?></h2><form method="post" action="<?= $e($path) ?>">
 <?php foreach(['csrf'=>$csrf,'project_id'=>$project,'building_id'=>$building,'id'=>$record['id']??0,'revision'=>$record['revision']??0,'command'=>bin2hex(random_bytes(16))] as $k=>$v): ?><input type="hidden" name="<?= $e($k) ?>" value="<?= $e($v) ?>"><?php endforeach; ?>
 <div class="fields"><div><label for="title">Onderwerp</label><input id="title" name="title" required maxlength="255" value="<?= $e($record['title']??'') ?>"></div>
