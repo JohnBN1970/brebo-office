@@ -525,9 +525,10 @@ if ($detail) {
   if ($pdokResults !== [] || ($bagRow!==null && !empty($bagRow['bag_id']) && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude']))) {
     $location = $pdokResults!==[]?$pdokResults[$selectedIndex]:['lat'=>$bagRow['latitude'],'lon'=>$bagRow['longitude']];
     if ($bagToken!=='' && preg_match('/^[0-9]{16}$/D',$location['bag_id']??'')) echo '<form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="link_bag"><input type="hidden" name="csrf_token" value="'.$h($bagToken).'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository::revision($bagRow)).'"><input type="hidden" name="bag_id" value="'.$h($location['bag_id']).'"><button>BAG-adres koppelen</button></form>';
-    $lat = $location['lat']; $lon = $location['lon'];
+    $lat = (float)$location['lat']; $lon = (float)$location['lon'];
+    echo '<p>Coördinaten: '.$h($lat).', '.$h($lon).'</p>';
     $r = 6378137.0; $x = $r * deg2rad($lon); $y = $r * log(tan(M_PI / 4 + deg2rad($lat) / 2));
-    $bbox = implode(',', [$x - 90, $y - 52, $x + 90, $y + 52]);
+    $bbox = implode(',', [$x - 300, $y - 173.333333, $x + 300, $y + 173.333333]);
     $mapUrl = 'https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?' . http_build_query([
       'service' => 'WMS', 'version' => '1.3.0', 'request' => 'GetMap',
       'layers' => 'Actueel_orthoHR', 'styles' => '', 'crs' => 'EPSG:3857',
