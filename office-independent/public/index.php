@@ -41,6 +41,7 @@ $routes = [
   '/office-test/procesformulieren' => 'office-process-forms.php',
   '/office-test/instellingen/organisatie/projectrechten' => 'office-project-permission-settings.php',
   '/office-test/instellingen/blauwdrukken' => 'office-blueprint-approval-settings.php',
+  '/office-test/instellingen/systeemdiagnostiek' => 'office-system-diagnostics.php',
   '/office-test/instellingen' => 'office-settings.php',
   '/office-test/instellingen/email' => 'office-settings.php',
   '/office-test/instellingen/organisatie/financieel' => 'office-financial-settings.php',
