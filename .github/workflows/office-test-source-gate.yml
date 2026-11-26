@@ -28,3 +28,11 @@ jobs:
           test -s office-independent/schema/office-test-site-administrators.sql
           test -s office-independent/schema/office-test-blueprint-approval-modes.sql
           echo "Source checks passed; no deployment or activation performed."
+
+      - name: Validate module diagnostics contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l office-independent/public/office-system-diagnostics.php
+          php -l office-independent/tests/OfficeSystemDiagnosticsContractTest.php
+          php office-independent/tests/OfficeSystemDiagnosticsContractTest.php
