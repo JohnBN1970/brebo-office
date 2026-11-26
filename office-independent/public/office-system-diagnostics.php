@@ -3,7 +3,8 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+$nonce=base64_encode(random_bytes(18));
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-{$nonce}'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD']??'')!=='GET') {header('Allow: GET');http_response_code(405);exit;}
 require_once dirname(__DIR__).'/src/Intake/OfficeMount.php';
 if (!\Brebo\Office\Intake\OfficeMount::isTest() || ($_SERVER['HTTP_HOST']??'')!=='office-test.brebobv.nl' || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS']==='off') {http_response_code(404);exit;}
@@ -35,6 +36,20 @@ try {
  'E-mail'=>[[],[]],
  'Kennis en kwaliteit'=>[[],[]],
  'Oplevering en snagging'=>[[],[]]];
+ $routes=[
+ 'Projecten'=>['/office-test/projecten','office-projects.php'],
+ 'Gebouwen en woningtypen'=>['/office-test/gebouwen','office-buildings.php'],
+ 'Planning en inzet'=>['/office-test/inzet/dienst/nieuw','office-inzet-shift-create.php'],
+ 'OnSite'=>['/office-test/inzet/onsite/aanwezigheid','office-onsite-presence-review.php'],
+ 'Urencontrole'=>['/office-test/inzet/onsite/uren-beoordelen','office-onsite-presence-review.php'],
+ 'CRM en relaties'=>['/office-test/crm/relaties','office-crm-relations.php'],
+ 'Intake en leads'=>['/office-test/crm/aanvragen','crm-new-requests.php'],
+ 'Deals'=>['/office-test/crm/verkoopkansen','office-crm-opportunities.php'],
+ 'Calculatie'=>['/office-test/calculatie','office-calc-crm-workbench.php'],
+ 'Inkoop'=>['/office-test/inkoop','office-governance.php'],
+ 'FinanceCenter'=>['/office-test/finance/administratie','office-finance-center.php'],
+ 'E-mail'=>['/office-test/email','office-email.php'],
+ 'Kennis en kwaliteit'=>['/office-test/kwaliteit','office-governance.php']];
  $selected=$_GET['module']??null;
  if ($selected!==null && (!is_string($selected)||!array_key_exists($selected,$groups))) {http_response_code(400);exit('Onbekende module.');}
  $q=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
@@ -52,9 +67,22 @@ try {
  foreach ($tables as $table) {$q->execute([$table]);$status=(int)$q->fetchColumn()===1?'AANWEZIG':'ONTBREEKT';$lines[]=$table.': '.$status;$html.='<tr><td>'.$e($table).'</td><td>'.$status.'</td></tr>';}
  if (!$flags && !$tables) {$lines[]='Geen specifieke technische controles geregistreerd.';}
  $lines[]='Functionele ketentest: niet uitgevoerd. Schema-aanwezigheid is geen volledige schemavalidatie.';
- $lines[]='Actieve release, routes, modulerechten, koppelingen en achtergrondprocessen: niet gecontroleerd.';
- $prompt="Analyseer uitsluitend deze module. Controleer eerst de actuele repository en actieve testrelease. Verifieer afwijkingen en ontbrekende controles; een uitgeschakelde optionele flag is niet automatisch een fout. Hergebruik bestaande functionaliteit. Herstel uitsluitend bewezen problemen via een afzonderlijke Git-branch, voeg regressietesten toe en rapporteer blokkades. Wijzig productie niet. Vraag geen geheimen op.\n\n".implode("\n",$lines);
- $html.='</table><p>'.$e(implode(' ',array_slice($lines,-2))).'</p><h3>AI-herstelprompt</h3><p>Selecteer de volledige tekst en kopieer deze naar ChatGPT of Codex.</p><textarea readonly rows="18" aria-label="AI-herstelprompt">'.$e($prompt).'</textarea><p><a href="?module='.rawurlencode($selected).'">Diagnose opnieuw uitvoeren</a></p></section>';
+ $release='Niet vastgesteld';
+ foreach (explode(DIRECTORY_SEPARATOR,__DIR__) as $part) {
+ if (preg_match('/\A[0-9a-f]{40}\z/D',$part)) {$release=$part.' (releasepad, niet onafhankelijk geverifieerd)';}
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Systeemdiagnostiek</title><style>body{font:15px system-ui;margin:24px;color:#24364a}section{border:1px solid #ccd5df;padding:16px;margin:12px 0}td{padding:6px;overflow-wrap:anywhere}table{width:100%;table-layout:fixed}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}.module{padding:12px;border:1px solid #ccd5df;border-radius:6px}textarea{box-sizing:border-box;width:100%;font:14px monospace;padding:12px}</style><a href="/office-test/instellingen">Instellingen</a><h1>Systeemdiagnostiek — Office</h1><p>Alleen lezen. Selecteer een module voor actuele technische controles en een AI-herstelprompt.</p>'.$html.'</html>';
+ $lines[]='Release: '.$release;
+ if (isset($routes[$selected])) {
+ [$route,$handler]=$routes[$selected];
+ $router=file_get_contents(__DIR__.'/index.php');
+ $registered=is_string($router)&&str_contains($router,"'".$route."' => '".$handler."'");
+ $status=$registered&&is_file(__DIR__.'/'.$handler)?'STATISCH AANWEZIG':'NIET BEVESTIGD';
+ $lines[]='Route '.$route.': '.$status.' (geen HTTP-test)';
+ $html.='<tr><td>'.$e($route).'</td><td>'.$status.'</td></tr>';
+ } else {$lines[]='Route: geen specifieke controle geregistreerd.';}
+ $lines[]='Modulerechten, koppelingen en achtergrondprocessen: niet gecontroleerd.';
+ $prompt="Analyseer uitsluitend deze module. Controleer eerst de actuele repository en actieve testrelease. Verifieer afwijkingen en ontbrekende controles; een uitgeschakelde optionele flag is niet automatisch een fout. Hergebruik bestaande functionaliteit. Herstel uitsluitend bewezen problemen via een afzonderlijke Git-branch, voeg regressietesten toe en rapporteer blokkades. Wijzig productie niet. Vraag geen geheimen op.\n\n".implode("\n",$lines);
+ $html.='</table><p>'.$e(implode(' ',array_slice($lines,-2))).'</p><h3>AI-herstelprompt</h3><p>Selecteer de volledige tekst en kopieer deze naar ChatGPT of Codex.</p><button type="button" id="copy-prompt">Kopieer prompt</button><span id="copy-status" role="status"></span><textarea id="repair-prompt" readonly rows="18" aria-label="AI-herstelprompt">'.$e($prompt).'</textarea><p><a href="?module='.rawurlencode($selected).'">Diagnose opnieuw uitvoeren</a></p></section>';
+ }
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Systeemdiagnostiek</title><style>body{font:15px system-ui;margin:24px;color:#24364a}section{border:1px solid #ccd5df;padding:16px;margin:12px 0}td{padding:6px;overflow-wrap:anywhere}table{width:100%;table-layout:fixed}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}.module{padding:12px;border:1px solid #ccd5df;border-radius:6px}textarea{box-sizing:border-box;width:100%;font:14px monospace;padding:12px}</style><a href="/office-test/instellingen">Instellingen</a><h1>Systeemdiagnostiek — Office</h1><p>Alleen lezen. Selecteer een module voor actuele technische controles en een AI-herstelprompt.</p>'.$html.'<script nonce="'.$e($nonce).'">const b=document.getElementById("copy-prompt");if(b)b.addEventListener("click",async()=>{const t=document.getElementById("repair-prompt"),s=document.getElementById("copy-status");try{await navigator.clipboard.writeText(t.value);s.textContent=" Gekopieerd";}catch(e){t.focus();t.select();s.textContent=" Tekst geselecteerd; kopieer met Ctrl+C.";}});</script></html>';
 } catch (Throwable $e) {http_response_code(503);exit('Diagnostiek tijdelijk niet beschikbaar.');}
