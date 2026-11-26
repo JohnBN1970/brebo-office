@@ -4,7 +4,7 @@ Description=BREBO Office-test mail worker diagnostics
 [Service]
 Type=oneshot
 User=root
-ExecStart=/usr/bin/python3 /srv/brebo/office-test/current/deployment/hostinger/collect-mail-worker-diagnostics.py
+ExecStart=/usr/bin/python3 /usr/local/lib/brebo-office-test/collect-mail-worker-diagnostics.py
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
