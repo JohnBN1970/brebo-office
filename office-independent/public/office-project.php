@@ -1239,6 +1239,35 @@ if ($activeTab === 'overzicht') {
     error_log('Office project overview planning unavailable: '.get_class($planError));
   }
 }
+$overviewCrmHtml = '<p class="project-muted">CRM-toegang vereist.</p>';
+$overviewScopeHtml = $overviewCrmHtml;
+if ($activeTab === 'overzicht' && $operator->canEditCrm && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  try {
+    require_once dirname(__DIR__).'/src/Crm/OfficeCrmProjectHandoff.php';
+    $q = $db->prepare("SELECT opportunity_id AS deal_id, relation_id FROM office_crm_direct_project_transfers WHERE project_id=? UNION ALL SELECT crm_opportunity_id AS deal_id, NULL AS relation_id FROM office_calc_crm_acceptance_transfers WHERE office_project_id=?");
+    $q->execute([$projectId,$projectId]);
+    $links = $q->fetchAll(PDO::FETCH_ASSOC);
+    $overviewCrmHtml = '<p class="project-muted">Geen unieke geverifieerde Deal-koppeling.</p>';
+    $overviewScopeHtml = $overviewCrmHtml;
+    if (count($links) === 1 && ctype_digit((string)$links[0]['deal_id']) && (new \Brebo\Office\Crm\OfficeCrmProjectHandoff($db))->projectId((int)$links[0]['deal_id']) === (int)$projectId) {
+      $q = $db->prepare('SELECT o.relation_id,o.description,r.display_name FROM office_crm_opportunities o JOIN office_crm_relations r ON r.id=o.relation_id WHERE o.id=?');
+      $q->execute([(int)$links[0]['deal_id']]);
+      $deal = $q->fetch(PDO::FETCH_ASSOC);
+      if ($deal && ($links[0]['relation_id'] === null || (int)$links[0]['relation_id'] === (int)$deal['relation_id'])) {
+        $overviewCrmHtml = '<p><strong>'.$escape((string)$deal['display_name']).'</strong></p>';
+        $q = $db->prepare("SELECT p.given_name,p.family_name FROM office_crm_contact_people p JOIN office_crm_relation_contacts c ON c.contact_id=p.id WHERE c.relation_id=? AND p.status='active' ORDER BY c.is_primary DESC,p.family_name,p.given_name,p.id");
+        $q->execute([(int)$deal['relation_id']]);
+        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $contact) {
+          $overviewCrmHtml .= '<p>'.$escape(trim($contact['given_name'].' '.$contact['family_name'])).'</p>';
+        }
+        $overviewScopeHtml = '<p class="project-muted">Oorspronkelijke CRM-scope (geen contractscope)</p><p>'.$escape(trim((string)$deal['description']) ?: 'Niet vastgelegd').'</p>';
+      }
+    }
+  } catch (\Throwable $crmError) {
+    $overviewCrmHtml = $overviewScopeHtml = '<p class="project-muted">CRM-gegevens tijdelijk niet beschikbaar.</p>';
+    error_log('Office project overview CRM unavailable: '.get_class($crmError));
+  }
+}
 $overviewMetrics = '<div class="project-metrics">'
   . $financeMetric
   . $metric('Gebouwen', (string) count($buildings), 'Gekoppeld aan dit project')
@@ -1340,10 +1369,10 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
   . '<div class="project-dashboard-grid"><article class="project-panel"><h3>Woningverdeling</h3>' . $progressGraph
   . '<p class="project-muted">Bron: gekoppelde gebouwen en woningtypen.</p></article>'
   . '<article class="project-panel"><h3>Aandachtspunten</h3>' . $attentionHtml . '</article>'
-  . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3><p class="project-muted">CRM is de bron. De geautoriseerde koppeling naar dit overzicht moet nog worden aangesloten.</p></article>'
+  . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3>' . $overviewCrmHtml . '</article>'
   . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Werkbegroting.</p></article>'
   . '<article class="project-panel"><h3>Planning & uitvoering</h3>' . $overviewPlanHtml . '<p><a href="' . $escape($projectUrl.'&tab=uitvoering') . '">Uitvoering openen</a></p></article>'
-  . '<article class="project-panel"><h3>Projectomschrijving</h3><p class="project-muted">De oorspronkelijke scope volgt uit CRM; de overeengekomen scope uit de geaccepteerde overeenkomst.</p></article></div></div>';
+  . '<article class="project-panel"><h3>Projectomschrijving</h3>' . $overviewScopeHtml . '</article></div></div>';
 
 require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
 if (\Brebo\Office\Intake\OfficeNavigation::financeVisible()) {
