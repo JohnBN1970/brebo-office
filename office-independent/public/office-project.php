@@ -925,6 +925,21 @@ if ($activeTab === 'oplevering') {
           foreach (['owner'=>'Verantwoordelijke','due_date'=>'Termijn','observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) {
             $reportHtml.='<p>'.$escape($label).': '.$escape((string)($p[$key]??'')).'</p>';
           }
+          if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+            $q=$db->prepare("SELECT rp.document_id,rp.photo_role FROM office_restpoint_photos rp JOIN office_documents d ON d.id=rp.document_id JOIN office_quality_checks qc ON qc.id=rp.restpoint_id WHERE qc.id=? AND qc.project_id=? AND qc.building_id=? AND d.lifecycle_status='active' AND d.mime_type IN ('image/jpeg','image/png') ORDER BY rp.id");
+            $q->execute([$p['id'],$projectId,$b['id']]);
+            $photos=$q->fetchAll(PDO::FETCH_ASSOC);
+            foreach (['before'=>'Vóór herstel','after'=>'Na herstel','review'=>'Hercontrole'] as $role=>$label) {
+              $group=array_filter($photos,static fn(array $photo):bool=>$photo['photo_role']===$role);
+              if (!$group) continue;
+              $reportHtml.='<h6>'.$escape($label).'</h6><div style="display:flex;flex-wrap:wrap;gap:12px">';
+              foreach ($group as $photo) {
+                $src=$link.'&photo='.(int)$photo['document_id'];
+                $reportHtml.='<a href="'.$escape($src).'"><img loading="lazy" style="max-width:240px;max-height:200px;object-fit:contain" src="'.$escape($src).'" alt="'.$escape($label).'"></a>';
+              }
+              $reportHtml.='</div>';
+            }
+          }
           $reportHtml.='<p>Blokkade: '.($p['blocking']?'Ja':'Nee').' · <a href="'.$escape($link).'">Restpunt en bewijsstukken openen</a></p></article>';
         }
       }
