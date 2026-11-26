@@ -30,6 +30,7 @@ final class OfficePdokAddressLookup {
         if (!is_string($raw)) throw new RuntimeException('PDOK unavailable');
         $json=json_decode($raw,true,32,JSON_THROW_ON_ERROR);
         if (!is_array($json['response']['docs']??null)) throw new RuntimeException('Invalid PDOK response');
+        if ($params['rows']===2 && (($json['response']['numFound']??null)!==1 || count($json['response']['docs'])!==1)) throw new DomainException('BAG address not uniquely verified');
         $out=[];
         foreach ($json['response']['docs'] as $doc) {
             if (!is_array($doc)) continue;
