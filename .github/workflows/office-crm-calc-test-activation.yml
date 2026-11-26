@@ -1,0 +1,20 @@
+name: Office CRM Calc isolated test activation contract
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'office-independent/deployment/vps/activate-crm-calc-test.php'
+      - 'office-independent/tests/OfficeCrmCalcTestActivationContractTest.php'
+      - '.github/workflows/office-crm-calc-test-activation.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated test-only activation
+        run: |
+          set -euo pipefail
+          php -l office-independent/deployment/vps/activate-crm-calc-test.php
+          php office-independent/tests/OfficeCrmCalcTestActivationContractTest.php
