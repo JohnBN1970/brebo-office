@@ -47,11 +47,24 @@ final class OfficeBuildingCreateService {
             if (!is_string($value)) throw new DomainException('invalid_building_input');
             $clean[$field]=trim($value);
         }
+        $bag = null;
+        if (isset($input['bag_id']) && $input['bag_id'] !== '') {
+            if (!is_string($input['bag_id']) || getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED') !== 'enabled' || !$this->db->inTransaction()) throw new DomainException('bag_storage_not_ready');
+            require_once __DIR__.'/OfficePdokAddressLookup.php';
+            $bag=(new OfficePdokAddressLookup())->verify($input['bag_id']);
+            $clean=array_replace($clean,$bag);
+        }
         if ($clean['street_address']!=='' && $clean['postal_code']!=='') {
             $q=$this->db->prepare("SELECT id FROM office_buildings WHERE UPPER(REPLACE(postal_code,' ',''))=? AND LOWER(TRIM(street_address))=LOWER(?) LIMIT 1");
             $q->execute([strtoupper(str_replace(' ','',$clean['postal_code'])),$clean['street_address']]);
             if ($q->fetchColumn()!==false) throw new DomainException('building_address_candidate_exists');
         }
-        return (new OfficeBuildingRepository($this->db))->create($clean);
+        $id=(new OfficeBuildingRepository($this->db))->create($clean);
+        if ($bag !== null) {
+            $q=$this->db->prepare('UPDATE office_buildings SET bag_id=?,bag_verified_at=CURRENT_TIMESTAMP,address_line=? WHERE id=?');
+            $q->execute([$bag['bag_id'],$bag['street_address'],$id]);
+            if ($q->rowCount()!==1) throw new DomainException('bag_storage_failed');
+        }
+        return $id;
     }
 }
