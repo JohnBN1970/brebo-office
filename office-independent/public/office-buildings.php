@@ -274,6 +274,17 @@ $zoneToken='';
 if ($bagToken!=='' && getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_ZONE_WRITE_ENABLED')==='enabled') {
   $zoneToken=hash_hmac('sha256','building-zone-create:'.$buildingId,$bagToken);
 }
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['update_zone','deactivate_zone'],true)) {
+  if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token']) || !is_string($_POST['zone_id']??null) || !is_string($_POST['zone_revision']??null)) {http_response_code(403);exit;}
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+  try {
+    $repo=new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
+    $authorized=static fn(string $id):bool=>$zoneToken!=='' && $id===(string)$buildingId;
+    if ($_POST['building_action']==='deactivate_zone') $repo->deactivate((string)$buildingId,$_POST['zone_id'],$_POST['zone_revision'],$authorized);
+    else $repo->update((string)$buildingId,$_POST['zone_id'],$_POST['zone_revision'],$_POST,$authorized);
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+  } catch (Throwable $e) {http_response_code(409);exit('Klokzone niet gewijzigd. Ververs de pagina en controleer de invoer.');}
+}
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='create_zone') {
   if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
@@ -564,7 +575,15 @@ if ($detail) {
       echo '<ellipse cx="'.$h($geometry['cx']).'" cy="'.$h($geometry['cy']).'" rx="'.$h($geometry['rx']).'" ry="'.$h($geometry['ry']).'" fill="#2684ff" fill-opacity=".18" stroke="#2684ff" stroke-width="3"><title>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</title></ellipse>';
     }
     echo '<circle cx="450" cy="260" r="5" fill="#fff" stroke="#175a91" stroke-width="3"/></svg><figcaption>PDOK-luchtfoto · actieve klokzones</figcaption></figure>';
-    foreach ($zones as $zone) echo '<p>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</p>';
+    foreach ($zones as $zone) {
+      echo '<p>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</p>';
+      if ($zoneToken==='') continue;
+      echo '<details><summary>Klokzone wijzigen</summary><form method="post"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><input type="hidden" name="zone_id" value="'.$h($zone['id']).'"><input type="hidden" name="zone_revision" value="'.$h($zone['revision']).'">';
+      foreach (['zone_name'=>'Naam','latitude'=>'Breedtegraad','longitude'=>'Lengtegraad','radius_metres'=>'Straal (meter)'] as $key=>$label) {
+        echo '<p><label>'.$h($label).' <input name="'.$h($key).'" required value="'.$h($zone[$key]).'"></label></p>';
+      }
+      echo '<button name="building_action" value="update_zone">Wijziging opslaan</button> <button name="building_action" value="deactivate_zone" formnovalidate>Deactiveren</button></form></details>';
+    }
     if ($zoneToken!=='' && $bagRow!==null && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude'])) {
       echo '<details><summary>+ Klokzone toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_zone"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><p><label>Naam <input name="zone_name" maxlength="160" required></label></p><p><label>Breedtegraad <input type="number" name="latitude" step="0.0000001" min="-85" max="85" required value="'.$h($bagRow['latitude']).'"></label></p><p><label>Lengtegraad <input type="number" name="longitude" step="0.0000001" min="-180" max="180" required value="'.$h($bagRow['longitude']).'"></label></p><p><label>Straal (meter) <input type="number" name="radius_metres" min="1" max="5000" step="0.01" value="150" required></label></p><button>Klokzone opslaan</button></form></details>';
     }
