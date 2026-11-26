@@ -901,6 +901,27 @@ if ($activeTab === 'oplevering') {
     error_log('Office handover overview unavailable: '.get_class($handoverError));
     $handoverHtml .= '<p>Opleveroverzicht tijdelijk niet beschikbaar.</p>';
   }
+  if (getenv('OFFICE_TEST_RESTPOINT_REPORT_ENABLED')==='enabled') {
+    try {
+      require_once dirname(__DIR__).'/src/Governance/OfficeRestpointReport.php';
+      $report=(new \Brebo\Office\Governance\OfficeRestpointReport($store))->build((string)$operator->operatorId,(int)$projectId);
+      $reportHtml='<details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
+      foreach ($report['buildings'] as $b) {
+        $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
+        foreach ($b['restpoints'] as $p) {
+          $link='/office-test/kwaliteit?'.http_build_query(['project_id'=>$projectId,'building_id'=>$b['id'],'id'=>$p['id']]);
+          $reportHtml.='<article><h5>Restpunt '.(int)$p['id'].' — '.$escape((string)$p['title']).'</h5><p>Status: '.$escape($labels[$p['status']]??$p['status']).' · Revisie '.(int)$p['revision'].'</p><p>Woning-ID: '.(int)$p['dwelling_id'].' · Ruimte-ID: '.(int)$p['room_id'].'</p>';
+          foreach (['owner'=>'Verantwoordelijke','due_date'=>'Termijn','observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) {
+            $reportHtml.='<p>'.$escape($label).': '.$escape((string)($p[$key]??'')).'</p>';
+          }
+          $reportHtml.='<p>Blokkade: '.($p['blocking']?'Ja':'Nee').' · <a href="'.$escape($link).'">Restpunt en bewijsstukken openen</a></p></article>';
+        }
+      }
+      $handoverHtml.=$reportHtml.'</details>';
+    } catch (\Throwable $reportError) {
+      $handoverHtml.='<p>Concept-opleverrapport tijdelijk niet beschikbaar.</p>';
+    }
+  }
   $handoverHtml .= '<p>Definitieve oplevervrijgave: niet aangesloten.</p></section>';
 }
 // Reuse governance ACL and records; do not infer quality from WBS or hours.
