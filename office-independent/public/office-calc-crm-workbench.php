@@ -400,7 +400,7 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:1050px){.workbench{grid-template-columns:165px minmax(0,1fr)}.gridlayout{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
-.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+.calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden],.element-tree .calc-building-element[hidden]{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
 if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     echo '<section class="panel" aria-label="Gebouwen bij deal"><h2>Gebouwen bij deal</h2>';
     if($calcDealBuildings===[]){echo '<p>'.$h($calcDealBuildingNotice).'</p>';}
@@ -426,7 +426,7 @@ if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     }
     echo '</section>';
 }
-echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek element</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
+echo '<div class="calc-view-controls"><button type="button" id="calc-toggle-elements" aria-expanded="true" aria-controls="calc-elements">Elementen inklappen</button> <button type="button" id="calc-pin-elements" aria-pressed="true">📌 Vastgezet</button> <button type="button" id="calc-popout-elements">Elementen in nieuw venster</button></div><div class="workbench" id="calc-workbench"><aside id="calc-elements" class="element-tree" aria-label="Elementenboom"><h2>Elementen · Bouwkosten</h2><label for="calc-element-search">Zoek groep of bouwdeel</label><input id="calc-element-search" type="search" placeholder="Code of omschrijving" autocomplete="off" aria-controls="calc-element-list"><p id="calc-element-search-status" role="status" aria-live="polite"></p><ul id="calc-element-list">';
 foreach(['00 Bouwdeel algemeen','10 Sloopwerkzaamheden','16 Funderingen','21 Buitenwanden','22 Binnenwanden','23 Vloeren','24 Trappen en hellingen','27 Daken','31 Buitenwandopeningen','32 Binnenwandopeningen','33 Vloeropeningen','34 Balustrades en leuningen','37 Dakopeningen','41 Buitenwandafwerkingen','42 Binnenwandafwerkingen','43 Vloerafwerkingen','45 Plafondafwerkingen','47 Dakafwerkingen','50 Energieopwekking','51 Warmteopwekking','52 Afvoeren','53 Water','54 Gassen','56 Warmtedistributie','57 Luchtbehandeling','61 Elektrotechnische voorzieningen','62 Krachtstroom','63 Verlichting','65 Beveiliging','73 Vaste keukenvoorzieningen','74 Vaste sanitaire voorzieningen','90 Terrein','98 Stelposten'] as $element){$group=substr($element,0,2);$children=$buildingElements[$group]??[];
 echo '<li><details><summary>'.$h($element).'</summary><a href="#calc-inline-new" class="calc-element-select" data-element="'.$h($element).'">Nieuwe regel in deze groep</a>';
 foreach($children as $entry){
@@ -726,16 +726,32 @@ echo '</div><div id="panel-tail" class="calc-tab-panel" role="tabpanel" aria-lab
   if(!search||!list||!status)return;
   const items=Array.from(list.querySelectorAll("li"));
   const normalize=value=>value.toLocaleLowerCase("nl").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  let openBeforeSearch=null;
   const filter=()=>{
     const query=normalize(search.value);
-    let visible=0;
-    for(const item of items){
-      const match=normalize(item.textContent||"").includes(query);
-      item.hidden=!match;
-      if(query&&match){const group=item.querySelector("details");if(group)group.open=true;}
-      if(match)visible++;
+    if(query && openBeforeSearch===null){
+      openBeforeSearch=new Set(list.querySelectorAll("details[open]"));
     }
-    status.textContent=query?(visible+" van "+items.length+" elementen gevonden"):"";
+    let groupCount=0, elementCount=0;
+    for(const item of items){
+      const group=item.querySelector("details");
+      const groupMatch=normalize(group.querySelector("summary").textContent).includes(query);
+      let visibleElements=0;
+      for(const element of group.querySelectorAll(".calc-building-element")){
+        const match=groupMatch || normalize(element.textContent).includes(query);
+        element.hidden=!match;
+        if(match)visibleElements++;
+      }
+      item.hidden=!groupMatch && visibleElements===0;
+      if(item.hidden===false){
+        groupCount++;
+        elementCount+=visibleElements;
+      }
+      if(query)group.open=!item.hidden;
+      else if(openBeforeSearch!==null)group.open=openBeforeSearch.has(group);
+    }
+    if(!query)openBeforeSearch=null;
+    status.textContent=query?(groupCount+" groepen · "+elementCount+" bouwdelen"):"";
   };
   search.addEventListener("input",filter);
   search.addEventListener("keydown",event=>{if(event.key==="Escape"){search.value="";filter();}});
