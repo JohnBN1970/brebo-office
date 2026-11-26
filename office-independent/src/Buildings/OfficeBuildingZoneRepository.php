@@ -25,22 +25,22 @@ final class OfficeBuildingZoneRepository {
       || !is_string($name) || trim($name)==='' || strlen(trim($name))>160
       || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
       || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
-      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
+      || abs((float)$lat)>85 || abs((float)$lon)>180 || (float)$radius<1 || (float)$radius>5000
       || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
       || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
     if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
-    if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
-    $this->db->beginTransaction();
+    $ownsTransaction=!$this->db->inTransaction();
+    if ($ownsTransaction) $this->db->beginTransaction();
     try {
       $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres) SELECT id,?,?,?,? FROM office_buildings WHERE id=? AND active=1');
       $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$buildingId]);
       if ($stmt->rowCount()!==1) throw new InvalidArgumentException('building_not_found');
       $id=$this->db->lastInsertId();
       if (!is_string($id) || !preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new RuntimeException('zone_id_unavailable');
-      $this->db->commit();
+      if ($ownsTransaction) $this->db->commit();
       return $id;
     } catch (\Throwable $exception) {
-      if ($this->db->inTransaction()) $this->db->rollBack();
+      if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
       throw $exception;
     }
   }
