@@ -91,4 +91,35 @@ final class OfficeBuildingZoneRepository {
     $stmt->execute([$buildingId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
+
+  /** Deactivate without deleting the historical zone identity. */
+  public function deactivate(string $buildingId,string $zoneId,string $revision,\Closure $authorizedBuilding): void {
+    foreach ([$buildingId,$zoneId,$revision] as $id) {
+      if (!preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new InvalidArgumentException('invalid_zone_identity');
+    }
+    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+    $stmt=$this->db->prepare('UPDATE office_building_zones SET active=0,revision=revision+1 WHERE id=? AND building_id=? AND revision=? AND active=1');
+    $stmt->execute([$zoneId,$buildingId,$revision]);
+    if ($stmt->rowCount()!==1) throw new RuntimeException('zone_revision_conflict');
+  }
+
+  /** Update geometry only for the expected active zone revision. */
+  public function update(string $buildingId,string $zoneId,string $revision,array $zone,\Closure $authorizedBuilding): void {
+    foreach ([$buildingId,$zoneId,$revision] as $id) {
+      if (!preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new InvalidArgumentException('invalid_zone_identity');
+    }
+    $name=$zone['zone_name']??null;
+    $lat=$zone['latitude']??null;
+    $lon=$zone['longitude']??null;
+    $radius=$zone['radius_metres']??null;
+    if (!is_string($name) || trim($name)==='' || strlen(trim($name))>160
+      || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
+      || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
+      || abs((float)$lat)>85 || abs((float)$lon)>180 || (float)$radius<1 || (float)$radius>5000)
+      throw new InvalidArgumentException('invalid_building_zone');
+    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+    $stmt=$this->db->prepare('UPDATE office_building_zones SET zone_name=?,latitude=?,longitude=?,radius_metres=?,revision=revision+1 WHERE id=? AND building_id=? AND revision=? AND active=1');
+    $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$zoneId,$buildingId,$revision]);
+    if ($stmt->rowCount()!==1) throw new RuntimeException('zone_revision_conflict');
+  }
 }
