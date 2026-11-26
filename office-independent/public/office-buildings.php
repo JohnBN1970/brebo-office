@@ -260,12 +260,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '')==='POST'&&($_POST['action']??'')==='creat
  }
 $dwellingEnabled=$detail && $editToken!=='' && getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled';
 $dwellingToken=$dwellingEnabled?hash_hmac('sha256','dwelling-create:'.$buildingId,$editToken):'';
-if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_dwelling','update_dwelling'],true)) {
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_dwelling','update_dwelling','import_dwellings'],true)) {
   if ($dwellingToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($dwellingToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
   try {
     require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingDwellingRepository.php';
     $dwellingRepo=new \Brebo\Office\Buildings\OfficeBuildingDwellingRepository($db);
-    if ($_POST['building_action']==='update_dwelling') {
+    if ($_POST['building_action']==='import_dwellings') {
+      $file=$_FILES['dwelling_csv']??null;
+      if (!is_array($file)||($file['error']??null)!==UPLOAD_ERR_OK||!is_string($file['tmp_name']??null)||!is_uploaded_file($file['tmp_name'])||filesize($file['tmp_name'])>250000) throw new InvalidArgumentException('Ongeldig CSV-bestand.');
+      $csv=file_get_contents($file['tmp_name'],false,null,0,250001);
+      if ($csv===false) throw new InvalidArgumentException('CSV niet leesbaar.');
+      $dwellingRepo->importCsv((int)$operator->operatorId,(int)$buildingId,$csv);
+    } elseif ($_POST['building_action']==='update_dwelling') {
       $dwellingId=filter_var($_POST['dwelling_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
       if (!is_int($dwellingId)||!is_string($_POST['revision']??null)) throw new InvalidArgumentException('Ongeldige woning.');
       $dwellingRepo->update((int)$operator->operatorId,(int)$buildingId,$dwellingId,$_POST,$_POST['revision']);
@@ -400,6 +406,7 @@ if ($detail) {
       $options='<option value="">Geen woningtype</option>';
       foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $t) $options.='<option value="'.(int)$t['id'].'">'.$h($t['code'].' · '.$t['name']).'</option>';
       echo '<details><summary>Woning toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_dwelling"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><p><label>Woningcode <input name="dwelling_code" maxlength="100" required></label></p><p><label>Huisnummer <input name="house_number" maxlength="40" required></label></p><p><label>Verdieping <input name="floor_label" maxlength="80"></label></p><p><label>Woningtype <select name="housing_type_id">'.$options.'</select></label></p><button>Opslaan</button></form></details>';
+      echo '<details><summary>Woningen importeren (CSV)</summary><p>UTF-8 CSV met puntkomma, maximaal 1000 woningen en 250 kB. Gebruik bestaande woningtypecodes. Bestaande woningcodes worden niet overschreven.</p><pre>woningcode;huisnummer;verdieping;woningtype&#10;W001;12;Begane grond;A&#10;W002;14;1;B</pre><form method="post" enctype="multipart/form-data" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="import_dwellings"><input type="hidden" name="csrf_token" value="'.$h($dwellingToken).'"><label>CSV-bestand <input type="file" name="dwelling_csv" accept=".csv,text/csv" required></label><button>Woningen importeren</button></form></details>';
       foreach ($dwellings as $d) {
         $editOptions='<option value="">Geen woningtype</option>';
         $q->execute([$buildingId]);
