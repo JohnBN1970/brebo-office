@@ -21,6 +21,10 @@ fixture = """
 <button data-calc-tab="data"></button><button data-calc-tab="hours"></button>
 <div id="panel-data"></div><div id="panel-hours" hidden></div>
 <div class="calc-collapsible-line"><button class="calc-line-toggle" aria-controls="detail" aria-expanded="false"></button></div><div id="detail" hidden></div>
+<input id="calc-element-search"><span id="calc-element-search-status"></span>
+<ul id="calc-element-list"><li><details><summary>31 Buitenwandopeningen</summary>
+<a class="calc-building-element">Kunststof kozijnen</a><a class="calc-building-element">Houten kozijnen</a>
+</details></li><li><details open><summary>27 Daken</summary></details></li></ul>
 <form id="calc-inline-new"></form><select form="calc-inline-new" name="labor_rate_code"><option></option><option data-hourly-rate="52.50">Glaszetter</option></select>
 <input form="calc-inline-new" name="labor_hourly_rate"><input form="calc-inline-new" name="labor_norm"><input form="calc-inline-new" name="labor_hours"><input form="calc-inline-new" name="quantity" value="3"><input form="calc-inline-new" name="labor_driver">
 <script>window.unapprovedScriptRan=true</script><output></output>
@@ -35,7 +39,19 @@ rate.dispatchEvent(new Event('change'));
 const norm = find('[name=labor_norm]');
 norm.value = '1.5';
 norm.dispatchEvent(new Event('input'));
-if (!window.unapprovedScriptRan && !find('#panel-hours').hidden && find('#panel-data').hidden
+const search = find('#calc-element-search');
+const groups = document.querySelectorAll('details');
+const elements = document.querySelectorAll('.calc-building-element');
+const filter = value => { search.value = value; search.dispatchEvent(new Event('input')); };
+filter('KÚNSTSTOF');
+const childMatch = groups[0].open && !elements[0].hidden && elements[1].hidden && groups[1].parentNode.hidden;
+filter('31');
+const groupMatch = !elements[0].hidden && !elements[1].hidden;
+filter('onbekend');
+const noMatch = groups[0].parentNode.hidden && groups[1].parentNode.hidden;
+search.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape'}));
+const restored = !groups[0].open && groups[1].open && !groups[0].parentNode.hidden && !elements[1].hidden;
+if (childMatch && groupMatch && noMatch && restored && !window.unapprovedScriptRan && !find('#panel-hours').hidden && find('#panel-data').hidden
     && !find('#detail').hidden && find('[name=labor_hourly_rate]').value === '52.50'
     && find('[name=labor_hours]').value === '4.5') {
     find('output').textContent = 'PASS';
