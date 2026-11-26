@@ -24,16 +24,37 @@ try {
  'OnSite'=>[['OFFICE_ONSITE_SCHEMA_VERIFIED','OFFICE_TEST_PRESENCE_REVIEW_ENABLED','OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED','OFFICE_TEST_ZONE_WRITE_ENABLED','OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED'],[]],
  'Urencontrole'=>[['OFFICE_TEST_ONSITE_HOURS_APPROVAL_ENABLED','OFFICE_TEST_ONSITE_FOUR_EYES_REQUIRED','OFFICE_TEST_ONSITE_REJECTION_SCHEMA_VERIFIED'],['office_onsite_hours_decisions']],
  'Werkbegroting en overdracht'=>[[],['office_calc_crm_acceptance_transfers']],
- 'Inkoop en finance'=>[[],[]],
- 'Documenten en e-mail'=>[[],[]]];
+ 'CRM en relaties'=>[['OFFICE_TEST_CRM_ENABLED'],[]],
+ 'Intake en leads'=>[[],[]],
+ 'Deals'=>[[],[]],
+ 'Calculatie'=>[['OFFICE_CALC_CRM_DRAFT_LAUNCH_ENABLED','OFFICE_CALC_CRM_SCHEMA_VERIFIED'],['office_calc_crm_drafts']],
+ 'Offertestudio'=>[[],[]],
+ 'Inkoop'=>[[],[]],
+ 'FinanceCenter'=>[[],['office_finance_invoice_lines','office_finance_invoice_documents','office_finance_cost_rates']],
+ 'Documenten'=>[[],[]],
+ 'E-mail'=>[[],[]],
+ 'Kennis en kwaliteit'=>[[],[]],
+ 'Oplevering en snagging'=>[[],[]]];
+ $selected=$_GET['module']??null;
+ if ($selected!==null && (!is_string($selected)||!array_key_exists($selected,$groups))) {http_response_code(400);exit('Onbekende module.');}
  $q=$db->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
  $e=static fn(string $v):string=>htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
- $html='';
- foreach ($groups as $name=>[$flags,$tables]) {
- $html.='<section><h2>'.$e($name).'</h2><table>';
- foreach ($flags as $flag) {$v=getenv($flag);$status=$v===false?'ONTBREEKT':($v==='enabled'?'ACTIEF':'NIET ACTIEF');$html.='<tr><td>'.$e($flag).'</td><td>'.$status.'</td></tr>';}
- foreach ($tables as $table) {$q->execute([$table]);$html.='<tr><td>'.$e($table).'</td><td>'.((int)$q->fetchColumn()===1?'AANWEZIG':'ONTBREEKT').'</td></tr>';}
- $html.='</table><p>Functionele ketentest: niet uitgevoerd. Schema-aanwezigheid is geen volledige schemavalidatie.</p></section>';
+ $html='<nav>';
+ foreach ($groups as $name=>$profile) {
+ $html.='<a class="module" href="?module='.rawurlencode($name).'">'.$e($name).' — Diagnose &amp; prompt</a>';
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Systeemdiagnostiek</title><style>body{font:15px system-ui;margin:24px;color:#24364a}section{border:1px solid #ccd5df;padding:16px;margin:12px 0}td{padding:6px;overflow-wrap:anywhere}table{width:100%;table-layout:fixed}</style><a href="/office-test/instellingen">Instellingen</a><h1>Systeemdiagnostiek — Projecten</h1><p>Alleen lezen. Actieve PHP-FPM-instellingen en tabelaanwezigheid.</p>'.$html.'</html>';
+ $html.='</nav>';
+ if ($selected!==null) {
+ [$flags,$tables]=$groups[$selected];
+ $lines=['Repository: JohnBN1970/brebo-office','Doelbranch: develop','Omgeving: Office-test','Module: '.$selected,'Controle UTC: '.gmdate('c'),'PHP: '.PHP_VERSION,'Database: brebo_office_test (bevestigd)'];
+ $html.='<section><h2>'.$e($selected).'</h2><table>';
+ foreach ($flags as $flag) {$v=getenv($flag);$status=$v===false?'ONTBREEKT':($v==='enabled'?'ACTIEF':'NIET ACTIEF');$lines[]=$flag.': '.$status;$html.='<tr><td>'.$e($flag).'</td><td>'.$status.'</td></tr>';}
+ foreach ($tables as $table) {$q->execute([$table]);$status=(int)$q->fetchColumn()===1?'AANWEZIG':'ONTBREEKT';$lines[]=$table.': '.$status;$html.='<tr><td>'.$e($table).'</td><td>'.$status.'</td></tr>';}
+ if (!$flags && !$tables) {$lines[]='Geen specifieke technische controles geregistreerd.';}
+ $lines[]='Functionele ketentest: niet uitgevoerd. Schema-aanwezigheid is geen volledige schemavalidatie.';
+ $lines[]='Actieve release, routes, modulerechten, koppelingen en achtergrondprocessen: niet gecontroleerd.';
+ $prompt="Analyseer uitsluitend deze module. Controleer eerst de actuele repository en actieve testrelease. Verifieer afwijkingen en ontbrekende controles; een uitgeschakelde optionele flag is niet automatisch een fout. Hergebruik bestaande functionaliteit. Herstel uitsluitend bewezen problemen via een afzonderlijke Git-branch, voeg regressietesten toe en rapporteer blokkades. Wijzig productie niet. Vraag geen geheimen op.\n\n".implode("\n",$lines);
+ $html.='</table><p>'.$e(implode(' ',array_slice($lines,-2))).'</p><h3>AI-herstelprompt</h3><p>Selecteer de volledige tekst en kopieer deze naar ChatGPT of Codex.</p><textarea readonly rows="18" aria-label="AI-herstelprompt">'.$e($prompt).'</textarea><p><a href="?module='.rawurlencode($selected).'">Diagnose opnieuw uitvoeren</a></p></section>';
+ }
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Systeemdiagnostiek</title><style>body{font:15px system-ui;margin:24px;color:#24364a}section{border:1px solid #ccd5df;padding:16px;margin:12px 0}td{padding:6px;overflow-wrap:anywhere}table{width:100%;table-layout:fixed}nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px}.module{padding:12px;border:1px solid #ccd5df;border-radius:6px}textarea{box-sizing:border-box;width:100%;font:14px monospace;padding:12px}</style><a href="/office-test/instellingen">Instellingen</a><h1>Systeemdiagnostiek — Office</h1><p>Alleen lezen. Selecteer een module voor actuele technische controles en een AI-herstelprompt.</p>'.$html.'</html>';
 } catch (Throwable $e) {http_response_code(503);exit('Diagnostiek tijdelijk niet beschikbaar.');}
