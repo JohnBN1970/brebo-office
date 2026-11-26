@@ -20,8 +20,9 @@ final class OfficeOnSiteFourEyesGuard
         }
         // A stale mapping to an inactive person is not a verified reviewer.
         // Query all mappings first so a duplicate inactive mapping cannot be hidden.
-        $q=$this->db->prepare('SELECT op.person_id,p.active FROM office_operator_people op
-            LEFT JOIN office_inzet_people p ON p.id=op.person_id WHERE op.operator_id=?');
+        $q=$this->db->prepare('SELECT op.person_id,p.active FROM office_account_personnel_links op
+            LEFT JOIN office_inzet_people p ON p.id=op.person_id
+            JOIN office_operator_accounts a ON a.id=op.operator_id AND a.active=1 WHERE op.operator_id=?');
         $q->execute([$reviewerOperatorId]);
         $mappings=$q->fetchAll(PDO::FETCH_ASSOC);
         if (count($mappings)!==1) {
