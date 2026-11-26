@@ -1,0 +1,47 @@
+name: Office-test OnSite diagnostics
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/fix/onsite-presence-diagnostics'
+    environment: office-test-vps
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only OnSite gate inspection
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$VPS_USER" = brebo-deploy
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/onsite
+          chmod 600 ~/.ssh/onsite
+          trap 'rm -f ~/.ssh/onsite' EXIT
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/onsite -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test "$(id -un)" = brebo-deploy
+          base=/srv/brebo/office-test
+          release="$(readlink -f "$base/current")"
+          case "$release" in "$base"/releases/*) ;; *) exit 1;; esac
+          php -l "$release/public/office-onsite-presence-review.php"
+          pool=/etc/php/8.3/fpm/pool.d/brebo-office-test.conf
+          if test -r "$pool"; then
+            for flag in OFFICE_NATIVE_PROJECTS_ENABLED OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED OFFICE_ONSITE_SCHEMA_VERIFIED OFFICE_TEST_PRESENCE_REVIEW_ENABLED; do
+              awk -v flag="$flag" '$0 ~ "^[[:space:]]*env\\[" flag "\\][[:space:]]*=" {n++; if ($0 ~ /=[[:space:]]*enabled[[:space:]]*$/) ok++} END {print flag "=" (n==0?"MISSING":n!=1?"DUPLICATE":ok==1?"ENABLED":"NOT_ENABLED")}' "$pool"
+            done
+          else
+            echo ONSITE_FLAGS=PRIVILEGED_VERIFICATION_REQUIRED
+          fi
+          echo ONSITE_DATABASE_SCHEMA=NOT_VERIFIED
+          echo ONSITE_DIAGNOSTICS_READ_ONLY
+          REMOTE
