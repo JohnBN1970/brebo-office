@@ -971,6 +971,11 @@ if ($activeTab === 'oplevering') {
         header('Content-Disposition: attachment; filename="BREBO-concept-oplevering-'.(int)$projectId.'.pdf"');
         header('Content-Length: '.strlen($bytes));echo $bytes;exit;
       }
+      $reportDocuments=null;
+      if (getenv('OFFICE_TEST_RESTPOINT_PHOTOS_SCHEMA_VERIFIED')==='enabled') {
+        foreach (['OfficePrivateFileStorage','OfficeDocumentRegistry','OfficeProjectDocumentService'] as $f) require_once dirname(__DIR__).'/src/Documents/'.$f.'.php';
+        $reportDocuments=new \Brebo\Office\Documents\OfficeProjectDocumentService($db,new \Brebo\Office\Documents\OfficePrivateFileStorage((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT')),new \Brebo\Office\Documents\OfficeDocumentRegistry($db),new \Brebo\Office\Project\OfficeNativeProjectAccess($db));
+      }
       $reportHtml='<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_pdf=1').'">Concept-PDF downloaden</a></p><details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
       foreach ($report['buildings'] as $b) {
         $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
@@ -1000,6 +1005,8 @@ if ($activeTab === 'oplevering') {
               if (!$group) continue;
               $reportHtml.='<h6>'.$escape($label).'</h6><div style="display:flex;flex-wrap:wrap;gap:12px">';
               foreach ($group as $photo) {
+                try { $reportDocuments->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$photo['document_id']); }
+                catch (\RuntimeException $denied) { continue; }
                 $src=$link.'&photo='.(int)$photo['document_id'];
                 $reportHtml.='<a href="'.$escape($src).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:240px;max-height:200px;width:auto;height:auto" src="'.$escape($src).'" alt="'.$escape($label).'">';
                 if (getenv('OFFICE_TEST_RESTPOINT_MARKERS_SCHEMA_VERIFIED')==='enabled') {
@@ -1022,6 +1029,8 @@ if ($activeTab === 'oplevering') {
             foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $m) $pages[$m['document_id'].':'.$m['page_number']][]=$m;
             foreach ($pages as $markers) {
               $first=$markers[0];
+              try { $reportDocuments->authorizedDownload((int)$operator->operatorId,(int)$projectId,(int)$first['document_id']); }
+              catch (\RuntimeException $denied) { continue; }
               $viewer=$link.'&drawing='.(int)$first['document_id'].'&page='.(int)$first['page_number'];
               $reportHtml.='<figure><figcaption>'.$escape((string)$first['title']).' — pagina '.(int)$first['page_number'].'</figcaption><a href="'.$escape($viewer).'" style="position:relative;display:inline-block;max-width:100%"><img loading="lazy" style="display:block;max-width:100%;width:640px;height:auto" src="'.$escape($viewer.'&render=1').'" alt="Tekeningpagina">';
               $color=match($p['status']){'accepted'=>'#18743d','recheck'=>'#a45a00',default=>'#b42318'};
