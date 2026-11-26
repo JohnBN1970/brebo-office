@@ -14,6 +14,43 @@ use InvalidArgumentException;
 final class OfficeBuildingPdokLocationRepository {
   public function __construct(private PDO $db) {}
 
+  /** Link an existing building to an independently verified official address. */
+  public function linkVerified(int $operatorId,int $buildingId,string $bagId,string $expectedRevision): void {
+    if ($operatorId<1 || $buildingId<1 || getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled' || getenv('OFFICE_BUILDING_AUDIT_SCHEMA_VERIFIED')!=='enabled') throw new RuntimeException('bag_storage_not_ready');
+    require_once __DIR__.'/OfficePdokAddressLookup.php';
+    require_once __DIR__.'/OfficeBuildingAudit.php';
+    $bag=(new OfficePdokAddressLookup())->verify($bagId);
+    $this->db->beginTransaction();
+    try {
+      $q=$this->db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+      $q->execute([$operatorId]);
+      if (!$q->fetchColumn()) throw new RuntimeException('building_manage_permission_required');
+      $q=$this->db->prepare("SELECT b.building_name,b.street_address,b.address_line,b.postal_code,b.city,b.latitude,b.longitude,b.bag_id,b.bag_verified_at FROM office_buildings b WHERE b.id=? AND b.active=1 AND (EXISTS (SELECT 1 FROM office_building_register_grants g WHERE g.building_id=b.id AND g.operator_id=?) OR EXISTS (SELECT 1 FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=b.id AND m.operator_id=? AND m.permission='manage')) FOR UPDATE");
+      $q->execute([$buildingId,$operatorId,$operatorId]);
+      $before=$q->fetch(PDO::FETCH_ASSOC);
+      if (!$before || !hash_equals(self::revision($before),$expectedRevision)) throw new RuntimeException('building_changed_or_forbidden');
+      $q=$this->db->prepare("SELECT id FROM office_buildings WHERE id<>? AND (bag_id=? OR (UPPER(REPLACE(postal_code,' ',''))=? AND LOWER(TRIM(street_address))=LOWER(?))) LIMIT 1");
+      $q->execute([$buildingId,$bagId,str_replace(' ','',$bag['postal_code']),$bag['street_address']]);
+      if ($q->fetchColumn()!==false) throw new RuntimeException('building_address_candidate_exists');
+      $q=$this->db->prepare('UPDATE office_buildings SET bag_id=?,bag_verified_at=CURRENT_TIMESTAMP(6),street_address=?,address_line=?,postal_code=?,city=?,latitude=?,longitude=? WHERE id=?');
+      $q->execute([$bagId,$bag['street_address'],$bag['street_address'],$bag['postal_code'],$bag['city'],$bag['latitude'],$bag['longitude'],$buildingId]);
+      $q=$this->db->prepare('SELECT building_name,street_address,address_line,postal_code,city,latitude,longitude,bag_id,bag_verified_at FROM office_buildings WHERE id=?');
+      $q->execute([$buildingId]);$after=$q->fetch(PDO::FETCH_ASSOC);
+      if (!$after) throw new RuntimeException('building_snapshot_unavailable');
+      (new OfficeBuildingAudit($this->db))->record($buildingId,$operatorId,'updated','register',null,$before,$after);
+      $this->db->commit();
+    } catch (\Throwable $e) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $e;
+    }
+  }
+
+  public static function revision(array $row): string {
+    $fields=[];
+    foreach (['building_name','street_address','address_line','postal_code','city','latitude','longitude','bag_id','bag_verified_at'] as $key) $fields[$key]=$row[$key]??null;
+    return hash('sha256',json_encode($fields,JSON_THROW_ON_ERROR));
+  }
+
   /** @return array<string,bool> */
   public function readiness(): array {
     $stmt = $this->db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS
