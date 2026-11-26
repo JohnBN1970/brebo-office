@@ -6,6 +6,10 @@ on:
       - '.github/workflows/onsite-approved-hours-guarded-deploy.yml'
       - 'office-independent/src/Inzet/OfficeOnSite*.php'
       - 'office-independent/tests/OfficeOnSite*.php'
+      - 'office-independent/tests/OfficePersonnelAccountLinkTest.php'
+      - 'office-independent/src/Inzet/OfficePersonnelAccountLink.php'
+      - 'office-independent/public/office-personnel.php'
+      - 'office-independent/src/Approval/OfficeTestSiteAdministratorAccess.php'
       - 'scripts/deployment/OfficeOnSiteRolloutReadiness.php'
       - 'office-independent/deployment/vps/audit-onsite-readiness.php'
       - '.github/workflows/onsite-live-guarded-integration-ci.yml'
@@ -25,6 +29,9 @@ jobs:
       - name: OnSite regression tests
         run: |
           set -euo pipefail
+          php office-independent/tests/OfficePersonnelAccountLinkTest.php
+          php -l office-independent/src/Inzet/OfficePersonnelAccountLink.php
+          php -l office-independent/public/office-personnel.php
           php office-independent/tests/OfficeOnSiteFourEyesGuardTest.php
           php office-independent/tests/OfficeOnSiteRolloutReadinessTest.php
           php -l office-independent/deployment/vps/audit-onsite-readiness.php
