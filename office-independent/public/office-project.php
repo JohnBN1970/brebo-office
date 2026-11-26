@@ -905,7 +905,31 @@ if ($activeTab === 'oplevering') {
     try {
       require_once dirname(__DIR__).'/src/Governance/OfficeRestpointReport.php';
       $report=(new \Brebo\Office\Governance\OfficeRestpointReport($store))->build((string)$operator->operatorId,(int)$projectId);
-      $reportHtml='<details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
+      if (($_GET['handover_pdf']??null)==='1' && ($_SERVER['REQUEST_METHOD']??'')==='GET') {
+        require_once dirname(__DIR__).'/src/Documents/OfficePdfWriter.php';
+        $pdf=new \Brebo\Office\Documents\OfficePdfWriter();
+        $pdf->heading('Concept-opleverrapport','Project '.(int)$projectId.' — geen definitieve vrijgave');
+        $pdf->text(42,170,'Voorlopige tekstexport; beeldmateriaal niet inbegrepen.',10);
+        $y=195;
+        foreach ($report['buildings'] as $b) {
+          foreach ($b['restpoints'] as $p) {
+            $lines=[$b['name'].' — Restpunt '.$p['id'],$p['title'],'Status: '.$p['status'].' | Revisie '.$p['revision']];
+            foreach (['observation'=>'Constatering','remedy'=>'Herstel','evidence'=>'Bewijs'] as $key=>$label) $lines[]=$label.': '.(string)($p[$key]??'');
+            foreach ($lines as $line) {
+              foreach (explode("\n",wordwrap($line,80,"\n",true)) as $part) {
+                if ($y>760) {$pdf->finishPage();$pdf->heading('Concept-opleverrapport','Project '.(int)$projectId);$y=170;}
+                $pdf->text(42,$y,$part,10);$y+=15;
+              }
+            }
+            $y+=15;
+          }
+        }
+        $bytes=$pdf->render();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="BREBO-concept-oplevering-'.(int)$projectId.'.pdf"');
+        header('Content-Length: '.strlen($bytes));echo $bytes;exit;
+      }
+      $reportHtml='<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_pdf=1').'">Concept-PDF downloaden (tekstversie)</a></p><details><summary>Concept-opleverrapport openen</summary><h3>Concept-opleverrapport</h3><p>Project '.(int)$projectId.' · '.$escape($report['generated_at']).' · Geen definitieve vrijgave</p>';
       foreach ($report['buildings'] as $b) {
         $reportHtml.='<h4>'.$escape((string)$b['name']).'</h4>';
         $dwellingNames=[];$roomNames=[];
