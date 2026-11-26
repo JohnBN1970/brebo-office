@@ -1268,6 +1268,31 @@ if ($activeTab === 'overzicht' && $operator->canEditCrm && \Brebo\Office\Intake\
     error_log('Office project overview CRM unavailable: '.get_class($crmError));
   }
 }
+$overviewTeamHtml = '<p class="project-muted">Projectteam niet beschikbaar.</p>';
+$overviewStartHtml = '<p class="project-muted">Startdossier niet beschikbaar.</p>';
+if ($activeTab === 'overzicht' && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  try {
+    $q = $db->prepare('SELECT p.display_name,t.role_label FROM office_inzet_project_team t JOIN office_inzet_people p ON p.id=t.person_id WHERE t.project_id=? AND p.active=1 ORDER BY p.display_name,p.id');
+    $q->execute([$projectId]);
+    $team = $q->fetchAll(PDO::FETCH_ASSOC);
+    $overviewTeamHtml = '<p>'.count($team).' actieve teamleden</p>';
+    foreach ($team as $member) {
+      $overviewTeamHtml .= '<p>'.$escape((string)$member['display_name']).' · '.$escape(trim((string)$member['role_label']) ?: 'Rol niet vastgelegd').'</p>';
+    }
+  } catch (\Throwable $teamError) {
+    error_log('Office project overview team unavailable: '.get_class($teamError));
+  }
+  if (getenv('OFFICE_TEST_PROJECT_KICKSTART_ENABLED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__).'/src/Project/OfficeProjectKickstartReadModel.php';
+      $start = (new \Brebo\Office\Project\OfficeProjectKickstartReadModel($db))->forAuthorizedScope((int)$projectId,'project',0);
+      $overviewStartHtml = $start === null ? '<p>Nog geen startdossier aangemaakt.</p>' :
+        '<p>Status: '.$escape((string)$start['status']).'</p><p>Kritieke open punten: '.(int)$start['critical_open_points'].'</p>';
+    } catch (\Throwable $startError) {
+      error_log('Office project overview start unavailable: '.get_class($startError));
+    }
+  }
+}
 $overviewMetrics = '<div class="project-metrics">'
   . $financeMetric
   . $metric('Gebouwen', (string) count($buildings), 'Gekoppeld aan dit project')
@@ -1372,6 +1397,8 @@ $dashboardHtml = '<div class="project-dashboard"><h2>Project in één oogopslag<
   . '<article class="project-panel"><h3>Opdrachtgever & contactpersonen</h3>' . $overviewCrmHtml . '</article>'
   . '<article class="project-panel"><h3>Contract & resultaat</h3><p class="project-muted">De opdrachtsom volgt uit geautoriseerde contractgegevens en goedgekeurde wijzigingen. Kostenprognose en resultaat zijn nog niet gekoppeld. Bekijk het tabblad Werkbegroting.</p></article>'
   . '<article class="project-panel"><h3>Planning & uitvoering</h3>' . $overviewPlanHtml . '<p><a href="' . $escape($projectUrl.'&tab=uitvoering') . '">Uitvoering openen</a></p></article>'
+  . '<article class="project-panel"><h3>Projectteam</h3>' . $overviewTeamHtml . '<p><a href="' . $escape($projectUrl.'&tab=arbeid-inzet') . '">Arbeid &amp; Inzet openen</a></p></article>'
+  . '<article class="project-panel"><h3>Werkvoorbereiding &amp; vrijgave</h3>' . $overviewStartHtml . '<p><a href="' . $escape($projectUrl.'&tab=werkvoorbereiding') . '">Startdossier openen</a></p></article>'
   . '<article class="project-panel"><h3>Projectomschrijving</h3>' . $overviewScopeHtml . '</article></div></div>';
 
 require_once dirname(__DIR__) . '/src/Intake/OfficeNavigation.php';
