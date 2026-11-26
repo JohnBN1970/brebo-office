@@ -24,7 +24,7 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleIconName: AppIcon
         ITSAppUsesNonExemptEncryption: false
-        OnSiteAPIBaseURL: "https://sboffice.brebobv.nl"
+        OnSiteAPIBaseURL: "https://office-test.brebobv.nl/office-test"
         CFBundleURLTypes:
           - CFBundleURLName: nl.brebo.onsite
             CFBundleURLSchemes:
