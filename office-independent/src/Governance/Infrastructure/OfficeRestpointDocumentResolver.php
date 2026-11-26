@@ -7,7 +7,7 @@ use Brebo\Office\Documents\OfficeProjectDocumentService;
 
 final class OfficeRestpointDocumentResolver
 {
-    public function __construct(private readonly PDO $db, private readonly OfficeProjectDocumentService $documents) {}
+    public function __construct(private readonly PDO $db, private readonly OfficeProjectDocumentService $documents, private readonly ?OfficeRestpointPdfRenderer $pdf=null) {}
 
     public function __invoke(string $actor,int $project,int $building,int $document,int $page): ?int
     {
@@ -16,10 +16,14 @@ final class OfficeRestpointDocumentResolver
         $q->execute([$project,$building]);
         if (!$q->fetchColumn()) return null;
         $file=$this->documents->authorizedDownload((int)$actor,$project,$document);
-        // Initial photo-only implementation: PDFs fail closed until a trusted page renderer exists.
-        if ($page!==1 || !in_array($file['mime_type'],['image/jpeg','image/png'],true)) return null;
-        $size=@getimagesize($file['path']);
-        if (!$size || ($size['mime']??null)!==$file['mime_type']) return null;
+        if ($file['mime_type']==='application/pdf') {
+            if ($this->pdf===null) return null;
+            $this->pdf->render($file['path'],$page);
+        } else {
+            if ($page!==1 || !in_array($file['mime_type'],['image/jpeg','image/png'],true)) return null;
+            $size=@getimagesize($file['path']);
+            if (!$size || ($size['mime']??null)!==$file['mime_type']) return null;
+        }
         $q=$this->db->prepare('SELECT d.original_id,o.sha256 FROM office_documents d JOIN office_document_originals o ON o.id=d.original_id WHERE d.id=? AND d.lifecycle_status=?');
         $q->execute([$document,'active']);
         $row=$q->fetch(PDO::FETCH_ASSOC);
