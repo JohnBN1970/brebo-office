@@ -25,7 +25,12 @@ final class OnSiteBootstrapRepository {
         INNER JOIN office_projects pr ON pr.id = t.project_id
         INNER JOIN office_inzet_people p ON p.id = t.person_id AND p.active = 1
         INNER JOIN office_project_buildings b ON b.project_id = t.project_id
-        INNER JOIN office_building_zones z ON z.building_id = b.building_id AND z.active = 1
+        INNER JOIN office_buildings building ON building.id = b.building_id AND building.active = 1
+        INNER JOIN office_building_zones z ON z.building_id = building.id AND z.active = 1
+          AND z.latitude BETWEEN -85 AND 85
+          AND z.longitude BETWEEN -180 AND 180
+          AND z.radius_metres BETWEEN 1 AND 5000
+          AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
         WHERE t.person_id = ? ORDER BY project_id, zone_id');
       $statement->execute([$employeeId]);
       return $statement->fetchAll(PDO::FETCH_ASSOC);

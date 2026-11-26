@@ -25,22 +25,22 @@ final class OfficeBuildingZoneRepository {
       || !is_string($name) || trim($name)==='' || strlen(trim($name))>160
       || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
       || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
-      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
+      || abs((float)$lat)>85 || abs((float)$lon)>180 || (float)$radius<1 || (float)$radius>5000
       || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
       || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
     if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
-    if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
-    $this->db->beginTransaction();
+    $ownsTransaction=!$this->db->inTransaction();
+    if ($ownsTransaction) $this->db->beginTransaction();
     try {
       $stmt=$this->db->prepare('INSERT INTO office_building_zones (building_id,zone_name,latitude,longitude,radius_metres) SELECT id,?,?,?,? FROM office_buildings WHERE id=? AND active=1');
       $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$buildingId]);
       if ($stmt->rowCount()!==1) throw new InvalidArgumentException('building_not_found');
       $id=$this->db->lastInsertId();
       if (!is_string($id) || !preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new RuntimeException('zone_id_unavailable');
-      $this->db->commit();
+      if ($ownsTransaction) $this->db->commit();
       return $id;
     } catch (\Throwable $exception) {
-      if ($this->db->inTransaction()) $this->db->rollBack();
+      if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
       throw $exception;
     }
   }
@@ -57,6 +57,8 @@ final class OfficeBuildingZoneRepository {
        FROM office_project_buildings pb
        INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+         AND z.latitude BETWEEN -85 AND 85 AND z.longitude BETWEEN -180 AND 180
+         AND z.radius_metres BETWEEN 1 AND 5000 AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
        WHERE pb.project_id=? ORDER BY b.building_name,z.id'
     );
     $stmt->execute([$projectId]);
@@ -76,6 +78,8 @@ final class OfficeBuildingZoneRepository {
        FROM office_project_buildings pb
        INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+         AND z.latitude BETWEEN -85 AND 85 AND z.longitude BETWEEN -180 AND 180
+         AND z.radius_metres BETWEEN 1 AND 5000 AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
        WHERE pb.project_id=? AND z.id=? LIMIT 1'
     );
     $stmt->execute([$projectId,$zoneId]);
@@ -90,5 +94,36 @@ final class OfficeBuildingZoneRepository {
     $stmt=$this->db->prepare('SELECT id,building_id,zone_name,latitude,longitude,radius_metres,revision FROM office_building_zones WHERE building_id=? AND active=1 ORDER BY id DESC');
     $stmt->execute([$buildingId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  /** Deactivate without deleting the historical zone identity. */
+  public function deactivate(string $buildingId,string $zoneId,string $revision,\Closure $authorizedBuilding): void {
+    foreach ([$buildingId,$zoneId,$revision] as $id) {
+      if (!preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new InvalidArgumentException('invalid_zone_identity');
+    }
+    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+    $stmt=$this->db->prepare('UPDATE office_building_zones SET active=0,revision=revision+1 WHERE id=? AND building_id=? AND revision=? AND active=1');
+    $stmt->execute([$zoneId,$buildingId,$revision]);
+    if ($stmt->rowCount()!==1) throw new RuntimeException('zone_revision_conflict');
+  }
+
+  /** Update geometry only for the expected active zone revision. */
+  public function update(string $buildingId,string $zoneId,string $revision,array $zone,\Closure $authorizedBuilding): void {
+    foreach ([$buildingId,$zoneId,$revision] as $id) {
+      if (!preg_match('/^[1-9][0-9]{0,18}$/D',$id)) throw new InvalidArgumentException('invalid_zone_identity');
+    }
+    $name=$zone['zone_name']??null;
+    $lat=$zone['latitude']??null;
+    $lon=$zone['longitude']??null;
+    $radius=$zone['radius_metres']??null;
+    if (!is_string($name) || trim($name)==='' || strlen(trim($name))>160
+      || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
+      || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
+      || abs((float)$lat)>85 || abs((float)$lon)>180 || (float)$radius<1 || (float)$radius>5000)
+      throw new InvalidArgumentException('invalid_building_zone');
+    if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
+    $stmt=$this->db->prepare('UPDATE office_building_zones SET zone_name=?,latitude=?,longitude=?,radius_metres=?,revision=revision+1 WHERE id=? AND building_id=? AND revision=? AND active=1');
+    $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$zoneId,$buildingId,$revision]);
+    if ($stmt->rowCount()!==1) throw new RuntimeException('zone_revision_conflict');
   }
 }

@@ -6,7 +6,8 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
+$mapNonce=base64_encode(random_bytes(24));
+header("Content-Security-Policy: default-src 'none'; script-src 'nonce-{$mapNonce}'; style-src 'unsafe-inline'; img-src https://service.pdok.nl data:; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
   header('Allow: GET, POST');
   http_response_code(405);
@@ -270,6 +271,63 @@ if ($detail && $selectedBuilding!==null && $registerReady && getenv('OFFICE_BUIL
     if ($q->fetchColumn()) $bagToken=hash_hmac('sha256','building-bag:'.$buildingId,$registerToken);
   }
 }
+$zoneToken='';
+if ($bagToken!=='' && getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled' && getenv('OFFICE_BUILDING_ZONE_WRITE_ENABLED')==='enabled') {
+  $zoneToken=hash_hmac('sha256','building-zone-create:'.$buildingId,$bagToken);
+}
+if (($_SERVER['REQUEST_METHOD']??'')==='POST' && in_array($_POST['building_action']??null,['create_zone','update_zone','deactivate_zone'],true)) {
+  if ($zoneToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($zoneToken,$_POST['csrf_token'])) {http_response_code(403);exit;}
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+  require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingAudit.php';
+  try {
+    $db->beginTransaction();
+    $q=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 FOR UPDATE');
+    $q->execute([$operator->operatorId]);
+    if (!$q->fetchColumn()) throw new RuntimeException('inactive_operator');
+    $q=$db->prepare('SELECT id FROM office_buildings WHERE id=? AND active=1 FOR UPDATE');
+    $q->execute([$buildingId]);
+    if (!$q->fetchColumn()) throw new RuntimeException('inactive_building');
+    $q=$db->prepare('SELECT building_id FROM office_building_register_grants WHERE building_id=? AND operator_id=? FOR UPDATE');
+    $q->execute([$buildingId,$operator->operatorId]);
+    if (!$q->fetchColumn()) {
+      $q=$db->prepare("SELECT pb.building_id FROM office_project_buildings pb JOIN office_project_memberships m ON m.project_id=pb.project_id WHERE pb.building_id=? AND m.operator_id=? AND m.permission='manage' FOR UPDATE");
+      $q->execute([$buildingId,$operator->operatorId]);
+      if (!$q->fetchColumn()) throw new RuntimeException('zone_access_denied');
+    }
+    $repo=new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
+    $authorized=static fn(string $id):bool=>$id===(string)$buildingId;
+    $snapshot=static function(string $id) use ($db,$buildingId):array {
+      $q=$db->prepare('SELECT id,building_id,zone_name,latitude,longitude,radius_metres,active,revision FROM office_building_zones WHERE id=? AND building_id=? FOR UPDATE');
+      $q->execute([$id,$buildingId]);
+      $row=$q->fetch(PDO::FETCH_ASSOC);
+      if (!is_array($row)) throw new RuntimeException('zone_not_found');
+      return $row;
+    };
+    $action=$_POST['building_action'];
+    $before=null;
+    if ($action==='create_zone') {
+      $id=$repo->create(['building_id'=>(string)$buildingId,'zone_name'=>$_POST['zone_name']??null,'latitude'=>$_POST['latitude']??null,'longitude'=>$_POST['longitude']??null,'radius_metres'=>$_POST['radius_metres']??null],$authorized);
+      $event='zone_created';
+    } else {
+      if (!is_string($_POST['zone_id']??null) || !is_string($_POST['zone_revision']??null)) throw new InvalidArgumentException('invalid_zone_identity');
+      $id=$_POST['zone_id'];
+      $before=$snapshot($id);
+      if ($action==='deactivate_zone') {
+        $repo->deactivate((string)$buildingId,$id,$_POST['zone_revision'],$authorized);
+        $event='zone_deactivated';
+      } else {
+        $repo->update((string)$buildingId,$id,$_POST['zone_revision'],$_POST,$authorized);
+        $event='zone_updated';
+      }
+    }
+    (new \Brebo\Office\Buildings\OfficeBuildingAudit($db))->record((int)$buildingId,(int)$operator->operatorId,$event,'register',(int)$id,$before,$snapshot($id));
+    $db->commit();
+    header('Location: /office-test/gebouwen?id='.(int)$buildingId,true,303);exit;
+  } catch (Throwable $e) {
+    if ($db->inTransaction()) $db->rollBack();
+    http_response_code(409);exit('Klokzone niet opgeslagen. Ververs de pagina en controleer invoer en rechten.');
+  }
+}
 if (($_SERVER['REQUEST_METHOD']??'')==='POST' && ($_POST['building_action']??null)==='link_bag') {
   if ($bagToken==='' || !is_string($_POST['csrf_token']??null) || !hash_equals($bagToken,$_POST['csrf_token']) || !is_string($_POST['bag_id']??null) || !is_string($_POST['revision']??null)) {http_response_code(403);exit;}
   try {
@@ -525,16 +583,44 @@ if ($detail) {
   if ($pdokResults !== [] || ($bagRow!==null && !empty($bagRow['bag_id']) && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude']))) {
     $location = $pdokResults!==[]?$pdokResults[$selectedIndex]:['lat'=>$bagRow['latitude'],'lon'=>$bagRow['longitude']];
     if ($bagToken!=='' && preg_match('/^[0-9]{16}$/D',$location['bag_id']??'')) echo '<form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="link_bag"><input type="hidden" name="csrf_token" value="'.$h($bagToken).'"><input type="hidden" name="revision" value="'.$h(\Brebo\Office\Buildings\OfficeBuildingPdokLocationRepository::revision($bagRow)).'"><input type="hidden" name="bag_id" value="'.$h($location['bag_id']).'"><button>BAG-adres koppelen</button></form>';
-    $lat = $location['lat']; $lon = $location['lon'];
+    $lat = (float)$location['lat']; $lon = (float)$location['lon'];
+    echo '<p>Coördinaten: '.$h($lat).', '.$h($lon).'</p>';
     $r = 6378137.0; $x = $r * deg2rad($lon); $y = $r * log(tan(M_PI / 4 + deg2rad($lat) / 2));
-    $bbox = implode(',', [$x - 90, $y - 52, $x + 90, $y + 52]);
+    $bbox = implode(',', [$x - 300, $y - 173.333333, $x + 300, $y + 173.333333]);
     $mapUrl = 'https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?' . http_build_query([
       'service' => 'WMS', 'version' => '1.3.0', 'request' => 'GetMap',
       'layers' => 'Actueel_orthoHR', 'styles' => '', 'crs' => 'EPSG:3857',
       'bbox' => $bbox, 'width' => 900, 'height' => 520,
       'format' => 'image/jpeg', 'transparent' => 'false',
     ]);
-    echo '<figure style="margin:20px 0 0"><img src="' . $h($mapUrl) . '" alt="PDOK-luchtfoto rondom het geselecteerde BAG-zoekresultaat" style="max-width:100%;height:auto;border-radius:8px"><figcaption>PDOK-luchtfoto bij de weergegeven locatie.</figcaption></figure>';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneMap.php';
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
+    $zones=[];
+    if (getenv('OFFICE_BUILDING_ZONES_SCHEMA_VERIFIED')==='enabled') {
+      $zones=(new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->forBuilding((string)$buildingId,
+        static fn(string $id):bool => $selectedBuilding!==null && $id===(string)$buildingId);
+    }
+    echo '<figure style="margin:20px 0 0"><svg id="zone-map" data-x="'.$h($x).'" data-y="'.$h($y).'" viewBox="0 0 900 520" role="img" aria-label="PDOK-luchtfoto met actieve klokzones" style="width:100%;height:auto"><image href="'.$h($mapUrl).'" width="900" height="520"/>';
+    foreach ($zones as $zone) {
+      $geometry=\Brebo\Office\Buildings\OfficeBuildingZoneMap::circle((float)$zone['latitude'],(float)$zone['longitude'],(float)$zone['radius_metres'],[$x-300,$y-173.333333,$x+300,$y+173.333333],900,520);
+      echo '<ellipse cx="'.$h($geometry['cx']).'" cy="'.$h($geometry['cy']).'" rx="'.$h($geometry['rx']).'" ry="'.$h($geometry['ry']).'" fill="#2684ff" fill-opacity=".18" stroke="#2684ff" stroke-width="3"><title>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</title></ellipse>';
+    }
+    echo '<circle cx="450" cy="260" r="5" fill="#fff" stroke="#175a91" stroke-width="3"/></svg><figcaption>PDOK-luchtfoto · actieve klokzones</figcaption></figure>';
+    foreach ($zones as $zone) {
+      echo '<p>'.$h($zone['zone_name']).' · '.$h($zone['radius_metres']).' m</p>';
+      if ($zoneToken==='') continue;
+      echo '<details><summary>Klokzone wijzigen</summary><form method="post"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><input type="hidden" name="zone_id" value="'.$h($zone['id']).'"><input type="hidden" name="zone_revision" value="'.$h($zone['revision']).'">';
+      foreach (['zone_name'=>'Naam','latitude'=>'Breedtegraad','longitude'=>'Lengtegraad','radius_metres'=>'Straal (meter)'] as $key=>$label) {
+        echo '<p><label>'.$h($label).' <input name="'.$h($key).'" required value="'.$h($zone[$key]).'"></label></p>';
+      }
+      echo '<button name="building_action" value="update_zone">Wijziging opslaan</button> <button name="building_action" value="deactivate_zone" formnovalidate>Deactiveren</button></form></details>';
+    }
+    if ($zoneToken!=='' && $bagRow!==null && is_numeric($bagRow['latitude']) && is_numeric($bagRow['longitude'])) {
+      echo '<details><summary>+ Klokzone toevoegen</summary><form method="post" action="/office-test/gebouwen?id='.(int)$buildingId.'"><input type="hidden" name="building_action" value="create_zone"><input type="hidden" name="csrf_token" value="'.$h($zoneToken).'"><p><label>Naam <input name="zone_name" maxlength="160" required></label></p><p><label>Breedtegraad <input type="number" name="latitude" step="0.0000001" min="-85" max="85" required value="'.$h($bagRow['latitude']).'"></label></p><p><label>Lengtegraad <input type="number" name="longitude" step="0.0000001" min="-180" max="180" required value="'.$h($bagRow['longitude']).'"></label></p><p><label>Straal (meter) <input type="number" name="radius_metres" min="1" max="5000" step="0.01" value="150" required></label></p><button>Klokzone opslaan</button></form></details>';
+    }
+  }
+  if ($zoneToken!=='') {
+    echo '<script nonce="'.$h($mapNonce).'">'.file_get_contents(dirname(__DIR__).'/src/Buildings/zone-map-editor.js').'</script>';
   }
   echo '</section>';
   echo '</main></body></html>';
