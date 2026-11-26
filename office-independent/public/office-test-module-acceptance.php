@@ -39,8 +39,22 @@ try {
  header('Location: ?module='.rawurlencode($module),true,303);exit;
  }
  $e=static fn(string $s):string=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+ [$groups,$routes,$schemas,$dependencies]=require dirname(__DIR__).'/src/Approval/office-test-diagnostic-profiles.php';
+ $columnQuery=$db->prepare('SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+ $router=file_get_contents(__DIR__.'/index.php');
+ $technical=[];
+ foreach ($groups as $name=>[$flags,$tables]) {
+ $ok=0;$blocked=0;$attention=0;
+ foreach ($flags as $flag) {if(getenv($flag)==='enabled'){$ok++;}else{$attention++;}}
+ foreach (array_unique(array_merge($tables,array_keys($schemas[$name]??[]))) as $table) {
+ $columnQuery->execute([$table]);$available=$columnQuery->fetchAll(PDO::FETCH_COLUMN);
+ if (!$available || array_diff($schemas[$name][$table]??[],$available)) {$blocked++;}else{$ok++;}
+ }
+ if(isset($routes[$name])) {[$route,$handler]=$routes[$name];if(is_string($router)&&str_contains($router,"'".$route."' => '".$handler."'")&&is_file(__DIR__.'/'.$handler)){$ok++;}else{$attention++;}}
+ $technical[$name]=[$blocked?'Blokkade':($attention?'Aandacht':($ok?'Deelcontroles akkoord':'Niet gecontroleerd')),$ok,$blocked,$attention];
+ }
  $totals=['pending'=>0,'passed'=>0,'failed'=>0,'retest'=>0];
- $html='<table><thead><tr><th>Module</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Hertest</th><th>Nog te testen</th></tr></thead><tbody>';
+ $html='<table><thead><tr><th>Module</th><th>Actuele technische status</th><th>Goedgekeurd</th><th>Afgekeurd</th><th>Hertest</th><th>Nog te testen</th></tr></thead><tbody>';
  foreach ($catalog as $name=>$tests) {
  $counts=array_fill_keys(array_keys($totals),0);
  foreach ($tests as $key=>$label) {
@@ -48,7 +62,7 @@ try {
  $state=$result['status']??'pending';
  $counts[$state]++;$totals[$state]++;
  }
- $html.='<tr><td><a href="?module='.rawurlencode($name).'">'.$e($name).'</a></td><td>'.$counts['passed'].' / '.count($tests).'</td><td>'.$counts['failed'].'</td><td>'.$counts['retest'].'</td><td>'.$counts['pending'].'</td></tr>';
+ $html.='<tr><td><a href="?module='.rawurlencode($name).'">'.$e($name).'</a></td><td>'.$e($technical[$name][0]??'Niet gecontroleerd').' ('.$technical[$name][1].' OK / '.$technical[$name][2].' blokkades / '.$technical[$name][3].' aandacht)</td><td>'.$counts['passed'].' / '.count($tests).'</td><td>'.$counts['failed'].'</td><td>'.$counts['retest'].'</td><td>'.$counts['pending'].'</td></tr>';
  }
  $html.='</tbody></table><h2>'.$e($module).'</h2>';
  $total=array_sum($totals);
@@ -62,5 +76,5 @@ try {
  foreach (['pending'=>'Nog te testen','passed'=>'Goedgekeurd','failed'=>'Afgekeurd','retest'=>'Hertest vereist'] as $value=>$title) {$html.='<option value="'.$value.'"'.($status===$value?' selected':'').'>'.$title.'</option>';}
  $html.='</select><textarea name="notes" maxlength="8000" placeholder="Toelichting">'.$e($row['notes']??'').'</textarea><button type="submit" name="quick_status" value="passed">✓ Goedkeuren</button> <button type="submit" name="quick_status" value="pending">Vinkje verwijderen</button> <button type="submit">Status en toelichting opslaan</button></form>';
  }
- echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).'</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'</html>';
+ echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Test- en acceptatiecentrum</title><style>body{font:15px system-ui;margin:24px}nav{display:flex;flex-wrap:wrap;gap:12px}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:8px;border-bottom:1px solid #ddd}progress{width:100%}form{border:1px solid #ccc;padding:12px;margin:8px 0}textarea{display:block;width:95%;margin:8px 0}</style><h1>Test- en acceptatiecentrum</h1><p>Office-test — '.$e($release).' — controle UTC '.$e(gmdate('c')).'</p><p>Technische deelcontroles: flags, tabellen, kolommen en statische routes; geen bewijs van functionele werking.</p><p>'.$passed.' / '.count($catalog[$module]).' goedgekeurd</p>'.$summary.$html.'</html>';
 } catch (Throwable $ex) {http_response_code(503);exit('Acceptatiecentrum tijdelijk niet beschikbaar.');}
