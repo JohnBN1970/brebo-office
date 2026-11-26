@@ -64,7 +64,7 @@ if ($method==='POST') {
         unset($pdokForm['pdok_results']);
         try {
             require_once dirname(__DIR__).'/src/Buildings/OfficePdokAddressLookup.php';
-            $query=$pdokForm['pdok_query']??null;
+            $query=\Brebo\Office\Buildings\OfficeBuildingCreateForm::searchQuery($pdokForm);
             if (!is_string($query)) throw new DomainException('Invalid query');
             $pdokForm['pdok_results']=(new \Brebo\Office\Buildings\OfficePdokAddressLookup())->search($query);
             if ($pdokForm['pdok_results']===[]) $error='Geen BAG-adressen gevonden.';
