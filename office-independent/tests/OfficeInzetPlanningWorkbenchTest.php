@@ -43,3 +43,16 @@ if (!str_contains($html,'Gepland: 2,00 u (25%)') || !str_contains($html,'Gepland
   throw new RuntimeException('Overnight hours not split across local days');
 }
 echo "Office Inzet daily capacity and week totals OK\n";
+
+
+$actualHtml = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
+  $rows,[17],2026,43,[17=>'Testproject'],[],null,false,
+  [8=>['2026-10-19'=>90,'2026-10-20'=>240]]
+);
+if (!str_contains($actualHtml,'OnSite goedgekeurd: 1,50 u')
+  || !str_contains($actualHtml,'Afwijking: -0,50 u')
+  || !str_contains($actualHtml,'5,50 OnSite goedgekeurde uren')) {
+  throw new RuntimeException('Approved OnSite week comparison incorrect');
+}
+if (str_contains($html,'OnSite goedgekeurd:')) throw new RuntimeException('Actual hours displayed without verified source');
+echo "Office Inzet approved OnSite comparison OK\n";
