@@ -213,7 +213,11 @@ if($method==='GET' && is_int($requestedProject) && !isset($_GET['building_id']))
 } catch (OutOfBoundsException $e) {http_response_code(404);exit('Dossier niet gevonden.');}
 catch (DomainException $e) {http_response_code(403);exit('Wijziging niet toegestaan. Controleer status, rechten en revisie.');}
 catch (InvalidArgumentException $e) {http_response_code(422);exit('Ongeldige invoer. Controleer verplichte velden en datum.');}
-catch (Throwable $e) {http_response_code(503);exit('Onderdeel tijdelijk niet beschikbaar.');}
+catch (Throwable $e) {
+    $incident=bin2hex(random_bytes(8));
+    error_log('OFFICE_GOVERNANCE_FAILURE incident='.$incident.' module='.$module.' class='.get_class($e).' code='.$e->getCode().' file='.basename($e->getFile()).' line='.$e->getLine());
+    http_response_code(503);exit('Onderdeel tijdelijk niet beschikbaar. Referentie: '.$incident);
+}
 $e=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 $titles=['quality'=>'Kwaliteit','risk'=>'Risico’s','procurement'=>'Inkoop'];
 $statusLabels=['open'=>'Open','deviation'=>'Afwijking','recheck'=>'Hercontrole','accepted'=>'Akkoord','mitigating'=>'In beheersing','closed'=>'Gesloten','draft'=>'Concept','submitted'=>'Ter goedkeuring','approved'=>'Goedgekeurd','ordered'=>'Opdracht verstrekt','received'=>'Ontvangen','cancelled'=>'Geannuleerd'];
