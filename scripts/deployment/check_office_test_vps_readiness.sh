@@ -46,6 +46,33 @@ for file in \
 done
 echo "VPS_STARTDOSSIER_RELEASE_FILES=PASS"
 echo "VPS_STARTDOSSIER_SCHEMA_AND_TWO_USER_ACCEPTANCE=NOT_VERIFIED"
+# Inzet weekcalendar deployment proof: check the exact active release, not
+# the source tree in GitHub. PHP-FPM flags and real user data remain unverified.
+for file in \
+  src/Inzet/OfficeInzetPlanningWorkbench.php \
+  src/Inzet/OfficeInzetApprovedWeekReadRepository.php; do
+  if test ! -f "$release/$file"; then
+    echo "::error::VPS_INZET_WEEKCALENDAR_FILE_MISSING=$file"
+    exit 1
+  fi
+  php -l "$release/$file" > /dev/null || {
+    echo "::error::VPS_INZET_WEEKCALENDAR_PHP_SYNTAX_INVALID=$file"
+    exit 1
+  }
+done
+if ! grep -Fq "'green'=>" "$release/src/Inzet/OfficeInzetPlanningWorkbench.php" ||
+   ! grep -Fq 'inzet-status-' "$release/src/Inzet/OfficeInzetPlanningWorkbench.php"; then
+  echo "::error::VPS_INZET_TRAFFIC_LIGHT_SOURCE_MISSING"
+  exit 1
+fi
+if ! grep -Fq 'OFFICE_TEST_INZET_ONSITE_WEEK_ACTUALS_ENABLED' "$release/public/office-projects.php"; then
+  echo "::error::VPS_INZET_ONSITE_FLAG_WIRING_MISSING"
+  exit 1
+fi
+echo "VPS_INZET_WEEKCALENDAR_RELEASE=PASS"
+echo "VPS_INZET_ONSITE_FPM_FLAGS=NOT_VERIFIED"
+echo "VPS_INZET_ONSITE_FUNCTIONAL_ACCEPTANCE=NOT_VERIFIED"
+
 
 echo "VPS_CRM_DIRECT_SCHEMA_AND_FLAGS=PRIVILEGED_PREFLIGHT_REQUIRED"
 active_sha="$(cat "$release/.office-source-sha")"
