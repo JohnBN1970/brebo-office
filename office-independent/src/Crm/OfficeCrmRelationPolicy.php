@@ -20,7 +20,7 @@ final class OfficeCrmRelationPolicy {
 
     public static function kindLabel(string $kind): string {
         return match ($kind) {
-            'organization' => 'Bedrijf',
+            'organization', 'company' => 'Bedrijf',
             'person' => 'Particulier',
             default => $kind,
         };
