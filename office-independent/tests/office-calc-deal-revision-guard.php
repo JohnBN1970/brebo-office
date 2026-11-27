@@ -27,6 +27,8 @@ $db->exec("UPDATE office_crm_opportunities SET status='closed' WHERE id=1");
 blocked(fn()=>$guard->review(1,1,2,$allow));
 $db->exec("UPDATE office_crm_opportunities SET status='open' WHERE id=1");
 $guard->review(1,1,2,$allow);
+$review=$db->query('SELECT draft_id,deal_revision,reviewed_by,reviewed_at FROM office_calc_deal_revision_reviews')->fetch(PDO::FETCH_ASSOC);
+if (!is_array($review) || (int)$review['draft_id']!==1 || (int)$review['deal_revision']!==2 || (int)$review['reviewed_by']!==1 || !is_string($review['reviewed_at']) || $review['reviewed_at']==='') throw new RuntimeException('Review audit incomplete');
 $db->beginTransaction(); $guard->assertReviewed(1); $db->commit();
 $db->exec('UPDATE office_crm_opportunities SET revision=3');
 $db->beginTransaction(); blocked(fn()=>$guard->assertReviewed(1)); $db->commit();
