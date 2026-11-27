@@ -1,6 +1,12 @@
 name: Office-test Deal revision schema audit (read-only)
 on:
   workflow_dispatch:
+    inputs:
+      ssh_only:
+        description: 'Only verify Office-test root SSH; skip schema audit'
+        type: boolean
+        required: true
+        default: true
 permissions:
   contents: read
 jobs:
@@ -12,6 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Inspect Office-test schema without writes
         env:
+          SSH_ONLY: ${{ inputs.ssh_only }}
           VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
           VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
           VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
@@ -21,20 +28,24 @@ jobs:
         run: |
           set -euo pipefail
           for v in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do test -n "${!v}" || exit 1; done
-          test "$VPS_USER" = brebo-deploy
+          test "$VPS_USER" = root
           umask 077
           mkdir -p "$HOME/.ssh"
           printf '%s\n' "$VPS_KEY" > "$HOME/.ssh/id_office_test"
           printf '%s\n' "$VPS_HOST_KEY" > "$HOME/.ssh/known_hosts_office_test"
           chmod 600 "$HOME/.ssh/id_office_test" "$HOME/.ssh/known_hosts_office_test"
+          if [ "$SSH_ONLY" = true ]; then
+            ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts_office_test" -i "$HOME/.ssh/id_office_test" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'test "$(id -un)" = root && echo OFFICE_TEST_ROOT_SSH=PASS'
+            exit 0
+          fi
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts_office_test" -i "$HOME/.ssh/id_office_test" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
-          test "$(id -un)" = brebo-deploy
+          test "$(id -un)" = root
           BASE=/srv/brebo/office-test
           RELEASE="$(readlink -f "$BASE/current")"
           case "$RELEASE" in "$BASE"/releases/*) ;; *) exit 1;; esac
           test -r "$RELEASE/deployment/vps/crm-calc-schema-preflight.php"
-          sudo -n -- /usr/bin/php "$RELEASE/deployment/vps/crm-calc-schema-preflight.php" --check
+          /usr/bin/php "$RELEASE/deployment/vps/crm-calc-schema-preflight.php" --check
           echo "DEAL_REVISION_EXISTING_SCHEMA_PREFLIGHT=PASS"
           # The deploy account may not read DB credentials. Fail closed if it cannot.
           CONFIG="$BASE/private/office-test-config.php"
