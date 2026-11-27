@@ -56,3 +56,26 @@ if (!str_contains($actualHtml,'OnSite goedgekeurd: 1,50 u')
 }
 if (str_contains($html,'OnSite goedgekeurd:')) throw new RuntimeException('Actual hours displayed without verified source');
 echo "Office Inzet approved OnSite comparison OK\n";
+
+
+$traffic = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
+  $capacityRows,[17,18],2026,43,[],[],null,false,
+  [8=>['2026-10-19'=>480,'2026-10-20'=>180]]
+);
+if (!str_contains($traffic,'inzet-status-green') || !str_contains($traffic,'inzet-status-orange')
+  || !str_contains($capacityHtml,'inzet-status-neutral')) {
+  throw new RuntimeException('Green/orange/neutral traffic statuses missing');
+}
+$redTraffic = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
+  $capacityRows,[17,18],2026,43,[],[],null,false,
+  [8=>['2026-10-19'=>300,'2026-10-20'=>240]]
+);
+if (!str_contains($redTraffic,'inzet-status-red')) throw new RuntimeException('Red deviation status missing');
+$overloadRows = [
+  ['project_id'=>17,'person_id'=>8,'person_name'=>'Testmedewerker','starts_at'=>'2026-10-19 06:00:00','ends_at'=>'2026-10-19 16:00:00','status'=>'planned'],
+];
+$overload = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($overloadRows,[17],2026,43);
+if (!str_contains($overload,'Overbezetting boven 100%') || !str_contains($overload,'inzet-status-red')) {
+  throw new RuntimeException('Overcapacity must be red even without OnSite actuals');
+}
+echo "Office Inzet traffic-light statuses OK\n";

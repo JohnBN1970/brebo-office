@@ -79,11 +79,24 @@ final class OfficeInzetPlanningWorkbench {
         $hours = number_format($dayMinutes / 60, 2, ',', '.');
         $percent = (int)round($dayMinutes * 100 / 480);
         $barWidth = min(100, $percent);
-        $html .= '<td style="vertical-align:top;min-width:105px">'
+        $difference = $actualMinutes === null ? null : $actualMinutes - $dayMinutes;
+        // Neutral until approved actuals exist. A capacity overload is always red.
+        $severity = $percent > 100 ? 'red'
+          : ($difference === null ? 'neutral'
+          : (abs($difference) <= 30 ? 'green' : (abs($difference) <= 60 ? 'orange' : 'red')));
+        $palette = [
+          'neutral'=>['#2563eb','#eff6ff','Nog geen OnSite-vergelijking'],
+          'green'=>['#15803d','#f0fdf4','Binnen 30 minuten afwijking'],
+          'orange'=>['#c2410c','#fff7ed','Afwijking 31 tot 60 minuten'],
+          'red'=>['#b91c1c','#fef2f2',$percent > 100 ? 'Overbezetting boven 100%' : 'Afwijking groter dan 60 minuten'],
+        ];
+        [$barColor,$cellColor,$statusLabel] = $palette[$severity];
+        $html .= '<td class="inzet-status-' . $severity . '" style="vertical-align:top;min-width:105px;background:' . $cellColor . '">'
           . '<div class="inzet-day-capacity" aria-label="Gepland ' . $escape($hours) . ' uur, ' . $percent . '% van 8 uur">'
           . '<small>Gepland: ' . $escape($hours) . ' u (' . $percent . '%)</small>'
-          . '<div style="height:9px;background:#e5e7eb;border-radius:5px;overflow:hidden" role="img" aria-label="' . $percent . '% van 8 uur">'
-          . '<div style="height:100%;width:' . $barWidth . '%;background:' . ($percent > 100 ? '#b45309' : '#2563eb') . '"></div></div></div>';
+          . '<small style="display:block;color:' . $barColor . '">' . $escape($statusLabel) . '</small>'
+          . '<div style="height:9px;background:#e5e7eb;border-radius:5px;overflow:hidden" role="img" aria-label="' . $percent . '% van 8 uur; ' . $escape($statusLabel) . '">'
+          . '<div style="height:100%;width:' . $barWidth . '%;background:' . $barColor . '"></div></div></div>';
         if ($actualMinutes !== null) {
           $difference = $actualMinutes - $dayMinutes;
           $html .= '<small style="display:block">OnSite goedgekeurd: ' . number_format($actualMinutes / 60, 2, ',', '.')
