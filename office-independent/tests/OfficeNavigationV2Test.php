@@ -41,7 +41,7 @@ putenv('OFFICE_TEST_CRM_ENABLED=enabled');
 putenv('OFFICE_CRM_AUTH_MODE=session_only');
 putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=enabled');
 $leadsNav=OfficeNavigation::mainV2('/office-test/crm/aanvragen');
-if (!str_contains($leadsNav, 'href="/office-test/crm/aanvragen"') || !str_contains($leadsNav, 'Leadoverzicht') || !str_contains($leadsNav, '<summary aria-current="page">Sales</summary>')) { fwrite(STDERR, "CRM Leads link missing with schema enabled\\n"); exit(1); }
+if (!str_contains($leadsNav, 'href="/office-test/crm/aanvragen"') || !str_contains($leadsNav, 'Leads') || !str_contains($leadsNav, '<summary aria-current="page">Sales</summary>')) { fwrite(STDERR, "CRM Leads link missing with schema enabled\\n"); exit(1); }
 putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=disabled');
 if (str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'), 'href="/office-test/crm/aanvragen"')) { fwrite(STDERR, "CRM Leads link exposed with schema disabled\\n"); exit(1); }
 putenv('OFFICE_TEST_CRM_ENABLED=disabled');
