@@ -1,0 +1,44 @@
+name: Inzet acceptance gates (isolated)
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/**'
+      - 'office-independent/tests/OfficeOnSite*'
+      - 'office-independent/tests/OfficePersonnelAccountLinkTest.php'
+      - 'office-independent/tests/OfficeApprovedLabour*'
+      - '.github/workflows/inzet-acceptance-gates.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify PHP SQLite availability
+        run: |
+          php -v
+          php -r 'if (!extension_loaded("pdo_sqlite")) { fwrite(STDERR, "pdo_sqlite unavailable\n"); exit(1); }'
+      - name: Personnel, four-eyes, and rollout regression
+        run: |
+          set -euo pipefail
+          for test in \
+            office-independent/tests/OfficePersonnelAccountLinkTest.php \
+            office-independent/tests/OfficeOnSiteFourEyesGuardTest.php \
+            office-independent/tests/OfficeOnSiteRolloutReadinessTest.php; do
+            php -l "$test"
+            php "$test"
+          done
+      - name: Approval-to-cost atomic posting contracts
+        run: |
+          set -euo pipefail
+          for test in \
+            office-independent/tests/OfficeOnSiteApprovalChainContractTest.php \
+            office-independent/tests/OfficeApprovedLabourCostPostingContractTest.php \
+            office-independent/tests/OfficeOnSiteAggregateGateContractTest.php; do
+            php -l "$test"
+            php "$test"
+          done
