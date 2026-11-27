@@ -216,6 +216,29 @@ catch (InvalidArgumentException $e) {http_response_code(422);exit('Ongeldige inv
 catch (Throwable $e) {
     $incident=bin2hex(random_bytes(8));
     error_log('OFFICE_GOVERNANCE_FAILURE incident='.$incident.' module='.$module.' class='.get_class($e).' code='.$e->getCode().' file='.basename($e->getFile()).' line='.$e->getLine());
+    // Office-test only: bounded latest incident, no message, trace, request or customer data.
+    if ($host==='office-test.brebobv.nl' && $module==='quality'
+        && realpath((string)getenv('OFFICE_DOCUMENT_STORAGE_ROOT'))==='/srv/brebo/private/office-test-documents') {
+        $diagnosticRoot='/srv/brebo/private/office-test-documents';
+        $diagnosticTmp=null;
+        try {
+            $diagnosticTmp=tempnam($diagnosticRoot,'.governance-');
+            if ($diagnosticTmp!==false && dirname($diagnosticTmp)===$diagnosticRoot) {
+                chmod($diagnosticTmp,0600);
+                $safeClass=preg_replace('/[^A-Za-z0-9_]/','_',get_class($e));
+                $safeCode=preg_replace('/[^A-Za-z0-9]/','',(string)$e->getCode());
+                $safeFile=preg_replace('/[^A-Za-z0-9_.-]/','_',basename($e->getFile()));
+                $diagnostic='OFFICE_GOVERNANCE_FAILURE incident='.$incident.' module=quality class='.$safeClass.' code='.$safeCode.' file='.$safeFile.' line='.$e->getLine()."\n";
+                if (strlen($diagnostic)<=512 && file_put_contents($diagnosticTmp,$diagnostic)===strlen($diagnostic)) {
+                    rename($diagnosticTmp,$diagnosticRoot.'/.governance-latest-incident');
+                }
+            }
+        } catch (Throwable $ignored) {
+            // Diagnostics must never replace the original error response.
+        } finally {
+            if (is_string($diagnosticTmp) && dirname($diagnosticTmp)===$diagnosticRoot && is_file($diagnosticTmp)) @unlink($diagnosticTmp);
+        }
+    }
     http_response_code(503);exit('Onderdeel tijdelijk niet beschikbaar. Referentie: '.$incident);
 }
 $e=static fn(mixed $v):string=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
