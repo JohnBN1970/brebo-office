@@ -60,9 +60,28 @@ final class OfficeInzetPlanningWorkbench {
     foreach ($people as $personKey => $shiftsByDay) {
       $person = $personLabels[$personKey];
       $html .= '<tr><th scope="row" style="text-align:left;white-space:nowrap">' . $escape($person) . '</th>';
+      $weekMinutes = 0;
       foreach ($days as $offset => $label) {
-        $date = $monday->modify('+' . $offset . ' days')->format('Y-m-d');
-        $html .= '<td style="vertical-align:top;min-width:105px">';
+        $dayStart = $monday->modify('+' . $offset . ' days');
+        $date = $dayStart->format('Y-m-d');
+        $dayEnd = $dayStart->modify('+1 day');
+        $dayMinutes = 0;
+        foreach ($shiftsByDay[$date] ?? [] as $dayShift) {
+          $shiftStart = (new \\DateTimeImmutable($dayShift['starts_at'], new \\DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
+          $shiftEnd = (new \\DateTimeImmutable($dayShift['ends_at'], new \\DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
+          $overlapStart = max($shiftStart->getTimestamp(), $dayStart->getTimestamp());
+          $overlapEnd = min($shiftEnd->getTimestamp(), $dayEnd->getTimestamp());
+          if ($overlapEnd > $overlapStart) $dayMinutes += (int)round(($overlapEnd - $overlapStart) / 60);
+        }
+        $weekMinutes += $dayMinutes;
+        $hours = number_format($dayMinutes / 60, 2, ',', '.');
+        $percent = (int)round($dayMinutes * 100 / 480);
+        $barWidth = min(100, $percent);
+        $html .= '<td style="vertical-align:top;min-width:105px">'
+          . '<div class="inzet-day-capacity" aria-label="Gepland ' . $escape($hours) . ' uur, ' . $percent . '% van 8 uur">'
+          . '<small>Gepland: ' . $escape($hours) . ' u (' . $percent . '%)</small>'
+          . '<div style="height:9px;background:#e5e7eb;border-radius:5px;overflow:hidden" role="img" aria-label="' . $percent . '% van 8 uur">'
+          . '<div style="height:100%;width:' . $barWidth . '%;background:' . ($percent > 100 ? '#b45309' : '#2563eb') . '"></div></div></div>';
         foreach ($shiftsByDay[$date] ?? [] as $shift) {
           $html .= '<div style="padding:8px;margin:3px 0;border:1px solid #cddceb;border-radius:8px;background:#f3f7fc">'
             . '<strong>' . $escape($projectNames[(int)$shift['project_id']] ?? ('Project #' . (int)$shift['project_id'])) . '</strong><small style="display:block">'
@@ -99,7 +118,7 @@ final class OfficeInzetPlanningWorkbench {
         }
         $html .= '</td>';
       }
-      $html .= '</tr>';
+      $html .= '</tr><tr><td colspan="8"><small>Weektotaal ' . $escape($person) . ': ' . number_format($weekMinutes / 60, 2, ',', '.') . ' geplande uren</small></td></tr>';
     }
     return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Ontbrekende medewerker- of projectnamen tonen een nummer.</small></p></section>';
   }
