@@ -54,4 +54,4 @@ Na herbevestiging van de GitHub-identiteit is de develop-regel opgeslagen en opn
 3. Nieuwe modulemigraties en acceptatiescenario's worden expliciet aan de centrale route toegevoegd. De eerste geaccepteerde keten is het startdossier; dit is geen claim dat alle Office-modules volledig functioneel geaccepteerd zijn.
 4. Een productierelease heeft afzonderlijk akkoord nodig en, door de ingestelde zelfreviewpreventie, een goedkeurder die verschilt van de startende identiteit. Productie is in deze opdracht bewust niet gereleased.
 
-De actuele uitvoeringsinstructies staan in [OFFICE_TEST_DEVELOPMENT_PIPELINE.md](OFFICE_TEST_DEVELOPMENT_PIPELINE.md), [DEVELOPMENT_POLICY.md](DEVELOPMENT_POLICY.md) en het repository-`AGENTS.md`.
+De actuele uitvoeringsinstructies staan in [OFFICE_TEST_DEVELOPMENT_PIPELINE.md](OFFICE_TEST_DEVELOPMENT_PIPELINE.md) en het repository-`AGENTS.md`.
