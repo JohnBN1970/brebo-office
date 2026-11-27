@@ -1,0 +1,58 @@
+name: Office-test read-only command bridge
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.github/workflows/office-test-command-bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/develop'
+    environment: office-test-vps
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: office-test-vps-release
+      cancel-in-progress: false
+    steps:
+      - name: Read-only Office-test diagnostics
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do test -n "${!key}"; done
+          [[ "$VPS_PORT" =~ ^[0-9]+$ ]]
+          [[ "$VPS_USER" == brebo-deploy ]]
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/office_test_vps
+          chmod 600 ~/.ssh/office_test_vps
+          trap 'rm -f ~/.ssh/office_test_vps' EXIT
+          printf '%s\n' "$VPS_HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root=/srv/brebo/office-test
+          release=$(readlink -f "$root/current")
+          [[ "$release" =~ ^/srv/brebo/office-test/releases/[a-f0-9]{40}$ ]]
+          echo "ACTIVE_RELEASE=${release##*/}"
+          php -l "$release/public/office-governance.php"
+          grep -Fq OFFICE_GOVERNANCE_FAILURE "$release/public/office-governance.php" && echo GOVERNANCE_DIAGNOSTICS=READY || echo GOVERNANCE_DIAGNOSTICS=MISSING
+          if test -w /srv/brebo/private/office-test-documents; then echo DOCUMENT_STORAGE=WRITABLE; else echo DOCUMENT_STORAGE=NOT_WRITABLE; fi
+          echo "QUALITY_HTTP=$(curl --max-time 15 -sS -o /dev/null -w '%{http_code}' https://office-test.brebobv.nl/office-test/kwaliteit)"
+          # Public repository: emit only the fixed diagnostic fields, never raw logs.
+          found=0
+          for log in /var/log/nginx/*error*.log; do
+            if test -r "$log"; then
+              found=1
+              grep -Eo 'OFFICE_GOVERNANCE_FAILURE incident=[a-f0-9]{16} module=quality class=[A-Za-z0-9_\\]+ code=[A-Za-z0-9]+ file=[A-Za-z0-9_.-]+ line=[0-9]+' "$log" | tail -10 || true
+            fi
+          done
+          echo "READABLE_ERROR_LOGS=$found"
+          REMOTE
