@@ -95,30 +95,31 @@ final class OfficeNavigation {
     $groups=[
       ['Mijn werkplek','werkplek',array_merge([['Startpagina','/office-test/']], (getenv('OFFICE_PERSONAL_DASHBOARD_ENABLED')==='enabled' && getenv('OFFICE_DASHBOARD_PREFERENCES_SCHEMA_VERIFIED')==='enabled') ? [['Mijn dashboard','/office-test/mijn-dashboard'],['Dashboardbouwer','/office-test/mijn-dashboard?view=builder'],['KPI Wallboard','/office-test/mijn-dashboard?view=wallboard']] : [])],
       ['Marketing','marketing',getenv('OFFICE_TEST_MARKETING_ENABLED')==='enabled' ? [['Marketingoverzicht','/office-test/marketing']] : []],
-      ['Leads','leads',$crmAvailable && getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Leadoverzicht','/office-test/crm/aanvragen'],['Nieuwe lead','/office-test/crm/aanvragen/nieuw']] : []],
-      ['Relaties & kansen','relaties',$crmAvailable?array_merge((getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [['Relaties','/office-test/crm/relaties']] : []), (getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Deals','/office-test/crm/verkoopkansen']] : [])):[]],
-      ['Calculatie & offertes','calculatie',array_merge(getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled'?[['Calculaties','/office-test/calculatie']]:[],$quoteLinks)],
+      ['Sales','sales',array_merge(
+        $crmAvailable && getenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED')==='enabled' ? [['Leads','/office-test/crm/aanvragen'],['Nieuwe lead','/office-test/crm/aanvragen/nieuw']] : [],
+        $crmAvailable && getenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED')==='enabled' ? [['Deals','/office-test/crm/verkoopkansen']] : [],
+        getenv('OFFICE_CALC_DRAFT_COLLABORATION_ENABLED')==='enabled' ? [['Calculaties','/office-test/calculatie']] : [],
+        $quoteLinks)],
+      ['Relaties','relaties',$crmAvailable && getenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED')==='enabled' ? [
+        ['Klanten','/office-test/crm/relaties'],['Contactpersonen','/office-test/crm/relaties'],['Leveranciers','/office-test/crm/relaties']
+      ] : []],
       ['Projecten','projecten',$projectsAvailable?[
-        ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],['Acties · Kanban','/office-test/projecten?view=kanban']
-      ]:[]],
-      ['Personeel','personeel',$projectsAvailable?[
-        ['Medewerkers','/office-test/personeel/medewerkers'],
+        ['Projectoverzicht','/office-test/projecten'],['Projectplanning · Gantt','/office-test/projecten?view=gantt'],
+        ['Acties · Kanban','/office-test/projecten?view=kanban'],
         ['Inzet en planning','/office-test/projecten?view=inzet&tab=planning'],
         ['OnSite','/office-test/projecten?view=inzet&tab=onsite'],
-        ['Urencontrole','/office-test/projecten?view=inzet&tab=controle'],
+        ['Urencontrole','/office-test/projecten?view=inzet&tab=controle']
       ]:[]],
-      ['Gebouwen','gebouwen',$projectsAvailable?array_merge(
-        [['Gebouwenoverzicht','/office-test/gebouwen']],
-        (getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled'
-          && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled')
-          ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']]
-          : []
-      ):[]],
-      ['Bedrijfsvoering','bedrijfsvoering',array_merge(self::financeVisible()?[
+      ['Resources','resources',$projectsAvailable?array_merge([
+        ['Personeel','/office-test/personeel/medewerkers'],['Gebouwen','/office-test/gebouwen']
+      ],(getenv('OFFICE_TEST_INSPECTION_UI_ENABLED')==='enabled'
+        && getenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED')==='enabled')
+        ? [['Inspecties','/office-test/inspecties'],['Nieuwe inspectie','/office-test/inspectie']] : []):[]],
+      ['Finance','bedrijfsvoering',array_merge(self::financeVisible()?[
         ['Finance overzicht','/office-test/finance'],
         ...(getenv('OFFICE_SALES_ENABLED')==='enabled'?[['Verkoopfacturen','/office-test/finance/verkoop']]:[]),
         ...(getenv('OFFICE_FINANCE_CENTER_ENABLED')==='enabled'?[['Financiële administratie','/office-test/finance/administratie']]:[]),
-        ['Betaalcentrum','/office-test/finance/betaalcentrum'],
+        ['Bank','/office-test/finance/betaalcentrum'],
         ['Nieuwe inkoopfactuur','/office-test/finance/nieuw'],
       ]:[],self::governanceVisible()?[['Inkoop','/office-test/inkoop']]:[])],
       ['Documenten & communicatie','informatie',$informationLinks],
@@ -126,19 +127,15 @@ final class OfficeNavigation {
       ['Kennis & kwaliteit','kennis',self::governanceVisible()?[['Kwaliteit','/office-test/kwaliteit'],['Risico’s','/office-test/risicos']]:[]],
     ];
     $selected='werkplek';
-    if (str_starts_with($path,'/office-test/calculatie') || str_starts_with($path,'/office-test/crm/offertes') || str_starts_with($path,'/office-test/offertes'))$selected='calculatie';
-    elseif(str_starts_with($path,'/office-test/documenten') || str_starts_with($path,'/office-test/email') || str_starts_with($path,'/office-test/mail') || str_starts_with($path,'/office-test/communicatie'))$selected='informatie';
-    elseif(str_starts_with($path,'/office-test/marketing'))$selected='marketing';
-    elseif(str_starts_with($path,'/office-test/crm/aanvragen'))$selected='leads';
+    if(str_starts_with($path,'/office-test/calculatie')||str_starts_with($path,'/office-test/crm/aanvragen')||str_starts_with($path,'/office-test/crm/verkoopkansen')||str_starts_with($path,'/office-test/crm/offertes')||str_starts_with($path,'/office-test/offertes'))$selected='sales';
     elseif(str_starts_with($path,'/office-test/crm/'))$selected='relaties';
-    elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/personeel')||($path==='/office-test/projecten'&&($_GET['view']??null)==='inzet'))$selected='personeel';
-    elseif(str_starts_with($path,'/office-test/projecten'))$selected='projecten';
-    elseif(str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='gebouwen';
-    elseif(str_starts_with($path,'/office-test/inkoop'))$selected='bedrijfsvoering';
-    elseif(str_starts_with($path,'/office-test/kwaliteit')||str_starts_with($path,'/office-test/risicos'))$selected='kennis';
-    elseif(str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
+    elseif(str_starts_with($path,'/office-test/documenten')||str_starts_with($path,'/office-test/email')||str_starts_with($path,'/office-test/mail')||str_starts_with($path,'/office-test/communicatie'))$selected='informatie';
+    elseif(str_starts_with($path,'/office-test/marketing'))$selected='marketing';
+    elseif(str_starts_with($path,'/office-test/inzet/')||str_starts_with($path,'/office-test/projecten'))$selected='projecten';
+    elseif(str_starts_with($path,'/office-test/personeel')||str_starts_with($path,'/office-test/gebouwen')||str_starts_with($path,'/office-test/inspectie'))$selected='resources';
+    elseif(str_starts_with($path,'/office-test/inkoop')||str_starts_with($path,'/office-test/finance'))$selected='bedrijfsvoering';
     elseif(str_starts_with($path,'/office-test/rapporten'))$selected='rapporten';
-    elseif(str_starts_with($path,'/office-test/informatie'))$selected='kennis';
+    elseif(str_starts_with($path,'/office-test/informatie'))$selected='informatie';
     $html='<nav class="office-global-nav office-global-nav-v2" aria-label="Hoofdnavigatie">';
     foreach($groups as [$label,$key,$links]){
       $open=$selected===$key;
