@@ -67,8 +67,8 @@ final class OfficeInzetPlanningWorkbench {
         $dayEnd = $dayStart->modify('+1 day');
         $dayMinutes = 0;
         foreach ($shiftsByDay[$date] ?? [] as $dayShift) {
-          $shiftStart = (new \\DateTimeImmutable($dayShift['starts_at'], new \\DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
-          $shiftEnd = (new \\DateTimeImmutable($dayShift['ends_at'], new \\DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
+          $shiftStart = (new \DateTimeImmutable($dayShift['starts_at'], new \DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
+          $shiftEnd = (new \DateTimeImmutable($dayShift['ends_at'], new \DateTimeZone('UTC')))->setTimezone($dayStart->getTimezone());
           $overlapStart = max($shiftStart->getTimestamp(), $dayStart->getTimestamp());
           $overlapEnd = min($shiftEnd->getTimestamp(), $dayEnd->getTimestamp());
           if ($overlapEnd > $overlapStart) $dayMinutes += (int)round(($overlapEnd - $overlapStart) / 60);
