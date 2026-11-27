@@ -27,3 +27,19 @@ if (!str_contains($editable,'action="'.$route.'"') || !str_contains($router,"'".
   throw new RuntimeException('Reschedule form route does not match router');
 }
 echo "Office Inzet reschedule route OK\n";
+
+
+$capacityRows = [
+  ['project_id'=>17,'person_id'=>8,'person_name'=>'Testmedewerker','starts_at'=>'2026-10-19 06:00:00','ends_at'=>'2026-10-19 14:00:00','status'=>'planned'],
+  ['project_id'=>18,'person_id'=>8,'person_name'=>'Testmedewerker','starts_at'=>'2026-10-20 06:00:00','ends_at'=>'2026-10-20 10:00:00','status'=>'planned'],
+];
+$capacityHtml = \\Brebo\\Office\\Inzet\\OfficeInzetPlanningWorkbench::renderWeek($capacityRows,[17,18],2026,43);
+if (!str_contains($capacityHtml,'Gepland: 8,00 u (100%)')
+  || !str_contains($capacityHtml,'Gepland: 4,00 u (50%)')
+  || !str_contains($capacityHtml,'12,00 geplande uren')) {
+  throw new RuntimeException('Daily capacity or weekly planned hours incorrect');
+}
+if (!str_contains($html,'Gepland: 4,00 u (50%)') || !str_contains($html,'8,00 geplande uren')) {
+  throw new RuntimeException('Overnight hours not split across local days');
+}
+echo "Office Inzet daily capacity and week totals OK\\n";
