@@ -70,6 +70,34 @@ try {
     exit('Project niet gevonden.');
   }
   $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage((int) $operator->operatorId, $projectId);
+  // Office-test draft creation: project and actor are server-derived.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['handover_action'])) {
+    if (!\Brebo\Office\Intake\OfficeMount::isTest() || !$canManage || $_POST['handover_action'] !== 'create') {
+      http_response_code(403); exit('Opleverrapportage aanmaken niet toegestaan.');
+    }
+    $csrf = $_POST['csrf'] ?? null;
+    $cookie = $_COOKIE['office_project_csrf'] ?? null;
+    if (!is_string($csrf) || !is_string($cookie) || strlen($csrf) !== 64
+        || !ctype_xdigit($csrf) || !hash_equals($cookie, $csrf)) {
+      http_response_code(403); exit('Ongeldige formulierbeveiliging.');
+    }
+    $title = trim((string)($_POST['handover_title'] ?? ''));
+    $notes = trim((string)($_POST['handover_notes'] ?? ''));
+    if ($title === '' || mb_strlen($title) > 180 || mb_strlen($notes) > 5000) {
+      http_response_code(422); exit('Titel verplicht (maximaal 180 tekens); toelichting maximaal 5000 tekens.');
+    }
+    try {
+      $stmt = $db->prepare("INSERT INTO office_project_handover_reports
+        (project_id, title, notes, status, created_by_operator_id, created_at)
+        VALUES (?, ?, ?, 'draft', ?, CURRENT_TIMESTAMP)");
+      $stmt->execute([$projectId, $title, $notes, (int)$operator->operatorId]);
+    } catch (\PDOException $error) {
+      error_log('Office-test handover draft creation failed: '.get_class($error).' code='.$error->getCode());
+      http_response_code(503); exit('Opleverrapportage kon niet worden opgeslagen. Controleer de testmigratie.');
+    }
+    header('Location: '.\Brebo\Office\Intake\OfficeMount::basePath().'/projecten/detail?id='.$projectId.'&tab=oplevering&handover_saved=1', true, 303);
+    exit;
+  }
   // Explicit existing-building association, reusing the canonical Office building writer.
   // Project membership is checked above; never accept an operator ID or a new building from POST.
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['building_link_action'])) {
@@ -847,17 +875,32 @@ if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()) {
 $handoverHtml = '';
 if ($activeTab === 'oplevering') {
   $handoverHtml = '<section class="project-panel"><h2>Oplevering — Restpuntenregister</h2><p>Projectgebonden restpunten per gebouw. Definitieve vrijgave is nog niet aangesloten.</p>';
-  // A first report is a new draft, not an attempt to load a nonexistent report ID.
-  // Keep this GET-only until a dedicated, audited report writer is connected.
-  if (\Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['handover_action'] ?? '') === 'new') {
-    $handoverHtml .= '<section class="project-panel"><h3>Nieuwe opleverrapportage — concept</h3>'
-      . '<p>Project '.(int)$projectId.' · Nog geen rapportage opgeslagen.</p>'
-      . '<p>De aanmaakfunctie is in voorbereiding. Er worden geen gegevens gewijzigd of vrijgegeven.</p>'
-      . '<p><a href="'.$escape($projectUrl.'&tab=oplevering').'">Terug naar oplevering</a></p></section>';
-  } elseif (\Brebo\Office\Intake\OfficeMount::isTest()) {
+  if (\Brebo\Office\Intake\OfficeMount::isTest() && $canManage && ($_GET['handover_action'] ?? '') === 'new') {
+    $handoverHtml .= '<section class="project-panel"><h3>Nieuwe opleverrapportage</h3>'
+      . '<form method="post" action="'.$escape($projectUrl.'&tab=oplevering').'">'
+      . '<input type="hidden" name="handover_action" value="create">'
+      . '<input type="hidden" name="csrf" value="'.$escape($csrfToken).'">'
+      . '<label>Titel <input name="handover_title" maxlength="180" required></label>'
+      . '<label>Toelichting <textarea name="handover_notes" maxlength="5000"></textarea></label>'
+      . '<button type="submit">Concept opslaan</button></form>'
+      . '<p><a href="'.$escape($projectUrl.'&tab=oplevering').'">Annuleren</a></p></section>';
+  } elseif (\Brebo\Office\Intake\OfficeMount::isTest() && $canManage) {
     $handoverHtml .= '<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_action=new').'">Rapportage toevoegen</a></p>';
   }
-
+  if (($_GET['handover_saved'] ?? '') === '1') {
+    $handoverHtml .= '<p>Concept-opleverrapportage opgeslagen.</p>';
+  }
+  try {
+    $reportQuery = $db->prepare('SELECT id, title, status, created_at FROM office_project_handover_reports WHERE project_id=? ORDER BY id DESC LIMIT 50');
+    $reportQuery->execute([$projectId]);
+    $handoverHtml .= '<h3>Opleverrapportages</h3><ul>';
+    foreach ($reportQuery->fetchAll(PDO::FETCH_ASSOC) as $savedReport) {
+      $handoverHtml .= '<li>'.$escape((string)$savedReport['title']).' — '.$escape((string)$savedReport['status']).' — '.$escape((string)$savedReport['created_at']).'</li>';
+    }
+    $handoverHtml .= '</ul>';
+  } catch (\PDOException $reportListError) {
+    $handoverHtml .= '<p>Opleverrapportages nog niet beschikbaar: testmigratie vereist.</p>';
+  }
   try {
     require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
     $store = new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
