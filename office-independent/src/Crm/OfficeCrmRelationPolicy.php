@@ -8,6 +8,16 @@ final class OfficeCrmRelationPolicy {
     public const KINDS = ['organization', 'person'];
     public const ROLES = ['prospect', 'customer', 'supplier'];
 
+    /** Stable storage codes; Dutch presentation is independent of historical keys. */
+    public static function roleLabel(string $role): string {
+        return match ($role) {
+            'prospect' => 'Geïnteresseerde',
+            'customer' => 'Klant',
+            'supplier' => 'Leverancier',
+            default => $role,
+        };
+    }
+
     public static function validate(string $kind, string $name, array $roles): array {
         $name = trim($name);
         if (!in_array($kind, self::KINDS, true) || $name === '' || strlen($name) > 255) {
