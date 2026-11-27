@@ -206,3 +206,31 @@ $breakdownRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations 
 $breakdownRecord->execute([$breakdownMigrationId,$breakdownChecksum]);
 echo "OFFICE_TEST_WBS_RBS_SCHEMA_PASS\n";
 
+// Deal revision review audit: additive OFFICE-TEST migration, no existing calculation data is changed.
+$dealReviewSqlFile=$candidate.'/deployment/vps/sql/office-calc-deal-revision-reviews-REVIEW.sql';
+if (!is_file($dealReviewSqlFile)) throw new RuntimeException('DEAL_REVIEW_SCHEMA_SOURCE_MISSING');
+$dealReviewSql=file_get_contents($dealReviewSqlFile);
+$dealReviewStatements=array_values(array_filter(array_map('trim',explode(';',preg_replace('/--[^\\n]*/','',$dealReviewSql)))));
+if (count($dealReviewStatements)!==1 || !preg_match('/^CREATE TABLE office_calc_deal_revision_reviews\\s*\\(/D',$dealReviewStatements[0])) {
+    throw new RuntimeException('UNREVIEWED_DEAL_REVIEW_MIGRATION');
+}
+$dealReviewMigrationId='calc-deal-revision-reviews-v1';
+$dealReviewChecksum=hash_file('sha256',$dealReviewSqlFile);
+$dealReviewLookup=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$dealReviewLookup->execute([$dealReviewMigrationId]);
+$dealReviewPrior=$dealReviewLookup->fetchColumn();
+if ($dealReviewPrior!==false && !hash_equals((string)$dealReviewPrior,$dealReviewChecksum)) {
+    throw new RuntimeException('DEAL_REVIEW_MIGRATION_CHECKSUM_CHANGED');
+}
+$dealReviewColumns=$db->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_deal_revision_reviews' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
+$dealReviewExpected=['id','draft_id','deal_revision','reviewed_by','reviewed_at'];
+if ($dealReviewColumns!==[] && $dealReviewColumns!==$dealReviewExpected) {
+    throw new RuntimeException('DEAL_REVIEW_SCHEMA_MISMATCH');
+}
+if ($dealReviewColumns===[]) $db->exec($dealReviewStatements[0]);
+$db->query('SELECT draft_id,deal_revision,reviewed_by,reviewed_at FROM office_calc_deal_revision_reviews LIMIT 0');
+$dealReviewRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
+$dealReviewRecord->execute([$dealReviewMigrationId,$dealReviewChecksum]);
+echo "OFFICE_TEST_DEAL_REVIEW_SCHEMA_PASS\\n";
+
+
