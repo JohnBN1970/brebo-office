@@ -5,15 +5,15 @@ use Brebo\Office\Intake\OfficeNavigation;
 putenv('OFFICE_NATIVE_PROJECTS_ENABLED=enabled');
 putenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED=enabled');
 $nav=OfficeNavigation::mainV2('/office-test/projecten');
-foreach(['Mijn werkplek','Marketing','Leads','Relaties &amp; kansen','Projecten','Personeel','Gebouwen','Bedrijfsvoering','Kennis &amp; kwaliteit'] as $name) {
+foreach(['Mijn werkplek','Marketing','Sales','Relaties','Projecten','Resources','Finance','Documenten &amp; communicatie'] as $name) {
   if(!str_contains($nav,$name)){fwrite(STDERR,"Missing group: ".$name.PHP_EOL);exit(1);}
 }
-if(substr_count($nav,'<details ')!==12){fwrite(STDERR,"Expected twelve collapsible groups".PHP_EOL);exit(1);}
+if(substr_count($nav,'<details ')!==9){fwrite(STDERR,"Expected twelve collapsible groups".PHP_EOL);exit(1);}
 if(substr_count($nav,' open')!==1){fwrite(STDERR,"Expected one open group".PHP_EOL);exit(1);}
 if(!str_contains($nav,'/office-test/projecten?view=inzet')){fwrite(STDERR,"Missing Inzet link".PHP_EOL);exit(1);}
 if(!str_contains($nav,'href="/office-test/gebouwen"')){fwrite(STDERR,"Buildings overview link missing".PHP_EOL);exit(1);}
 if(!str_contains(OfficeNavigation::mainV2('/office-test/gebouwen'),'aria-current="page"')){fwrite(STDERR,"Buildings navigation not selected".PHP_EOL);exit(1);}
-if (!str_contains($nav, 'Medewerkers') || !str_contains($nav, 'Inzet en planning')) { fwrite(STDERR, "Personnel links missing\n"); exit(1); }
+if (!str_contains($nav, 'Personeel') || !str_contains($nav, 'Inzet en planning')) { fwrite(STDERR, "Personnel links missing\n"); exit(1); }
 foreach (['/office-test/personeel/medewerkers','tab=planning','tab=onsite','tab=controle'] as $tab) { if (!str_contains($nav, $tab)) { fwrite(STDERR, "Missing personnel tab: $tab\n"); exit(1); } }
 putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=enabled');
 putenv('OFFICE_TEST_INSPECTION_SCHEMA_VERIFIED=enabled');
@@ -21,7 +21,7 @@ $inspectionNav=OfficeNavigation::mainV2('/office-test/inspectie');
 foreach (['/office-test/inspecties','/office-test/inspectie'] as $url) {
   if (!str_contains($inspectionNav,'href="'.$url.'"')) { fwrite(STDERR,"Missing inspection link: $url\n"); exit(1); }
 }
-if (!str_contains($inspectionNav,'<summary aria-current="page">Gebouwen</summary>')) {
+if (!str_contains($inspectionNav,'<summary aria-current="page">Resources</summary>')) {
   fwrite(STDERR,"Inspection must select Buildings navigation\n"); exit(1);
 }
 putenv('OFFICE_TEST_INSPECTION_UI_ENABLED=disabled');
@@ -41,7 +41,7 @@ putenv('OFFICE_TEST_CRM_ENABLED=enabled');
 putenv('OFFICE_CRM_AUTH_MODE=session_only');
 putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=enabled');
 $leadsNav=OfficeNavigation::mainV2('/office-test/crm/aanvragen');
-if (!str_contains($leadsNav, 'href="/office-test/crm/aanvragen"') || !str_contains($leadsNav, 'Leadoverzicht') || !str_contains($leadsNav, '<summary aria-current="page">Leads</summary>')) { fwrite(STDERR, "CRM Leads link missing with schema enabled\\n"); exit(1); }
+if (!str_contains($leadsNav, 'href="/office-test/crm/aanvragen"') || !str_contains($leadsNav, 'Leadoverzicht') || !str_contains($leadsNav, '<summary aria-current="page">Sales</summary>')) { fwrite(STDERR, "CRM Leads link missing with schema enabled\\n"); exit(1); }
 putenv('OFFICE_CRM_LEADS_SCHEMA_VERIFIED=disabled');
 if (str_contains(OfficeNavigation::mainV2('/office-test/crm/aanvragen'), 'href="/office-test/crm/aanvragen"')) { fwrite(STDERR, "CRM Leads link exposed with schema disabled\\n"); exit(1); }
 putenv('OFFICE_TEST_CRM_ENABLED=disabled');
@@ -168,4 +168,24 @@ if (!str_contains(OfficeNavigation::mainV2('/office-test/email'), 'href="/office
 }
 putenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED=disabled');
 
+// Process-oriented navigation: modules stay behind their existing server gates.
+putenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED=enabled');
+putenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED=enabled');
+putenv('OFFICE_TEST_CRM_ENABLED=enabled');
+putenv('OFFICE_CRM_AUTH_MODE=session_only');
+$dealNav=OfficeNavigation::mainV2('/office-test/crm/verkoopkansen');
+if (!str_contains($dealNav,'<summary aria-current="page">Sales</summary>')
+  || !str_contains($dealNav,'href="/office-test/crm/verkoopkansen"')) throw new RuntimeException('Deals must belong to Sales');
+$relationNav=OfficeNavigation::mainV2('/office-test/crm/relaties');
+if (!str_contains($relationNav,'<summary aria-current="page">Relaties</summary>')
+  || !str_contains($relationNav,'Klanten')
+  || !str_contains($relationNav,'Leveranciers')) throw new RuntimeException('Relations must have dedicated group');
+$projectNav=OfficeNavigation::mainV2('/office-test/projecten');
+if (!str_contains($projectNav,'Inzet en planning')
+  || !str_contains($projectNav,'<summary aria-current="page">Projecten</summary>')) throw new RuntimeException('Inzet must belong to Projecten');
+$resourceNav=OfficeNavigation::mainV2('/office-test/personeel/medewerkers');
+if (!str_contains($resourceNav,'<summary aria-current="page">Resources</summary>')) throw new RuntimeException('Personnel must belong to Resources');
+if (str_contains($projectNav,'<summary>Personeel</summary>')
+  || str_contains($projectNav,'<summary>Gebouwen</summary>')
+  || str_contains($projectNav,'<summary>Bedrijfsvoering</summary>')) throw new RuntimeException('Legacy menu headings still present');
 echo "OfficeNavigationV2Test OK".PHP_EOL;
