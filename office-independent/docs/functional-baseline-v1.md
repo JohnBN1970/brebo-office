@@ -3,6 +3,13 @@
 ## Keten
 Intake → Lead → Deal → optionele Calculatie/dienstenbegroting → Offertestudio → Onderhandeling → Acceptatie → Projectinitiatie → Werkbegroting → Take-off → Voorbereiding → Uitvoering → Oplevering → Onderhoud (indien van toepassing) → Gereed. Directe opdrachten blijven mogelijk. Take-off is een zelfstandig projecttabblad binnen voorbereiding, geen extra projectfase.
 
+## CRM-fasen en relatierollen
+Lead: Nieuw, In behandeling, Onhold, Gekwalificeerd, Afgewezen, Junk.
+Deal: Intake, Calculatie, Offerte, Onderhandeling, Onhold, Gegund, Verloren.
+Fasen mogen worden overgeslagen waar niet relevant; Onhold is bereikbaar vanuit actieve fasen. Terugkeer naar Calculatie bij scopewijziging mogelijk. Fasehistorie behouden. Acceptatie is een handeling bij Gegund, geen afzonderlijke fase. Junk is herstelbaar en uitgesloten van commerciële conversie-KPI's; Afgewezen blijft meetellen.
+De bestaande relatie is de enige stamregistratie. Geïnteresseerde (vervangt Prospect in de gebruikersinterface) is een relatierol bij omzetting van een gekwalificeerde Lead naar Deal. Klantrol automatisch bij eerste definitieve gunning of acceptatie van een directe opdracht. Bestaande klantrol blijft behouden bij volgende verloren Deals. Rollen kunnen naast andere relatierollen bestaan. Hergebruik bestaande relatie-ID's en rolstructuren; geen parallel klantbestand. Historische sleutels niet blind hernoemen.
+Relatiekaart ontsluit gekoppelde contacten, Leads, Deals, calculaties, offertes, projecten, communicatie en facturen.
+
 ## Eigenaarschap
 Deal: geaccepteerde scope en verkoopprijs. Calculatie: oorspronkelijke kosten en uren, revisies behouden. Werkbegroting: vastgestelde kostprijs, arbeidsuren en hoeveelheden; gecontroleerde revisies, geen automatische wijziging door commerciële korting, planning of inkoop. Planning: geplande inzet. OnSite: werkelijke uren. Inkoop: behoeften per begrotingsregel, totalisatie, prijsaanvraag, vergelijking, order, verplichting, deellevering en factuurcontrole. Finance: facturen, boekingen en betalingen. Resources: zelfstandig tabblad en dashboard-KPI's voor arbeid, materiaal, materieel, onderaanneming en overige kosten, met verdieping naar bronregistratie. Geen dubbele administratie.
 
@@ -10,7 +17,7 @@ Deal: geaccepteerde scope en verkoopprijs. Calculatie: oorspronkelijke kosten en
 Projectleider, assistent-projectleider (andere persoon), werkvoorbereider (rol mag gecombineerd worden), start- en einddatum. Deal: verantwoordelijke, menselijke back-up en calculator/opsteller waar relevant. Mandaten centraal configureerbaar per rol en handeling; binnen mandaat geen extra verplichte controle, buiten mandaat bevoegde menselijke goedkeuring. Digitale resultaten altijd bevoegde menselijke controle vóór vrijgave. Bestaande beveiliging behouden; rolpreview is geen recht.
 
 ## Categorieën en uitvoering
-Meerdere bestaande categorieën per Deal/project; categorie stuurt beschikbaarheid van instrumenten, fase stuurt proces. Inmeting is een taak (Measure), bestaande historie behouden. MJOP en projectmanagement als diensten meenemen na controle bestaande categoriebron. Meerdere gebouwen mogelijk. Take-off omvat overdracht, startoverleg, werkmap, tekeningen, instructies, besluiten, taken en uitvoeringsgereedheid. WBS/RBS, kwaliteit, VCA, rapportages, opleverformulier, restpunten, nazorg en financiële afsluiting aansluiten.
+Meerdere bestaande categorieën per Deal/project; categorie stuurt beschikbaarheid van instrumenten, fase stuurt proces. Opname is een taak binnen Lead, Deal of Project; inmeting is onderdeel van de opname, Measure is het digitale instrument. Het opnameformulier bevat maten, foto's en bevindingen. Inspectie blijft een afzonderlijke categorie. Historie behouden. MJOP en projectmanagement als diensten meenemen na controle bestaande categoriebron. Meerdere gebouwen mogelijk. Take-off omvat overdracht, startoverleg, werkmap, tekeningen, instructies, besluiten, taken en uitvoeringsgereedheid. WBS/RBS, kwaliteit, VCA, rapportages, opleverformulier, restpunten, nazorg en financiële afsluiting aansluiten.
 
 ## Geconstateerde afwijkingen (develop d591540457451060954ad75deed777041769c59b)
 - `src/Demo/OfficeCommercialCalcHandoff.php`: inmeting nog categorie; controleer alle consumenten en historische snapshots vóór migratie.
