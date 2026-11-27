@@ -14,4 +14,18 @@ foreach ([['person', '', ['customer']], ['organization', 'Company', ['supplier',
     try { P::validate(...$case); throw new RuntimeException('Invalid CRM relation accepted'); }
     catch (InvalidArgumentException $expected) {}
 }
+$evidence = array_fill_keys(['all_orders_and_projects_completed','all_invoices_paid','no_open_leads_or_deals','no_open_actions_or_restpoints','no_open_complaints','no_active_maintenance'], true);
+if (!P::canAutoArchive('person',['customer'],$evidence)) throw new RuntimeException('Eligible private customer rejected');
+foreach (['organization','company'] as $kind) {
+    if (P::canAutoArchive($kind,['customer'],$evidence)) throw new RuntimeException('Business archived automatically');
+    if (P::kindLabel($kind) !== 'Bedrijf') throw new RuntimeException('Business label mismatch');
+}
+if (P::canAutoArchive('person',['prospect'],$evidence)) throw new RuntimeException('Noncustomer archived');
+foreach (array_keys($evidence) as $key) {
+    $missing = $evidence; unset($missing[$key]);
+    if (P::canAutoArchive('person',['customer'],$missing)) throw new RuntimeException('Missing evidence accepted: '.$key);
+    $missing[$key] = false;
+    if (P::canAutoArchive('person',['customer'],$missing)) throw new RuntimeException('Negative evidence accepted: '.$key);
+}
+if (P::roleLabel('prospect') !== 'Geïnteresseerde' || P::kindLabel('person') !== 'Particulier') throw new RuntimeException('CRM label mismatch');
 echo "Office CRM relation foundation OK\n";
