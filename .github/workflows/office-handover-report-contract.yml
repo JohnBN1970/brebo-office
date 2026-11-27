@@ -1,0 +1,22 @@
+name: Office handover report draft contract
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/sql/20261127_project_handover_reports.sql'
+      - 'office-independent/deployment/vps/handover-report-migrate.php'
+      - 'office-independent/tests/OfficeHandoverReportDraftContractTest.php'
+      - '.github/workflows/office-handover-report-contract.yml'
+  workflow_dispatch:
+jobs:
+  handover-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP syntax
+        run: |
+          php -l office-independent/public/office-project.php
+          php -l office-independent/deployment/vps/handover-report-migrate.php
+          php -l office-independent/tests/OfficeHandoverReportDraftContractTest.php
+      - name: Check handover draft authorization and persistence contracts
+        run: php office-independent/tests/OfficeHandoverReportDraftContractTest.php
