@@ -4,7 +4,7 @@
 
 ## Verplicht voor iedere ontwikkelchat
 
-1. Lees `AGENTS.md`, `docs/DEVELOPMENT_POLICY.md` en `docs/OFFICE_TEST_DEVELOPMENT_PIPELINE.md`.
+1. Lees `AGENTS.md` en `docs/OFFICE_TEST_DEVELOPMENT_PIPELINE.md`.
 2. Controleer **opnieuw** de actuele `develop`-HEAD, open PR's, overlappende wijzigingen en Actions. Vertrouw nooit blind op vorige chats of deze momentopname.
 3. Hergebruik bestaande code. Werk via een eigen branch en PR. Omzeil branchbeveiliging of verplichte checks nooit.
 4. Volg de bestaande centrale Office-test-pipeline; maak geen parallelle deployworkflow. Controleer na merge de VPS-release-SHA en de echte ingelogde gebruikersketen. Groene CI of SHA-match is geen functionele acceptatie.
