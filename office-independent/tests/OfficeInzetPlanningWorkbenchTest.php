@@ -39,7 +39,7 @@ if (!str_contains($capacityHtml,'Gepland: 8,00 u (100%)')
   || !str_contains($capacityHtml,'12,00 geplande uren')) {
   throw new RuntimeException('Daily capacity or weekly planned hours incorrect');
 }
-if (!str_contains($html,'Gepland: 4,00 u (50%)') || !str_contains($html,'8,00 geplande uren')) {
+if (!str_contains($html,'Gepland: 2,00 u (25%)') || !str_contains($html,'Gepland: 6,00 u (75%)') || !str_contains($html,'8,00 geplande uren')) {
   throw new RuntimeException('Overnight hours not split across local days');
 }
 echo "Office Inzet daily capacity and week totals OK\n";
