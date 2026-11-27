@@ -168,7 +168,9 @@ if (!str_contains(OfficeNavigation::mainV2('/office-test/email'), 'href="/office
 }
 putenv('OFFICE_PERSONAL_MAIL_REVIEW_IDENTITY_VERIFIED=disabled');
 
-// Process-oriented navigation: modules stay behind their existing server gates.
+// Process-oriented navigation: restore project gates after the disabled-state regression test.
+putenv('OFFICE_NATIVE_PROJECTS_ENABLED=enabled');
+putenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED=enabled');
 putenv('OFFICE_CRM_OPPORTUNITIES_SCHEMA_VERIFIED=enabled');
 putenv('OFFICE_CRM_RELATIONS_SCHEMA_VERIFIED=enabled');
 putenv('OFFICE_TEST_CRM_ENABLED=enabled');
