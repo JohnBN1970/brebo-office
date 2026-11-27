@@ -231,6 +231,6 @@ if ($dealReviewColumns===[]) $db->exec($dealReviewStatements[0]);
 $db->query('SELECT draft_id,deal_revision,reviewed_by,reviewed_at FROM office_calc_deal_revision_reviews LIMIT 0');
 $dealReviewRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations (migration_id,checksum) VALUES (?,?)');
 $dealReviewRecord->execute([$dealReviewMigrationId,$dealReviewChecksum]);
-echo "OFFICE_TEST_DEAL_REVIEW_SCHEMA_PASS\\n";
+echo "OFFICE_TEST_DEAL_REVIEW_SCHEMA_PASS\n";
 
 
