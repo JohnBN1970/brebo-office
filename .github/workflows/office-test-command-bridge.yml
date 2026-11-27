@@ -51,4 +51,10 @@ jobs:
             fi
           done
           echo "READABLE_ERROR_LOGS=$found"
+          incident=/srv/brebo/private/office-test-documents/.governance-latest-incident
+          if test -f "$incident" && test ! -L "$incident" && test -r "$incident"; then
+            head -c 512 "$incident" | grep -Ex 'OFFICE_GOVERNANCE_FAILURE incident=[a-f0-9]{16} module=quality class=[A-Za-z0-9_]+ code=[A-Za-z0-9]* file=[A-Za-z0-9_.-]+ line=[0-9]+' || echo PRIVATE_INCIDENT=INVALID
+          else
+            echo PRIVATE_INCIDENT=NOT_AVAILABLE
+          fi
           REMOTE
