@@ -110,6 +110,9 @@ final class OfficeCalcCrmTransferService
             $draftQuery = $this->db->prepare('SELECT id, calculation_id FROM office_calc_crm_drafts WHERE opportunity_id=? FOR UPDATE');
             $draftQuery->execute([$acceptance['crm_opportunity_id']]);
             $drafts = $draftQuery->fetchAll(PDO::FETCH_ASSOC);
+            if (count($drafts) !== 1) {
+                throw new DomainException('Acceptance requires exactly one persisted Deal calculation draft');
+            }
             foreach ($drafts as $draft) {
                 if ((string)$draft['calculation_id'] !== (string)$acceptance['calculation_id']) {
                     throw new DomainException('Accepted calculation does not match the Deal draft');
