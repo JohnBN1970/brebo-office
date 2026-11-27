@@ -291,7 +291,8 @@ try {
     if (is_array($dealRevisionState) && (int)$dealRevisionState['crm_revision'] !== (int)$dealRevisionState['revision']) {
         $reviewQuery=$db->prepare('SELECT reviewed_by,reviewed_at FROM office_calc_deal_revision_reviews WHERE draft_id=? AND deal_revision=? LIMIT 1');
         $reviewQuery->execute([$draft,(int)$dealRevisionState['revision']]);
-        $dealRevisionReview=$reviewQuery->fetch(PDO::FETCH_ASSOC);\n        $dealRevisionReviewed=is_array($dealRevisionReview);
+        $dealRevisionReview=$reviewQuery->fetch(PDO::FETCH_ASSOC);
+        $dealRevisionReviewed=is_array($dealRevisionReview);
     }
 } catch (\Brebo\Office\Calculation\OfficeCalcDraftConflict $error) {http_response_code(409);$conflict=$error->getMessage();}
 catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
