@@ -18,6 +18,25 @@ final class OfficeCrmRelationPolicy {
         };
     }
 
+    public static function kindLabel(string $kind): string {
+        return match ($kind) {
+            'organization' => 'Bedrijf',
+            'person' => 'Particulier',
+            default => $kind,
+        };
+    }
+
+    /** Pure eligibility check. Missing or unknown evidence must never archive a customer. */
+    public static function canAutoArchive(string $kind, array $roles, array $evidence): bool {
+        if ($kind !== 'person' || !in_array('customer', $roles, true)) return false;
+        foreach (['all_orders_and_projects_completed', 'all_invoices_paid',
+            'no_open_leads_or_deals', 'no_open_actions_or_restpoints',
+            'no_open_complaints', 'no_active_maintenance'] as $condition) {
+            if (($evidence[$condition] ?? null) !== true) return false;
+        }
+        return true;
+    }
+
     public static function validate(string $kind, string $name, array $roles): array {
         $name = trim($name);
         if (!in_array($kind, self::KINDS, true) || $name === '' || strlen($name) > 255) {
