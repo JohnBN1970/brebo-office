@@ -475,8 +475,15 @@ if ($inzetView) {
           $cancelManageIds = array_map('intval',$cancelStmt->fetchAll(PDO::FETCH_COLUMN));
         }
       }
+      $approvedWeek = null;
+      if (getenv('OFFICE_TEST_INZET_ONSITE_WEEK_ACTUALS_ENABLED') === 'enabled'
+        && getenv('OFFICE_TEST_ONSITE_SCHEMA_VERIFIED') === 'enabled') {
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetApprovedWeekReadRepository.php';
+        $approvedWeek = (new \Brebo\Office\Inzet\OfficeInzetApprovedWeekReadRepository($db))
+          ->listWeek($operator->operatorId, $ids, $year, $week);
+      }
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
-        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
+        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled', $approvedWeek
       );
       $updatedShift = filter_var($_GET['shift_updated'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
