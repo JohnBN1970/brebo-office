@@ -847,6 +847,17 @@ if ($activeTab === 'uitvoering' && \Brebo\Office\Intake\OfficeMount::isTest()) {
 $handoverHtml = '';
 if ($activeTab === 'oplevering') {
   $handoverHtml = '<section class="project-panel"><h2>Oplevering — Restpuntenregister</h2><p>Projectgebonden restpunten per gebouw. Definitieve vrijgave is nog niet aangesloten.</p>';
+  // A first report is a new draft, not an attempt to load a nonexistent report ID.
+  // Keep this GET-only until a dedicated, audited report writer is connected.
+  if (\Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['handover_action'] ?? '') === 'new') {
+    $handoverHtml .= '<section class="project-panel"><h3>Nieuwe opleverrapportage — concept</h3>'
+      . '<p>Project '.(int)$projectId.' · Nog geen rapportage opgeslagen.</p>'
+      . '<p>De aanmaakfunctie is in voorbereiding. Er worden geen gegevens gewijzigd of vrijgegeven.</p>'
+      . '<p><a href="'.$escape($projectUrl.'&tab=oplevering').'">Terug naar oplevering</a></p></section>';
+  } elseif (\Brebo\Office\Intake\OfficeMount::isTest()) {
+    $handoverHtml .= '<p><a href="'.$escape($projectUrl.'&tab=oplevering&handover_action=new').'">Rapportage toevoegen</a></p>';
+  }
+
   try {
     require_once dirname(__DIR__).'/src/Governance/bootstrap.php';
     $store = new \Brebo\Office\Governance\Infrastructure\PdoOfficeGovernanceStore($db);
