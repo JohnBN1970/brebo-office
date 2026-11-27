@@ -853,14 +853,14 @@ if ($activeTab === 'oplevering') {
     $contexts = $store->contexts((string)$operator->operatorId, 'quality');
     $total = $open = $review = $accepted = $blocking = 0;
     $rows = '';
-    $buildings = '';
+    $handoverBuildingLinks = '';
     $dwellingOverview = '';
     $labels = ['open'=>'Open','deviation'=>'Afwijking','recheck'=>'Hercontrole','accepted'=>'Akkoord'];
     foreach ($contexts as $context) {
       if ((int)$context['project_id'] !== (int)$projectId) continue;
       $building = (int)$context['building_id'];
       $url = '/office-test/kwaliteit?project_id='.(int)$projectId.'&building_id='.$building;
-      $buildings .= '<p><a href="'.$escape($url.'&record_kind=restpunt').'">Restpunt toevoegen — '.$escape((string)$context['building_name']).'</a></p>';
+      $handoverBuildingLinks .= '<p><a href="'.$escape($url.'&record_kind=restpunt').'">Restpunt toevoegen — '.$escape((string)$context['building_name']).'</a></p>';
       $dwellingStats=[];
       if (getenv('OFFICE_TEST_BUILDING_DWELLINGS_SCHEMA_VERIFIED')==='enabled') {
         $q=$db->prepare('SELECT id,dwelling_code,house_number,active FROM office_building_dwellings WHERE building_id=? ORDER BY dwelling_code,id');
@@ -891,10 +891,10 @@ if ($activeTab === 'oplevering') {
       }
       $dwellingOverview .= '</tbody></table><p>Aantallen betreffen toegankelijke registraties; geen oplevervrijgave.</p>';
     }
-    if ($buildings === '') {
+    if ($handoverBuildingLinks === '') {
       $handoverHtml .= '<p>Geen toegankelijke kwaliteitsdossiers voor dit project.</p>';
     } else {
-      $handoverHtml .= '<p>Toegankelijke restpunten: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$buildings.$dwellingOverview;
+      $handoverHtml .= '<p>Toegankelijke restpunten: '.$total.' · Open: '.$open.' · Hercontrole: '.$review.' · Akkoord: '.$accepted.' · Blokkades: '.$blocking.'</p>'.$handoverBuildingLinks.$dwellingOverview;
       $handoverHtml .= '<table><thead><tr><th>Gebouw</th><th>Restpunt</th><th>Status</th><th>Termijn</th><th>Blokkade</th></tr></thead><tbody>'.$rows.'</tbody></table>';
     }
   } catch (\Throwable $handoverError) {
