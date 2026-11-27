@@ -109,6 +109,21 @@ $routes = [
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
 ];
+// Read-only, allowlisted stylesheets served by the isolated Office-test router.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && is_string($path)) {
+  $officeStyles = [
+    '/office-test/assets/office-navigation.css' => 'office-navigation.css',
+    '/office-test/assets/office-theme.css' => 'office-theme.css',
+  ];
+  if (isset($officeStyles[$path])) {
+    $file = $private . '/resources/' . $officeStyles[$path];
+    if (!is_file($file)) { http_response_code(404); exit; }
+    header('Content-Type: text/css; charset=utf-8');
+    header('Cache-Control: private, max-age=300');
+    readfile($file);
+    exit;
+  }
+}
 // Browser handoff never puts signed credentials in query strings.
 if ($path === '/office-test/calc-werkbank') {
   require $private . '/public/office-calc-browser-handoff.php';
