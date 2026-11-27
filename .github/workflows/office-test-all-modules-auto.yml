@@ -310,3 +310,24 @@ jobs:
           echo "VPS_READINESS_DIAGNOSTICS_START"
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
             'bash -s --' "$GITHUB_SHA" < scripts/deployment/check_office_test_vps_readiness.sh
+          echo GOVERNANCE_READONLY_DIAGNOSTICS_START
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -i ~/.ssh/office_test_vps -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root=/srv/brebo/office-test
+          release=$(readlink -f "$root/current")
+          [[ "$release" =~ ^/srv/brebo/office-test/releases/[a-f0-9]{40}$ ]]
+          echo "ACTIVE_RELEASE=${release##*/}"
+          php -l "$release/public/office-governance.php"
+          grep -Fq OFFICE_GOVERNANCE_FAILURE "$release/public/office-governance.php" && echo GOVERNANCE_DIAGNOSTICS=READY || echo GOVERNANCE_DIAGNOSTICS=MISSING
+          if test -w /srv/brebo/private/office-test-documents; then echo DOCUMENT_STORAGE=WRITABLE; else echo DOCUMENT_STORAGE=NOT_WRITABLE; fi
+          echo "QUALITY_HTTP=$(curl --max-time 15 -sS -o /dev/null -w '%{http_code}' https://office-test.brebobv.nl/office-test/kwaliteit)"
+          # Public repository: emit only the fixed diagnostic fields, never raw logs.
+          found=0
+          for log in /var/log/nginx/*error*.log; do
+            if test -r "$log"; then
+              found=1
+              grep -Eo 'OFFICE_GOVERNANCE_FAILURE incident=[a-f0-9]{16} module=quality class=[A-Za-z0-9_\\]+ code=[A-Za-z0-9]+ file=[A-Za-z0-9_.-]+ line=[0-9]+' "$log" | tail -10 || true
+            fi
+          done
+          echo "READABLE_ERROR_LOGS=$found"
+          REMOTE
