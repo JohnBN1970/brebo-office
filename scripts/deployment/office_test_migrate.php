@@ -206,3 +206,70 @@ $breakdownRecord=$db->prepare('INSERT IGNORE INTO office_development_migrations 
 $breakdownRecord->execute([$breakdownMigrationId,$breakdownChecksum]);
 echo "OFFICE_TEST_WBS_RBS_SCHEMA_PASS\n";
 
+
+
+// Deal revision review audit: additive Office-test migration, no business-row changes.
+// Fail closed on unexpected parent types or an existing incompatible table.
+$reviewParents=['office_calc_crm_drafts','office_operator_accounts'];
+foreach ($reviewParents as $parent) {
+    $meta=$db->prepare("SELECT c.COLUMN_TYPE,t.ENGINE FROM information_schema.COLUMNS c
+        JOIN information_schema.TABLES t ON t.TABLE_SCHEMA=c.TABLE_SCHEMA AND t.TABLE_NAME=c.TABLE_NAME
+        WHERE c.TABLE_SCHEMA=DATABASE() AND c.TABLE_NAME=? AND c.COLUMN_NAME='id'");
+    $meta->execute([$parent]);
+    $row=$meta->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row) || !preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D',strtolower((string)$row['COLUMN_TYPE']))
+        || strtoupper((string)$row['ENGINE'])!=='INNODB') {
+        throw new RuntimeException('CALC_DEAL_REVIEW_PARENT_SCHEMA_UNVERIFIED='.$parent);
+    }
+}
+$reviewDdl="CREATE TABLE office_calc_deal_revision_reviews (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    draft_id BIGINT UNSIGNED NOT NULL,
+    deal_revision BIGINT UNSIGNED NOT NULL,
+    reviewed_by BIGINT UNSIGNED NOT NULL,
+    reviewed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_calc_deal_review (draft_id, deal_revision),
+    CONSTRAINT fk_calc_deal_review_draft FOREIGN KEY (draft_id) REFERENCES office_calc_crm_drafts(id),
+    CONSTRAINT fk_calc_deal_review_actor FOREIGN KEY (reviewed_by) REFERENCES office_operator_accounts(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+$reviewId='calc-deal-revision-reviews-v1';
+$reviewHash=hash('sha256',$reviewDdl);
+$q=$db->prepare('SELECT checksum FROM office_development_migrations WHERE migration_id=?');
+$q->execute([$reviewId]);
+$reviewPrior=$q->fetchColumn();
+if ($reviewPrior!==false && !hash_equals((string)$reviewPrior,$reviewHash)) {
+    throw new RuntimeException('CALC_DEAL_REVIEW_MIGRATION_CHECKSUM_CHANGED');
+}
+$reviewColumns=$db->query("SELECT COLUMN_NAME,COLUMN_TYPE FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_deal_revision_reviews'
+    ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_KEY_PAIR);
+if ($reviewColumns===[]) {
+    if ($reviewPrior!==false) throw new RuntimeException('CALC_DEAL_REVIEW_TABLE_MISSING_AFTER_MIGRATION');
+    $db->exec($reviewDdl);
+} else {
+    $expected=['id'=>'bigint unsigned','draft_id'=>'bigint unsigned','deal_revision'=>'bigint unsigned',
+        'reviewed_by'=>'bigint unsigned','reviewed_at'=>'datetime'];
+    foreach ($expected as $column=>$type) {
+        if (!isset($reviewColumns[$column]) || !preg_match(
+            $type==='bigint unsigned' ? '/^bigint(?:\\([0-9]+\\))? unsigned$/D' : '/^datetime$/D',
+            strtolower((string)$reviewColumns[$column]))) {
+            throw new RuntimeException('CALC_DEAL_REVIEW_SCHEMA_MISMATCH='.$column);
+        }
+    }
+    if (count($reviewColumns)!==count($expected)) throw new RuntimeException('CALC_DEAL_REVIEW_EXTRA_COLUMNS');
+}
+$reviewUnique=$db->query("SELECT COUNT(*) FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_deal_revision_reviews'
+    AND INDEX_NAME='uq_calc_deal_review' AND NON_UNIQUE=0")->fetchColumn();
+if ((int)$reviewUnique!==2) throw new RuntimeException('CALC_DEAL_REVIEW_UNIQUE_INDEX_MISSING');
+foreach (['fk_calc_deal_review_draft','fk_calc_deal_review_actor'] as $constraint) {
+    $q=$db->prepare("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_deal_revision_reviews'
+        AND CONSTRAINT_NAME=?");
+    $q->execute([$constraint]);
+    if ((int)$q->fetchColumn()!==1) throw new RuntimeException('CALC_DEAL_REVIEW_FK_MISSING='.$constraint);
+}
+$q=$db->prepare('INSERT IGNORE INTO office_development_migrations(migration_id,checksum) VALUES (?,?)');
+$q->execute([$reviewId,$reviewHash]);
+echo "OFFICE_TEST_CALC_DEAL_REVIEW_SCHEMA_PASS\\n";
