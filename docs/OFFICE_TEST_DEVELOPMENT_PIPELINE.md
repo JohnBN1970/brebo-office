@@ -5,7 +5,7 @@ De opdrachtgever geeft een functionele opdracht, beoordeelt het resultaat op Off
 ## Technische route
 
 1. Werk vanaf de actuele `develop` op `feature/*` of `fix/*`. Open een PR naar `develop`.
-2. De bestaande workflow `office-test-all-modules-auto.yml` voert de bronpoort uit: deploymentbeleid, negatieve beleidstests, samenvoegtests, PHP-lint en startdossier-regressies. Feature- en PR-jobs krijgen geen Hostinger-secrets.
+2. De bestaande workflow `office-test-all-modules-auto.yml` voert de bronpoort uit: samenvoegtests, PHP-lint en startdossier-regressies. Feature- en PR-jobs krijgen geen Hostinger-secrets.
 3. Integreer uitsluitend nadat alle relevante checks geslaagd zijn en volgens de daadwerkelijk ingestelde branchregels. De ChatGPT-sessie voert dit uit; vraag de opdrachtgever niet om een handmatige merge.
 4. Een push op `develop` start dezelfde centrale workflow met Environment `office-test`, een serverlock en een exacte commitrelease.
 5. De installer bewaart bestaande runtime-aanpassingen met een driewegsamenvoeging. Een conflict blokkeert vóór activering. De laatst aangeboden repositorybron wordt per release bijgehouden; runtime-only afhankelijkheden blijven beschikbaar.
