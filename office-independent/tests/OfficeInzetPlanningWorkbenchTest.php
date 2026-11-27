@@ -63,7 +63,7 @@ $traffic = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
   [8=>['2026-10-19'=>480,'2026-10-20'=>180]]
 );
 if (!str_contains($traffic,'inzet-status-green') || !str_contains($traffic,'inzet-status-orange')
-  || !str_contains($traffic,'inzet-status-neutral')) {
+  || !str_contains($capacityHtml,'inzet-status-neutral')) {
   throw new RuntimeException('Green/orange/neutral traffic statuses missing');
 }
 $redTraffic = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
