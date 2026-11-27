@@ -18,8 +18,12 @@ final class OfficeCalcDealRevisionGuard
         $q = $this->db->prepare('SELECT d.crm_revision, o.revision FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id WHERE d.id=?'.$lock);
         $q->execute([$draftId]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($row) || $row['crm_revision'] === null || $row['revision'] === null || (int)$row['crm_revision'] !== (int)$row['revision']) {
+        if (!is_array($row) || $row['crm_revision'] === null || $row['revision'] === null) {
             throw new DomainException('Deal gewijzigd: controleer de wijzigingen voordat de calculatie wordt geaccepteerd.');
         }
+        if ((int)$row['crm_revision'] === (int)$row['revision']) return;
+        $review = $this->db->prepare('SELECT 1 FROM office_calc_deal_revision_reviews WHERE draft_id=? AND deal_revision=?');
+        $review->execute([$draftId,(int)$row['revision']]);
+        if (!$review->fetchColumn()) throw new DomainException('Deal gewijzigd: controleer de wijzigingen voordat de calculatie wordt geaccepteerd.');
     }
 }
