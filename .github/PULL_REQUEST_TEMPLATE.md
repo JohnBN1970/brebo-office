@@ -1,6 +1,6 @@
 ## BREBO Office — ontwikkeloverdracht
 
-> Raadpleeg `AGENTS.md`, `docs/DEVELOPMENT_POLICY.md` en `docs/OFFICE_DEVELOPMENT_STATUS.md`. De actuele GitHub- en Office-test-status blijft leidend.
+> Raadpleeg `AGENTS.md` en `docs/OFFICE_DEVELOPMENT_STATUS.md`. De actuele GitHub- en Office-test-status blijft leidend.
 
 ### Scope en bestaande werkzaamheden
 
