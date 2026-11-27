@@ -33,6 +33,7 @@ $db->beginTransaction(); $guard->assertReviewed(1); $db->commit();
 $db->exec('UPDATE office_crm_opportunities SET revision=3');
 $db->beginTransaction(); blocked(fn()=>$guard->assertReviewed(1)); $db->commit();
 $guard->review(1,1,3,$allow);
+$guard->review(1,1,3,$allow); // idempotent acknowledgment must preserve one audit row per revision
 $db->beginTransaction(); $guard->assertReviewed(1); $db->commit();
 $history=$db->query('SELECT deal_revision,reviewed_by FROM office_calc_deal_revision_reviews ORDER BY deal_revision')->fetchAll(PDO::FETCH_ASSOC);
 if (count($history)!==2 || (int)$history[0]['deal_revision']!==2 || (int)$history[1]['deal_revision']!==3 || (int)$history[0]['reviewed_by']!==1 || (int)$history[1]['reviewed_by']!==1) throw new RuntimeException('Deal revision review history lost');
