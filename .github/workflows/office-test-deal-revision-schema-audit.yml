@@ -1,0 +1,83 @@
+name: Office-test Deal revision schema audit (read-only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: office-test-vps
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Office-test schema without writes
+        env:
+          VPS_HOST: ${{ secrets.VPS_OFFICE_TEST_HOST }}
+          VPS_PORT: ${{ secrets.VPS_OFFICE_TEST_PORT }}
+          VPS_USER: ${{ secrets.VPS_OFFICE_TEST_USER }}
+          VPS_KEY: ${{ secrets.VPS_OFFICE_TEST_SSH_KEY }}
+          VPS_HOST_KEY: ${{ secrets.VPS_OFFICE_TEST_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for v in VPS_HOST VPS_PORT VPS_USER VPS_KEY VPS_HOST_KEY; do test -n "${!v}" || exit 1; done
+          test "$VPS_USER" = brebo-deploy
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$VPS_KEY" > "$HOME/.ssh/id_office_test"
+          printf '%s\n' "$VPS_HOST_KEY" > "$HOME/.ssh/known_hosts_office_test"
+          chmod 600 "$HOME/.ssh/id_office_test" "$HOME/.ssh/known_hosts_office_test"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts_office_test" -i "$HOME/.ssh/id_office_test" -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test "$(id -un)" = brebo-deploy
+          BASE=/srv/brebo/office-test
+          RELEASE="$(readlink -f "$BASE/current")"
+          case "$RELEASE" in "$BASE"/releases/*) ;; *) exit 1;; esac
+          test -r "$RELEASE/deployment/vps/crm-calc-schema-preflight.php"
+          sudo -n -- /usr/bin/php "$RELEASE/deployment/vps/crm-calc-schema-preflight.php" --check
+          echo "DEAL_REVISION_EXISTING_SCHEMA_PREFLIGHT=PASS"
+          # The deploy account may not read DB credentials. Fail closed if it cannot.
+          CONFIG="$BASE/private/office-test-config.php"
+          if [ ! -r "$CONFIG" ]; then
+            echo "DEAL_REVISION_DATABASE_ACCESS=UNAVAILABLE"
+            echo "DEAL_REVISION_SCHEMA_GATE=BLOCKED"
+            exit 1
+          fi
+          OFFICE_CONFIG_PATH="$CONFIG" php <<'PHP'
+          <?php
+          declare(strict_types=1);
+          $config = require getenv('OFFICE_CONFIG_PATH');
+          if (!is_array($config)) { fwrite(STDERR, "INVALID_CONFIG\\n"); exit(1); }
+          $dsn = $config['OFFICE_INTAKE_PDO_DSN'] ?? getenv('OFFICE_INTAKE_PDO_DSN');
+          $user = $config['OFFICE_INTAKE_DB_USER'] ?? getenv('OFFICE_INTAKE_DB_USER');
+          $pass = $config['OFFICE_INTAKE_DB_PASSWORD'] ?? getenv('OFFICE_INTAKE_DB_PASSWORD');
+          if (!$dsn || !$user || !is_string($pass)) exit(1);
+          $db = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+          $db->exec('SET SESSION TRANSACTION READ ONLY');
+          $db->beginTransaction();
+          try {
+            $q = $db->prepare("SELECT t.TABLE_NAME,t.ENGINE,c.COLUMN_TYPE,c.IS_NULLABLE,c.COLUMN_KEY FROM information_schema.TABLES t JOIN information_schema.COLUMNS c ON c.TABLE_SCHEMA=t.TABLE_SCHEMA AND c.TABLE_NAME=t.TABLE_NAME AND c.COLUMN_NAME='id' WHERE t.TABLE_SCHEMA=DATABASE() AND t.TABLE_NAME IN ('office_calc_crm_drafts','office_operator_accounts')");
+            $q->execute();
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+            if (count($rows) !== 2) throw new RuntimeException('Required parent table missing');
+            foreach ($rows as $row) {
+              if ($row['ENGINE'] !== 'InnoDB' || strtolower($row['COLUMN_TYPE']) !== 'bigint unsigned' || $row['IS_NULLABLE'] !== 'NO') throw new RuntimeException('Incompatible parent id or engine: '.$row['TABLE_NAME']);
+            }
+            $q = $db->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='office_calc_deal_revision_reviews'");
+            $installed = (int)$q->fetchColumn();
+            if ($installed !== 0) throw new RuntimeException('Review table already exists; inspect before migration');
+            $db->commit();
+            echo "DEAL_REVISION_SCHEMA_GATE=PASS\\n";
+            echo "DEAL_REVISION_REVIEW_TABLE=ABSENT\\n";
+          } catch (Throwable $e) {
+            $db->rollBack();
+            fwrite(STDERR, "DEAL_REVISION_SCHEMA_GATE=BLOCKED: ".$e->getMessage()."\\n");
+            exit(1);
+          }
+          PHP
+          echo "DEAL_REVISION_FK_COLUMN_TYPES=VERIFIED"
+          # Backup presence is not equivalent to a verified isolated restore.
+          echo "DEAL_REVISION_BACKUP_RESTORE=NOT_VERIFIED"
+          echo "DEAL_REVISION_MIGRATION=BLOCKED_PENDING_RESTORE"
+
+          REMOTE

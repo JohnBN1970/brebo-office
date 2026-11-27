@@ -62,7 +62,7 @@ try {
     if ($operator===null||!$operator->canEditCrm||!ctype_digit($operator->operatorId)) $deny(403,'SESSION_RIGHTS');
     $actor=(int)$operator->operatorId;
     if($showList){
-        $q=$db->prepare("SELECT d.id,d.opportunity_id,d.created_at,a.username FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id JOIN office_operator_accounts a ON a.id=d.created_by WHERE d.project_id IS NULL AND d.crm_revision=o.revision AND o.status='open' AND o.stage IN ('prospect','opportunity','proposal','negotiation') AND (d.created_by=? OR EXISTS(SELECT 1 FROM office_calc_crm_draft_collaborators c WHERE c.draft_id=d.id AND c.operator_id=?)) ORDER BY d.id DESC LIMIT 200");$q->execute([$actor,$actor]);$drafts=$q->fetchAll(PDO::FETCH_ASSOC);
+        $q=$db->prepare("SELECT d.id,d.opportunity_id,d.created_at,a.username FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id JOIN office_operator_accounts a ON a.id=d.created_by WHERE d.project_id IS NULL AND o.status='open' AND o.stage IN ('prospect','opportunity','proposal','negotiation') AND (d.created_by=? OR EXISTS(SELECT 1 FROM office_calc_crm_draft_collaborators c WHERE c.draft_id=d.id AND c.operator_id=?)) ORDER BY d.id DESC LIMIT 200");$q->execute([$actor,$actor]);$drafts=$q->fetchAll(PDO::FETCH_ASSOC);
         $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
         header('Content-Type: text/html; charset=utf-8');header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
         echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gezamenlijke calculaties · BREBO Office</title><style>body{font:15px system-ui;margin:32px;background:#f3f6fa;color:#19324a}main{max-width:1100px;margin:auto;background:white;padding:24px;border-radius:10px}table{width:100%;border-collapse:collapse}td,th{padding:14px;text-align:left;border-bottom:1px solid #dce3ea}a{color:#165b8d}.calc-inline-material-picker{background:#fff;border:1px solid #cbd4df;border-radius:4px;margin:7px 0;padding:8px 10px}.calc-inline-material-picker>summary{cursor:pointer;color:#205a98;font-weight:700}.calc-inline-material-picker>.panel{margin:9px 0 0}.calc-inline-material-picker form{background:#f4f6f9}
@@ -117,6 +117,12 @@ try {
         $submitted=$_POST['csrf']??null;
         if (!is_string($submitted)||!hash_equals($csrf,$submitted)) $deny(403,'CSRF_MISMATCH');
         $action=(string)($_POST['action']??'save_line');
+        if ($action==='review_deal_revision') {
+            require_once dirname(__DIR__).'/src/Calculation/OfficeCalcDealRevisionGuard.php';
+            (new \Brebo\Office\Calculation\OfficeCalcDealRevisionGuard($db))->review($draft,$actor,(int)($_POST['deal_revision']??0),$rights);
+            header('Location: /office-test/calculatie?draft_id='.$draft, true, 303);
+            exit;
+        }
         if ($action==='apply_montage_recipe') {
             try {
                 $repo->applyMontageRecipe($draft,$actor,(int)($_POST['element_id']??0),(int)($_POST['element_revision']??0),$_POST,$rights,(string)($_POST['expected_revision']??''));
@@ -278,6 +284,9 @@ try {
         header('Location: '.$workbenchUrl.'?draft_id='.$draft,true,303);exit;
     }
     $lines=$repo->list($draft,$actor,$rights);
+    $revisionQuery=$db->prepare('SELECT d.crm_revision,o.revision FROM office_calc_crm_drafts d JOIN office_crm_opportunities o ON o.id=d.opportunity_id WHERE d.id=?');
+    $revisionQuery->execute([$draft]);
+    $dealRevisionState=$revisionQuery->fetch(PDO::FETCH_ASSOC);
 } catch (\Brebo\Office\Calculation\OfficeCalcDraftConflict $error) {http_response_code(409);$conflict=$error->getMessage();}
 catch (DomainException) { $deny(403,'DRAFT_ACCESS'); }
 catch (PDOException) { $deny(503,'DATABASE'); }
@@ -413,6 +422,11 @@ dl{display:grid;grid-template-columns:1fr auto;gap:8px;margin:0}dd{margin:0;font
 @media(max-width:680px){.workbench{display:block}.element-tree{min-height:0;max-height:180px;margin-bottom:8px}header{display:block}.calc-fields{grid-template-columns:1fr}.table-scroll{max-height:65vh}}
 .calc-topbar{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff;border:1px solid #cbd4df;padding:8px 12px;margin-bottom:7px;box-shadow:0 2px 7px #142a4314}.calc-topbar a{font-weight:650;text-decoration:none}.calc-topbar-right{display:flex;align-items:center;gap:8px}.calc-account-menu{position:relative}.calc-account-menu summary{cursor:pointer;list-style:none;border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;font-weight:650}.calc-account-menu summary::-webkit-details-marker{display:none}.calc-account-menu[open] .calc-account-dropdown{position:absolute;right:0;top:calc(100% + 5px);z-index:40;min-width:210px;background:#fff;border:1px solid #cbd4df;box-shadow:0 6px 16px #142a4326;padding:8px;display:grid;gap:6px}.calc-account-dropdown a,.calc-account-dropdown span{display:block;padding:8px}.calc-account-dropdown .unavailable{color:#718198}.calc-account-dropdown form{margin:0;padding:0;background:transparent}.calc-account-dropdown button{width:100%;text-align:left}.calc-topbar-settings{border:1px solid #cbd4df;border-radius:4px;padding:7px 10px;color:#718198;cursor:default}
 .calc-grid-action{margin-left:8px;padding:5px 8px;background:#e7eef9;color:#234c88;border:1px solid #bacbe3}.calc-grid-hint{color:#60758b;margin-left:8px}.calc-line-toggle{background:transparent;color:#234c88;padding:2px 5px;border:1px solid #c8d4e4}.calc-line-costs{display:flex;flex-wrap:wrap;gap:10px;padding:10px 6px}.calc-line-cost{display:flex;flex-direction:column;gap:4px;min-width:115px;background:#f0f5fb;border:1px solid #d5e0ed;border-radius:4px;padding:9px}.calc-line-cost span{color:#586f87}.calc-line-detail[hidden],.element-tree .calc-building-element[hidden],.calc-building-element[hidden]+.calc-montage-recipe{display:none}.calc-collapsible-line.calc-line-collapsed td:nth-child(17){display:table-cell;font-weight:700;background:#eef5ff}.calc-collapsible-line.calc-line-collapsed td:last-child{position:sticky;right:0;background:#fff}.calc-collapsible-line.calc-line-collapsed td:nth-child(2){font-weight:650}.element-tree li{padding:2px 0;border:0}.element-tree li:before{content:none}.element-tree a.calc-element-select{display:block;padding:4px 6px;background:transparent!important;color:#244c89!important;border:0!important;box-shadow:none!important;text-align:left;font-weight:500;line-height:1.4;text-decoration:none;border-radius:3px}.element-tree a.calc-element-select:hover{text-decoration:underline;background:#f0f4f9!important}.element-tree a.calc-element-select[aria-current="true"]{background:#e4edf8!important;font-weight:700}.element-tree a.calc-element-select:focus-visible{outline:2px solid #244c89;outline-offset:1px}.element-tree details summary{cursor:pointer;padding:4px 2px;color:#244c89;font-weight:500}.element-tree details>a,.element-tree details>small{margin-left:12px}.element-tree .calc-building-element small{display:block;color:#64748b}</style></head><body><main><header><div><small>BREBO OFFICE / CRM / CALCULATIE</small><h1>Calculatieconcept #'.$draft.'</h1><p class="muted">Concept · Zonder project · Bedragen exclusief btw</p></div></header>';
+if(isset($dealRevisionState)&&is_array($dealRevisionState)&&(int)$dealRevisionState['crm_revision']!==(int)$dealRevisionState['revision']){
+    echo '<form method="post" action="/office-test/calculatie"><input type="hidden" name="action" value="review_deal_revision"><input type="hidden" name="draft_id" value="'.(int)$draft.'"><input type="hidden" name="csrf" value="'.htmlspecialchars($csrf,ENT_QUOTES,'UTF-8').'"><input type="hidden" name="deal_revision" value="'.(int)$dealRevisionState['revision'].'"><button type="submit">Deal-wijzigingen gecontroleerd</button></form>';
+
+    echo '<section class="panel" role="alert"><strong>Deal gewijzigd.</strong> Controleer de scope en calculatie voordat deze wordt geaccepteerd. Oorspronkelijke Deal-revisie: '.(int)$dealRevisionState['crm_revision'].'; actuele revisie: '.(int)$dealRevisionState['revision'].'.</section>';
+}
 if(getenv('OFFICE_CALC_BUILDING_CONTEXT_ENABLED')==='enabled'){
     echo '<section class="panel" aria-label="Gebouwen bij deal"><h2>Gebouwen bij deal</h2>';
     if($calcDealBuildings===[]){echo '<p>'.$h($calcDealBuildingNotice).'</p>';}
