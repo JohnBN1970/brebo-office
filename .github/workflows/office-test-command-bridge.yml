@@ -1,9 +1,5 @@
 name: Office-test read-only command bridge
 on:
-  push:
-    branches: [develop]
-    paths:
-      - '.github/workflows/office-test-command-bridge.yml'
   workflow_dispatch:
 permissions:
   contents: read
