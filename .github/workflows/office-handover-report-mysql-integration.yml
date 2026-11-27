@@ -23,7 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install MySQL PDO
-        run: sudo apt-get update && sudo apt-get install -y php-mysql
+        run: php -m | grep -qi '^pdo_mysql
+      - name: Check test syntax
+        run: php -l office-independent/tests/OfficeHandoverReportMysqlTest.php
+      - name: Exercise isolated schema and project-scoped draft persistence
+        env:
+          HANDOVER_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=brebo_handover_ci;charset=utf8mb4
+          HANDOVER_CI_USER: root
+          HANDOVER_CI_PASSWORD: localtest
+        run: php office-independent/tests/OfficeHandoverReportMysqlTest.php
+ || (sudo apt-get install -y php-mysql)
       - name: Check test syntax
         run: php -l office-independent/tests/OfficeHandoverReportMysqlTest.php
       - name: Exercise isolated schema and project-scoped draft persistence
