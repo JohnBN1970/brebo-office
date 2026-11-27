@@ -36,7 +36,7 @@ if (!$relation) { http_response_code(404); exit('Relatie niet gevonden.'); }
 $errors=[];
 $fields=['display_name'=>255,'legal_name'=>255,'chamber_of_commerce'=>32,'vat_number'=>48,'email'=>254,'invoice_email'=>254,'offer_email'=>254,'billing_street'=>255,'billing_postal_code'=>32,'billing_city'=>128,'billing_country_code'=>2,'phone'=>48,'street'=>255,'postal_code'=>32,'city'=>128,'country_code'=>2];
 $labels=['display_name'=>'Relatienaam','legal_name'=>'Statutaire naam','chamber_of_commerce'=>'KvK-nummer','vat_number'=>'Btw-nummer','email'=>'Algemene e-mail','invoice_email'=>'Factuur e-mail','offer_email'=>'Offerte e-mail','billing_street'=>'Factuuradres: straat en huisnummer','billing_postal_code'=>'Factuuradres: postcode','billing_city'=>'Factuuradres: plaats','billing_country_code'=>'Factuuradres: landcode','phone'=>'Telefoon','street'=>'Straat en huisnummer','postal_code'=>'Postcode','city'=>'Plaats','country_code'=>'Landcode'];
-$roles=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
+$roles=['customer'=>'Klant','prospect'=>'Geïnteresseerde','supplier'=>'Leverancier'];
 $stmt=$db->prepare('SELECT role_code FROM office_crm_relation_roles WHERE relation_id=?');$stmt->execute([$id]);$selected=$stmt->fetchAll(PDO::FETCH_COLUMN);
 if ($method==='POST') {
  $token=$_POST['csrf']??'';
@@ -70,7 +70,7 @@ if ($method==='POST') {
  if (!$errors) {
   try {
    $db->beginTransaction();
-   $lock=$db->prepare('SELECT status FROM office_crm_relations WHERE id=? FOR UPDATE');$lock->execute([$id]);$current=$lock->fetchColumn();
+   $lock=$db->prepare('SELECT status,relation_kind FROM office_crm_relations WHERE id=? FOR UPDATE');$lock->execute([$id]);$lockedRelation=$lock->fetch(PDO::FETCH_ASSOC);$current=$lockedRelation['status']??false;
    if ($current===false) throw new RuntimeException('Relatie bestaat niet meer.');
    if ($action==='save') {
     if ($current==='archived') throw new RuntimeException('Herstel de relatie eerst.');
@@ -81,7 +81,14 @@ if ($method==='POST') {
     $db->prepare('DELETE FROM office_crm_relation_roles WHERE relation_id=?')->execute([$id]);
     $insert=$db->prepare('INSERT INTO office_crm_relation_roles(relation_id,role_code) VALUES(?,?)');
     foreach ($selected as $role) $insert->execute([$id,$role]);
-   } elseif ($action==='archive') {
+    } elseif ($action==='archive') {
+    // Private customers require verified completion and payment evidence.
+    // Until the authoritative lifecycle service is connected, fail closed.
+    $customer=$db->prepare("SELECT 1 FROM office_crm_relation_roles WHERE relation_id=? AND role_code='customer' LIMIT 1");
+    $customer->execute([$id]);
+    if ($lockedRelation['relation_kind']==='person' && $customer->fetchColumn()) {
+     throw new RuntimeException('Particuliere klant kan pas worden gearchiveerd na controle van projectafronding en volledige betaling.');
+    }
     $db->prepare("UPDATE office_crm_relations SET status='archived' WHERE id=?")->execute([$id]);
    } elseif ($action==='restore') {
     $db->prepare("UPDATE office_crm_relations SET status='inactive' WHERE id=? AND status='archived'")->execute([$id]);
@@ -112,7 +119,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 foreach ($errors as $error) echo '<p class="error">'.$h($error).'</p>';
 if ($relation['status']!=='archived') {
 echo '<section><h2>Gegevens en status</h2><form method="post"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_manage_csrf']).'"><input type="hidden" name="action" value="save"><label>Type<select name="relation_kind">';
-foreach (['company'=>'Bedrijf','person'=>'Persoon'] as $value=>$label) echo '<option value="'.$value.'"'.($relation['relation_kind']===$value?' selected':'').'>'.$label.'</option>';
+foreach (['company'=>'Bedrijf','person'=>'Particulier'] as $value=>$label) echo '<option value="'.$value.'"'.($relation['relation_kind']===$value?' selected':'').'>'.$label.'</option>';
 echo '</select></label><div class="grid">';
 foreach ($fields as $key=>$max) echo '<label>'.$labels[$key].'<input name="'.$key.'" maxlength="'.$max.'" value="'.$h($relation[$key]??'').'"'.($key==='display_name'?' required':'').'></label>';
 echo '</div><label><input type="checkbox" name="active" value="1"'.($relation['status']==='active'?' checked':'').'> Actief</label><h2>Rollen</h2>';
