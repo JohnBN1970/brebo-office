@@ -32,6 +32,10 @@ if (!is_array($review) || (int)$review['draft_id']!==1 || (int)$review['deal_rev
 $db->beginTransaction(); $guard->assertReviewed(1); $db->commit();
 $db->exec('UPDATE office_crm_opportunities SET revision=3');
 $db->beginTransaction(); blocked(fn()=>$guard->assertReviewed(1)); $db->commit();
+$guard->review(1,1,3,$allow);
+$db->beginTransaction(); $guard->assertReviewed(1); $db->commit();
+$history=$db->query('SELECT deal_revision,reviewed_by FROM office_calc_deal_revision_reviews ORDER BY deal_revision')->fetchAll(PDO::FETCH_ASSOC);
+if (count($history)!==2 || (int)$history[0]['deal_revision']!==2 || (int)$history[1]['deal_revision']!==3 || (int)$history[0]['reviewed_by']!==1 || (int)$history[1]['reviewed_by']!==1) throw new RuntimeException('Deal revision review history lost');
 if ((int)$db->query('SELECT crm_revision FROM office_calc_crm_drafts')->fetchColumn()!==1) throw new RuntimeException('Original revision overwritten');
-if ((int)$db->query('SELECT COUNT(*) FROM office_calc_deal_revision_reviews')->fetchColumn()!==1) throw new RuntimeException('Unexpected review history');
+if ((int)$db->query('SELECT COUNT(*) FROM office_calc_deal_revision_reviews')->fetchColumn()!==2) throw new RuntimeException('Unexpected review history');
 echo "DEAL_REVISION_REGRESSION=PASS\n";
