@@ -25,6 +25,13 @@ final class OfficeCalcDealRevisionGuard
             if ($revision === false || $revision === null || (int)$revision !== $expectedRevision) {
                 throw new DomainException('Deal opnieuw gewijzigd; heropen de calculatie en controleer de actuele revisie.');
             }
+            // A repeated acknowledgment must not create duplicate audit decisions.
+            $prior = $this->db->prepare('SELECT 1 FROM office_calc_deal_revision_reviews WHERE draft_id=? AND deal_revision=? LIMIT 1');
+            $prior->execute([$draftId,$expectedRevision]);
+            if ($prior->fetchColumn()) {
+                $this->db->commit();
+                return;
+            }
             $insert = $this->db->prepare('INSERT INTO office_calc_deal_revision_reviews (draft_id,deal_revision,reviewed_by) VALUES (?,?,?)');
             $insert->execute([$draftId,$expectedRevision,$actorId]);
             $this->db->commit();
