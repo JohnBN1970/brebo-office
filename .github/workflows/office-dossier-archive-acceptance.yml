@@ -5,11 +5,17 @@ on:
     paths:
       - 'office-independent/src/Documents/OfficeDossierArchive*.php'
       - 'office-independent/tests/OfficeDossierArchive*.php'
+      - 'office-independent/src/Crm/OfficeCrmArchive*.php'
+      - 'office-independent/src/Crm/OfficeCrmRelationPolicy.php'
+      - 'office-independent/tests/OfficeCrmArchive*.php'
       - '.github/workflows/office-dossier-archive-acceptance.yml'
   pull_request:
     paths:
       - 'office-independent/src/Documents/OfficeDossierArchive*.php'
       - 'office-independent/tests/OfficeDossierArchive*.php'
+      - 'office-independent/src/Crm/OfficeCrmArchive*.php'
+      - 'office-independent/src/Crm/OfficeCrmRelationPolicy.php'
+      - 'office-independent/tests/OfficeCrmArchive*.php'
       - '.github/workflows/office-dossier-archive-acceptance.yml'
   workflow_dispatch:
 permissions:
@@ -23,11 +29,13 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: zip, sodium
+          extensions: zip, sodium, pdo_sqlite
           coverage: none
       - name: Syntax and archive roundtrip
         run: |
           set -eu
           php -r 'if (!extension_loaded("zip") || !extension_loaded("sodium")) exit(1);'
-          for file in office-independent/src/Documents/OfficeDossierArchive*.php office-independent/tests/OfficeDossierArchive*.php; do php -l "$file"; done
+          for file in office-independent/src/Documents/OfficeDossierArchive*.php office-independent/tests/OfficeDossierArchive*.php office-independent/src/Crm/OfficeCrmArchive*.php office-independent/tests/OfficeCrmArchive*.php; do php -l "$file"; done
           php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeDossierArchiveRoundtripTest.php
+
+          php office-independent/tests/OfficeCrmArchiveEligibilityPolicyTest.php
