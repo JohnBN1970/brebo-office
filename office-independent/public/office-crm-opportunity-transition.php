@@ -26,7 +26,7 @@ try {
 } catch (Throwable $e) { http_response_code(503); exit('CRM tijdelijk niet beschikbaar.'); }
 $id=filter_var($_GET['id']??0,FILTER_VALIDATE_INT)?:0;
 if ($id<1) { http_response_code(400); exit('Ongeldige deal.'); }
-$stmt=$db->prepare("SELECT id,title,stage,status,revision FROM office_crm_opportunities WHERE id=? LIMIT 1");
+$stmt=$db->prepare("SELECT id,title,description,stage,status,revision FROM office_crm_opportunities WHERE id=? LIMIT 1");
 $stmt->execute([$id]); $item=$stmt->fetch(PDO::FETCH_ASSOC);
 if (!$item) { http_response_code(404); exit('Deal niet gevonden.'); }
 if (session_status()!==PHP_SESSION_ACTIVE) {
@@ -56,6 +56,28 @@ if ($method==='POST') {
         http_response_code(403); exit('Ongeldige formulierbeveiliging.');
     }
     $action=is_string($_POST['action']??null)?$_POST['action']:'';
+    if ($action==='save_deal_details') {
+        if (!$operator->canEditCrm || $item['status']!=='open' || in_array($item['stage'],['won','lost'],true)) { http_response_code(403); exit('Deal wijzigen niet toegestaan.'); }
+        $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
+        $title=is_string($_POST['title']??null)?trim($_POST['title']):'';
+        $description=is_string($_POST['description']??null)?trim($_POST['description']):'';
+        if ($revision===false || $revision<1 || $title==='' || strlen($title)>255 || strlen($description)>60000) { http_response_code(400); exit('Ongeldige dealgegevens.'); }
+        try {
+            $db->beginTransaction();
+            $p=$db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1 FOR UPDATE');
+            $p->execute([$operator->operatorId]);
+            if (!$p->fetchColumn()) throw new DomainException('Geen schrijfrecht.');
+            $q=$db->prepare("UPDATE office_crm_opportunities SET title=?,description=?,revision=revision+1 WHERE id=? AND revision=? AND status='open' AND stage NOT IN ('won','lost')");
+            $q->execute([$title,$description,$id,$revision]);
+            if ($q->rowCount()!==1) throw new DomainException('Deal intussen gewijzigd.');
+            $db->commit();
+            $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
+            header('Location: /office-test/crm/verkoopkansen/fase?id='.$id,true,303); exit;
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            http_response_code(409); exit('Deal niet opgeslagen. Ververs de pagina.');
+        }
+    }
     if ($action==='create_building' && ($_POST['building_action']??null)==='search_pdok') {
         if (!$buildingReady || $missing!==[] || getenv('OFFICE_BUILDING_CREATE_ENABLED')!=='enabled' || getenv('OFFICE_BUILDING_BAG_SCHEMA_VERIFIED')!=='enabled') {http_response_code(403);exit;}
         $revision=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT);
@@ -148,10 +170,16 @@ if ($method==='POST') {
 }
 }
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deal wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select{padding:10px;width:100%}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Deal wijzigen · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:750px;margin:32px auto;padding:20px}section{background:white;border:1px solid #dbe1e8;border-radius:12px;padding:24px}label{display:block;margin:18px 0}select,input:not([type=hidden]),textarea{padding:10px;width:100%;box-sizing:border-box}button{padding:12px 20px;background:#175a91;color:white;border:0;border-radius:6px}a{color:#175a91}</style></head><body><main><p><a href="/office-test/crm/verkoopkansen">Terug naar deals</a></p><h1>'.$h($item['title']).'</h1><section><p>Huidige fase: '.$h(\Brebo\Office\Crm\OfficeCrmFunnel::label((string)$item['stage'])).'</p>';
 if ($error!=='') echo '<p role="alert">'.$h($error).'</p>';
+echo '<h2>Dealgegevens</h2><p>Revisie: '.(int)$item['revision'].'</p>';
+if ($operator->canEditCrm && $item['status']==='open' && !in_array($item['stage'],['won','lost'],true)) {
+    echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><label>Dealnaam<input name="title" required maxlength="255" value="'.$h($item['title']).'"></label><label>Omschrijving en scope<textarea name="description" rows="6">'.$h($item['description']??'').'</textarea></label><button name="action" value="save_deal_details">Dealgegevens opslaan</button></form>';
+} else {
+    echo '<p>'.$h($item['description']??'').'</p>';
+}
 if ($buildingReady) {
-    echo '<h2>Gebouwen</h2>';
+    echo '<h2>Gekoppelde gebouwen</h2>';
     if ($missing!==[]) echo '<p>Niet alle gekoppelde gebouwen zijn toegankelijk. Wijzigen is geblokkeerd.</p>';
     else {
         echo '<form method="post"><input type="hidden" name="csrf" value="'.$h($_SESSION['crm_opportunity_csrf']).'"><input type="hidden" name="revision" value="'.(int)$item['revision'].'"><label>Gebouwen<select name="building_ids[]" multiple size="6">';
