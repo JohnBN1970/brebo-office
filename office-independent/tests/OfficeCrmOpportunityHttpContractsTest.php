@@ -74,4 +74,12 @@ if (!str_contains($nav,"[['Deals','/office-test/crm/verkoopkansen']]")) throw ne
 $installer=file_get_contents($root.'/deployment/hostinger/install-office-crm-opportunities-test.php');
 foreach (['OFFICE_CRM_OPPORTUNITIES_SCHEMA_INSTALL','u213420663_office_test','PHP_SAPI','target_exists_inspect_first'] as $gate)
     if (!str_contains($installer,$gate)) throw new RuntimeException('Installer safety gate missing: '.$gate);
+
+ // Deal details precede building management and preserve optimistic concurrency.
+foreach (['save_deal_details','name="title"','name="description"','Dealgegevens opslaan','revision=revision+1 WHERE id=? AND revision=?','active=1 AND can_edit_crm=1 FOR UPDATE','Gekoppelde gebouwen'] as $marker) {
+    if (!str_contains($transition,$marker)) throw new RuntimeException('Deal detail contract missing: '.$marker);
+}
+if (strpos($transition,'<h2>Dealgegevens</h2>') >= strpos($transition,'<h2>Gekoppelde gebouwen</h2>')) {
+    throw new RuntimeException('Deal details must precede building management');
+}
 echo "CRM_OPPORTUNITY_HTTP_CONTRACTS_OK\n";
