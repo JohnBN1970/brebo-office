@@ -1,0 +1,52 @@
+name: CRM award MariaDB acceptance
+on:
+  pull_request:
+  push:
+    branches: ['baseline/functional-v1']
+permissions:
+  contents: read
+jobs:
+  mariadb:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: ci-only
+          MARIADB_DATABASE: award_ci
+          MARIADB_USER: award_ci
+          MARIADB_PASSWORD: ci-only
+        ports:
+          - 3306:3306
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Apply migration twice and verify award
+        run: |
+          php <<'PHP'
+          <?php
+          require 'office-independent/src/Crm/OfficeCrmRelationsSchema.php';
+          require 'office-independent/src/Crm/OfficeCrmOpportunitySchema.php';
+          require 'office-independent/src/Crm/OfficeCrmFunnel.php';
+          require 'office-independent/src/Crm/OfficeCrmOpportunityRepository.php';
+          $db=new PDO('mysql:host=127.0.0.1;port=3306;dbname=award_ci','award_ci','ci-only',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          foreach (array_merge(\Brebo\Office\Crm\OfficeCrmRelationsSchema::statements(),\Brebo\Office\Crm\OfficeCrmOpportunitySchema::statements()) as $sql) $db->exec($sql);
+          $db->exec("CREATE TABLE office_operator_accounts(id BIGINT UNSIGNED PRIMARY KEY,active TINYINT,can_edit_crm TINYINT)");
+          $db->exec("INSERT INTO office_operator_accounts VALUES(7,1,1)");
+          $db->exec("INSERT INTO office_crm_relations(id,relation_kind,display_name) VALUES(1,'person','CI customer')");
+          $db->exec("INSERT INTO office_crm_opportunities(id,relation_id,title,stage) VALUES(1,1,'CI deal','proposal')");
+          $sql=file_get_contents('office-independent/migrations/20261128_crm_award_history.sql');
+          $db->exec($sql);
+          $db->exec($sql);
+          putenv('OFFICE_CRM_AWARD_HISTORY_SCHEMA_VERIFIED=enabled');
+          $r=new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db);
+          if(!$r->transition(1,'proposal','won',7) || $r->transition(1,'proposal','won',7)) throw new RuntimeException('Award transition failed');
+          if((int)$db->query('SELECT COUNT(*) FROM office_crm_award_events')->fetchColumn()!==1) throw new RuntimeException('Award count');
+          if((int)$db->query("SELECT COUNT(*) FROM office_crm_relation_roles WHERE role_code='customer'")->fetchColumn()!==1) throw new RuntimeException('Customer role');
+          echo "MariaDB award acceptance passed\n";
+          PHP
