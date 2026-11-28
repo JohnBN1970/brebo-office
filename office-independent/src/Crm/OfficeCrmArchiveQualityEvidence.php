@@ -40,12 +40,15 @@ final class OfficeCrmArchiveQualityEvidence
         $ids = $q->fetchAll(PDO::FETCH_COLUMN);
         if (!$ids) return false;
         $handoff = new OfficeCrmProjectHandoff($this->db);
+        $kickstart = $this->db->prepare("SELECT 1 FROM office_project_start_dossiers d WHERE d.project_id=? AND (d.critical_open_points>0 OR EXISTS (SELECT 1 FROM office_project_start_questions q WHERE q.dossier_id=d.id AND q.is_critical=1 AND TRIM(COALESCE(q.decision_text,''))='')) LIMIT 1");
         $check = $this->db->prepare("SELECT 1 FROM office_quality_checks WHERE project_id=? AND status<>'accepted' LIMIT 1");
         foreach ($ids as $id) {
             $projectId = $handoff->projectId((int)$id);
             if ($projectId === null) return false;
             $check->execute([$projectId]);
             if ($check->fetchColumn()) return false;
+            $kickstart->execute([$projectId]);
+            if ($kickstart->fetchColumn()) return false;
         }
         return true;
     }
