@@ -16,6 +16,8 @@ final class OfficeDossierArchiveSchema
                 archive_version INTEGER NOT NULL, status VARCHAR(32) NOT NULL,
                 revision INTEGER NOT NULL DEFAULT 1, storage_key VARCHAR(255) NULL,
                 manifest_sha256 CHAR(64) NULL, archive_sha256 CHAR(64) NULL,
+                plaintext_sha256 CHAR(64) NULL, key_version VARCHAR(64) NULL,
+                manifest_json TEXT NULL,
                 created_at VARCHAR(32) NOT NULL, updated_at VARCHAR(32) NOT NULL,
                 UNIQUE(scope_type,scope_id,archive_version)
             )$tail",
