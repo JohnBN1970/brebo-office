@@ -47,3 +47,4 @@ jobs:
           php office-independent/tests/OfficeCrmArchiveHistoricalPortfolioTest.php
           php office-independent/tests/OfficeCrmArchiveHistoricalDealTest.php
           php office-independent/tests/OfficeCrmAwardHistoryTest.php
+          php office-independent/tests/OfficeCrmAwardTransitionTest.php
