@@ -18,6 +18,7 @@ final class OfficeCrmArchiveProjectEvidence
         $deals = $q->fetchAll(PDO::FETCH_ASSOC);
         $handoff = new OfficeCrmProjectHandoff($this->db);
         $project = $this->db->prepare('SELECT status FROM office_projects WHERE id=?');
+        $closure = $this->db->prepare("SELECT status FROM office_process_form_instances WHERE context_type='project' AND context_id=? AND document_code='CL-600' ORDER BY id DESC");
         $seen = false;
         foreach ($deals as $deal) {
             if ($deal['status'] === 'closed' && $deal['stage'] === 'lost') continue;
@@ -27,6 +28,9 @@ final class OfficeCrmArchiveProjectEvidence
             $project->execute([$id]);
             $status = $project->fetchColumn();
             if (!is_string($status) || !in_array(strtolower(trim($status)), ['gereed','completed'], true)) return false;
+            $closure->execute([$id]);
+            $statuses = $closure->fetchAll(PDO::FETCH_COLUMN);
+            if (!$statuses || count(array_filter($statuses, static fn($status) => $status !== 'akkoord')) !== 0) return false;
             $seen = true;
         }
         return $seen;
