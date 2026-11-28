@@ -1,0 +1,33 @@
+name: Office dossier archive acceptance
+on:
+  push:
+    branches: ['baseline/functional-v1']
+    paths:
+      - 'office-independent/src/Documents/OfficeDossierArchive*.php'
+      - 'office-independent/tests/OfficeDossierArchive*.php'
+      - '.github/workflows/office-dossier-archive-acceptance.yml'
+  pull_request:
+    paths:
+      - 'office-independent/src/Documents/OfficeDossierArchive*.php'
+      - 'office-independent/tests/OfficeDossierArchive*.php'
+      - '.github/workflows/office-dossier-archive-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: zip, sodium
+          coverage: none
+      - name: Syntax and archive roundtrip
+        run: |
+          set -eu
+          php -r 'if (!extension_loaded("zip") || !extension_loaded("sodium")) exit(1);'
+          for file in office-independent/src/Documents/OfficeDossierArchive*.php office-independent/tests/OfficeDossierArchive*.php; do php -l "$file"; done
+          php -d zend.assertions=1 -d assert.exception=1 office-independent/tests/OfficeDossierArchiveRoundtripTest.php
