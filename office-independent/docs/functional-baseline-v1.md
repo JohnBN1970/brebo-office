@@ -33,3 +33,12 @@ Meerdere bestaande categorieën per Deal/project; categorie stuurt beschikbaarhe
 
 ## Acceptatie
 Per domein bron, eigenaar, routes, schema, autorisatie, overdracht en regressietests aantonen. Geen productie-uitrol; eerst PR-controles en integrale Office-test. Open punten: meer/minderwerk, termijnfacturatie, liquiditeitsprognose en evaluatie op ketenniveau verifiëren.
+
+
+## Centrale dossierarchivering
+
+Na bewezen afronding en betaling van alle B2C-opdrachten en afhandeling van open verplichtingen archiveert Office het klantdossier. Documenten en bijlagen worden in een versiegebonden gecomprimeerd archief opgenomen, met een manifest van oorspronkelijke document-ID's, project-ID's, opslaglocaties en SHA-256-controlesommen. Gedeelde bestanden blijven beschikbaar voor andere dossiers. Relatie-ID, classificatie, projectgegevens, financiële boekingen, uren en rapportagegegevens blijven online; historische KPI's veranderen niet.
+
+De centrale archiefservice werkt asynchroon met duurzame statussen, toegangscontrole, versleutelde opslag, auditlog en herstelbare opdrachten. Eerst inventariseren, vervolgens comprimeren, onafhankelijk verifiëren en pas daarna de archiefstatus publiceren. Bronbestanden mogen pas worden opgeruimd na bewezen herstelbaarheid, bewaartermijncontrole en verificatie van gedeelde verwijzingen. Bij fouten blijven bronbestanden beschikbaar. Een nieuwe aanvraag of geautoriseerde heractivering start automatisch decompressie naar een afgeschermde tijdelijke locatie; controleer manifest, bestandspaden, limieten en hashes voordat documenten onder dezelfde ID's opnieuw beschikbaar worden. Publiceer de actieve status pas na volledig herstel. Geen automatische verwijdering van financiële of relationele historie. Dezelfde service moet later afzonderlijke B2B-projectdossiers ondersteunen zonder de klant te archiveren.
+
+Acceptatie: identieke documentinhoud en historische rapportagetotalen voor en na archivering/herstel; onderbroken opdrachten veilig hervatbaar; beschadigde archieven en ongeautoriseerde toegang geblokkeerd. Geen fysieke opruiming of automatische activering totdat integratietests en herstelproef zijn geslaagd.
