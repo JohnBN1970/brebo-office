@@ -31,11 +31,12 @@ final class OfficeCrmArchiveEligibility
             'all_invoices_paid'=>$payment->allInvoicesPaid($relationId),
             'no_open_leads_or_deals'=>$project->noOpenCrmWork($relationId),
             'known_quality_and_crm_activities_closed'=>$quality->knownRestpointsAndCrmActivitiesClosed($relationId),
+            'no_unapproved_service_forms'=>$quality->noUnapprovedServiceForms($relationId),
             // Partial source coverage is not proof of absence.
             'no_open_actions_or_restpoints'=>false,
             'no_open_complaints'=>false,
             'no_active_maintenance'=>false,
         ];
-        return ['eligible'=>$relation['status']==='active' && OfficeCrmRelationPolicy::canAutoArchive($relation['relation_kind'],$roles,$evidence),'evidence'=>$evidence];
+        return ['eligible'=>$relation['status']==='active' && $evidence['no_unapproved_service_forms'] && $evidence['known_quality_and_crm_activities_closed'] && OfficeCrmRelationPolicy::canAutoArchive($relation['relation_kind'],$roles,$evidence),'evidence'=>$evidence];
     }
 }
