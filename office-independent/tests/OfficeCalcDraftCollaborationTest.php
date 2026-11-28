@@ -64,3 +64,12 @@ $expect(abs((float)$db->query('SELECT direct_cost FROM calculation_versions LIMI
 $reject(fn()=>$apply(19,2,7,$input,$collab->token($collab->state(1))));
 $expect((int)$db->query('SELECT COUNT(*) FROM office_calc_line_building_sources WHERE building_element_revision=2')->fetchColumn()===2,'Retry preserves exactly two traceable lines');
 echo "OFFICE_CALC_MONTAGE_RECIPE=PASS\n";
+
+$db->exec("UPDATE office_crm_opportunities SET revision=5 WHERE id=11");
+$state=$collab->read(1,7,$rights,$repo);
+$repo->save(1,7,'revision-drift','labor','Controle gewijzigde deal',1,4500,null,$rights,$state['token'],'Scopecontrole');
+$expect((int)$db->query('SELECT crm_revision FROM office_calc_crm_drafts WHERE id=1')->fetchColumn()===4,'Original Deal revision preserved');
+$reject(fn()=>$collab->read(1,8,$rights,$repo));
+$db->exec("UPDATE office_crm_opportunities SET status='closed' WHERE id=11");
+$reject(fn()=>$collab->read(1,7,$rights,$repo));
+echo "OFFICE_CALC_DEAL_REVISION_ACCESS=PASS\n";

@@ -135,11 +135,12 @@ if ($method==='POST') {
         }
     }
     if ($action!=='') { http_response_code(400); exit('Ongeldige opdracht.'); }
+    if (!$operator->canEditCrm) { http_response_code(403); exit('Geen CRM-schrijfrecht.'); }
     if ($item['status'] !== 'open') { http_response_code(409); exit('Afgesloten deal kan niet worden gewijzigd.'); }
     $to=is_string($_POST['stage']??null)?$_POST['stage']:'';
     if (!in_array($to,$next,true)) { http_response_code(400); exit('Ongeldige faseovergang.'); }
     try {
-        $ok=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to);
+        $ok=(new \Brebo\Office\Crm\OfficeCrmOpportunityRepository($db))->transition($id,(string)$item['stage'],$to,(int)$operator->operatorId);
         if (!$ok) { http_response_code(409); exit('De deal is intussen gewijzigd. Vernieuw de pagina.'); }
         $_SESSION['crm_opportunity_csrf']=bin2hex(random_bytes(32));
         header('Location: /office-test/crm/verkoopkansen?updated='.$id,true,303); exit;

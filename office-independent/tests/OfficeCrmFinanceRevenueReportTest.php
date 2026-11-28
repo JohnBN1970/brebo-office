@@ -20,4 +20,11 @@ $datedInvoices = [
  ['invoice_id'=>'F','customer_relation_id'=>1,'net_revenue_cents'=>20000,'invoice_date'=>'2026-09-01','status'=>'paid'],
 ];
 if (R::build($datedInvoices,$changedManager,2026) !== [10=>10000,20=>20000]) throw new RuntimeException('Historical manager attribution failed');
+// Relation lifecycle metadata must not change historical invoice attribution.
+foreach (['active','archived','active'] as $relationStatus) {
+    $snapshot = array_map(static fn(array $invoice): array => $invoice + ['relation_status'=>$relationStatus], $datedInvoices);
+    if (R::build($snapshot,$changedManager,2026) !== [10=>10000,20=>20000]) {
+        throw new RuntimeException('Relation lifecycle changed historical revenue attribution');
+    }
+}
 echo "Finance CRM report contract OK\n";

@@ -54,6 +54,10 @@ jobs:
         run: php office-independent/tests/OfficeCalcHousingQuantityReaderTest.php
       - name: Exercise Calc workbench controls in Chromium
         run: python3 scripts/ci/test_calc_workbench_browser.py
+      - name: Verify Deal revision approval, audit history and collaborator access
+        run: |
+          php office-independent/tests/office-calc-deal-revision-guard.php
+          php office-independent/tests/OfficeCalcDraftCollaborationTest.php
       - name: Validate calculation arithmetic contracts
         run: |
           set -euo pipefail
