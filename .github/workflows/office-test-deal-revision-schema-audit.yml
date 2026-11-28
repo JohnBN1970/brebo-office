@@ -45,6 +45,9 @@ jobs:
           RELEASE="$(readlink -f "$BASE/current")"
           case "$RELEASE" in "$BASE"/releases/*) ;; *) exit 1;; esac
           test -r "$RELEASE/deployment/vps/crm-calc-schema-preflight.php" || { echo "PREFLIGHT_SCRIPT_UNAVAILABLE"; exit 1; }
+          echo "OFFICE_TEST_SUDO_POLICY_BEGIN"
+          sudo -n -l 2>&1 || echo "OFFICE_TEST_SUDO_LIST_UNAVAILABLE"
+          echo "OFFICE_TEST_SUDO_POLICY_END"
           /usr/bin/php "$RELEASE/deployment/vps/crm-calc-schema-preflight.php" --check
           echo "DEAL_REVISION_EXISTING_SCHEMA_PREFLIGHT=PASS"
           # The deploy account may not read DB credentials. Fail closed if it cannot.
