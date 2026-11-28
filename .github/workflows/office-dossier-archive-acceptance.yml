@@ -43,3 +43,4 @@ jobs:
           php office-independent/tests/OfficeCrmArchiveProjectEvidenceTest.php
           php office-independent/tests/OfficeCrmArchiveQualityEvidenceTest.php
           php office-independent/tests/OfficeCrmArchiveHistoricalFinanceTest.php
+          php office-independent/tests/OfficeCrmArchiveHistoricalResultTest.php
