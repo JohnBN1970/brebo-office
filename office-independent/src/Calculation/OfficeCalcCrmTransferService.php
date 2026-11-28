@@ -105,6 +105,20 @@ final class OfficeCalcCrmTransferService
                 }
                 throw new DomainException('CRM acceptance already transferred');
             }
+            // Check the persisted Deal draft before creating any project or budget.
+            require_once __DIR__.'/OfficeCalcDealRevisionGuard.php';
+            $draftQuery = $this->db->prepare('SELECT id, calculation_id FROM office_calc_crm_drafts WHERE opportunity_id=? FOR UPDATE');
+            $draftQuery->execute([$acceptance['crm_opportunity_id']]);
+            $drafts = $draftQuery->fetchAll(PDO::FETCH_ASSOC);
+            if (count($drafts) !== 1) {
+                throw new DomainException('Acceptance requires exactly one persisted Deal calculation draft');
+            }
+            foreach ($drafts as $draft) {
+                if ((string)$draft['calculation_id'] !== (string)$acceptance['calculation_id']) {
+                    throw new DomainException('Accepted calculation does not match the Deal draft');
+                }
+                (new OfficeCalcDealRevisionGuard($this->db))->assertReviewed((int)$draft['id']);
+            }
             // The verifier must also attest the stored source revision AND its
             // persisted calculation lines. Never trust request-provided amounts.
             // Project creation remains an injected native Office adapter; no
