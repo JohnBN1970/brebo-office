@@ -1,0 +1,44 @@
+# BREBO Office — Functionele baseline v1.0
+
+## Keten
+Intake → Lead → Deal → optionele Calculatie/dienstenbegroting → Offertestudio → Onderhandeling → Acceptatie → Projectinitiatie → Werkbegroting → Take-off → Voorbereiding → Uitvoering → Oplevering → Onderhoud (indien van toepassing) → Gereed. Directe opdrachten blijven mogelijk. Take-off is een zelfstandig projecttabblad binnen voorbereiding, geen extra projectfase.
+
+## CRM-fasen en relatierollen
+Lead: Nieuw, In behandeling, Onhold, Gekwalificeerd, Afgewezen, Junk.
+Deal: Intake, Calculatie, Offerte, Onderhandeling, Onhold, Gegund, Verloren.
+Fasen mogen worden overgeslagen waar niet relevant; Onhold is bereikbaar vanuit actieve fasen. Terugkeer naar Calculatie bij scopewijziging mogelijk. Fasehistorie behouden. Acceptatie is een handeling bij Gegund, geen afzonderlijke fase. Junk is herstelbaar en uitgesloten van commerciële conversie-KPI's; Afgewezen blijft meetellen.
+De bestaande relatie is de enige stamregistratie. Geïnteresseerde (vervangt Prospect in de gebruikersinterface) is een relatierol bij omzetting van een gekwalificeerde Lead naar Deal. Klantrol automatisch bij eerste definitieve gunning of acceptatie van een directe opdracht. Bestaande klantrol blijft behouden bij volgende verloren Deals. Rollen kunnen naast andere relatierollen bestaan. Hergebruik bestaande relatie-ID's en rolstructuren; geen parallel klantbestand. Historische sleutels niet blind hernoemen.
+Relatiekaart ontsluit gekoppelde contacten, Leads, Deals, calculaties, offertes, projecten, communicatie en facturen.
+
+## Relatietype, contactpersonen en archief
+Hergebruik relation_kind: organization = Bedrijf (B2B), person = Particulier (B2C). Relatietype staat los van relatierollen. Contactpersonen van zakelijke klanten blijven gekoppeld aan dezelfde centrale relatie bij gunning; geen duplicatie. Resources zijn de mensen en middelen die BREBO inzet, niet de contactpersonen van de klant.
+Particuliere klanten gaan automatisch volledig uit de actieve klantoverzichten naar het archief zodra alle projecten/orders zijn afgerond en volledig betaald. Open Leads, Deals, acties, restpunten, klachten of lopende onderhoudsverplichtingen verhinderen automatische archivering. Zakelijke klanten blijven actief; archivering is een bewuste keuze. Archiveren is geen verwijderen: dossier, historie, documenten, facturen en garantiegegevens blijven toegankelijk volgens bewaartermijnen en toegangsrechten. Nieuwe aanvraag of garantiemelding heractiveert dezelfde relatie, zonder duplicatie. Financiële historie blijft intact. Archivering verandert uitsluitend actieve klant- en werkselecties; historische en periodieke rapportages blijven alle relevante B2C- en B2B-transacties, projecten, omzet, kostprijs, marge, uren, conversies en klantverwerving meetellen, onafhankelijk van actuele relatie-status. Gebruik brongebeurtenis en rapportageperiode, niet de huidige actieve klantstatus, als grondslag. Regressie-eis: identieke historische totalen vóór en na archivering en heractivering; actieve klantlijsten wijzigen wel.
+Hergebruik bestaande relatie-status en financiële/projectbronnen; controleer alle actieve lijsten, zoekfuncties, heractivatiepaden en betaalstatus voordat automatische archivering wordt ingeschakeld.
+
+## Eigenaarschap
+Deal: geaccepteerde scope en verkoopprijs. Calculatie: oorspronkelijke kosten en uren, revisies behouden. Werkbegroting: vastgestelde kostprijs, arbeidsuren en hoeveelheden; gecontroleerde revisies, geen automatische wijziging door commerciële korting, planning of inkoop. Planning: geplande inzet. OnSite: werkelijke uren. Inkoop: behoeften per begrotingsregel, totalisatie, prijsaanvraag, vergelijking, order, verplichting, deellevering en factuurcontrole. Finance: facturen, boekingen en betalingen. Resources: zelfstandig tabblad en dashboard-KPI's voor arbeid, materiaal, materieel, onderaanneming en overige kosten, met verdieping naar bronregistratie. Geen dubbele administratie.
+
+## Organisatie
+Projectleider, assistent-projectleider (andere persoon), werkvoorbereider (rol mag gecombineerd worden), start- en einddatum. Deal: verantwoordelijke, menselijke back-up en calculator/opsteller waar relevant. Mandaten centraal configureerbaar per rol en handeling; binnen mandaat geen extra verplichte controle, buiten mandaat bevoegde menselijke goedkeuring. Digitale resultaten altijd bevoegde menselijke controle vóór vrijgave. Bestaande beveiliging behouden; rolpreview is geen recht.
+
+## Categorieën en uitvoering
+Meerdere bestaande categorieën per Deal/project; categorie stuurt beschikbaarheid van instrumenten, fase stuurt proces. Opname is een taak binnen Lead, Deal of Project; inmeting is onderdeel van de opname, Measure is het digitale instrument. Het opnameformulier bevat maten, foto's en bevindingen. Inspectie blijft een afzonderlijke categorie. Historie behouden. MJOP en projectmanagement als diensten meenemen na controle bestaande categoriebron. Meerdere gebouwen mogelijk. Take-off omvat overdracht, startoverleg, werkmap, tekeningen, instructies, besluiten, taken en uitvoeringsgereedheid. WBS/RBS, kwaliteit, VCA, rapportages, opleverformulier, restpunten, nazorg en financiële afsluiting aansluiten.
+
+## Geconstateerde afwijkingen (develop d591540457451060954ad75deed777041769c59b)
+- `src/Demo/OfficeCommercialCalcHandoff.php`: inmeting nog categorie; controleer alle consumenten en historische snapshots vóór migratie.
+- `src/Approval/OfficeApprovalPolicy.php`: procesgebonden single/four-eyes, nog geen rolmandaat in deze klasse. Onderzoek bestaande autorisatie en governance vóór uitbreiding.
+- `src/Approval/OfficeTestRolePermissionPolicy.php`: RL-015 virtuele staf aanwezig; preview verleent geen rechten. Onderzoek effectieve identiteit en vrijgavepaden.
+- `src/Project/OfficeProjectKickstartPolicy.php`: bestaande dossiercontrole en tweede goedkeuring. Hergebruik, wijzig geen beveiliging zonder bewezen vervangend beleid.
+- WorkingBudget, Inzet, Governance en Project bevatten bestaande inkoop-, uren-, begrotings- en projectcomponenten; bestandsinventarisatie is geen bewijs van werking.
+
+## Acceptatie
+Per domein bron, eigenaar, routes, schema, autorisatie, overdracht en regressietests aantonen. Geen productie-uitrol; eerst PR-controles en integrale Office-test. Open punten: meer/minderwerk, termijnfacturatie, liquiditeitsprognose en evaluatie op ketenniveau verifiëren.
+
+
+## Centrale dossierarchivering
+
+Na bewezen afronding en betaling van alle B2C-opdrachten en afhandeling van open verplichtingen archiveert Office het klantdossier. Documenten en bijlagen worden in een versiegebonden gecomprimeerd archief opgenomen, met een manifest van oorspronkelijke document-ID's, project-ID's, opslaglocaties en SHA-256-controlesommen. Gedeelde bestanden blijven beschikbaar voor andere dossiers. Relatie-ID, classificatie, projectgegevens, financiële boekingen, uren en rapportagegegevens blijven online; historische KPI's veranderen niet.
+
+De centrale archiefservice werkt asynchroon met duurzame statussen, toegangscontrole, versleutelde opslag, auditlog en herstelbare opdrachten. Eerst inventariseren, vervolgens comprimeren, onafhankelijk verifiëren en pas daarna de archiefstatus publiceren. Bronbestanden mogen pas worden opgeruimd na bewezen herstelbaarheid, bewaartermijncontrole en verificatie van gedeelde verwijzingen. Bij fouten blijven bronbestanden beschikbaar. Een nieuwe aanvraag of geautoriseerde heractivering start automatisch decompressie naar een afgeschermde tijdelijke locatie; controleer manifest, bestandspaden, limieten en hashes voordat documenten onder dezelfde ID's opnieuw beschikbaar worden. Publiceer de actieve status pas na volledig herstel. Geen automatische verwijdering van financiële of relationele historie. Dezelfde service moet later afzonderlijke B2B-projectdossiers ondersteunen zonder de klant te archiveren.
+
+Acceptatie: identieke documentinhoud en historische rapportagetotalen voor en na archivering/herstel; onderbroken opdrachten veilig hervatbaar; beschadigde archieven en ongeautoriseerde toegang geblokkeerd. Geen fysieke opruiming of automatische activering totdat integratietests en herstelproef zijn geslaagd.

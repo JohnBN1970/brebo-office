@@ -31,10 +31,34 @@ final class OfficeCrmOpportunityRepository {
         $stmt->execute([$relationId,$contactId,$title]);
         return (int)$this->db->lastInsertId();
     }
-    public function transition(int $id,string $from,string $to): bool {
+    public function transition(int $id,string $from,string $to,?int $actorId=null): bool {
         if ($id<1 || !OfficeCrmFunnel::canTransition($from,$to)) return false;
-        $stmt=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status=?,revision=revision+1 WHERE id=? AND stage=? AND status='open'");
-        $stmt->execute([$to,in_array($to,['won','lost'],true)?'closed':'open',$id,$from]);
-        return $stmt->rowCount()===1;
+        $recordAward=$to==='won' && getenv('OFFICE_CRM_AWARD_HISTORY_SCHEMA_VERIFIED')==='enabled';
+        if ($recordAward) {
+            if (!$actorId || $this->db->inTransaction()) throw new \DomainException('Award transaction requires operator');
+            $this->db->beginTransaction();
+        }
+        try {
+            if ($recordAward) {
+                $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';
+                $actor=$this->db->prepare('SELECT id FROM office_operator_accounts WHERE id=? AND active=1 AND can_edit_crm=1'.$lock);
+                $actor->execute([$actorId]);
+                if (!$actor->fetchColumn()) throw new \DomainException('CRM write permission required');
+            }
+            $stmt=$this->db->prepare("UPDATE office_crm_opportunities SET stage=?,status=?,revision=revision+1 WHERE id=? AND stage=? AND status='open'");
+            $stmt->execute([$to,in_array($to,['won','lost'],true)?'closed':'open',$id,$from]);
+            $ok=$stmt->rowCount()===1;
+            if ($recordAward) {
+                if ($ok) {
+                    require_once __DIR__.'/OfficeCrmAwardRecorder.php';
+                    (new OfficeCrmAwardRecorder($this->db))->record($id,$actorId);
+                    $this->db->commit();
+                } else $this->db->rollBack();
+            }
+            return $ok;
+        } catch (\Throwable $e) {
+            if ($recordAward && $this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
     }
 }

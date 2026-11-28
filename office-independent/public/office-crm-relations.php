@@ -54,8 +54,8 @@ try {
 } catch (Throwable $e) { http_response_code(503); exit('Relatiebeheer tijdelijk niet beschikbaar.'); }
 $h=static fn(mixed $v):string=>htmlspecialchars((string)$v, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relaties · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;overflow:auto}table{width:100%;border-collapse:collapse}td,th{padding:12px;border-bottom:1px solid #dbe1e8;text-align:left}form{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}input,select,button{padding:9px;border:1px solid #b8c5d3;border-radius:6px}a{color:#175a91}</style></head><body><main><h1>Relaties</h1><p>Klanten, prospects, leveranciers en vertegenwoordiging door vastgoedbeheerders.</p><section><form method="get"><label>Zoeken <input name="q" value="'.$h($search).'"></label><label>Rol <select name="role">';
-foreach ([''=>'Alle relaties','customer'=>'Klanten','prospect'=>'Prospects','supplier'=>'Leveranciers'] as $key=>$label)
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Relaties · BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#19293a;margin:0}main{max-width:1200px;margin:32px auto;padding:20px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:22px;overflow:auto}table{width:100%;border-collapse:collapse}td,th{padding:12px;border-bottom:1px solid #dbe1e8;text-align:left}form{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}input,select,button{padding:9px;border:1px solid #b8c5d3;border-radius:6px}a{color:#175a91}</style></head><body><main><h1>Relaties</h1><p>Klanten, geïnteresseerden, leveranciers en vertegenwoordiging door vastgoedbeheerders.</p><section><form method="get"><label>Zoeken <input name="q" value="'.$h($search).'"></label><label>Rol <select name="role">';
+foreach ([''=>'Alle relaties','customer'=>'Klanten','prospect'=>'Geïnteresseerden','supplier'=>'Leveranciers'] as $key=>$label)
     echo '<option value="'.$h($key).'"'.($role===$key?' selected':'').'>'.$h($label).'</option>';
 echo '</select></label><label>Status <select name="status">';
 foreach (['active'=>'Actief','inactive'=>'Inactief','archived'=>'Archief','all'=>'Alles'] as $key=>$label) echo '<option value="'.$key.'"'.($status===$key?' selected':'').'>'.$label.'</option>';
@@ -82,13 +82,12 @@ if (getenv('OFFICE_CRM_RELATIONS_WRITE_ENABLED')==='enabled') {
 }
 if ($relations === []) echo '<p>Geen relaties gevonden.</p>';
 else { echo '<table><thead><tr><th>Selectie</th><th>Relatie</th><th>Soort</th><th>Rollen</th><th>Vestigingsplaats</th><th>Contactpersonen</th><th>Vastgoedbeheerder</th></tr></thead><tbody>';
-$kindLabels=['company'=>'Bedrijf','person'=>'Persoon'];
-$roleLabels=['customer'=>'Klant','prospect'=>'Prospect','supplier'=>'Leverancier'];
+require_once dirname(__DIR__).'/src/Crm/OfficeCrmRelationPolicy.php';
 foreach ($relations as $item) {
     $roleCodes=($item['roles']??'')!==''?explode(', ',(string)$item['roles']):[];
-    $displayRoles=implode(', ',array_map(static fn(string $code):string=>$roleLabels[$code]??$code,$roleCodes));
+    $displayRoles=implode(', ',array_map(static fn(string $code):string=>\Brebo\Office\Crm\OfficeCrmRelationPolicy::roleLabel($code),$roleCodes));
     $url='/office-test/crm/relaties/detail?id='.(int)$item['id'];
-    echo '<tr><td><input type="radio" name="selected_relation" value="'.(int)$item['id'].'" aria-label="Selecteer '.$h($item['display_name']).'"></td><td><a href="'.$h($url).'">'.$h($item['display_name']).'</a></td><td>'.$h($kindLabels[$item['relation_kind']]??$item['relation_kind']).'</td><td>'.$h($displayRoles).'</td><td>'.$h($item['city']??'').'</td><td>'.$h($item['contact_count']).'</td><td>'.$h($item['managers']??'').'</td></tr>';
+    echo '<tr><td><input type="radio" name="selected_relation" value="'.(int)$item['id'].'" aria-label="Selecteer '.$h($item['display_name']).'"></td><td><a href="'.$h($url).'">'.$h($item['display_name']).'</a></td><td>'.$h(\Brebo\Office\Crm\OfficeCrmRelationPolicy::kindLabel((string)$item['relation_kind'])).'</td><td>'.$h($displayRoles).'</td><td>'.$h($item['city']??'').'</td><td>'.$h($item['contact_count']).'</td><td>'.$h($item['managers']??'').'</td></tr>';
 }
 echo '</tbody></table>'; }
 echo '</section><script>document.addEventListener("click",function(e){const link=e.target.closest(".office-record-action-edit,.office-record-action-archive,.office-record-action-delete");if(!link)return;e.preventDefault();const chosen=document.querySelector("input[name=selected_relation]:checked");if(!chosen){alert("Selecteer eerst een relatie.");return;}const action=link.classList.contains("office-record-action-edit")?"edit":link.classList.contains("office-record-action-archive")?"archive":"delete";window.location.href="/office-test/crm/relaties/beheren?id="+encodeURIComponent(chosen.value)+(action==="edit"?"":"&action="+action);});</script></main></body></html>';
